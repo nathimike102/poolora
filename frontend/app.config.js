@@ -44,6 +44,14 @@ module.exports = {
       'expo-font',
       'expo-secure-store',
     ],
+    // Disable Over-the-Air updates in native builds to avoid remote update downloads
+    // Rebuild the native app for this change to take effect.
+    updates: {
+      enabled: false,
+      checkAutomatically: 'ON_ERROR_RECOVERY',
+      // runtimeVersion can be added if using EAS updates
+      // runtimeVersion: { policy: 'appVersion' },
+    },
     extra: {
       eas: {
         projectId: process.env.EAS_PROJECT_ID ?? '',
