@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "165023552374",
+    "project_id": "one-piece-ecc0b",
+    "storage_bucket": "one-piece-ecc0b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165023552374:android:888460444ce5befdd5e057",
+        "android_client_info": {
+          "package_name": "com.ridepool.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "165023552374-kt16e29evkjdihv0b2a3fe50ggbndl9o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ridepool.app",
+            "certificate_hash": "ab9e79ac273dc9b319e03cb5e6e8e23489c141a3"
+          }
+        },
+        {
+          "client_id": "165023552374-ulvefd309emgf8jl4vtl9dm0vtiavd76.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "REDACTED_FIREBASE_ANDROID_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "165023552374-ulvefd309emgf8jl4vtl9dm0vtiavd76.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "165023552374-r31ufvn031it3nh4k17bghobqvniu0u8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "one-piece"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

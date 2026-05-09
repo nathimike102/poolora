@@ -1,0 +1,53 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Segoe UI, Helvetica, Arial, sans-serif","background":"#ffffff","primaryColor":"#f8fafc","primaryTextColor":"#0f172a","primaryBorderColor":"#2563eb","secondaryColor":"#eff6ff","tertiaryColor":"#ffffff","lineColor":"#94a3b8"},"flowchart":{"curve":"basis"}}}%%
+flowchart TB
+    HERO["SANCHARI<br/>Unified Mobility Platform<br/>Ride pooling + parcel pooling + trip pooling in one operating system"]:::hero
+
+    subgraph STORY["Why investors care"]
+        direction LR
+        P["Problem<br/>Fuel pressure<br/>Empty seats<br/>Fragmented logistics"]:::problem
+        S["Solution<br/>Smart matching engine<br/>Wallet, safety, chat, payments"]:::solution
+        I["Impact<br/>Lower cost<br/>Higher utilization<br/>Lower emissions"]:::impact
+    end
+
+    subgraph ENGINE["Operating system"]
+        direction LR
+        M["Matching engine<br/>5-factor scoring<br/>Proximity, time, rating, acceptance, safety"]:::module
+        T["Trust layer<br/>KYC, ratings, SOS, emergency contacts"]:::module
+        W["Wallet layer<br/>Top-up, coins, rewards, refunds"]:::module
+        R["Realtime layer<br/>Chat, notifications, ride events, tracking"]:::module
+    end
+
+    subgraph VALUE["Business model"]
+        direction LR
+        B1["Ride commission"]:::biz
+        B2["Parcel delivery fees"]:::biz
+        B3["Payment and wallet flows"]:::biz
+        B4["Enterprise API partnerships"]:::biz
+    end
+
+    subgraph GROWTH["Go to market"]
+        direction LR
+        G1["Start with dense city routes"]:::growth
+        G2["Build rider + driver liquidity"]:::growth
+        G3["Expand into parcels and scheduled rides"]:::growth
+        G4["Add enterprise and fleet integrations"]:::growth
+    end
+
+    subgraph SCORECARD["Investor scorecard"]
+        direction LR
+        K1["Occupancy up"]:::metric
+        K2["Fuel per trip down"]:::metric
+        K3["Repeat usage up"]:::metric
+        K4["Safety response faster"]:::metric
+    end
+
+    HERO --> STORY --> ENGINE --> VALUE --> GROWTH --> SCORECARD
+
+    classDef hero fill:#0f172a,stroke:#2563eb,color:#ffffff,stroke-width:2px,font-weight:bold
+    classDef problem fill:#fee2e2,stroke:#ef4444,color:#7f1d1d,stroke-width:1px,font-weight:bold
+    classDef solution fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1px,font-weight:bold
+    classDef impact fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a,stroke-width:1px,font-weight:bold
+    classDef module fill:#e0f2fe,stroke:#0284c7,color:#0f172a,stroke-width:1px,font-weight:bold
+    classDef biz fill:#fff7ed,stroke:#f97316,color:#7c2d12,stroke-width:1px,font-weight:bold
+    classDef growth fill:#f5f3ff,stroke:#8b5cf6,color:#3b0764,stroke-width:1px,font-weight:bold
+    classDef metric fill:#ecfeff,stroke:#06b6d4,color:#164e63,stroke-width:1px,font-weight:bold

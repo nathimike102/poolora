@@ -1,0 +1,167 @@
+---
+config:
+  layout: elk
+---
+flowchart TB
+ subgraph APILayer["API Gateway Layer"]
+        APIGateway["API Gateway<br>Rate Limiting<br>Authentication"]
+  end
+ subgraph UserServiceHex[" "]
+        UserService["<b>User Service</b><br>Profiles<br>Auth<br>KYC"]
+  end
+ subgraph DriverServiceHex[" "]
+        DriverService["<b>Driver Service</b><br>Verification<br>Documents<br>Availability"]
+  end
+ subgraph RideServiceHex[" "]
+        RideService["<b>Ride Service</b><br>Booking<br>Matching<br>Trip Management"]
+  end
+ subgraph PaymentServiceHex[" "]
+        PaymentService["<b>Payment Service</b><br>Transactions<br>Refunds<br>Wallet"]
+  end
+ subgraph LocationServiceHex[" "]
+        LocationService["<b>Location Service</b><br>GPS Tracking<br>Geohashing"]
+  end
+ subgraph NotificationServiceHex[" "]
+        NotificationService["<b>Notification Service</b><br>Push<br>SMS<br>Email"]
+  end
+ subgraph RatingServiceHex[" "]
+        RatingService["<b>Rating Service</b><br>Reviews<br>Reputation Scoring"]
+  end
+ subgraph AnalyticsServiceHex[" "]
+        AnalyticsService["<b>Analytics Service</b><br>Metrics<br>Reporting"]
+  end
+ subgraph FraudServiceHex[" "]
+        FraudService["<b>Fraud Detection Service</b><br>ML-Based<br>Risk Scoring"]
+  end
+ subgraph WebSocketServiceHex[" "]
+        WebSocketService["<b>WebSocket Service</b><br>Real-Time<br>Communication"]
+  end
+ subgraph GeospatialServiceHex[" "]
+        GeospatialService["<b>Geospatial Service</b><br>Spatial Indexing<br>Proximity Search"]
+  end
+ subgraph TripServiceHex[" "]
+        TripService["<b>Trip Service</b><br>Traveler Matching<br>Group Coordination"]
+  end
+ subgraph ServiceMesh["Service Mesh - Istio"]
+        UserServiceHex
+        DriverServiceHex
+        RideServiceHex
+        PaymentServiceHex
+        LocationServiceHex
+        NotificationServiceHex
+        RatingServiceHex
+        AnalyticsServiceHex
+        FraudServiceHex
+        WebSocketServiceHex
+        GeospatialServiceHex
+        TripServiceHex
+  end
+ subgraph DataLayer["Data Layer - Database Per Service"]
+        UserDB[("User Service<br>MongoDB")]
+        DriverDB[("Driver Service<br>MongoDB")]
+        RideDB[("Ride Service<br>MongoDB")]
+        PaymentDB[("Payment Service<br>MongoDB")]
+        LocationDB[("Location Service<br>MongoDB")]
+        NotificationDB[("Notification Service<br>MongoDB")]
+        RatingDB[("Rating Service<br>MongoDB")]
+        AnalyticsDB[("Analytics Service<br>MongoDB")]
+        FraudDB[("Fraud Detection Service<br>MongoDB")]
+        WebSocketDB[("WebSocket Service<br>MongoDB")]
+        GeospatialDB[("Geospatial Service<br>MongoDB")]
+        TripDB[("Trip Service<br>MongoDB")]
+  end
+ subgraph CacheLayer["Distributed Cache"]
+        RedisCache["Redis Cloud Free Tier<br>(Paid for Production)<br>Distributed Caching"]
+  end
+ subgraph EventBus["Event Bus"]
+        RabbitMQ["RabbitMQ<br>(Kafka for Production)<br>Async Event Communication"]
+  end
+ subgraph Monitoring["Monitoring & Observability"]
+        Prometheus["Prometheus<br>Metrics Collection"]
+        Grafana["Grafana<br>Dashboards"]
+  end
+    APIGateway -- Routes Requests --> UserService & DriverService & RideService & PaymentService & LocationService & NotificationService & RatingService & AnalyticsService & WebSocketService
+    UserService -- Writes/Reads --> UserDB
+    DriverService -- Writes/Reads --> DriverDB
+    RideService -- Writes/Reads --> RideDB
+    PaymentService -- Writes/Reads --> PaymentDB
+    LocationService -- Writes/Reads --> LocationDB
+    NotificationService -- Writes/Reads --> NotificationDB
+    RatingService -- Writes/Reads --> RatingDB
+    AnalyticsService -- Writes/Reads --> AnalyticsDB
+    FraudService -- Writes/Reads --> FraudDB
+    WebSocketService -- Writes/Reads --> WebSocketDB
+    GeospatialService -- Writes/Reads --> GeospatialDB
+    TripService -- Writes/Reads --> TripDB
+    UserService -- Cache --> RedisCache
+    DriverService -- Cache --> RedisCache
+    RideService -- Cache --> RedisCache
+    PaymentService -- Cache --> RedisCache
+    LocationService -- Cache --> RedisCache
+    NotificationService -- Cache --> RedisCache
+    RatingService -- Cache --> RedisCache
+    AnalyticsService -- Cache --> RedisCache
+    WebSocketService -- Cache --> RedisCache
+    GeospatialService -- Cache --> RedisCache
+    TripService -- Cache --> RedisCache
+    UserService -- Publish/Subscribe Events --> RabbitMQ
+    DriverService -- Publish/Subscribe Events --> RabbitMQ
+    RideService -- Publish/Subscribe Events --> RabbitMQ
+    PaymentService -- Publish/Subscribe Events --> RabbitMQ
+    LocationService -- Publish/Subscribe Events --> RabbitMQ
+    NotificationService -- Publish/Subscribe Events --> RabbitMQ
+    RatingService -- Publish/Subscribe Events --> RabbitMQ
+    AnalyticsService -- Publish/Subscribe Events --> RabbitMQ
+    FraudService -- Publish/Subscribe Events --> RabbitMQ
+    WebSocketService -- Publish/Subscribe Events --> RabbitMQ
+    GeospatialService -- Publish/Subscribe Events --> RabbitMQ
+    TripService -- Publish/Subscribe Events --> RabbitMQ
+    UserService -- "Service-to-Service" --> Prometheus
+    DriverService -- "Service-to-Service" --> Prometheus
+    RideService -- "Service-to-Service" --> Prometheus
+    PaymentService -- "Service-to-Service" --> Prometheus
+    LocationService -- "Service-to-Service" --> Prometheus
+    NotificationService -- "Service-to-Service" --> Prometheus
+    RatingService -- "Service-to-Service" --> Prometheus
+    AnalyticsService -- "Service-to-Service" --> Prometheus
+    FraudService -- "Service-to-Service" --> Prometheus
+    WebSocketService -- "Service-to-Service" --> Prometheus
+    GeospatialService -- "Service-to-Service" --> Prometheus
+    TripService -- "Service-to-Service" --> Prometheus
+    Prometheus -- Visualizes --> Grafana
+
+     APIGateway:::apiGateway
+     UserService:::service
+     DriverService:::service
+     RideService:::service
+     PaymentService:::service
+     LocationService:::service
+     NotificationService:::service
+     RatingService:::service
+     AnalyticsService:::service
+     FraudService:::service
+     WebSocketService:::service
+     GeospatialService:::service
+     TripService:::service
+     UserDB:::database
+     DriverDB:::database
+     RideDB:::database
+     PaymentDB:::database
+     LocationDB:::database
+     NotificationDB:::database
+     RatingDB:::database
+     AnalyticsDB:::database
+     FraudDB:::database
+     WebSocketDB:::database
+     GeospatialDB:::database
+     TripDB:::database
+     RedisCache:::cache
+     RabbitMQ:::messaging
+     Prometheus:::monitoring
+     Grafana:::monitoring
+    classDef apiGateway fill:#FF6B6B,stroke:#C92A2A,color:#fff
+    classDef service fill:#4ECDC4,stroke:#219A91,color:#000
+    classDef database fill:#FFE66D,stroke:#D4B942,color:#000
+    classDef cache fill:#95E1D3,stroke:#5FB39F,color:#000
+    classDef messaging fill:#F38181,stroke:#C95C5C,color:#fff
+    classDef monitoring fill:#AA96DA,stroke:#7A68A8,color:#fff

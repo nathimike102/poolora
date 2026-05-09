@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Version Control
+.github/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build & Testing
+dist/
+build/
+coverage/
+.nyc_output/
+tests/
+frontend-tester/
+*.tsbuildinfo
+
+# Development
+.env
+.env.*
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Secrets
+secrets/
+*.pem
+*.key
+
+# Documentation (optional, remove if needed)
+README.md
+DEPLOYMENT.md
+ENV_SETUP_GUIDE.md
+
+# Other
+.cache/
+temp/
+tmp/

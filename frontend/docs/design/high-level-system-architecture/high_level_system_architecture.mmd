@@ -1,0 +1,65 @@
+---
+config:
+  layout: elk
+---
+flowchart TB
+ subgraph Clients["🔒 CLIENTS"]
+        WebApp["⚛️ Web App"]
+  end
+ subgraph MobileApps["📱 MOBILE APPS"]
+        AndroidApp["Android App"]
+        iOSApp["iOS App"]
+  end
+ subgraph Infrastructure["🐳 INFRASTRUCTURE"]
+        DockerCompose["Docker Compose"]
+  end
+ subgraph BackendServices["🔧 BACKEND SERVICES"]
+        APIGateway["🔴 API Gateway"]
+        LoadBalancer["🟣 Load Balancer"]
+        UserService["👤 User Service"]
+        AnalyticsService["📊 Analytics Service"]
+        GeoSpatialService["🌍 Geospatial Service"]
+        PaymentService["💳 Payment Service"]
+        NotificationService["🔔 Notification Service"]
+        RideService["🚗 Ride Service"]
+        LocationService["📍 Location Service"]
+        DriverService["🚕 Driver Service"]
+        TripService["✈️ Trip Service"]
+        FraudDetectionService["🛡️ Fraud Detection Service"]
+        RatingService["⭐ Rating Service"]
+        WebSocketService["⚪ WebSocket Service"]
+  end
+ subgraph Messaging["📬 MESSAGING"]
+        RabbitMQ["🐰 RabbitMQ"]
+  end
+ subgraph DataLayer["📊 DATA LAYER"]
+        PostgreSQL["🐘 PostgreSQL Analytics"]
+        MongoDB["🍃 MongoDB Atlas"]
+        RedisCache["⚡ Redis Cache"]
+  end
+ subgraph Storage["💾 STORAGE"]
+        Elasticsearch["🔍 Elasticsearch"]
+        Cloudinary["☁️ Cloudinary"]
+  end
+ subgraph ThirdParty["🔗 THIRD PARTY INTEGRATIONS"]
+        Stripe["S Stripe"]
+        FirebaseAuth["🔥 Firebase Auth"]
+        FCM["🔥 FCM"]
+        Mapbox["📍 Mapbox"]
+  end
+    Clients --> APIGateway
+    MobileApps --> APIGateway
+    APIGateway --> LoadBalancer
+    LoadBalancer --> UserService & PaymentService & RideService & LocationService & DriverService & TripService & WebSocketService
+    UserService --> RabbitMQ & MongoDB & FirebaseAuth
+    AnalyticsService --> RabbitMQ & PostgreSQL & Elasticsearch
+    PaymentService --> RabbitMQ & PostgreSQL & Stripe
+    NotificationService --> RabbitMQ & PostgreSQL & FCM
+    RideService --> RabbitMQ & MongoDB & RedisCache
+    LocationService --> RabbitMQ & RedisCache
+    DriverService --> RabbitMQ & MongoDB
+    TripService --> RabbitMQ & MongoDB & Cloudinary
+    FraudDetectionService --> RabbitMQ & PostgreSQL
+    RatingService --> RabbitMQ & MongoDB
+    GeoSpatialService --> Mapbox
+    Infrastructure -. deploys .-> APIGateway

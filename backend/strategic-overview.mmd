@@ -1,0 +1,53 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Segoe UI, Helvetica, Arial, sans-serif","background":"#ffffff","primaryColor":"#f8fafc","primaryTextColor":"#0f172a","primaryBorderColor":"#2563eb","secondaryColor":"#eff6ff","tertiaryColor":"#ffffff","lineColor":"#94a3b8"},"flowchart":{"curve":"basis","nodeSpacing":36,"rankSpacing":48}}}%%
+flowchart TB
+    TITLE["SANCHARI STRATEGIC OVERVIEW<br/>A pooled mobility platform built around utilization, trust and operational efficiency"]:::hero
+
+    subgraph CORE["Core thesis"]
+        direction LR
+        P1["Why now<br/>Fuel pressure, congestion and logistics inefficiency"]:::problem
+        P2["What it is<br/>One platform for ride pooling, parcel pooling and trip pooling"]:::solution
+        P3["Why it wins<br/>Higher occupancy, lower cost and better route matching"]:::impact
+    end
+
+    subgraph MOAT["Product moat"]
+        direction LR
+        M1["Matching engine<br/>5-factor scoring: proximity, time, rating, acceptance, safety"]:::module
+        M2["Trust layer<br/>KYC, vehicle verification, ratings and SOS"]:::module
+        M3["Commerce layer<br/>Wallet, coins, refunds and transaction history"]:::module
+        M4["Realtime layer<br/>Chat, notifications, ride events and live tracking"]:::module
+    end
+
+    subgraph MARKET["Market and users"]
+        direction LR
+        U1["Riders<br/>Cost-conscious commuters and shared-trip users"]:::audience
+        U2["Drivers<br/>Income supplementation and better seat utilization"]:::audience
+        U3["Businesses<br/>Parcel pooling and delivery efficiency"]:::audience
+        U4["Enterprises<br/>Fleet integrations and API-led operations"]:::audience
+    end
+
+    subgraph MODEL["Business model"]
+        direction LR
+        B1["Ride commission"]:::biz
+        B2["Parcel delivery fees"]:::biz
+        B3["Wallet and payment flows"]:::biz
+        B4["Enterprise API and white-label partnerships"]:::biz
+    end
+
+    subgraph EXECUTION["Execution and controls"]
+        direction LR
+        E1["Go to market<br/>Launch in dense routes, then build liquidity"]:::execution
+        E2["Expansion path<br/>Add parcels, scheduled rides and enterprise accounts"]:::execution
+        E3["Success metrics<br/>Occupancy, fuel saved, retention, safety response"]:::execution
+        E4["Risk controls<br/>Auth, rate limits, payment verification, resilience"]:::execution
+    end
+
+    TITLE --> CORE --> MOAT --> MARKET --> MODEL --> EXECUTION
+
+    classDef hero fill:#0f172a,stroke:#2563eb,color:#ffffff,stroke-width:2px,font-weight:bold
+    classDef problem fill:#fee2e2,stroke:#ef4444,color:#7f1d1d,stroke-width:1px,font-weight:bold
+    classDef solution fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1px,font-weight:bold
+    classDef impact fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a,stroke-width:1px,font-weight:bold
+    classDef module fill:#e0f2fe,stroke:#0284c7,color:#0f172a,stroke-width:1px,font-weight:bold
+    classDef audience fill:#f5f3ff,stroke:#8b5cf6,color:#3b0764,stroke-width:1px,font-weight:bold
+    classDef biz fill:#fff7ed,stroke:#f97316,color:#7c2d12,stroke-width:1px,font-weight:bold
+    classDef execution fill:#ecfeff,stroke:#06b6d4,color:#164e63,stroke-width:1px,font-weight:bold

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mobility API Tester</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel">
+        <h1>Mobility API Tester</h1>
+        <p>Test every backend endpoint under /api/v1 from a single panel.</p>
+
+        <div class="row split">
+          <div>
+            <label for="apiBase">API Base URL</label>
+            <input id="apiBase" type="text" />
+          </div>
+          <div>
+            <label for="accessToken">Access Token</label>
+            <input id="accessToken" type="text" placeholder="JWT access token" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="saveConfigBtn" class="ghost">Save Config</button>
+          <button id="clearTokenBtn" class="ghost">Clear Token</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Endpoint Runner</h2>
+        <div class="row split">
+          <div>
+            <label for="endpointSelect">Endpoint</label>
+            <select id="endpointSelect"></select>
+          </div>
+          <div>
+            <label for="requestMethod">Method</label>
+            <input id="requestMethod" type="text" readonly />
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="requestPath">Path</label>
+          <input id="requestPath" type="text" readonly />
+        </div>
+
+        <div class="row split">
+          <div>
+            <label for="pathParams">Path Params JSON</label>
+            <textarea id="pathParams" spellcheck="false"></textarea>
+          </div>
+          <div>
+            <label for="queryParams">Query Params JSON</label>
+            <textarea id="queryParams" spellcheck="false"></textarea>
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="requestBody">Request Body JSON</label>
+          <textarea id="requestBody" spellcheck="false"></textarea>
+        </div>
+
+        <div class="actions">
+          <button id="sendBtn" class="primary">Send Request</button>
+          <button id="extractAccessTokenBtn" class="ghost">Extract accessToken</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Response</h2>
+        <div id="meta" class="meta">No request sent yet.</div>
+        <h3>Request</h3>
+        <pre id="requestPreview">{}</pre>
+        <h3>Response</h3>
+        <pre id="responseBody">{}</pre>
+      </section>
+
+      <section class="panel">
+        <h2>Timeline</h2>
+        <ul id="timeline"></ul>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

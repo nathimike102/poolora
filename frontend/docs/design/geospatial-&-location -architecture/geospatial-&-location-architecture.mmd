@@ -1,0 +1,80 @@
+flowchart LR
+    %% ===============================
+    %% CLIENT LAYER
+    %% ===============================
+    DriverApp["🚗 Driver Mobile App\n(GPS update every 5s)"]
+    RiderApp["📱 Rider Mobile App"]
+
+    %% ===============================
+    %% COMMUNICATION
+    %% ===============================
+    WS1["🔗 WebSocket\n(< 20 ms)"]
+    WS2["🔗 WebSocket\n(< 30 ms)"]
+
+    %% ===============================
+    %% LOCATION INGESTION
+    %% ===============================
+    LocationService["📍 Location Service\nReceives Lat/Lng"]
+
+    %% ===============================
+    %% GEOHASHING
+    %% ===============================
+    Geohash["🧮 Geohashing Engine\nPrecision: 6\nExample: te7x0p"]
+
+    %% ===============================
+    %% SPATIAL STORAGE
+    %% ===============================
+    Redis["⚡ Redis\nGEORADIUS Query\nRadius: 5 km\n(~2 ms)"]
+    MongoDB["🗄 MongoDB\nLocation History\n2dsphere Index"]
+
+    %% ===============================
+    %% GEOSPATIAL SERVICE LAYER
+    %% ===============================
+    GeoService["🌍 Geospatial Service Layer"]
+    GridIndex["🔲 Grid-based Spatial Indexing"]
+    Proximity["📏 Proximity Search\n≤ 5 km"]
+    Availability["🟢 Real-time Driver Availability"]
+    ETA["⏱ ETA Calculation\nDistance Matrix API"]
+
+    %% ===============================
+    %% MAPS & VISUALIZATION
+    %% ===============================
+    MapsSDK["🗺 Google Maps SDK\nRoute Visualization"]
+
+    %% ===============================
+    %% DATA FLOW
+    %% ===============================
+    DriverApp -->|GPS Lat/Lng\n(5s interval)| WS1
+    WS1 -->|< 20 ms| LocationService
+
+    LocationService -->|Lat/Lng| Geohash
+    Geohash -->|Geohash: te7x0p| Redis
+    Geohash -->|Raw Lat/Lng| MongoDB
+
+    Redis -->|Nearby Drivers| GeoService
+    MongoDB -->|Historical Data| GeoService
+
+    GeoService --> GridIndex
+    GeoService --> Proximity
+    GeoService --> Availability
+    GeoService --> ETA
+
+    GeoService -->|Driver Locations\n< 30 ms| WS2
+    WS2 --> RiderApp
+
+    RiderApp -->|Route Request| MapsSDK
+
+    %% ===============================
+    %% STYLING
+    %% ===============================
+    classDef client fill:#E3F2FD,stroke:#1E88E5,stroke-width:2px
+    classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:2px
+    classDef storage fill:#FFF3E0,stroke:#FB8C00,stroke-width:2px
+    classDef compute fill:#F3E5F5,stroke:#8E24AA,stroke-width:2px
+    classDef external fill:#ECEFF1,stroke:#546E7A,stroke-width:2px
+
+    class DriverApp,RiderApp client
+    class LocationService,GeoService service
+    class Redis,MongoDB storage
+    class Geohash,GridIndex,Proximity,Availability,ETA compute
+    class MapsSDK external
