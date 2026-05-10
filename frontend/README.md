@@ -13,7 +13,7 @@ This is a complete documentation suite for building a scalable, intelligent car 
 - **Zero-budget MVP** deployment using free tier services
 - **Production-ready** infrastructure with clear upgrade path
 
-**Total Monthly Cost:** $0-15 for MVP → $300-500+ for scale
+**Total Monthly Cost:** $0-15 for MVP
 
 ## Project Structure
 
