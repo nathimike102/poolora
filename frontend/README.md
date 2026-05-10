@@ -17,7 +17,7 @@ This is a complete documentation suite for building a scalable, intelligent car 
 
 ## Project Structure
 
-```
+````text
 Frontend/
 ├── README.md                      # This file
 ├── docs/
@@ -46,7 +46,7 @@ Frontend/
 │
 ├── .git/                         # Version control
 └── [Source code directories]     # (To be added)
-```
+```text
 
 ## Documentation Guide
 
@@ -261,7 +261,7 @@ Services mapped with free alternatives:
 
 ## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    Mobile & Web Clients                 │
 │         (React Native / React.js / Web Browser)         │
@@ -295,7 +295,7 @@ Services mapped with free alternatives:
       │ MongoDB Atlas   │  │ Redis Cloud     │
       │ M0 (512MB)      │  │ Free Tier (30MB)│
       └─────────────────┘  └─────────────────┘
-```
+```text
 
 ---
 
@@ -421,28 +421,27 @@ Services mapped with free alternatives:
 
 **New to the project?** Follow this path:
 
-```
+```text
 START
-  ↓
+↓
 [01-PROJECT-PLAN.md] ← Business context
-  ↓
+↓
 [02-SYSTEM-ARCHITECTURE.md] ← System overview
-  ↓
+↓
 [03-USE-CASES.md] ← User interactions
-  ↓
+↓
 [04-FLOWCHARTS.md] ← Visual reference
-  ↓
+↓
 [05-SYSTEM-DESIGN.md] ← Algorithms
-  ↓
+↓
 [06-DATABASE-SCHEMAS.md] ← Data structure
-  ↓
+↓
 [07-API-SPECIFICATIONS.md] ← Implementation
-  ↓
+↓
 [08-TECHNICAL-REQUIREMENTS.md] ← Tech stack
-  ↓
+↓
 [09-SECURITY-SPECIFICATIONS.md] ← Security
-  ↓
+↓
 [10-TESTING-STRATEGY.md] ← Quality
 ```
-
----
+````

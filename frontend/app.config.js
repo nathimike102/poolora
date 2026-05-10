@@ -58,5 +58,11 @@ module.exports = {
       },
     },
     owner: 'nathi_mike',
+    splash: {
+      // Place your splash image at frontend/assets/splash.png (see instructions below)
+      image: './assets/splash.png',
+      resizeMode: 'cover',
+      backgroundColor: '#ffffff',
+    },
   },
 };
