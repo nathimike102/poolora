@@ -12,27 +12,9 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
-  private var reactActivityDelegate: ReactActivityDelegate? = null
-
   override fun onCreate(savedInstanceState: Bundle?) {
-    // Set the theme to AppTheme BEFORE onCreate to support
-    // coloring the background, status bar, and navigation bar.
-    // This is required for expo-splash-screen.
-    // setTheme(R.style.AppTheme);
-    // @generated begin expo-splashscreen - expo prebuild (DO NOT MODIFY) sync-f3ff59a738c56c9a6119210cb55f0b613eb8b6af
     SplashScreenManager.registerOnActivity(this)
-    // @generated end expo-splashscreen
-    try {
-      super.onCreate(savedInstanceState)
-    } catch (e: IllegalStateException) {
-      if (e.message?.contains("DevelopmentClientController") == true || 
-          e.message?.contains("Cannot add a null child view") == true) {
-        android.util.Log.w("MainActivity", "Dev launcher initialization failed, continuing anyway", e)
-        // Activity is partially initialized but we can proceed
-      } else {
-        throw e
-      }
-    }
+    super.onCreate(null)
   }
 
   /**
@@ -46,23 +28,11 @@ class MainActivity : ReactActivity() {
    * which allows you to enable New Architecture with a single boolean flags [fabricEnabled]
    */
   override fun createReactActivityDelegate(): ReactActivityDelegate {
-    return try {
-      ReactActivityDelegateWrapper(
-          this,
-          BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,
-          object : DefaultReactActivityDelegate(
-              this,
-              mainComponentName,
-              fabricEnabled
-          ){})
-    } catch (e: IllegalStateException) {
-      android.util.Log.w("MainActivity", "Dev launcher not ready, using default delegate", e)
-      DefaultReactActivityDelegate(
-          this,
-          mainComponentName,
-          fabricEnabled
-      )
-    }
+    return ReactActivityDelegateWrapper(
+        this,
+        BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,
+        DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+    )
   }
 
   /**
