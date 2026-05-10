@@ -12,8 +12,13 @@ module.exports = {
   expo: {
     name: 'Sanchari',
     slug: 'one-piece',
+    icon: './assets/splash.png',
     android: {
       package: 'com.ridepool.app',
+      adaptiveIcon: {
+        foregroundImage: './assets/splash.png',
+        backgroundColor: '#ffffff',
+      },
       googleServicesFile: './google-services.json',
       config: {
         googleMaps: {
