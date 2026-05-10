@@ -592,7 +592,7 @@ export function KYCScreen() {
               items={[
                 'Valid & not expired',
                 'Must cover the vehicle category you drive',
-                'Verified within 2–4 hours by RidePool AI',
+                'Verified within 2–4 hours by Sanchari AI',
               ]}
             />
           </View>
@@ -759,7 +759,7 @@ export function KYCScreen() {
         )}
 
         <Text style={{ fontSize: 11, color: c.textSec, textAlign: 'center', marginTop: 8 }}>
-          ○ Documents reviewed within 2–4 hours by RidePool AI
+          ○ Documents reviewed within 2–4 hours by Sanchari AI
         </Text>
       </ScrollView>
 

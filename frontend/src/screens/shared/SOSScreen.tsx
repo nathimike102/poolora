@@ -141,7 +141,7 @@ export function SOSScreen() {
             <Text style={{ fontSize: 14, fontWeight: '600', color: 'white', marginBottom: 10 }}>
               📍 Your live location is being shared with:
             </Text>
-            {['Mom (Primary)', 'Dad', 'RidePool Safety Team'].map(name => (
+            {['Mom (Primary)', 'Dad', 'Sanchari Safety Team'].map(name => (
               <View key={name} style={s.contactDot}>
                 <View style={s.greenDot} />
                 <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)' }}>{name}</Text>
@@ -157,7 +157,7 @@ export function SOSScreen() {
             <View style={s.monitorRow}>
               <ReAnimated.View style={[s.blinkDot, blinkStyle]} />
               <Text style={{ fontSize: 15, fontWeight: '700', color: 'white' }}>
-                RidePool Safety Team Active
+                Sanchari Safety Team Active
               </Text>
             </View>
           </View>

@@ -71,7 +71,7 @@ export function LoginScreen() {
       <View style={styles.header}>
         <RidePoolLogo size={64} backgroundColor={c.primary} />
         <Text style={[styles.headline, { color: c.text }]}>
-          Welcome to RidePool
+          Welcome to Sanchari
         </Text>
         <Text style={[styles.subheading, { color: c.textSec }]}>
           Choose how you want to continue

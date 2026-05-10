@@ -185,7 +185,7 @@ export function SettingsScreen() {
         </Section>
 
         <Text style={{ fontSize: 12, color: c.textSec, textAlign: 'center', paddingTop: 8 }}>
-          RidePool · Made with ❤️ in India
+          Sanchari · Made with ❤️ in India
         </Text>
       </ScrollView>
 

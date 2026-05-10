@@ -250,7 +250,7 @@ export function PaymentScreen() {
   const methods = [
     { id: 'upi' as const, label: 'UPI', sub: 'GPay, PhonePe, Paytm', icon: '📱' },
     { id: 'card' as const, label: 'Credit / Debit Card', sub: 'Visa, Mastercard, RuPay', icon: '💳' },
-    { id: 'wallet' as const, label: 'Wallet', sub: 'RidePool Cash · ₹0', icon: '👜' },
+    { id: 'wallet' as const, label: 'Wallet', sub: 'Sanchari Cash · ₹0', icon: '👜' },
   ];
 
   return (

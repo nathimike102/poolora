@@ -167,7 +167,7 @@ export function ChatScreen() {
       {/* Masked call notice */}
       <View style={[s.notice, { backgroundColor: c.primaryLight, borderBottomColor: c.border }]}>
         <Text style={{ fontSize: 11, color: c.primary, textAlign: 'center' }}>
-          🔒 Your phone number is masked. Call is routed through RidePool.
+          🔒 Your phone number is masked. Call is routed through Sanchari.
         </Text>
       </View>
 

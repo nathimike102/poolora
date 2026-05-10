@@ -10,7 +10,7 @@
 
 module.exports = {
   expo: {
-    name: 'RidePool',
+    name: 'Sanchari',
     slug: 'one-piece',
     android: {
       package: 'com.ridepool.app',
@@ -27,7 +27,7 @@ module.exports = {
       googleServicesFile: './GoogleService-Info.plist',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
-          'RidePool needs your location to show your position on the map and find rides near you.',
+          'Sanchari needs your location to show your position on the map and find rides near you.',
       },
     },
     plugins: [
@@ -37,7 +37,7 @@ module.exports = {
         'expo-location',
         {
           locationWhenInUsePermission:
-            'RidePool needs your location to show your position on the map and find rides near you.',
+            'Sanchari needs your location to show your position on the map and find rides near you.',
         },
       ],
       '@react-native-google-signin/google-signin',

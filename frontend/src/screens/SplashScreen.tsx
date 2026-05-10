@@ -18,11 +18,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Path, Circle } from 'react-native-svg';
 
 import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedDot } from '../components/AnimatedDot';
+import { RidePoolLogo } from '../components/RidePoolLogo';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -81,38 +81,14 @@ export function SplashScreen() {
           logoAnimStyle,
         ]}
       >
-        {/* Logo box */}
-        <View style={styles.logoBox}>
-          <Svg width={52} height={52} viewBox="0 0 52 52" fill="none">
-            <Path
-              d="M10 26C10 17.16 17.16 10 26 10C34.84 10 42 17.16 42 26"
-              stroke="white"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-            />
-            <Circle cx="16" cy="32" r="5" fill="white" />
-            <Circle cx="36" cy="32" r="5" fill="white" />
-            <Path
-              d="M21 32H31"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            />
-            <Path
-              d="M26 10V6M26 6L22 10M26 6L30 10"
-              stroke="rgba(255,255,255,0.6)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </View>
-
-        {/* Wordmark */}
-        <View style={styles.wordmarkContainer}>
-          <Text style={styles.appName}>RidePool</Text>
-          <Text style={styles.tagline}>Smart Scheduled Carpooling</Text>
-        </View>
+        <RidePoolLogo
+          size={150}
+          backgroundColor="rgba(255,255,255,0.10)"
+          borderRadius={36}
+          showWordmark
+          wordmark="Sanchari"
+          subtitle="Smart Scheduled Carpooling"
+        />
       </Animated.View>
 
       {/* ── Loading Dots ────────────────────────────────────────────────────── */}
@@ -167,37 +143,7 @@ const styles = StyleSheet.create({
   // Logo area
   logoContainer: {
     alignItems: 'center',
-    gap: Spacing.xl,
-  },
-
-  // Logo box
-  logoBox: {
-    width: 88,
-    height: 88,
-    borderRadius: Radius['5xl'],
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Shadow.lg,
-  },
-
-  // Wordmark
-  wordmarkContainer: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  appName: {
-    fontSize: Typography['7xl'],
-    fontWeight: Typography.extrabold,
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  tagline: {
-    fontSize: Typography.md,
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 0.5,
+    gap: Spacing.lg,
   },
 
   // Loading indicator

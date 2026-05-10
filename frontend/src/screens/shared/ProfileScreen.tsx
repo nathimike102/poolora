@@ -58,7 +58,7 @@ function MenuItem({
 const HELP_ITEMS = [
   { emoji: '💬', title: 'Live Chat Support', sub: 'Chat with us · Avg reply in 2 min' },
   { emoji: '📞', title: 'Call Support', sub: '1800-123-POOL · Available 24/7' },
-  { emoji: '📧', title: 'Email Us', sub: 'support@ridepool.in' },
+  { emoji: '📧', title: 'Email Us', sub: 'support@sanchari.in' },
   { emoji: '📖', title: 'FAQs & Help Center', sub: 'Browse common questions' },
   { emoji: '🐛', title: 'Report a Bug', sub: 'Help us improve the app' },
 ];
@@ -229,7 +229,7 @@ export function ProfileScreen() {
         </View>
 
         <Text style={{ fontSize: 12, color: c.textSec, textAlign: 'center', paddingBottom: 16 }}>
-          RidePool v1.0.0 · Made with ❤️ in India
+          Sanchari v1.0.0 · Made with ❤️ in India
         </Text>
       </ScrollView>
 
