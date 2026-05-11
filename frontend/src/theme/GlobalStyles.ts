@@ -14,7 +14,7 @@
  */
 
 import { StyleSheet, Platform } from 'react-native';
-import { Typography, Spacing } from './index';
+import { Typography } from './index';
 import { FontFamily } from './fonts';
 
 // ---- Typography presets (replaces h1-h4, p, label, button, input rules) ------

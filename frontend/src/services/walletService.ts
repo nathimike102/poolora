@@ -9,6 +9,18 @@ import { API_ENDPOINTS } from '../api/constants';
 import { logger } from '../utils/logger';
 import type { ApiResponse, Wallet, Transaction, PaginatedResponse, PaginatedResult } from '../types/api';
 
+export interface TopUpResult {
+  transactionId: string;
+  balance: number;
+  [key: string]: unknown;
+}
+
+export interface ConvertCoinsResult {
+  coins: number;
+  cashAmount: number;
+  [key: string]: unknown;
+}
+
 /**
  * Service for wallet operations
  */
@@ -53,9 +65,9 @@ export const walletService = {
   /**
    * Top up wallet
    */
-  async topUp(amount: number): Promise<any> {
+  async topUp(amount: number): Promise<TopUpResult> {
     try {
-      const response = await apiClient.post<ApiResponse<any>>(API_ENDPOINTS.wallet.topUp, { amount });
+      const response = await apiClient.post<ApiResponse<TopUpResult>>(API_ENDPOINTS.wallet.topUp, { amount });
       logger.info('Wallet topped up', { amount });
       return response.data.data;
     } catch (error) {
@@ -67,9 +79,9 @@ export const walletService = {
   /**
    * Convert coins to cash
    */
-  async convertCoins(coins: number): Promise<any> {
+  async convertCoins(coins: number): Promise<ConvertCoinsResult> {
     try {
-      const response = await apiClient.post<ApiResponse<any>>(API_ENDPOINTS.wallet.convertCoins, { coins });
+      const response = await apiClient.post<ApiResponse<ConvertCoinsResult>>(API_ENDPOINTS.wallet.convertCoins, { coins });
       logger.info('Coins converted', { coins });
       return response.data.data;
     } catch (error) {

@@ -160,18 +160,18 @@ export function BookingScreen() {
         specialRequirements: message.trim() ? message.trim() : undefined,
       };
 
-      const booking = await bookingService.createBooking(payload);
+      await bookingService.createBooking(payload);
       
       setIsSubmitting(false);
       setConfirmed(true);
       
       // Navigate to payment after the success animation
       setTimeout(() => navigation.navigate('Payment', { rideId, amount: total }), 1800);
-    } catch (error) {
+    } catch {
       setIsSubmitting(false);
       // Note: centralized error handler will catch and show toast
     }
-  }, [navigation, rideId, seats, passengers, message, total, isSubmitting]);
+  }, [navigation, rideId, seats, message, total, isSubmitting]);
 
   // ── Confirmed State ────────────────────────────────────────────
   if (confirmed) {

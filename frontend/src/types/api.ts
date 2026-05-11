@@ -6,7 +6,7 @@
 
 // ─── Generic API Response ──────────────────────────────────────────────────
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   status: 'success' | 'error';
   code: number;
   data: T;
@@ -14,7 +14,7 @@ export interface ApiResponse<T = any> {
   requestId: string;
 }
 
-export interface PaginatedResult<T = any> {
+export interface PaginatedResult<T = unknown> {
   items: T[];
   total: number;
   page: number;
@@ -25,7 +25,7 @@ export interface PaginatedResult<T = any> {
 }
 
 // Backward-compatible alias used across screens/services.
-export type PaginatedResponse<T = any> = ApiResponse<PaginatedResult<T>>;
+export type PaginatedResponse<T = unknown> = ApiResponse<PaginatedResult<T>>;
 
 // ─── Auth Types ────────────────────────────────────────────────────────────
 

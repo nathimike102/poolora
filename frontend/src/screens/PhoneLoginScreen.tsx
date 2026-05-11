@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
     fontSize: Typography['2xl'],
-    fontWeight: Typography.semibold as any,
+    fontWeight: Typography.semibold as unknown as '600',
     letterSpacing: 1,
     height: 48,
     paddingHorizontal: 0,

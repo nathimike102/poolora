@@ -7,7 +7,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -23,12 +22,10 @@ import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedDot } from '../components/AnimatedDot';
 import { RidePoolLogo } from '../components/RidePoolLogo';
-import { Typography, Spacing, Radius, Shadow } from '../theme';
+import { Typography, Spacing } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Splash'>;
-
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 export function SplashScreen() {
   const navigation = useNavigation<NavProp>();

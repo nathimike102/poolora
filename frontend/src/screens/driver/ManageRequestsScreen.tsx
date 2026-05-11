@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -76,8 +76,8 @@ export function ManageRequestsScreen() {
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
-  const [requests, setRequests] = useState<any[]>([]);
-  const [trips, setTrips] = useState<any[]>([]);
+  const [requests, setRequests] = useState<Record<string, unknown>[]>([]);
+  const [trips, setTrips] = useState<Record<string, unknown>[]>([]);
   const [activeTripId, setActiveTripId] = useState('');
   const [activeTab, setActiveTab] = useState<string>('pending');
   const [loading, setLoading] = useState(true);

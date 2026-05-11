@@ -16,8 +16,7 @@ import { userService } from '../../services/userService';
 import { walletService } from '../../services/walletService';
 import { bookingService } from '../../services/bookingService';
 import { rideService } from '../../services/rideService';
-import type { User, Wallet, Booking, Ride } from '../../types/api';
-import { ActivityIndicator } from 'react-native';
+import type { Booking, Ride } from '../../types/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle as SvgCircle, Path } from 'react-native-svg';
 
@@ -25,7 +24,7 @@ import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RoleToggle } from '../../components/RoleToggle';
 import type { RootStackParamList } from '../../navigation/types';
-import { Radius, Shadow } from '../../theme';
+import { Shadow } from '../../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -61,15 +60,15 @@ export function DriverHomeScreen() {
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [isOnline, setIsOnline] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   const [driverName, setDriverName] = useState('Rajesh Kumar');
   const [rating, setRating] = useState(4.9);
   const [earnings, setEarnings] = useState(0);
   const [ridesToday, setRidesToday] = useState(0);
   
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
-  const [upcomingRides, setUpcomingRides] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<Record<string, unknown>[]>([]);
+  const [upcomingRides, setUpcomingRides] = useState<Record<string, unknown>[]>([]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -204,7 +203,7 @@ export function DriverHomeScreen() {
           <RoleToggle />
 
           {/* Earnings card */}
-          <AnimatedPressable onPress={() => navigation.navigate('Earnings' as any)}>
+          <AnimatedPressable onPress={() => navigation.navigate('Earnings' as unknown as never)}>
           <View style={styles.earningsCard}>
             <View style={styles.flex1}>
               <Text style={styles.earningsLabel}>TODAY'S EARNINGS</Text>
@@ -257,7 +256,7 @@ export function DriverHomeScreen() {
         {/* ── Pending requests banner (online only) ─────────── */}
         {isOnline && pendingRequests.length > 0 && (
           <View style={styles.sectionPad}>
-            <AnimatedPressable onPress={() => navigation.navigate('ManageRequests' as any)}>
+            <AnimatedPressable onPress={() => navigation.navigate('ManageRequests' as unknown as never)}>
               <View style={[styles.pendingBanner, { backgroundColor: c.surface, borderColor: c.accent }]}>
                 <View style={[styles.pendingIcon, { backgroundColor: c.accent + '22' }]}>
                   <Svg width={22} height={22} viewBox="0 0 24 24">
@@ -353,7 +352,7 @@ export function DriverHomeScreen() {
               { icon: '📋', label: 'Manage KYC', nav: 'KYC', bg: c.warningLight, fg: c.warning },
               { icon: '🚨', label: 'SOS', nav: 'SOS', bg: c.errorLight, fg: c.error },
             ] as { icon: string; label: string; nav: string; bg: string; fg: string }[]).map(item => (
-              <AnimatedPressable key={item.label} onPress={() => navigation.navigate(item.nav as any)} style={{ flex: 1 }}>
+              <AnimatedPressable key={item.label} onPress={() => navigation.navigate(item.nav as unknown as never)} style={{ flex: 1 }}>
                 <View style={[styles.actionCard, { backgroundColor: item.bg }]}>
                   <Text style={{ fontSize: 36 }}>{item.icon}</Text>
                   <Text style={{ fontSize: 15, fontWeight: '600', color: item.fg, textAlign: 'center' }}>{item.label}</Text>

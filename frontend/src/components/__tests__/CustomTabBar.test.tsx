@@ -20,7 +20,7 @@ describe('CustomTabBar', () => {
       emit: jest.fn().mockReturnValue({ defaultPrevented: false }),
       navigate: jest.fn(),
     },
-  } as any;
+  } as unknown as BottomTabBarProps;
 
   it('renders correctly', () => {
     const { getByTestId } = render(<CustomTabBar {...mockProps} />);

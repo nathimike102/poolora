@@ -5,10 +5,8 @@
  */
 
 import { useCallback } from 'react';
-import { AxiosError } from 'axios';
 import { useAsyncFn, AsyncState } from './useAsync';
 import { errorHandler, ProcessedError } from '../utils/errorHandler';
-import { logger } from '../utils/logger';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -46,7 +44,7 @@ export function useApi<T>(
   apiFunction: (...args: unknown[]) => Promise<T>,
   options?: UseApiOptions,
 ): UseApiState<T> {
-  const { data, loading, error, execute: executeAsync, refetch } = useAsyncFn(apiFunction, {
+  const { data, loading, error, execute: executeAsync } = useAsyncFn(apiFunction, {
     onSuccess: options?.onSuccess,
     onError: (error) => {
       // Error is already logged, just notify callback
@@ -85,8 +83,7 @@ export function useApi<T>(
     isRetryable,
     execute,
     refetch: () => execute(),
-  };
-}
+  };}
 
 /**
  * Hook for GET API calls
