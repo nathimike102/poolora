@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../components/BackButton';
 import { GradientButton } from '../components/GradientButton';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
-import { sendOTP } from '../services/authService';
+import { sendOtp } from '../services/authService';
 import type { RootStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'PhoneLogin'>;
@@ -39,15 +39,23 @@ export function PhoneLoginScreen() {
 
   const isValid = phone.length === 10;
 
-  const handleSendOTP = async () => {
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return 'Failed to send OTP';
+  };
+
+  const handleSendOtp = async () => {
     if (!isValid || sending) return;
     setSending(true);
     try {
       const fullNumber = `+91${phone}`;
-      const confirmation = await sendOTP(fullNumber);
+      const confirmation = await sendOtp(fullNumber);
       navigation.navigate('OTP', { phone, confirmation });
-    } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Failed to send OTP');
+    } catch (error) {
+      Alert.alert('Error', getErrorMessage(error));
     } finally {
       setSending(false);
     }
@@ -122,7 +130,7 @@ export function PhoneLoginScreen() {
         <View style={styles.cta}>
           <GradientButton
             label={sending ? '' : 'Send OTP'}
-            onPress={handleSendOTP}
+            onPress={handleSendOtp}
             disabled={!isValid || sending}
             loading={sending}
             colorStart={c.primary}

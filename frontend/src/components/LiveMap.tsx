@@ -313,10 +313,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  driverEmoji: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 
   // User dot — blue
   userDotOuter: {

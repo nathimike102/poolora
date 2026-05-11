@@ -26,7 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../components/BackButton';
 import { GradientButton } from '../components/GradientButton';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
-import { sendOTP, confirmOTP, verifyOtpWithBackend } from '../services/authService';
+import { sendOtp, confirmOtp, verifyOtpWithBackend } from '../services/authService';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -34,6 +34,14 @@ type NavProp = NativeStackNavigationProp<RootStackParamList, 'OTP'>;
 type RouteType = RouteProp<RootStackParamList, 'OTP'>;
 
 const OTP_LENGTH = 6;
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
 
 export function OTPScreen() {
   const navigation = useNavigation<NavProp>();
@@ -116,7 +124,7 @@ export function OTPScreen() {
       // Auto-verify when all filled
       if (newOtp.every(v => v) && newOtp.join('').length === OTP_LENGTH) {
         Keyboard.dismiss();
-        handleVerify(newOtp.join(''));
+        handleVerifyOtp(newOtp.join(''));
       }
     },
     [otp],
@@ -132,7 +140,7 @@ export function OTPScreen() {
   );
 
   // ── Verification — Firebase OTP confirm → Backend JWT ────────────────────
-  const handleVerify = useCallback(
+  const handleVerifyOtp = useCallback(
     async (code: string) => {
       if (!confirmation) {
         Alert.alert('Error', 'No verification session found. Please go back and resend OTP.');
@@ -141,7 +149,7 @@ export function OTPScreen() {
       setVerifying(true);
       try {
         // Step 1: Confirm OTP with Firebase
-        const firebaseUser = await confirmOTP(confirmation, code);
+        await confirmOtp(confirmation, code);
         
         // Step 2: Verify with backend and get JWT tokens
         const fullNumber = `+91${phone}`;
@@ -150,13 +158,13 @@ export function OTPScreen() {
         // On success, navigate to profile setup for new users.
         // If user already exists, appContext will detect via onAuthStateChanged
         navigation.navigate('ProfileSetup');
-      } catch (err: any) {
+      } catch (error) {
         setError(true);
         triggerShakeAnimation();
         setOtp(Array(OTP_LENGTH).fill(''));
         inputs.current[0]?.focus();
         // Show user-friendly error from authService
-        Alert.alert('Verification Failed', err.message ?? 'Incorrect OTP. Please try again.');
+        Alert.alert('Verification Failed', getErrorMessage(error, 'Incorrect OTP. Please try again.'));
       } finally {
         setVerifying(false);
       }
@@ -174,10 +182,10 @@ export function OTPScreen() {
 
     try {
       const fullNumber = `+91${phone}`;
-      const newConfirmation = await sendOTP(fullNumber);
+      const newConfirmation = await sendOtp(fullNumber);
       setConfirmation(newConfirmation);
-    } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Failed to resend OTP');
+    } catch (error) {
+      Alert.alert('Error', getErrorMessage(error, 'Failed to resend OTP'));
     }
 
     const interval = setInterval(() => {
@@ -306,7 +314,7 @@ export function OTPScreen() {
         {/* Verify button */}
         <GradientButton
           label={verifying ? '' : 'Verify & Continue'}
-          onPress={() => handleVerify(otp.join(''))}
+          onPress={() => handleVerifyOtp(otp.join(''))}
           disabled={filled < OTP_LENGTH}
           loading={verifying}
           colorStart={c.primary}

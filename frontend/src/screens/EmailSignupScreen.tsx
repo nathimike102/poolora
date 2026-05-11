@@ -47,7 +47,15 @@ export function EmailSignupScreen() {
     password.length >= 6 &&
     password === confirmPassword;
 
-  const handleSignup = async () => {
+  const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return fallback;
+  };
+
+  const handleSignUp = async () => {
     if (!isValid || loading) return;
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match.');
@@ -58,8 +66,8 @@ export function EmailSignupScreen() {
       const displayName = `${firstName.trim()} ${lastName.trim()}`;
       await signUpWithEmail(email.trim(), password, displayName);
       navigation.navigate('ProfileSetup');
-    } catch (err: any) {
-      Alert.alert('Sign Up Failed', err.message);
+    } catch (error) {
+      Alert.alert('Sign Up Failed', getErrorMessage(error, 'Unable to create account.'));
     } finally {
       setLoading(false);
     }
@@ -194,7 +202,7 @@ export function EmailSignupScreen() {
         <View style={styles.cta}>
           <GradientButton
             label={loading ? '' : 'Create Account'}
-            onPress={handleSignup}
+            onPress={handleSignUp}
             disabled={!isValid || loading}
             loading={loading}
             colorStart={c.primary}

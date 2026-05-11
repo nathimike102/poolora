@@ -40,14 +40,22 @@ export function EmailLoginScreen() {
 
   const isValid = email.includes('@') && password.length >= 6;
 
+  const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return fallback;
+  };
+
   const handleLogin = async () => {
     if (!isValid || loading) return;
     setLoading(true);
     try {
       await signInWithEmail(email.trim(), password);
       navigation.navigate('ProfileSetup');
-    } catch (err: any) {
-      Alert.alert('Login Failed', err.message);
+    } catch (error) {
+      Alert.alert('Login Failed', getErrorMessage(error, 'Unable to sign in.'));
     } finally {
       setLoading(false);
     }
@@ -61,8 +69,8 @@ export function EmailLoginScreen() {
     try {
       await sendPasswordReset(email.trim());
       Alert.alert('Email Sent', 'A password reset link has been sent to your email.');
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
+    } catch (error) {
+      Alert.alert('Error', getErrorMessage(error, 'Unable to send reset email.'));
     }
   };
 
