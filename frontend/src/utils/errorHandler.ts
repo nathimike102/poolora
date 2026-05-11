@@ -17,7 +17,7 @@ export interface ApiErrorResponse {
   error?: {
     id?: string;
     message?: string;
-    details?: any;
+    details?: unknown;
   };
   timestamp?: string;
   requestId?: string;
@@ -27,8 +27,8 @@ export interface ProcessedError {
   message: string;
   code: number;
   isRetryable: boolean;
-  originalError?: any;
-  details?: any;
+  originalError?: unknown;
+  details?: unknown;
 }
 
 // ─── Error Handler ────────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ class ErrorHandler {
   /**
    * Process an error and return user-friendly message
    */
-  process(error: any): ProcessedError {
+  process(error: unknown): ProcessedError {
     logger.debug('Processing error', { error });
 
     if (axios.isAxiosError(error)) {
@@ -146,7 +146,7 @@ class ErrorHandler {
   /**
    * Extract validation errors from response
    */
-  getValidationErrors(error: any): Record<string, string> {
+  getValidationErrors(error: unknown): Record<string, string> {
     if (!axios.isAxiosError(error)) return {};
 
     const response = error.response?.data as ApiErrorResponse;
@@ -155,7 +155,7 @@ class ErrorHandler {
     // Handle Joi validation errors format
     if (Array.isArray(response.error.details)) {
       const errors: Record<string, string> = {};
-      response.error.details.forEach((err: any) => {
+      response.error.details.forEach((err: unknown) => {
         if (err.field && err.message) {
           errors[err.field] = err.message;
         }

@@ -16,7 +16,7 @@ export interface AsyncState<T> {
 }
 
 export interface UseAsyncOptions {
-  onSuccess?: (data: any) => void;
+  onSuccess?: (data: unknown) => void;
   onError?: (error: Error) => void;
 }
 
@@ -96,9 +96,9 @@ export function useAsync<T>(
  * ```
  */
 export function useAsyncFn<T>(
-  asyncFunction: (...args: any[]) => Promise<T>,
+  asyncFunction: (...args: unknown[]) => Promise<T>,
   options?: UseAsyncOptions,
-): AsyncState<T> & { execute: (...args: any[]) => Promise<T>; refetch: () => Promise<T> } {
+): AsyncState<T> & { execute: (...args: unknown[]) => Promise<T>; refetch: () => Promise<T> } {
   const [state, setState] = useState<AsyncState<T>>({
     data: null,
     loading: false,
@@ -108,7 +108,7 @@ export function useAsyncFn<T>(
   const isMountedRef = useRef(true);
 
   const execute = useCallback(
-    async (...args: any[]) => {
+    async (...args: unknown[]) => {
       setState({ data: null, loading: true, error: null });
 
       try {

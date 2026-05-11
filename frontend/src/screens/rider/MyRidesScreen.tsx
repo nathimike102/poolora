@@ -70,7 +70,7 @@ const AnimatedPressable = ({
   disabled,
 }: {
   onPress?: () => void;
-  style?: any;
+  style?: unknown;
   children: React.ReactNode;
   disabled?: boolean;
 }) => {

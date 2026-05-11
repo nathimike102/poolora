@@ -102,7 +102,7 @@ export function AppProvider({ children }: AppProviderProps) {
         if (savedTheme[1] !== null) {
           setIsDarkMode(savedTheme[1] === 'true');
         }
-      } catch (_) {
+      } catch {
         // Ignore read errors — start with defaults
       }
     })();

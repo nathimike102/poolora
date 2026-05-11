@@ -54,7 +54,7 @@ function AnimatedPressable({
   onPress: () => void;
   disabled?: boolean;
   scaleValue?: number;
-  style?: any;
+  style?: unknown;
   children: React.ReactNode;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -82,7 +82,7 @@ function AnimatedPressable({
 
 // ─── Confirmed Animation View ─────────────────────────────────────────────────
 
-function ConfirmedView({ c }: { c: any }) {
+function ConfirmedView({ c }: { c: unknown }) {
   const scale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {

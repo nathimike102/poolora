@@ -13,12 +13,12 @@ import { logger } from '../utils/logger';
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface UseApiOptions {
-  onSuccess?: (data: any) => void;
+  onSuccess?: (data: unknown) => void;
   onError?: (error: ProcessedError) => void;
 }
 
 export interface UseApiState<T> extends AsyncState<T> {
-  execute: (...args: any[]) => Promise<T>;
+  execute: (...args: unknown[]) => Promise<T>;
   refetch: () => Promise<T>;
   errorMessage: string | null;
   isRetryable: boolean;
@@ -43,7 +43,7 @@ export interface UseApiState<T> extends AsyncState<T> {
  * ```
  */
 export function useApi<T>(
-  apiFunction: (...args: any[]) => Promise<T>,
+  apiFunction: (...args: unknown[]) => Promise<T>,
   options?: UseApiOptions,
 ): UseApiState<T> {
   const { data, loading, error, execute: executeAsync, refetch } = useAsyncFn(apiFunction, {
@@ -66,7 +66,7 @@ export function useApi<T>(
   }
 
   const execute = useCallback(
-    async (...args: any[]) => {
+    async (...args: unknown[]) => {
       try {
         return await executeAsync(...args);
       } catch (err) {
@@ -102,7 +102,7 @@ export function useApiGet<T>(
  * Hook for POST/PUT/DELETE API calls (manual execution)
  */
 export function useApiMutation<T>(
-  apiFunction: (...args: any[]) => Promise<T>,
+  apiFunction: (...args: unknown[]) => Promise<T>,
   options?: UseApiOptions,
 ): UseApiState<T> {
   const state = useApi(apiFunction, options);

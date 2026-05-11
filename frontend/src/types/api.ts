@@ -328,7 +328,7 @@ export interface Notification {
   type: NotificationType;
   title: string;
   body: string;
-  data?: any;
+  data?: unknown;
   isRead: boolean;
   createdAt: string;
 }
