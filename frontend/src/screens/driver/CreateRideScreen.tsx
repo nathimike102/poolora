@@ -32,7 +32,7 @@ const AnimatedPressable = ({
   children,
 }: {
   onPress?: () => void;
-  style?: unknown;
+  style?: any;
   children: React.ReactNode;
 }) => {
   const scale = useRef(new Animated.Value(1)).current;

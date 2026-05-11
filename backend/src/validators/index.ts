@@ -221,3 +221,47 @@ export const convertCoinsSchema = {
   }),
 };
 
+// ─── Parcel Pooling ──────────────────────────────────────────────────────────
+
+export const createParcelValidator = {
+  body: Joi.object({
+    rideId: Joi.string().hex().length(24).required(),
+    parcelWeight: Joi.number().positive().min(0.1).max(50).required()
+      .messages({
+        'number.min': 'Parcel weight must be at least 0.1 kg',
+        'number.max': 'Parcel weight cannot exceed 50 kg',
+      }),
+    parcelType: Joi.string().valid('document', 'fragile', 'perishable', 'general').required(),
+    parcelDimensions: Joi.object({
+      length: Joi.number().positive().required(),
+      width: Joi.number().positive().required(),
+      height: Joi.number().positive().required(),
+    }).optional(),
+    pickupLocation: Joi.object({
+      lng: Joi.number().min(-180).max(180).required(),
+      lat: Joi.number().min(-90).max(90).required(),
+      address: Joi.string().min(5).max(500).required(),
+      contactPerson: Joi.string().min(2).max(100).required(),
+      contactPhone: Joi.string().pattern(/^\+[1-9]\d{7,14}$/).required(),
+    }).required(),
+    deliveryLocation: Joi.object({
+      lng: Joi.number().min(-180).max(180).required(),
+      lat: Joi.number().min(-90).max(90).required(),
+      address: Joi.string().min(5).max(500).required(),
+      contactPerson: Joi.string().min(2).max(100).required(),
+      contactPhone: Joi.string().pattern(/^\+[1-9]\d{7,14}$/).required(),
+    }).required(),
+    estimatedDeliveryTime: Joi.date().iso().required().min('now'),
+    insuranceValue: Joi.number().min(0).optional(),
+    specialInstructions: Joi.string().max(500).optional(),
+    receiverId: Joi.string().hex().length(24).optional(),
+  }),
+};
+
+export const acceptParcelValidator = {
+  params: Joi.object({
+    id: Joi.string().hex().length(24).required(),
+  }),
+};
+
+

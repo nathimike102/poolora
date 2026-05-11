@@ -10,6 +10,8 @@ import walletRoutes from './wallet.routes';
 import mapsRoutes from './maps.routes';
 import userRoutes from './user.routes';
 import notificationRoutes from './notification.routes';
+import parcelRoutes from './parcel.routes';
+import adminRoutes from './admin.routes';
 
 const router = Router();
 
@@ -17,6 +19,7 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/rides', rideRoutes);
 router.use('/bookings', bookingRoutes);
+router.use('/parcels', parcelRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/chat', chatRoutes);
 router.use('/safety', safetyRoutes);
@@ -24,6 +27,7 @@ router.use('/ratings', ratingRoutes);
 router.use('/wallet', walletRoutes);
 router.use('/maps', mapsRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/admin', adminRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {

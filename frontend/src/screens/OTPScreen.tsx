@@ -150,11 +150,11 @@ export function OTPScreen() {
       try {
         // Step 1: Confirm OTP with Firebase
         await confirmOtp(confirmation, code);
-        
+
         // Step 2: Verify with backend and get JWT tokens
         const fullNumber = `+91${phone}`;
         await verifyOtpWithBackend(fullNumber, code);
-        
+
         // On success, navigate to profile setup for new users.
         // If user already exists, appContext will detect via onAuthStateChanged
         navigation.navigate('ProfileSetup');
@@ -170,6 +170,78 @@ export function OTPScreen() {
       }
     },
     [confirmation, navigation, triggerShakeAnimation, phone],
+  );
+
+  return (
+    <KeyboardAvoidingView
+      style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+    >
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <BackButton />
+        </View>
+
+        <View style={styles.iconBox}>
+          <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.25 14.5h-2.5v-2.5h2.5v2.5zm0-4.5h-2.5V7.5h2.5v4.5z"
+              fill={c.primary}
+            />
+          </Svg>
+        </View>
+
+        <Text style={[styles.title, { color: c.text }]}>Enter verification code</Text>
+        <Text style={[styles.subtitle, { color: c.textSec }]}>We sent a 6-digit code to {phone}</Text>
+
+        <View style={styles.otpRow}>
+          {otp.map((value, idx) => (
+            <Animated.View
+              key={idx}
+              style={{ transform: [{ translateX: shakeAnims[idx] }], width: 46 }}
+            >
+              <TextInput
+                ref={el => (inputs.current[idx] = el)}
+                value={value}
+                onChangeText={val => handleChange(val, idx)}
+                onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, idx)}
+                keyboardType="number-pad"
+                maxLength={1}
+                placeholder="•"
+                placeholderTextColor={c.textSec}
+                style={[styles.otpBox, { borderColor: error ? c.error : c.border, color: c.text }]}
+                textAlign="center"
+                autoFocus={idx === 0}
+              />
+            </Animated.View>
+          ))}
+        </View>
+
+        <Animated.View style={[styles.errorRow, { opacity: errorOpacity }]}>  
+          <Text style={[styles.errorText, { color: c.error }]}>Invalid code, please try again.</Text>
+        </Animated.View>
+
+        <View style={styles.resendRow}>
+          <Text style={[styles.resendPrompt, { color: c.textSec }]}>Didn’t receive a code?</Text>
+          <Text style={[styles.resendLink, { color: c.primary }]}>Resend {canResend ? '' : `in ${timer}s`}</Text>
+        </View>
+
+        <GradientButton
+          label="Verify OTP"
+          onPress={() => handleVerifyOtp(otp.join(''))}
+          disabled={otp.some(val => !val) || verifying}
+          loading={verifying}
+          colorStart={c.primary}
+          colorEnd={c.primaryDark}
+          disabledColor={c.border}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

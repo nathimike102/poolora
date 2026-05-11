@@ -79,3 +79,14 @@ export function generateOTP(): string {
 export function minutesBetween(d1: Date, d2: Date): number {
   return Math.abs(d1.getTime() - d2.getTime()) / 60000;
 }
+
+export function generateTrackingNumber(): string {
+  const prefix = 'TRK';
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `${prefix}-${timestamp}-${random}`;
+}
+
+export function generateReferralCode(): string {
+  return crypto.randomBytes(6).toString('hex').toUpperCase();
+}
