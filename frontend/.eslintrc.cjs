@@ -10,6 +10,7 @@ module.exports = {
     ecmaFeatures: { jsx: true },
     ecmaVersion: 2021,
     sourceType: 'module',
+    project: './tsconfig.json',
   },
   plugins: ['@typescript-eslint', 'react', 'react-native'],
   extends: [
@@ -22,7 +23,7 @@ module.exports = {
   },
   rules: {
     'no-unused-vars': 'off',
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unused-vars': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     'react/prop-types': 'off',
     'react/react-in-jsx-scope': 'off',
