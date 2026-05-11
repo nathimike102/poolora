@@ -93,4 +93,46 @@ export class SafetyController {
       next(error);
     }
   }
+
+  /**
+   * GET /api/v1/safety/sos/:id
+   * Get SOS status by emergency record ID.
+   */
+  static async getSOSStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const record = await safetyService.getSOSStatus(String(req.params.id), user.userId);
+      sendSuccess(res, { emergency: record }, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/safety/emergency-contacts
+   * Get the authenticated user's emergency contacts.
+   */
+  static async getEmergencyContacts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const contacts = await safetyService.getEmergencyContacts(user.userId);
+      sendSuccess(res, { contacts }, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/v1/safety/emergency-contacts
+   * Update the authenticated user's emergency contacts.
+   */
+  static async updateEmergencyContacts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const contacts = await safetyService.updateEmergencyContacts(user.userId, req.body.contacts);
+      sendSuccess(res, { contacts }, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

@@ -274,4 +274,55 @@ export class SafetyService {
 
     return { records, total, page, limit };
   }
+
+  /**
+   * Get SOS status by emergency record ID.
+   * Returns the current state, location history, and timeline.
+   */
+  async getSOSStatus(emergencyId: string, userId: string): Promise<IEmergencyRecord> {
+    const record = await EmergencyRecord.findById(emergencyId)
+      .populate('triggeredBy', 'name phone')
+      .populate('booking', 'ride rider driver pickup dropoff');
+
+    if (!record) throw new NotFoundError('Emergency record');
+
+    // Only allow access to the trigger user, the booking counterpart, or admin
+    const booking = await Booking.findById(record.booking);
+    if (booking) {
+      const isRider = booking.rider.toString() === userId;
+      const isDriver = booking.driver.toString() === userId;
+      const isTriggerer = record.triggeredBy.toString() === userId;
+      if (!isRider && !isDriver && !isTriggerer) {
+        throw new AuthorizationError('You do not have access to this SOS record');
+      }
+    }
+
+    return record;
+  }
+
+  /**
+   * Get emergency contacts for a user.
+   */
+  async getEmergencyContacts(userId: string) {
+    const user = await User.findById(userId).select('emergencyContacts');
+    if (!user) throw new NotFoundError('User');
+    return user.emergencyContacts;
+  }
+
+  /**
+   * Update emergency contacts for a user.
+   */
+  async updateEmergencyContacts(
+    userId: string,
+    contacts: Array<{ name: string; phone: string; relation: string }>,
+  ) {
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { emergencyContacts: contacts } },
+      { new: true, runValidators: true },
+    ).select('emergencyContacts');
+
+    if (!user) throw new NotFoundError('User');
+    return user.emergencyContacts;
+  }
 }

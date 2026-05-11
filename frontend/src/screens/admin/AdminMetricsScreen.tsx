@@ -1,23 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useApp } from '../../context/AppContext';
-
-export interface RideMetric {
-  totalRides: number;
-  activeRides: number;
-  completedToday: number;
-  revenue: number;
-  avgRating: number;
-  totalUsers: number;
-  activeDrivers: number;
-  activeRiders: number;
-}
+import { adminService, SystemMetrics } from '../../services/adminService';
 
 export const AdminMetricsScreen: React.FC = () => {
   const { c } = useApp();
-  const [metrics, setMetrics] = useState<RideMetric | null>(null);
+  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadMetrics();
@@ -26,12 +17,12 @@ export const AdminMetricsScreen: React.FC = () => {
   const loadMetrics = async () => {
     try {
       setLoading(true);
-      // Fetch system metrics from backend
-      const response = await fetch('/api/v1/admin/metrics');
-      const data = await response.json();
-      setMetrics(data.metrics);
-    } catch (error) {
-      console.error('Failed to load metrics', error);
+      setError(null);
+      const data = await adminService.getMetrics();
+      setMetrics(data);
+    } catch (err) {
+      setError('Failed to load metrics. Please try again.');
+      console.error('Failed to load metrics', err);
     } finally {
       setLoading(false);
     }
@@ -43,10 +34,29 @@ export const AdminMetricsScreen: React.FC = () => {
     setRefreshing(false);
   };
 
+  if (loading && !metrics) {
+    return (
+      <View style={[styles.container, styles.center, { backgroundColor: c.bg }]}>
+        <Text style={{ color: c.text }}>Loading metrics...</Text>
+      </View>
+    );
+  }
+
+  if (error && !metrics) {
+    return (
+      <View style={[styles.container, styles.center, { backgroundColor: c.bg }]}>
+        <Text style={{ color: '#FF6B6B', marginBottom: 8 }}>{error}</Text>
+        <Text onPress={loadMetrics} style={{ color: c.primary || '#4CAF50', fontWeight: 'bold' }}>
+          Tap to Retry
+        </Text>
+      </View>
+    );
+  }
+
   if (!metrics) {
     return (
       <View style={[styles.container, { backgroundColor: c.bg }]}> 
-        <Text style={{ color: c.text }}>Loading...</Text>
+        <Text style={{ color: c.text }}>No data available</Text>
       </View>
     );
   }
@@ -175,6 +185,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+  },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 20,

@@ -398,7 +398,26 @@ export class SocketGateway {
           timestamp: message.createdAt,
         });
 
-        // TODO: FCM push notification for offline users
+        // Send FCM push notification if receiver is offline
+        const redis = getRedisClient();
+        const isReceiverOnline = redis ? await redis.exists(`online:user:${receiverId}`) : false;
+        if (!isReceiverOnline) {
+          const { NotificationService } = await import('../services/NotificationService');
+          const notificationService = new NotificationService();
+          await notificationService.sendPushNotification(
+            receiverId,
+            'New message',
+            content.length > 100 ? content.substring(0, 97) + '...' : content,
+            { bookingId, type: 'chat', senderId: socket.userId },
+          );
+          await notificationService.createNotification(
+            receiverId,
+            'New message',
+            content.length > 100 ? content.substring(0, 97) + '...' : content,
+            'chat',
+            { bookingId, senderId: socket.userId },
+          );
+        }
       } catch (error) {
         logger.error('Chat message error', { error: (error as Error).message });
         socket.emit('chat:error', { message: 'Failed to send message' });

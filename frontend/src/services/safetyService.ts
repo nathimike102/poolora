@@ -20,6 +20,10 @@ export interface SOSResponse {
   status: string;
   location: { lat: number; lng: number };
   createdAt: string;
+  triggerLocation?: { type: string; coordinates: [number, number] };
+  locationHistory?: Array<{ location: { type: string; coordinates: [number, number] }; timestamp: string }>;
+  timeline?: Array<{ event: string; timestamp: string; details?: string }>;
+  liveTrackingUrl?: string;
 }
 
 export interface IncidentData {
@@ -32,6 +36,12 @@ export interface IncidentData {
   bookingId: string;
 }
 
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relation: string;
+}
+
 /**
  * Service for safety operations
  */
@@ -41,14 +51,30 @@ export const safetyService = {
    */
   async triggerSOS(bookingId: string, location: { lat: number; lng: number }): Promise<SOSResponse> {
     try {
-      const response = await apiClient.post<ApiResponse<{ incident: SOSResponse }>>(
+      const response = await apiClient.post<ApiResponse<{ emergency: SOSResponse }>>(
         API_ENDPOINTS.safety.triggerSos,
         { bookingId, location },
       );
       logger.info('SOS triggered');
-      return response.data.data.incident;
+      return response.data.data.emergency;
     } catch (error) {
       logger.error('Failed to trigger SOS', { error });
+      throw error;
+    }
+  },
+
+  /**
+   * Get SOS status by emergency record ID
+   */
+  async getSOSStatus(sosId: string): Promise<SOSResponse> {
+    try {
+      const response = await apiClient.get<ApiResponse<{ emergency: SOSResponse }>>(
+        API_ENDPOINTS.safety.sosStatus(sosId),
+      );
+      logger.info('SOS status fetched', { sosId });
+      return response.data.data.emergency;
+    } catch (error) {
+      logger.error('Failed to get SOS status', { sosId, error });
       throw error;
     }
   },
@@ -58,11 +84,11 @@ export const safetyService = {
    */
   async getActiveIncidents(): Promise<IncidentData[]> {
     try {
-      const response = await apiClient.get<ApiResponse<{ incidents: IncidentData[] }>>(
-        '/api/v1/safety/sos/active',
+      const response = await apiClient.get<ApiResponse<{ records: IncidentData[]; total: number }>>(
+        API_ENDPOINTS.safety.activeIncidents,
       );
       logger.info('Active incidents fetched');
-      return response.data.data.incidents;
+      return response.data.data.records;
     } catch (error) {
       logger.error('Failed to fetch active incidents', { error });
       throw error;
@@ -74,7 +100,7 @@ export const safetyService = {
    */
   async acknowledgeIncident(incidentId: string): Promise<void> {
     try {
-      await apiClient.post(`/api/v1/safety/sos/${incidentId}/acknowledge`);
+      await apiClient.post(API_ENDPOINTS.safety.acknowledge(incidentId));
       logger.info('SOS acknowledged', { incidentId });
     } catch (error) {
       logger.error('Failed to acknowledge SOS', { incidentId, error });
@@ -91,7 +117,7 @@ export const safetyService = {
     isFalseAlarm?: boolean,
   ): Promise<void> {
     try {
-      await apiClient.post(`/api/v1/safety/sos/${incidentId}/resolve`, {
+      await apiClient.post(API_ENDPOINTS.safety.resolve(incidentId), {
         notes,
         isFalseAlarm,
       });
@@ -103,16 +129,35 @@ export const safetyService = {
   },
 
   /**
-   * Get SOS status
+   * Get emergency contacts for the authenticated user
    */
-  async getSOSStatus(_sosId: string): Promise<SOSResponse> {
-    throw new Error('Direct SOS status endpoint is not available in the current backend API.');
+  async getEmergencyContacts(): Promise<EmergencyContact[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<{ contacts: EmergencyContact[] }>>(
+        API_ENDPOINTS.safety.emergencyContacts,
+      );
+      logger.info('Emergency contacts fetched');
+      return response.data.data.contacts;
+    } catch (error) {
+      logger.error('Failed to fetch emergency contacts', { error });
+      throw error;
+    }
   },
 
   /**
-   * Get emergency contacts
+   * Update emergency contacts for the authenticated user
    */
-  async getEmergencyContacts(): Promise<unknown[]> {
-    throw new Error('Emergency contacts endpoint is not available in the current backend API.');
+  async updateEmergencyContacts(contacts: EmergencyContact[]): Promise<EmergencyContact[]> {
+    try {
+      const response = await apiClient.put<ApiResponse<{ contacts: EmergencyContact[] }>>(
+        API_ENDPOINTS.safety.emergencyContacts,
+        { contacts },
+      );
+      logger.info('Emergency contacts updated');
+      return response.data.data.contacts;
+    } catch (error) {
+      logger.error('Failed to update emergency contacts', { error });
+      throw error;
+    }
   },
 };

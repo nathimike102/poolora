@@ -132,10 +132,20 @@ export const API_ENDPOINTS = {
   safety: {
     activeIncidents: '/safety/sos/active', // admin
     triggerSos: '/safety/sos',
+    sosStatus: (id: string) => `/safety/sos/${id}`,
     updateSosLocation: (id: string) => `/safety/sos/${id}/location`,
     addEvidence: (id: string) => `/safety/sos/${id}/evidence`,
     acknowledge: (id: string) => `/safety/sos/${id}/acknowledge`,
     resolve: (id: string) => `/safety/sos/${id}/resolve`,
+    emergencyContacts: '/safety/emergency-contacts',
+  },
+
+  // Admin
+  admin: {
+    metrics: '/admin/metrics',
+    rides: '/admin/rides',
+    users: '/admin/users',
+    payments: '/admin/payments',
   },
 } as const;
 

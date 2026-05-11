@@ -36,7 +36,7 @@ Features
 -> surge pricing
 
     -> Google Maps integration
-    	-> for routing (dijkstra's algorithm or google maps api (uses a* algorithm)
+    	-> for routing (dijkstra's algorithm or google maps api (uses a* algorithm))
     	-> for future improvements, combine both algorithms
     		- dijkstra used for base road graph
     		- a* for real-time navigation

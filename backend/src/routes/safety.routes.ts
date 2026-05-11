@@ -12,6 +12,13 @@ router.use(authenticate);
 // Active incidents — Admin — MUST be before /:id
 router.get('/sos/active', requireAdmin(), SafetyController.getActiveIncidents);
 
+// Emergency contacts (user)
+router.get('/emergency-contacts', SafetyController.getEmergencyContacts);
+router.put('/emergency-contacts', SafetyController.updateEmergencyContacts);
+
+// SOS status
+router.get('/sos/:id', SafetyController.getSOSStatus);
+
 // User SOS actions
 router.post('/sos', validate(triggerSOSSchema), SafetyController.triggerSOS);
 router.post('/sos/:id/location', SafetyController.updateSOSLocation);
