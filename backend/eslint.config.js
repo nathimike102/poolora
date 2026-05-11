@@ -18,12 +18,8 @@ export default [
       '@typescript-eslint': typescriptEslint.plugin
     },
     rules: {
-      // Relax rules to allow automated fixes and reduce blocking errors during bulk linting.
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        { argsIgnorePattern: '^_' }
-      ],
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'error',
       'no-console': [
         'warn',
         { allow: ['warn', 'error'] }
