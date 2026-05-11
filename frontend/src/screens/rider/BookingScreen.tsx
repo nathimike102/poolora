@@ -56,7 +56,7 @@ function AnimatedPressable({
   scaleValue?: number;
   style?: unknown;
   children: React.ReactNode;
-}) {
+}): React.ReactElement {
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = useCallback(() => {
@@ -82,7 +82,7 @@ function AnimatedPressable({
 
 // ─── Confirmed Animation View ─────────────────────────────────────────────────
 
-function ConfirmedView({ c }: { c: unknown }) {
+function ConfirmedView({ c }: { c: ReturnType<typeof useApp>['c'] }): React.ReactElement {
   const scale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -114,7 +114,7 @@ function ConfirmedView({ c }: { c: unknown }) {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-export function BookingScreen() {
+export function BookingScreen(): React.ReactElement {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<BookingRoute>();
   const { c } = useApp();
@@ -160,7 +160,7 @@ export function BookingScreen() {
         specialRequirements: message.trim() ? message.trim() : undefined,
       };
 
-      await bookingService.createBooking(payload);
+      await bookingService.createBooking(payload as any);
       
       setIsSubmitting(false);
       setConfirmed(true);

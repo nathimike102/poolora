@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mongodb-backup
+  namespace: sanchari
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: mongo:7.0
+            command:
+            - /bin/bash
+            - -c
+            - |
+              mongodump --host mongodb-0.mongodb --db sanchari --out /backup/$(date +%Y%m%d_%H%M%S)
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: password
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: shared-storage
+          restartPolicy: OnFailure

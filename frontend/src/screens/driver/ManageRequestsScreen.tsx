@@ -28,6 +28,36 @@ import { Shadow } from '../../theme';
 type Gender = UserGender;
 type Status = BookingStatus | 'accepted'; // 'accepted' maps to 'confirmed' in BookingStatus
 
+interface RequestItem {
+  id: string;
+  tripId: string;
+  rider: string;
+  avatar: string;
+  rating: number;
+  trips: number;
+  from: string;
+  to: string;
+  date: string;
+  seats: number;
+  price: number;
+  aiScore: number;
+  expiresIn: string;
+  verified: boolean;
+  passengers: Array<{ name: string; gender: string }>;
+  status: Status;
+}
+
+interface TripItem {
+  id: string;
+  label: string;
+  from?: string;
+  to?: string;
+  date: string;
+  totalSeats: number;
+  filledSeats: number;
+  earnings: number;
+}
+
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -38,7 +68,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 /* ── Sub-components ────────────────────────────────────────── */
 
-function GenderBadge({ gender }: { gender: Gender }) {
+function GenderBadge({ gender }: { gender: Gender }): React.ReactElement {
   const normalizedGender = gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : 'Other';
   const map: Record<string, { bg: string; border: string; text: string }> = {
     Female: { bg: '#FFF1F2', border: '#FCA5A5', text: '#E11D48' },
@@ -53,7 +83,7 @@ function GenderBadge({ gender }: { gender: Gender }) {
   );
 }
 
-function StatusChip({ status }: { status: Status }) {
+function StatusChip({ status }: { status: Status }): React.ReactElement {
   const map: Record<string, { label: string; bg: string; text: string }> = {
     pending:   { label: 'Pending',   bg: '#FEF3C7', text: '#D97706' },
     accepted:  { label: 'Accepted',  bg: '#D1FAE5', text: '#059669' },
@@ -71,13 +101,13 @@ function StatusChip({ status }: { status: Status }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
-export function ManageRequestsScreen() {
+export function ManageRequestsScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
-  const [requests, setRequests] = useState<Record<string, unknown>[]>([]);
-  const [trips, setTrips] = useState<Record<string, unknown>[]>([]);
+  const [requests, setRequests] = useState<RequestItem[]>([]);
+  const [trips, setTrips] = useState<TripItem[]>([]);
   const [activeTripId, setActiveTripId] = useState('');
   const [activeTab, setActiveTab] = useState<string>('pending');
   const [loading, setLoading] = useState(true);
