@@ -1122,12 +1122,18 @@ scrape_configs:
 
 ## 🚀 Future Scalability & Expansion
 
-| Year | Roadmap |
-|---|---|
-| **2026** | 🔋 Carbon Tracking — Real-time CO₂ savings · 🤖 AI Ride Assistant — Voice-based booking |
-| **2027** | ⚡ EV Charging Integration · 🏢 Corporate Commute Pooling |
-| **2028** | 🚦 AI Traffic Prediction · 🏙️ Smart-City Integration |
-| **2029** | 🤖 Autonomous Fleet Integration · 🌐 National Mobility Grid |
+The roadmap builds on the platform's existing architecture — every item below extends an already-implemented subsystem.
+
+| Timeline | Feature | Builds On |
+|---|---|---|
+| **Q3 2026** | 📊 **Safety Analytics Dashboard** — Aggregate SOS response times, incident heatmaps, and driver safety scores into a dedicated admin view | Existing SOS system, EmergencyRecord model, Admin API |
+| **Q3 2026** | 🗺️ **Demand Heatmaps** — Visualize ride demand density by region and time using existing booking data | Booking + Ride models, Admin metrics endpoint |
+| **Q4 2026** | 🤖 **AI Ride Assistant** — Voice-based booking using the existing ride search and matching pipeline | MatchingEngineClient, Ride search API |
+| **Q4 2026** | 💰 **Driver Incentive Optimization** — Dynamic bonus allocation based on acceptance rate and peak-hour availability | Driver stats, WalletService coins system |
+| **H1 2027** | 🚌 **Multi-Modal Transport** — Integrate bus/metro schedules as first/last mile options alongside existing pooling | Ride model extensible with `rideType` enum |
+| **H1 2027** | 🌍 **Regional Expansion** — Multi-city support with city-scoped ride search using existing geospatial indexes | MongoDB 2dsphere indexes, GeoPoint schema |
+| **H2 2027** | 📈 **Advanced Fraud Detection** — Upgrade from rule-based to ML-based anomaly detection using accumulated transaction data | Payment events pipeline, Kafka consumers |
+| **H2 2027** | 🔔 **Smart Notifications** — Context-aware notification timing based on user activity patterns | NotificationService, FCM integration |
 
 ---
 
