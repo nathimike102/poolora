@@ -5,16 +5,25 @@ metadata:
   namespace: sanchari
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/websocket-services: "sanchari-backend"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - api.sanchari.com
-    - app.sanchari.com
+    - sanchari.me
+    - www.sanchari.me
+    - ml.sanchari.me
+    - grafana.sanchari.me
     secretName: sanchari-tls
   rules:
-  - host: api.sanchari.com
+  - host: sanchari.me
     http:
       paths:
       - path: /
@@ -23,14 +32,34 @@ spec:
           service:
             name: sanchari-backend
             port:
-              number: 3000
-  - host: app.sanchari.com
+              number: 5002
+  - host: www.sanchari.me
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: sanchari-frontend
+            name: sanchari-backend
             port:
-              number: 80
+              number: 5002
+  - host: ml.sanchari.me
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sanchari-ml
+            port:
+              number: 8000
+  - host: grafana.sanchari.me
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000

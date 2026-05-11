@@ -1,11 +1,12 @@
 services:
   app:
     build: .
-    # Bind to localhost — put nginx/reverse-proxy in front for TLS termination
     ports:
       - "127.0.0.1:5002:5002"
     env_file:
       - .env
+    environment:
+      ML_SERVICE_URL: http://ml-engine:8000
     volumes:
       - ./secrets/firebase-service-account.json:/app/secrets/firebase-service-account.json:ro
     depends_on:
@@ -15,6 +16,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+      ml-engine:
+        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: json-file
@@ -28,9 +31,40 @@ services:
     networks:
       - mobility-net
 
+  # ─── ML Engine (Demand Prediction, Fraud Detection, Ride Matching) ────────
+  ml-engine:
+    build: ../ml-service
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      MONGODB_URI: ${MONGO_URI}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      KAFKA_BROKERS: kafka:29092
+      LOG_LEVEL: info
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    networks:
+      - mobility-net
+
   mongo:
     image: mongo:7.0
-    # Only accessible from localhost — never expose DB to the internet
     ports:
       - "127.0.0.1:27018:27017"
     volumes:
@@ -168,6 +202,37 @@ services:
     networks:
       - mobility-net
 
+  # ─── Monitoring Stack ─────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    restart: unless-stopped
+    networks:
+      - mobility-net
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: sanchari-admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - mobility-net
+
 volumes:
   mongo-data:
   redis-data:
@@ -175,6 +240,8 @@ volumes:
   zookeeper-data:
   zookeeper-logs:
   kafka-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   mobility-net:
