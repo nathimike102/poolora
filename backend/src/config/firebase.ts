@@ -25,7 +25,7 @@ export function initializeFirebase(): void {
         } else {
           parsed = JSON.parse(serviceAccountJson);
         }
-      } catch (err) {
+      } catch {
         // Fall back to raw parse attempt
         parsed = JSON.parse(serviceAccountJson);
       }

@@ -45,8 +45,8 @@ export class NotificationService {
   async sendPushNotification(
     userId: string,
     title: string,
-    body: string,
-    data?: Record<string, string>,
+    _body: string,
+    _data?: Record<string, string>,
   ): Promise<void> {
     try {
       const user = await User.findById(userId).select('fcmTokens');
@@ -95,9 +95,7 @@ export class NotificationService {
     data?: Record<string, string>,
   ): Promise<void> {
     await Promise.allSettled(
-      userIds.map((id) =>
-        this.sendPushNotification(id, title, body, data),
-      ),
+      userIds.map((id) => this.sendPushNotification(id, title, body, data)),
     );
   }
 }
