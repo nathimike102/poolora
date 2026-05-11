@@ -139,8 +139,17 @@ export function EarningsScreen() {
   const [period, setPeriod] = useState<Period>('today');
   const [loading, setLoading] = useState(true);
   
+  interface EarningsTransaction {
+    id: string;
+    type: 'bonus' | 'ride';
+    rider: string;
+    route: string;
+    time: string;
+    amount: number;
+  }
+
   const [statsData, setStatsData] = useState(initialPeriodStats);
-  const [transactionsData, setTransactionsData] = useState<Record<string, unknown>[]>([]);
+  const [transactionsData, setTransactionsData] = useState<EarningsTransaction[]>([]);
   const [balance, setBalance] = useState(6320);
 
   useFocusEffect(

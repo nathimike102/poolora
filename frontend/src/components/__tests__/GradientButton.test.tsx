@@ -17,7 +17,7 @@ describe('GradientButton', () => {
   });
 
   it('triggers animation on press in/out', () => {
-    const { getByTestId: _getByTestId } = render(<GradientButton label="Animate" onPress={() => {}} />);
+    const { getByTestId } = render(<GradientButton label="Animate" onPress={() => {}} />);
     const button = getByTestId('gradient-button');
     
     fireEvent(button, 'pressIn');

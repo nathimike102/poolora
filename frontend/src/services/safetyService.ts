@@ -22,6 +22,16 @@ export interface SOSResponse {
   createdAt: string;
 }
 
+export interface IncidentData {
+  id: string;
+  userId: string;
+  userName: string;
+  status: 'triggered' | 'acknowledged' | 'resolved';
+  location: { lat: number; lng: number };
+  timestamp: Date;
+  bookingId: string;
+}
+
 /**
  * Service for safety operations
  */
@@ -39,6 +49,55 @@ export const safetyService = {
       return response.data.data.incident;
     } catch (error) {
       logger.error('Failed to trigger SOS', { error });
+      throw error;
+    }
+  },
+
+  /**
+   * Get active SOS incidents (admin only)
+   */
+  async getActiveIncidents(): Promise<IncidentData[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<{ incidents: IncidentData[] }>>(
+        '/api/v1/safety/sos/active',
+      );
+      logger.info('Active incidents fetched');
+      return response.data.data.incidents;
+    } catch (error) {
+      logger.error('Failed to fetch active incidents', { error });
+      throw error;
+    }
+  },
+
+  /**
+   * Acknowledge SOS incident (admin only)
+   */
+  async acknowledgeIncident(incidentId: string): Promise<void> {
+    try {
+      await apiClient.post(`/api/v1/safety/sos/${incidentId}/acknowledge`);
+      logger.info('SOS acknowledged', { incidentId });
+    } catch (error) {
+      logger.error('Failed to acknowledge SOS', { incidentId, error });
+      throw error;
+    }
+  },
+
+  /**
+   * Resolve SOS incident (admin only)
+   */
+  async resolveIncident(
+    incidentId: string,
+    notes?: string,
+    isFalseAlarm?: boolean,
+  ): Promise<void> {
+    try {
+      await apiClient.post(`/api/v1/safety/sos/${incidentId}/resolve`, {
+        notes,
+        isFalseAlarm,
+      });
+      logger.info('SOS resolved', { incidentId });
+    } catch (error) {
+      logger.error('Failed to resolve SOS', { incidentId, error });
       throw error;
     }
   },

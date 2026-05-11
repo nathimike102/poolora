@@ -35,7 +35,7 @@ const AnimatedPressable = ({
   children,
 }: {
   onPress?: () => void;
-  style?: unknown;
+  style?: any;
   children: React.ReactNode;
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -67,8 +67,19 @@ export function DriverHomeScreen() {
   const [earnings, setEarnings] = useState(0);
   const [ridesToday, setRidesToday] = useState(0);
   
+  interface UpcomingRide {
+    id: string;
+    from: string;
+    to: string;
+    date: string;
+    time: string;
+    booked: number;
+    total: number;
+    earned: number;
+  }
+
   const [pendingRequests, setPendingRequests] = useState<Record<string, unknown>[]>([]);
-  const [upcomingRides, setUpcomingRides] = useState<Record<string, unknown>[]>([]);
+  const [upcomingRides, setUpcomingRides] = useState<UpcomingRide[]>([]);
 
   useFocusEffect(
     React.useCallback(() => {

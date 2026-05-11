@@ -108,7 +108,7 @@ export function setupAuthInterceptor(): void {
  * Setup retry interceptor that retries failed requests with exponential backoff
  */
 export function setupRetryInterceptor(): void {
-  const retryMap = new WeakMap<unknown, RetryRequest>();
+  const retryMap = new WeakMap<object, RetryRequest>();
 
   apiClient.interceptors.response.use(
     (response) => response,
