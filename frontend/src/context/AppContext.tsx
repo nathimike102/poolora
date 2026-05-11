@@ -217,7 +217,7 @@ export function AppProvider({ children }: AppProviderProps) {
       toggleDarkMode,
       logout,
     }),
-    [role, user, isDarkMode, c, activeTab, firebaseUser, authLoading, switchRole, toggleDarkMode, logout],
+    [role, user, isDarkMode, c, activeTab, firebaseUser, authLoading, switchRole, toggleDarkMode, logout, setRole, setUser, setActiveTab],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

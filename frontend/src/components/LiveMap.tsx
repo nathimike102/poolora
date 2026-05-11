@@ -90,10 +90,14 @@ export function LiveMap({
   // Resolve coordinates — use props if given, else defaults
   const origin = originProp ?? DEFAULT_ORIGIN;
   const destination = destinationProp ?? DEFAULT_DESTINATION;
-  const driverLocation = driverProp ?? {
-    latitude: (origin.latitude + destination.latitude) / 2 + 0.003,
-    longitude: (origin.longitude + destination.longitude) / 2 - 0.002,
-  };
+  const driverLocation = React.useMemo(
+    () =>
+      driverProp ?? {
+        latitude: (origin.latitude + destination.latitude) / 2 + 0.003,
+        longitude: (origin.longitude + destination.longitude) / 2 - 0.002,
+      },
+    [driverProp, origin.latitude, origin.longitude, destination.latitude, destination.longitude],
+  );
 
   /* ── Request location permission & get user position ──────────── */
   useEffect(() => {

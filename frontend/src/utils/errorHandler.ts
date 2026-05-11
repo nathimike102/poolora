@@ -60,7 +60,7 @@ class ErrorHandler {
    * Handle Axios errors (network, HTTP, etc.)
    */
   private handleAxiosError(error: AxiosError<ApiErrorResponse>): ProcessedError {
-    const { response, code, message } = error;
+    const { response, code } = error;
 
     // Network error (no response from server)
     if (!response) {

@@ -246,7 +246,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
     (item: NavItem) => {
       Haptics.selectionAsync();
       onTabChange(item.tab);
-      navigation.navigate(item.route as any);
+      navigation.navigate(item.route as never);
     },
     [navigation, onTabChange],
   );

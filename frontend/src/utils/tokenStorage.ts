@@ -26,8 +26,8 @@ async function secureSet(key: string, value: string): Promise<void> {
   try {
     // Try secure store first
     await SecureStore.setItemAsync(key, value);
-  } catch (error) {
-    logger.warn('SecureStore unavailable, falling back to AsyncStorage', { key, error });
+  } catch (_error) {
+    logger.warn('SecureStore unavailable, falling back to AsyncStorage', { key, error: _error });
     try {
       // Fallback to AsyncStorage
       await AsyncStorage.setItem(key, value);
@@ -43,15 +43,15 @@ async function secureGet(key: string): Promise<string | null> {
     // Try secure store first
     const value = await SecureStore.getItemAsync(key);
     if (value !== null) return value;
-  } catch (error) {
-    logger.debug('SecureStore unavailable, trying AsyncStorage', { key });
+  } catch (_error) {
+    logger.debug('SecureStore unavailable, trying AsyncStorage', { key, error: _error });
   }
 
   try {
     // Fallback to AsyncStorage
     return await AsyncStorage.getItem(key);
-  } catch (error) {
-    logger.error('Failed to retrieve token', { key, error });
+  } catch (_error) {
+    logger.error('Failed to retrieve token', { key, error: _error });
     return null;
   }
 }
@@ -60,15 +60,15 @@ async function secureRemove(key: string): Promise<void> {
   try {
     // Try secure store first
     await SecureStore.deleteItemAsync(key);
-  } catch (error) {
-    logger.debug('SecureStore remove failed, trying AsyncStorage', { key });
+  } catch (_error) {
+    logger.debug('SecureStore remove failed, trying AsyncStorage', { key, error: _error });
   }
 
   try {
     // Also remove from AsyncStorage
     await AsyncStorage.removeItem(key);
-  } catch (error) {
-    logger.warn('Failed to remove token', { key, error });
+  } catch (_error) {
+    logger.warn('Failed to remove token', { key, error: _error });
   }
 }
 
@@ -88,9 +88,9 @@ export const tokenStorage = {
           : Promise.resolve(),
       ]);
       logger.debug('Tokens saved successfully');
-    } catch (error) {
-      logger.error('Failed to save tokens', { error });
-      throw error;
+    } catch (_error) {
+      logger.error('Failed to save tokens', { error: _error });
+      throw _error;
     }
   },
 
@@ -114,8 +114,8 @@ export const tokenStorage = {
         refreshToken,
         expiresAt: expiryStr ? parseInt(expiryStr, 10) : undefined,
       };
-    } catch (error) {
-      logger.error('Failed to retrieve tokens', { error });
+    } catch (_error) {
+      logger.error('Failed to retrieve tokens', { error: _error });
       return null;
     }
   },
@@ -126,8 +126,8 @@ export const tokenStorage = {
   async getAccessToken(): Promise<string | null> {
     try {
       return await secureGet(TOKEN_STORAGE_KEYS.accessToken);
-    } catch (error) {
-      logger.error('Failed to retrieve access token', { error });
+    } catch (_error) {
+      logger.error('Failed to retrieve access token', { error: _error });
       return null;
     }
   },
@@ -138,8 +138,8 @@ export const tokenStorage = {
   async getRefreshToken(): Promise<string | null> {
     try {
       return await secureGet(TOKEN_STORAGE_KEYS.refreshToken);
-    } catch (error) {
-      logger.error('Failed to retrieve refresh token', { error });
+    } catch (_error) {
+      logger.error('Failed to retrieve refresh token', { error: _error });
       return null;
     }
   },
@@ -154,8 +154,8 @@ export const tokenStorage = {
 
       const expiresAt = parseInt(expiryStr, 10);
       return Date.now() >= expiresAt;
-    } catch (error) {
-      logger.error('Failed to check token expiry', { error });
+    } catch (_error) {
+      logger.error('Failed to check token expiry', { error: _error });
       return true; // Assume expired on error
     }
   },
@@ -172,8 +172,8 @@ export const tokenStorage = {
         secureRemove(TOKEN_STORAGE_KEYS.userId),
       ]);
       logger.debug('Tokens cleared successfully');
-    } catch (error) {
-      logger.error('Failed to clear tokens', { error });
+    } catch (_error) {
+      logger.error('Failed to clear tokens', { error: _error });
     }
   },
 
@@ -183,8 +183,8 @@ export const tokenStorage = {
   async saveUserId(userId: string): Promise<void> {
     try {
       await secureSet(TOKEN_STORAGE_KEYS.userId, userId);
-    } catch (error) {
-      logger.error('Failed to save user ID', { error });
+    } catch (_error) {
+      logger.error('Failed to save user ID', { error: _error });
     }
   },
 
@@ -194,8 +194,8 @@ export const tokenStorage = {
   async getUserId(): Promise<string | null> {
     try {
       return await secureGet(TOKEN_STORAGE_KEYS.userId);
-    } catch (error) {
-      logger.error('Failed to retrieve user ID', { error });
+    } catch (_error) {
+      logger.error('Failed to retrieve user ID', { error: _error });
       return null;
     }
   },
