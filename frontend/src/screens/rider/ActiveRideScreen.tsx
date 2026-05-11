@@ -14,13 +14,13 @@ import type { RouteProp } from '@react-navigation/native';
 import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LiveMap } from '../../components/LiveMap';
 import type { RootStackParamList } from '../../navigation/types';
-import { Spacing, Radius, Shadow, Typography } from '../../theme';
+import { Radius, Shadow } from '../../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type RidePhase = 'driver_arriving' | 'in_progress' | 'arrived' | 'rating';
@@ -32,7 +32,7 @@ const AnimatedPressable = ({
   children,
 }: {
   onPress?: () => void;
-  style?: any;
+  style?: unknown;
   children: React.ReactNode;
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -308,7 +308,7 @@ export function ActiveRideScreen() {
       {deviation && (
         <SlideIn>
           <View style={styles.deviationCard}>
-            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ flexShrink: 0 } as any}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ flexShrink: 0 } as unknown as never}>
               <Path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" fill="#FF8A50" />
             </Svg>
             <View style={styles.flex1}>
@@ -485,7 +485,7 @@ export function ActiveRideScreen() {
       </View>
 
       {/* Submit */}
-      <AnimatedPressable onPress={() => navigation.navigate('RiderTabs' as any)}>
+      <AnimatedPressable onPress={() => navigation.navigate('RiderTabs' as unknown as never)}>
         <LinearGradient
           colors={[c.primary, c.primaryDark]}
           start={{ x: 0, y: 0 }}
@@ -497,7 +497,7 @@ export function ActiveRideScreen() {
       </AnimatedPressable>
 
       {/* Skip */}
-      <Pressable onPress={() => navigation.navigate('RiderTabs' as any)} style={styles.skipBtn}>
+      <Pressable onPress={() => navigation.navigate('RiderTabs' as unknown as never)} style={styles.skipBtn}>
         <Text style={{ fontSize: 14, color: c.textSec }}>Skip for now</Text>
       </Pressable>
     </View>

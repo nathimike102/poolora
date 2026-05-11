@@ -21,6 +21,11 @@ export interface DistanceResult {
   duration: number; // in seconds
 }
 
+export interface DirectionsResult {
+  routes: unknown[];
+  [key: string]: unknown;
+}
+
 /**
  * Service for maps operations
  */
@@ -30,7 +35,7 @@ export const mapsService = {
    */
   async geocode(address: string): Promise<GeocodingResult> {
     try {
-      const response = await apiClient.post<ApiResponse<any>>(API_ENDPOINTS.maps.validateAddress, {
+      const response = await apiClient.post<ApiResponse<GeocodingResult>>(API_ENDPOINTS.maps.validateAddress, {
         address,
       });
       logger.info('Address geocoded', { address });
@@ -76,7 +81,7 @@ export const mapsService = {
     fromLng: number,
     toLat: number,
     toLng: number,
-  ): Promise<any> {
+  ): Promise<DirectionsResult> {
     try {
       const query = new URLSearchParams({
         originLat: String(fromLat),
@@ -84,7 +89,7 @@ export const mapsService = {
         destLat: String(toLat),
         destLng: String(toLng),
       });
-      const response = await apiClient.get<ApiResponse<any>>(
+      const response = await apiClient.get<ApiResponse<DirectionsResult>>(
         `${API_ENDPOINTS.maps.directions}?${query.toString()}`,
       );
       logger.info('Directions fetched');

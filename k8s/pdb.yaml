@@ -1,0 +1,34 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sanchari-backend-pdb
+  namespace: sanchari
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: sanchari-backend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mongodb-pdb
+  namespace: sanchari
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: mongodb
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: sanchari
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: redis

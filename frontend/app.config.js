@@ -12,8 +12,13 @@ module.exports = {
   expo: {
     name: 'Sanchari',
     slug: 'one-piece',
+    icon: './assets/splash.png',
     android: {
       package: 'com.ridepool.app',
+      adaptiveIcon: {
+        foregroundImage: './assets/splash.png',
+        backgroundColor: '#ffffff',
+      },
       googleServicesFile: './google-services.json',
       config: {
         googleMaps: {
@@ -58,5 +63,11 @@ module.exports = {
       },
     },
     owner: 'nathi_mike',
+    splash: {
+      // Place your splash image at frontend/assets/splash.png (see instructions below)
+      image: './assets/splash.png',
+      resizeMode: 'cover',
+      backgroundColor: '#ffffff',
+    },
   },
 };

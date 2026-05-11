@@ -3,19 +3,11 @@
  *
  * Pulsing dot used in the Splash loading indicator.
  *
- * Uses react-native-reanimated for smooth 60fps animations on the UI thread.
+ * Uses React Native Animated to avoid worklet mutation warnings in dev-client.
  */
 
 import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import { StyleSheet, Animated, Easing } from 'react-native';
 
 interface AnimatedDotProps {
   color?: string;
@@ -28,37 +20,61 @@ export function AnimatedDot({
   size = 8,
   delay = 0,
 }: AnimatedDotProps) {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(0.5);
+  const scale = React.useRef(new Animated.Value(1)).current;
+  const opacity = React.useRef(new Animated.Value(0.5)).current;
 
   useEffect(() => {
-    const delayMs = delay * 1000;
-    scale.value = withDelay(
-      delayMs,
-      withRepeat(
-        withSequence(
-          withTiming(1.4, { duration: 450 }),
-          withTiming(1, { duration: 450 }),
-        ),
-        -1,
-      ),
-    );
-    opacity.value = withDelay(
-      delayMs,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 450 }),
-          withTiming(0.5, { duration: 450 }),
-        ),
-        -1,
-      ),
-    );
-  }, [delay, scale, opacity]);
+    const delayMs = Math.max(0, delay * 1000);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+    const startScaleLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, {
+          toValue: 1.4,
+          duration: 450,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 450,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    const startOpacityLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 450,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.5,
+          duration: 450,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    const timeoutId = setTimeout(() => {
+      startScaleLoop.start();
+      startOpacityLoop.start();
+    }, delayMs);
+
+    return () => {
+      clearTimeout(timeoutId);
+      startScaleLoop.stop();
+      startOpacityLoop.stop();
+      scale.stopAnimation();
+      opacity.stopAnimation();
+      scale.setValue(1);
+      opacity.setValue(0.5);
+    };
+  }, [delay, opacity, scale]);
 
   return (
     <Animated.View
@@ -70,8 +86,9 @@ export function AnimatedDot({
           height: size,
           borderRadius: size / 2,
           backgroundColor: color,
+          transform: [{ scale }],
+          opacity,
         },
-        animatedStyle,
       ]}
     />
   );

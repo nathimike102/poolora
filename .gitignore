@@ -1,7 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
-yarn.lock
 
 # Build & Runtime
 dist/
@@ -32,10 +30,13 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 secrets/
+**/secrets/
 *.pem
 *.key
 *.keystore
 firebase-service-account.json
+frontend/google-services.json
+frontend/GoogleService-Info.plist
 
 # IDE & Editor
 .idea/

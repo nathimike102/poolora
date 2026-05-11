@@ -94,7 +94,7 @@ function AnimatedPressable({
 }: {
   onPress: () => void;
   scaleValue?: number;
-  style?: any;
+  style?: unknown;
   children: React.ReactNode;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -186,13 +186,13 @@ export function RideResultsScreen() {
   const incoming = route.params?.rides as PaginatedResponse<ApiRide> | ApiRide[] | undefined;
 
   const normalizedSource = useMemo(() => {
-    let arr: any[] = [];
+    let arr: unknown[] = [];
     if (Array.isArray(incoming)) {
       arr = incoming;
     } else if (incoming && 'data' in incoming && incoming.data) {
       arr = incoming.data.items || [];
     }
-    return arr.map((r: any) => ({
+    return arr.map((r: unknown) => ({
       id: r._id || r.id || String(r._id || Math.random()),
       driver: typeof r.driver === 'string' ? r.driver : r.driver?.name || 'Driver',
       avatar: r.driver?.profilePhotoUrl || r.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop',
@@ -216,7 +216,7 @@ export function RideResultsScreen() {
 
   // Compute filtered + sorted rides
   const rides = useMemo(() => {
-    let list = normalizedSource.filter((r: any) => {
+    let list = normalizedSource.filter((r: unknown) => {
       if (activeFilters.womenOnly && !r.womenOnly) return false;
       if (activeFilters.acOnly && !r.prefs.some((p: string) => p === 'AC')) return false;
       if (activeFilters.minRating > 0 && r.rating < activeFilters.minRating) return false;

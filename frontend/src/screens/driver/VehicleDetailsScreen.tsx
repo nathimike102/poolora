@@ -54,7 +54,7 @@ function OnboardingStepHeader({
       </View>
 
       <View style={os.progressTrack}>
-        <View style={[os.progressFill, { width: `${(step / 3) * 100}%` as any }]} />
+        <View style={[os.progressFill, { width: `${(step / 3) * 100}%` as unknown as number }]} />
       </View>
 
       <View style={os.pillRow}>

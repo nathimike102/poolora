@@ -28,7 +28,7 @@ export const paymentService = {
         page: String(page),
         limit: String(limit),
       });
-      const response = await apiClient.get<ApiResponse<any>>(
+      const response = await apiClient.get<ApiResponse<PaginatedResult<Payment>>>(
         `${API_ENDPOINTS.payments.history}?${query.toString()}`,
       );
       logger.info('Payment history fetched', { role, page, limit });

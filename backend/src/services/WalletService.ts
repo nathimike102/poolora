@@ -13,7 +13,6 @@ import {
 import {
     AppError,
     NotFoundError,
-    AuthorizationError,
 } from '../utils/AppError';
 import { paginate } from '../utils/helpers';
 import { EventBridge } from '../events';

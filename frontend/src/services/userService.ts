@@ -38,9 +38,9 @@ export const userService = {
   /**
    * Get saved routes
    */
-  async getSavedRoutes() {
+  async getSavedRoutes(): Promise<unknown> {
     try {
-      const response = await apiClient.get<ApiResponse<any>>(API_ENDPOINTS.users.savedRoutes);
+      const response = await apiClient.get<ApiResponse<unknown>>(API_ENDPOINTS.users.savedRoutes);
       logger.info('Saved routes fetched');
       return response.data.data;
     } catch (error) {

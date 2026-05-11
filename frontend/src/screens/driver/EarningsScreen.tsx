@@ -7,21 +7,17 @@ import {
   Pressable,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { walletService } from '../../services/walletService';
 import { userService } from '../../services/userService';
 import type { Transaction } from '../../types/api';
-import { ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Defs, LinearGradient as SvgGrad, Stop, Polyline, Line } from 'react-native-svg';
 
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Period = 'today' | 'week' | 'month';
 
 /* ── Data ──────────────────────────────────────────────────── */
@@ -138,14 +134,13 @@ function MiniChart({
 
 /* ═══════════════════════════════════════════════════════════════ */
 export function EarningsScreen() {
-  const navigation = useNavigation<Nav>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<Period>('today');
   const [loading, setLoading] = useState(true);
   
   const [statsData, setStatsData] = useState(initialPeriodStats);
-  const [transactionsData, setTransactionsData] = useState<any[]>([]);
+  const [transactionsData, setTransactionsData] = useState<Record<string, unknown>[]>([]);
   const [balance, setBalance] = useState(6320);
 
   useFocusEffect(

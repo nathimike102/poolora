@@ -1,4 +1,4 @@
-import { IWallet, Wallet } from '../models/Wallet';
+import { IWallet } from '../models/Wallet';
 import { RewardTier } from '../types';
 import { config } from '../config';
 import { logger } from '../utils/logger';

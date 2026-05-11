@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,7 +13,7 @@ import { Text } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { bookingService } from '../../services/bookingService';
-import type { Booking } from '../../types/api';
+import type { Booking, UserGender, BookingStatus } from '../../types/api';
 import { ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -25,8 +25,38 @@ import { ImageWithFallback } from '../../components/ImageWithFallback';
 import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
 
-type Gender = 'Male' | 'Female' | 'Other';
-type Status = 'pending' | 'accepted' | 'rejected';
+type Gender = UserGender;
+type Status = BookingStatus | 'accepted'; // 'accepted' maps to 'confirmed' in BookingStatus
+
+interface RequestItem {
+  id: string;
+  tripId: string;
+  rider: string;
+  avatar: string;
+  rating: number;
+  trips: number;
+  from: string;
+  to: string;
+  date: string;
+  seats: number;
+  price: number;
+  aiScore: number;
+  expiresIn: string;
+  verified: boolean;
+  passengers: Array<{ name: string; gender: string }>;
+  status: Status;
+}
+
+interface TripItem {
+  id: string;
+  label: string;
+  from?: string;
+  to?: string;
+  date: string;
+  totalSeats: number;
+  filledSeats: number;
+  earnings: number;
+}
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -38,27 +68,31 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 /* ── Sub-components ────────────────────────────────────────── */
 
-function GenderBadge({ gender }: { gender: Gender }) {
-  const map: Record<Gender, { bg: string; border: string; text: string }> = {
+function GenderBadge({ gender }: { gender: Gender }): React.ReactElement {
+  const normalizedGender = gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : 'Other';
+  const map: Record<string, { bg: string; border: string; text: string }> = {
     Female: { bg: '#FFF1F2', border: '#FCA5A5', text: '#E11D48' },
     Male:   { bg: '#EFF6FF', border: '#93C5FD', text: '#2563EB' },
     Other:  { bg: '#F5F3FF', border: '#C4B5FD', text: '#7C3AED' },
   };
-  const s = map[gender];
+  const s = map[normalizedGender];
   return (
     <View style={[styles.genderBadge, { backgroundColor: s.bg, borderColor: s.border }]}>
-      <Text style={{ fontSize: 11, fontWeight: '600', color: s.text }}>{gender}</Text>
+      <Text style={{ fontSize: 11, fontWeight: '600', color: s.text }}>{normalizedGender}</Text>
     </View>
   );
 }
 
-function StatusChip({ status }: { status: Status }) {
-  const map: Record<Status, { label: string; bg: string; text: string }> = {
-    pending:  { label: 'Pending',  bg: '#FEF3C7', text: '#D97706' },
-    accepted: { label: 'Accepted', bg: '#D1FAE5', text: '#059669' },
-    rejected: { label: 'Declined', bg: '#FFF1F2', text: '#E11D48' },
+function StatusChip({ status }: { status: Status }): React.ReactElement {
+  const map: Record<string, { label: string; bg: string; text: string }> = {
+    pending:   { label: 'Pending',   bg: '#FEF3C7', text: '#D97706' },
+    accepted:  { label: 'Accepted',  bg: '#D1FAE5', text: '#059669' },
+    confirmed: { label: 'Confirmed', bg: '#D1FAE5', text: '#059669' },
+    rejected:  { label: 'Declined',  bg: '#FFF1F2', text: '#E11D48' },
+    cancelled: { label: 'Cancelled', bg: '#FFF1F2', text: '#E11D48' },
+    completed: { label: 'Completed', bg: '#D1FAE5', text: '#059669' },
   };
-  const m = map[status];
+  const m = map[status] || { label: status, bg: '#F0F0F0', text: '#666' };
   return (
     <View style={[styles.statusChip, { backgroundColor: m.bg }]}>
       <Text style={{ fontSize: 11, fontWeight: '700', color: m.text }}>{m.label}</Text>
@@ -67,13 +101,13 @@ function StatusChip({ status }: { status: Status }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
-export function ManageRequestsScreen() {
+export function ManageRequestsScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
-  const [requests, setRequests] = useState<any[]>([]);
-  const [trips, setTrips] = useState<any[]>([]);
+  const [requests, setRequests] = useState<RequestItem[]>([]);
+  const [trips, setTrips] = useState<TripItem[]>([]);
   const [activeTripId, setActiveTripId] = useState('');
   const [activeTab, setActiveTab] = useState<string>('pending');
   const [loading, setLoading] = useState(true);
@@ -162,10 +196,13 @@ export function ManageRequestsScreen() {
     } catch (e) { console.error(e); }
   };
 
-  const tabCounts: Record<Status, number> = {
+  const tabCounts: Record<string, number> = {
     pending: requests.filter(r => r.tripId === activeTripId && r.status === 'pending').length,
     accepted: requests.filter(r => r.tripId === activeTripId && r.status === 'accepted').length,
     rejected: requests.filter(r => r.tripId === activeTripId && r.status === 'rejected').length,
+    confirmed: requests.filter(r => r.tripId === activeTripId && r.status === 'confirmed').length,
+    cancelled: requests.filter(r => r.tripId === activeTripId && r.status === 'cancelled').length,
+    completed: requests.filter(r => r.tripId === activeTripId && r.status === 'completed').length,
   };
 
   const TABS: { key: Status; label: string; color: string; bg: string }[] = [
@@ -528,7 +565,7 @@ export function ManageRequestsScreen() {
                     {req.passengers.length} passenger{req.passengers.length > 1 ? 's' : ''}
                   </Text>
                 </View>
-                {req.passengers.map((pax: { gender: Gender, name: string }, i: number) => (
+                {req.passengers.map((pax: { gender?: Gender; name: string }, i: number) => (
                   <View
                     key={i}
                     style={[
@@ -546,15 +583,17 @@ export function ManageRequestsScreen() {
                       </Text>
                     </View>
                     <Text style={{ fontSize: 18 }}>
-                      {pax.gender === 'Female' ? '👩' : pax.gender === 'Male' ? '👨' : '🧑'}
+                      {pax.gender === 'female' ? '👩' : pax.gender === 'male' ? '👨' : '🧑'}
                     </Text>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
                         {pax.name}
                       </Text>
-                      <Text style={{ fontSize: 11, color: c.textSec }}>{pax.gender}</Text>
+                      <Text style={{ fontSize: 11, color: c.textSec }}>
+                        {pax.gender ? (pax.gender === 'male' ? 'Male' : pax.gender === 'female' ? 'Female' : 'Other') : 'Not specified'}
+                      </Text>
                     </View>
-                    <GenderBadge gender={pax.gender} />
+                    {pax.gender && <GenderBadge gender={pax.gender} />}
                   </View>
                 ))}
               </View>

@@ -22,6 +22,11 @@ import type {
   User,
 } from '../types/api';
 
+type ErrorLike = {
+  code?: string;
+  message?: string;
+};
+
 // Configure Google Sign-In with the web client ID from environment
 try {
   if (GOOGLE_WEB_CLIENT_ID) {
@@ -40,6 +45,30 @@ try {
 let currentAccessToken: string | null = null;
 let currentUser: User | null = null;
 
+function getErrorDetails(error: unknown): ErrorLike {
+  if (typeof error === 'object' && error !== null) {
+    const details = error as ErrorLike;
+    return {
+      code: details.code,
+      message: details.message,
+    };
+  }
+
+  return {};
+}
+
+function setLocalAuthState(accessToken: string, user?: User): void {
+  currentAccessToken = accessToken;
+  if (user) {
+    currentUser = user;
+  }
+}
+
+function clearLocalAuthState(): void {
+  currentAccessToken = null;
+  currentUser = null;
+}
+
 /**
  * Send an OTP to the given phone number.
  *
@@ -47,15 +76,15 @@ let currentUser: User | null = null;
  * @returns ConfirmationResult which is used to confirm the OTP code later
  * @throws FirebaseAuthError if the number is invalid or rate-limited
  */
-export async function sendOTP(
+export async function sendOtp(
   phoneNumber: string,
 ): Promise<FirebaseAuthTypes.ConfirmationResult> {
   try {
     const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
     return confirmation;
-  } catch (error: any) {
+  } catch (error) {
     // Re-throw with a user-friendly message
-    const code = error?.code;
+    const { code, message } = getErrorDetails(error);
     switch (code) {
       case 'auth/invalid-phone-number':
         throw new Error('The phone number is invalid. Please check and try again.');
@@ -66,20 +95,23 @@ export async function sendOTP(
       case 'auth/network-request-failed':
         throw new Error('Network error. Please check your internet connection.');
       default:
-        throw new Error(error?.message ?? 'Failed to send OTP. Please try again.');
+        throw new Error(message ?? 'Failed to send OTP. Please try again.');
     }
   }
 }
 
+// Backward-compatible alias. Prefer sendOtp.
+export const sendOTP = sendOtp;
+
 /**
  * Verify the OTP code against the confirmation result.
  *
- * @param confirmation - The ConfirmationResult from sendOTP
+ * @param confirmation - The ConfirmationResult from sendOtp
  * @param code - The 6-digit OTP code entered by the user
  * @returns UserCredential on success
  * @throws Error with user-friendly message on failure
  */
-export async function confirmOTP(
+export async function confirmOtp(
   confirmation: FirebaseAuthTypes.ConfirmationResult,
   code: string,
 ): Promise<FirebaseAuthTypes.UserCredential> {
@@ -89,18 +121,21 @@ export async function confirmOTP(
       throw new Error('Verification failed. Please try again.');
     }
     return userCredential;
-  } catch (error: any) {
-    const errorCode = error?.code;
+  } catch (error) {
+    const { code: errorCode, message } = getErrorDetails(error);
     switch (errorCode) {
       case 'auth/invalid-verification-code':
         throw new Error('Invalid OTP code. Please check and try again.');
       case 'auth/session-expired':
         throw new Error('OTP has expired. Please request a new one.');
       default:
-        throw new Error(error?.message ?? 'Verification failed. Please try again.');
+        throw new Error(message ?? 'Verification failed. Please try again.');
     }
   }
 }
+
+// Backward-compatible alias. Prefer confirmOtp.
+export const confirmOTP = confirmOtp;
 
 /**
  * Sign out the current user.
@@ -135,8 +170,8 @@ export async function signInWithEmail(
 ): Promise<FirebaseAuthTypes.UserCredential> {
   try {
     return await auth().signInWithEmailAndPassword(email, password);
-  } catch (error: any) {
-    const code = error?.code;
+  } catch (error) {
+    const { code, message } = getErrorDetails(error);
     switch (code) {
       case 'auth/invalid-email':
         throw new Error('The email address is invalid.');
@@ -151,7 +186,7 @@ export async function signInWithEmail(
       case 'auth/network-request-failed':
         throw new Error('Network error. Please check your internet connection.');
       default:
-        throw new Error(error?.message ?? 'Sign-in failed. Please try again.');
+        throw new Error(message ?? 'Sign-in failed. Please try again.');
     }
   }
 }
@@ -168,8 +203,8 @@ export async function signUpWithEmail(
     const userCredential = await auth().createUserWithEmailAndPassword(email, password);
     await userCredential.user.updateProfile({ displayName });
     return userCredential;
-  } catch (error: any) {
-    const code = error?.code;
+  } catch (error) {
+    const { code, message } = getErrorDetails(error);
     switch (code) {
       case 'auth/email-already-in-use':
         throw new Error('An account with this email already exists.');
@@ -180,7 +215,7 @@ export async function signUpWithEmail(
       case 'auth/network-request-failed':
         throw new Error('Network error. Please check your internet connection.');
       default:
-        throw new Error(error?.message ?? 'Sign-up failed. Please try again.');
+        throw new Error(message ?? 'Sign-up failed. Please try again.');
     }
   }
 }
@@ -191,15 +226,15 @@ export async function signUpWithEmail(
 export async function sendPasswordReset(email: string): Promise<void> {
   try {
     await auth().sendPasswordResetEmail(email);
-  } catch (error: any) {
-    const code = error?.code;
+  } catch (error) {
+    const { code, message } = getErrorDetails(error);
     switch (code) {
       case 'auth/user-not-found':
         throw new Error('No account found with this email.');
       case 'auth/invalid-email':
         throw new Error('The email address is invalid.');
       default:
-        throw new Error(error?.message ?? 'Failed to send reset email. Please try again.');
+        throw new Error(message ?? 'Failed to send reset email. Please try again.');
     }
   }
 }
@@ -231,18 +266,19 @@ export async function signInWithGoogle(): Promise<FirebaseAuthTypes.UserCredenti
     // Sign in to Firebase with the credential
     const userCredential = await auth().signInWithCredential(googleCredential);
     return userCredential;
-  } catch (error: any) {
+  } catch (error) {
+    const { code, message } = getErrorDetails(error);
     // User cancelled the sign-in flow
-    if (error?.code === 'SIGN_IN_CANCELLED' || error?.code === '12501') {
+    if (code === 'SIGN_IN_CANCELLED' || code === '12501') {
       throw new Error('Sign-in was cancelled.');
     }
-    if (error?.code === 'IN_PROGRESS') {
+    if (code === 'IN_PROGRESS') {
       throw new Error('Sign-in is already in progress.');
     }
-    if (error?.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+    if (code === 'PLAY_SERVICES_NOT_AVAILABLE') {
       throw new Error('Google Play Services is not available on this device.');
     }
-    throw new Error(error?.message ?? 'Google Sign-In failed. Please try again.');
+    throw new Error(message ?? 'Google Sign-In failed. Please try again.');
   }
 }
 
@@ -264,7 +300,7 @@ export async function sendOtpToBackend(phone: string): Promise<void> {
 
 /**
  * Verify OTP with backend and get JWT tokens
-n *
+ *
  * @param phone - Phone that received OTP
  * @param otp - 6-digit OTP code
  * @param name - User's name (for new users)
@@ -300,10 +336,9 @@ export async function verifyOtpWithBackend(
     await tokenStorage.saveUserId(userId);
 
     // Update global state
-    currentAccessToken = accessToken;
-    currentUser = user;
+    setLocalAuthState(accessToken, user);
 
-    logger.info('User verified with OTP', { userId: user._id, isNewUser });
+    logger.info('User verified with OTP', { userId, isNewUser });
 
     return response.data.data;
   } catch (error) {
@@ -340,10 +375,9 @@ export async function firebaseLoginWithBackend(
     await tokenStorage.saveUserId(userId);
 
     // Update global state
-    currentAccessToken = accessToken;
-    currentUser = user;
+    setLocalAuthState(accessToken, user);
 
-    logger.info('Firebase login successful with backend', { userId: user._id });
+    logger.info('Firebase login successful with backend', { userId });
 
     return response.data.data;
   } catch (error) {
@@ -374,7 +408,7 @@ export async function refreshAccessToken(): Promise<string> {
 
     // Update header and global state
     setAuthorizationHeader(accessToken);
-    currentAccessToken = accessToken;
+    setLocalAuthState(accessToken);
 
     logger.info('Token refreshed successfully');
     return accessToken;
@@ -416,8 +450,7 @@ export async function logoutAll(): Promise<void> {
     // Clear backend auth
     await tokenStorage.clearTokens();
     clearAuthorizationHeader();
-    currentAccessToken = null;
-    currentUser = null;
+    clearLocalAuthState();
 
     // Sign out from Firebase
     await auth().signOut();
@@ -432,7 +465,9 @@ export async function logoutAll(): Promise<void> {
 /**
  * Submit KYC data to backend
  */
-export async function submitKycToBackend(data: any): Promise<User> {
+export async function submitKycToBackend(
+  data: Record<string, unknown>,
+): Promise<User> {
   try {
     const response = await apiClient.post<ApiResponse<{ user: User }>>(API_ENDPOINTS.auth.submitKyc, data);
     const user = response.data.data.user;
@@ -488,11 +523,13 @@ export async function restoreAuthState(): Promise<boolean> {
       } catch (error) {
         logger.warn('Token refresh on restore failed', { error });
         await tokenStorage.clearTokens();
+        clearAuthorizationHeader();
+        clearLocalAuthState();
         return false;
       }
     } else if (accessToken) {
       setAuthorizationHeader(accessToken);
-      currentAccessToken = accessToken;
+      setLocalAuthState(accessToken);
       logger.info('Auth state restored from storage');
     }
 

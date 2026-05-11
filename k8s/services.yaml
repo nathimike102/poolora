@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sanchari-backend
+  namespace: sanchari
+spec:
+  selector:
+    app: sanchari-backend
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: sanchari
+spec:
+  selector:
+    app: mongodb
+  ports:
+  - port: 27017
+    targetPort: 27017
+  clusterIP: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: sanchari
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  clusterIP: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: sanchari
+spec:
+  selector:
+    app: kafka
+  ports:
+  - port: 9092
+    targetPort: 9092
+  clusterIP: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: sanchari
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+  - port: 9200
+    targetPort: 9200
+  clusterIP: None

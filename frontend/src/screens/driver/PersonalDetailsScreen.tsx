@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -57,7 +56,7 @@ function OnboardingStepHeader({
 
       {/* Progress bar */}
       <View style={os.progressTrack}>
-        <View style={[os.progressFill, { width: `${(step / 3) * 100}%` as any }]} />
+        <View style={[os.progressFill, { width: `${(step / 3) * 100}%` as unknown as number }]} />
       </View>
 
       {/* Step pills */}

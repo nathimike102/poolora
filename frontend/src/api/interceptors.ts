@@ -7,7 +7,7 @@
  * - Request/response transformation
  */
 
-import { AxiosError, AxiosResponse } from 'axios';
+import { AxiosError } from 'axios';
 import { apiClient, setAuthorizationHeader, clearAuthorizationHeader } from './axios';
 import { API_CONFIG, HTTP_STATUS } from './constants';
 import { tokenStorage } from '../utils/tokenStorage';
@@ -19,7 +19,7 @@ import { getJwtExpiresAtMs } from '../utils/jwt';
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface RetryRequest {
-  config: any;
+  config: unknown;
   count: number;
   delay: number;
 }
@@ -29,10 +29,10 @@ interface RetryRequest {
 let isRefreshingToken = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
-  reject: (error: any) => void;
+  reject: (error: unknown) => void;
 }> = [];
 
-const processQueue = (token: string | null, error?: any) => {
+const processQueue = (token: string | null, error?: unknown) => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
@@ -79,9 +79,9 @@ export function setupAuthInterceptor(): void {
             config.headers.Authorization = `Bearer ${newToken}`;
             return apiClient.request(config);
           }
-        } catch (err) {
+          } catch (err) {
           isRefreshingToken = false;
-          processQueue(null, err);
+            processQueue(null, err as unknown);
           return Promise.reject(err);
         }
       }
@@ -95,7 +95,7 @@ export function setupAuthInterceptor(): void {
               resolve(apiClient.request(config));
             }
           },
-          reject: (error: any) => reject(error),
+          reject: (error: unknown) => reject(error),
         });
       });
     },
@@ -108,7 +108,7 @@ export function setupAuthInterceptor(): void {
  * Setup retry interceptor that retries failed requests with exponential backoff
  */
 export function setupRetryInterceptor(): void {
-  const retryMap = new WeakMap<any, RetryRequest>();
+  const retryMap = new WeakMap<unknown, RetryRequest>();
 
   apiClient.interceptors.response.use(
     (response) => response,

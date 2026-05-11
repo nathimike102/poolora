@@ -20,7 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useApp } from '../context/AppContext';
-import { Typography, Spacing } from '../theme';
+import { Typography } from '../theme';
 import type { DriverTabParamList, RiderTabParamList, RootStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -246,7 +246,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
     (item: NavItem) => {
       Haptics.selectionAsync();
       onTabChange(item.tab);
-      navigation.navigate(item.route as any);
+      navigation.navigate(item.route as never);
     },
     [navigation, onTabChange],
   );

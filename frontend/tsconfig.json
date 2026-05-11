@@ -1,17 +1,19 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "ignoreDeprecations": "5.0",
     "strict": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"],
-      "@components/*": ["src/components/*"],
-      "@screens/*": ["src/screens/*"],
-      "@navigation/*": ["src/navigation/*"],
-      "@theme/*": ["src/theme/*"],
-      "@utils/*": ["src/utils/*"],
-      "@context/*": ["src/context/*"]
-    }
-  }
+    "jsx": "react-native",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "lib": ["es2020", "dom"],
+    "target": "es2020",
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "build"]
 }

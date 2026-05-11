@@ -266,7 +266,7 @@ export function ShipParcelScreen() {
           </View>
         </View>
         <View style={s.progressTrack}>
-          <View style={[s.progressFill, { width: `${((step + 1) / STEPS.length) * 100}%` as any }]} />
+          <View style={[s.progressFill, { width: `${((step + 1) / STEPS.length) * 100}%` as unknown as number }]} />
         </View>
       </LinearGradient>
 

@@ -5,7 +5,7 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
@@ -60,7 +60,6 @@ const ridesMap: Record<string, {
 
 /* ═══════════════════════════════════════════════════════════════════ */
 export function DriverRideDetailsScreen() {
-  const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();

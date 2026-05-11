@@ -29,7 +29,6 @@ const upcomingRides = [
 
 /* ═══════════════════════════════════════════════════════════════════ */
 export function UpcomingRidesScreen() {
-  const navigation = useNavigation<Nav>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 

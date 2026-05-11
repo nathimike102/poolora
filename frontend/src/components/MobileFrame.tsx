@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, type ViewStyle } from 'react-native';
-import Svg, { Rect, Circle, Path, Line as SvgLine } from 'react-native-svg';
+import Svg, { Rect, Circle, Path } from 'react-native-svg';
 
 import { useApp } from '../context/AppContext';
 
