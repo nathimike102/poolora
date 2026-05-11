@@ -1,4 +1,5 @@
 import typescriptEslint from 'typescript-eslint';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
   { ignores: ['node_modules/**', 'build/**', 'dist/**'] },
@@ -15,6 +16,7 @@ export default [
     },
     plugins: {
       '@typescript-eslint': typescriptEslint.plugin,
+      'react-hooks': reactHooks,
     },
     rules: {
       '@typescript-eslint/no-unused-vars': 'off',
