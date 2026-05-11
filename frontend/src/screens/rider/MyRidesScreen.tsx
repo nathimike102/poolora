@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -70,7 +70,7 @@ const AnimatedPressable = ({
   disabled,
 }: {
   onPress?: () => void;
-  style?: any;
+  style?: unknown;
   children: React.ReactNode;
   disabled?: boolean;
 }) => {

@@ -43,7 +43,7 @@ export function GradientButton({
   disabled = false,
   loading = false,
   colorStart = '#7C3AED',
-  colorEnd = '#5B21B6',
+  _colorEnd = '#5B21B6',
   disabledColor = '#E5E7EB',
   height = 56,
   style,

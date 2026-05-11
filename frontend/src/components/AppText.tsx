@@ -16,7 +16,6 @@ import { useApp } from '../context/AppContext';
 // ---- Props ------------------------------------------------------------------
 
 type FontWeight = 'regular' | 'medium' | 'semibold' | 'bold' | 'extrabold';
-type FontSize = keyof typeof Typography;
 
 interface AppTextProps extends TextProps {
   /** Convenience size token from Typography scale */

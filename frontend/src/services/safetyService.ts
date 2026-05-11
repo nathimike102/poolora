@@ -46,14 +46,14 @@ export const safetyService = {
   /**
    * Get SOS status
    */
-  async getSOSStatus(sosId: string): Promise<SOSResponse> {
+  async getSOSStatus(_sosId: string): Promise<SOSResponse> {
     throw new Error('Direct SOS status endpoint is not available in the current backend API.');
   },
 
   /**
    * Get emergency contacts
    */
-  async getEmergencyContacts(): Promise<any[]> {
+  async getEmergencyContacts(): Promise<unknown[]> {
     throw new Error('Emergency contacts endpoint is not available in the current backend API.');
   },
 };

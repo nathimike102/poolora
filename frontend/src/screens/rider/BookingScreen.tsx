@@ -54,9 +54,9 @@ function AnimatedPressable({
   onPress: () => void;
   disabled?: boolean;
   scaleValue?: number;
-  style?: any;
+  style?: unknown;
   children: React.ReactNode;
-}) {
+}): React.ReactElement {
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = useCallback(() => {
@@ -82,7 +82,7 @@ function AnimatedPressable({
 
 // ─── Confirmed Animation View ─────────────────────────────────────────────────
 
-function ConfirmedView({ c }: { c: any }) {
+function ConfirmedView({ c }: { c: ReturnType<typeof useApp>['c'] }): React.ReactElement {
   const scale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -114,7 +114,7 @@ function ConfirmedView({ c }: { c: any }) {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-export function BookingScreen() {
+export function BookingScreen(): React.ReactElement {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<BookingRoute>();
   const { c } = useApp();
@@ -160,18 +160,18 @@ export function BookingScreen() {
         specialRequirements: message.trim() ? message.trim() : undefined,
       };
 
-      const booking = await bookingService.createBooking(payload);
+      await bookingService.createBooking(payload as any);
       
       setIsSubmitting(false);
       setConfirmed(true);
       
       // Navigate to payment after the success animation
       setTimeout(() => navigation.navigate('Payment', { rideId, amount: total }), 1800);
-    } catch (error) {
+    } catch {
       setIsSubmitting(false);
       // Note: centralized error handler will catch and show toast
     }
-  }, [navigation, rideId, seats, passengers, message, total, isSubmitting]);
+  }, [navigation, rideId, seats, message, total, isSubmitting]);
 
   // ── Confirmed State ────────────────────────────────────────────
   if (confirmed) {

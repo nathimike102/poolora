@@ -15,7 +15,6 @@ import Svg, {
   Rect,
   Circle,
   Path,
-  Line as SvgLine,
   G,
   Text as SvgText,
 } from 'react-native-svg';

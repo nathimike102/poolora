@@ -34,7 +34,7 @@ const INITIAL_MESSAGES = [
 
 const QUICK_REPLIES = ['On my way!', 'Be there in 2 min', 'Running late', 'At pickup point', 'Thanks!'];
 
-export function ChatScreen() {
+export function ChatScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
   const { c, role, user } = useApp();
   const insets = useSafeAreaInsets();
@@ -187,7 +187,7 @@ export function ChatScreen() {
           <View style={[s.dividerLine, { backgroundColor: c.border }]} />
         </View>
 
-        {messages.map(msg => {
+        {messages.map((msg: any) => {
           const isMe = msg.from === 'me';
           return (
             <View

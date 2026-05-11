@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init
+  namespace: sanchari
+spec:
+  template:
+    spec:
+      containers:
+      - name: db-init
+        image: mongo:7.0
+        command: ["mongo", "--host", "mongodb-0.mongodb", "--eval", "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongodb-0.mongodb:27017'}, {_id: 1, host: 'mongodb-1.mongodb:27017'}, {_id: 2, host: 'mongodb-2.mongodb:27017'}]})"]
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: username
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: password
+      restartPolicy: Never

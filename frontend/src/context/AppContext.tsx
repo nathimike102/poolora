@@ -17,7 +17,12 @@ import React, {
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { type AppColors, LightColors, DarkColors } from '../theme';
-import { onAuthStateChanged, signOut as firebaseSignOut, restoreAuthState as restoreBackendAuth } from '../services/authService';
+import {
+  onAuthStateChanged,
+  signOut as signOutFromFirebase,
+  restoreAuthState,
+  logoutAll,
+} from '../services/authService';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { logger } from '../utils/logger';
 
@@ -85,14 +90,19 @@ export function AppProvider({ children }: AppProviderProps) {
   useEffect(() => {
     (async () => {
       try {
-        const [, savedTheme] = await AsyncStorage.multiGet([
+        const [savedRole, savedTheme] = await AsyncStorage.multiGet([
           '@ridepool_role',
           '@ridepool_dark_mode',
         ]);
+
+        if (savedRole[1] === 'rider' || savedRole[1] === 'driver') {
+          setRoleState(savedRole[1]);
+        }
+
         if (savedTheme[1] !== null) {
           setIsDarkMode(savedTheme[1] === 'true');
         }
-      } catch (_) {
+      } catch {
         // Ignore read errors — start with defaults
       }
     })();
@@ -101,6 +111,11 @@ export function AppProvider({ children }: AppProviderProps) {
   // Wrapped setRole that also persists to AsyncStorage
   const setRole = useCallback((newRole: UserRole) => {
     setRoleState(newRole);
+    if (newRole) {
+      AsyncStorage.setItem('@ridepool_role', newRole).catch(() => {});
+    } else {
+      AsyncStorage.removeItem('@ridepool_role').catch(() => {});
+    }
   }, []);
 
   // Listen to Firebase auth state changes
@@ -139,7 +154,7 @@ export function AppProvider({ children }: AppProviderProps) {
   useEffect(() => {
     (async () => {
       try {
-        const restored = await restoreBackendAuth();
+        const restored = await restoreAuthState();
         if (!restored) {
           logger.debug('No backend auth state to restore');
         }
@@ -151,13 +166,11 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const logout = useCallback(async () => {
     try {
-      // Import logoutAll here to avoid circular dependency
-      const { logoutAll } = await import('../services/authService');
       await logoutAll();
     } catch (error) {
       logger.warn('Error during backend logout', { error });
       // Still proceed with local logout
-      await firebaseSignOut();
+      await signOutFromFirebase();
     }
     setUser(null);
     setRoleState(null);
@@ -176,6 +189,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const switchRole = useCallback(() => {
     setRoleState(prev => {
       const next: UserRole = prev === 'rider' ? 'driver' : 'rider';
+      AsyncStorage.setItem('@ridepool_role', next).catch(() => {});
       return next;
     });
     setActiveTab('home');
@@ -203,7 +217,7 @@ export function AppProvider({ children }: AppProviderProps) {
       toggleDarkMode,
       logout,
     }),
-    [role, user, isDarkMode, c, activeTab, firebaseUser, authLoading, switchRole, toggleDarkMode, logout],
+    [role, user, isDarkMode, c, activeTab, firebaseUser, authLoading, switchRole, toggleDarkMode, logout, setRole, setUser, setActiveTab],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

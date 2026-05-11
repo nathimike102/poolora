@@ -10,14 +10,14 @@ describe('GradientButton', () => {
 
   it('calls onPress when pressed', () => {
     const mockPress = jest.fn();
-    const { getByTestId } = render(<GradientButton label="Click Me" onPress={mockPress} />);
+    const { getByTestId: getById } = render(<GradientButton label="Click Me" onPress={mockPress} />);
     
-    fireEvent.press(getByTestId('gradient-button'));
+    fireEvent.press(getById('gradient-button'));
     expect(mockPress).toHaveBeenCalled();
   });
 
   it('triggers animation on press in/out', () => {
-    const { getByTestId } = render(<GradientButton label="Animate" onPress={() => {}} />);
+    const { getByTestId: _getByTestId } = render(<GradientButton label="Animate" onPress={() => {}} />);
     const button = getByTestId('gradient-button');
     
     fireEvent(button, 'pressIn');

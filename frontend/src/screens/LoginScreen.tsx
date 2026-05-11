@@ -35,6 +35,14 @@ export function LoginScreen() {
 
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return fallback;
+  };
+
   const handleGoogleSignIn = async () => {
     if (googleLoading) return;
     setGoogleLoading(true);
@@ -50,10 +58,11 @@ export function LoginScreen() {
       
       logger.info('Google sign-in successful');
       navigation.navigate('ProfileSetup');
-    } catch (err: any) {
-      if (err.message !== 'Sign-in was cancelled.') {
-        logger.error('Google sign-in failed', { error: err });
-        Alert.alert('Google Sign-In Error', err.message || 'Please try again');
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Please try again');
+      if (errorMessage !== 'Sign-in was cancelled.') {
+        logger.error('Google sign-in failed', { error });
+        Alert.alert('Google Sign-In Error', errorMessage);
       }
     } finally {
       setGoogleLoading(false);

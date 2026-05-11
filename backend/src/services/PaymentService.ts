@@ -1,11 +1,10 @@
 import crypto from 'crypto';
 import mongoose from 'mongoose';
-import { Payment, IPayment } from '../models/Payment';
+import { Payment } from '../models/Payment';
 import { Booking } from '../models/Booking';
-import { User } from '../models/User';
 import { config } from '../config';
 import { PaymentStatus, BookingStatus } from '../types';
-import { AppError, NotFoundError } from '../utils/AppError';
+
 import { logger } from '../utils/logger';
 import { EventBridge } from '../events';
 

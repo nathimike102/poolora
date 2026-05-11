@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/AuthService';
 import { UnifiedAuthService } from '../auth';
 import { User } from '../models/User';
-import { AuthenticatedRequest, JWTPayload, UserCapability, KYCStatus } from '../types';
+import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
 
 const authService = new AuthService();

@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Path } from 'react-native-svg';
 
 import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

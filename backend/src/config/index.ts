@@ -46,6 +46,8 @@ export const config = {
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID || '',
     serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
+    // Optional: supply the service account JSON directly via env (base64 or raw JSON).
+    serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '',
   },
 
   razorpay: {

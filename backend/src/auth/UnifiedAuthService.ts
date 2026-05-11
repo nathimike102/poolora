@@ -99,7 +99,7 @@ export class UnifiedAuthService {
 
     try {
       return await this.jwtStrategy.authenticate(token);
-    } catch (_jwtErr) {
+    } catch {
       // Both strategies failed — throw a combined error
       throw new AuthenticationError(
         'Authentication failed. Token is not a valid Firebase ID token or custom JWT.',

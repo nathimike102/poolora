@@ -11,6 +11,17 @@ if (typeof global.Buffer === 'undefined') {
   global.Buffer = Buffer;
 }
 
+// Reanimated (and some animation helpers) expect a global helper
+// `global._getAnimationTimestamp`. Ensure it's defined early so
+// animated hooks like `useSharedValue` work reliably in dev builds.
+if (typeof global._getAnimationTimestamp !== 'function') {
+  const now =
+    typeof global.performance === 'object' && typeof global.performance.now === 'function'
+      ? () => global.performance.now()
+      : () => Date.now();
+  global._getAnimationTimestamp = now;
+}
+
 import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

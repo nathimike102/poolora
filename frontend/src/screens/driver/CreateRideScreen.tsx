@@ -19,7 +19,6 @@ import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
-import { Shadow } from '../../theme';
 import { fetchPlaceSuggestions, PlaceSuggestion } from '../../services/placesService';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -33,7 +32,7 @@ const AnimatedPressable = ({
   children,
 }: {
   onPress?: () => void;
-  style?: any;
+  style?: unknown;
   children: React.ReactNode;
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -137,6 +136,7 @@ export function CreateRideScreen() {
       Animated.spring(pubRotate, { toValue: 1, friction: 4, useNativeDriver: true }).start();
       Animated.timing(barWidth, { toValue: 1, duration: 800, delay: 500, useNativeDriver: false }).start();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [published]);
 
   const handlePublish = () => setPublished(true);
@@ -209,7 +209,7 @@ export function CreateRideScreen() {
             setSeats(3);
             setPrice(220);
             setRecurring(false);
-            navigation.reset({ index: 0, routes: [{ name: 'DriverTabs' as any }] });
+            navigation.reset({ index: 0, routes: [{ name: 'DriverTabs' as unknown as never }] });
           }}
           style={{ marginTop: 20 }}
         >
@@ -509,7 +509,7 @@ export function CreateRideScreen() {
               styles.sliderFill,
               {
                 backgroundColor: c.primary,
-                width: `${((price - 100) / 250) * 100}%` as any,
+                width: `${((price - 100) / 250) * 100}%` as unknown as number,
               },
             ]}
           />

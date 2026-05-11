@@ -20,7 +20,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
 import { ImageWithFallback } from '../../components/ImageWithFallback';
 import type { RootStackParamList } from '../../navigation/types';
-import { Shadow } from '../../theme';
 import { getVehicles, deleteVehicle, type Vehicle } from '../../services/vehicleService';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;

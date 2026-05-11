@@ -65,7 +65,7 @@ function AnimatedPressable({
 }: {
   onPress: () => void;
   scaleValue?: number;
-  style?: any;
+  style?: unknown;
   children: React.ReactNode;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -131,7 +131,7 @@ export function SearchScreen() {
       if (params.pickedField === 'to') setTo(params.pickedLocation);
       else setFrom(params.pickedLocation);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [route.params]);
 
   const formatSelectedDate = (d: Date | null) => {

@@ -71,7 +71,7 @@ const WalletSchema = new Schema<IWallet>(
         timestamps: true,
         toJSON: {
             transform(_doc, ret) {
-                // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+                 
                 delete (ret as any).__v;
                 ret.balance = Math.round(ret.balance * 100) / 100;
                 return ret;

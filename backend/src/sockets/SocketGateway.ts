@@ -71,7 +71,7 @@ export class SocketGateway {
       try {
         this.io.adapter(createAdapter(pubClient, subClient));
         logger.info('Socket.io Redis adapter connected');
-      } catch (error) {
+      } catch {
         logger.warn('Socket.io running without Redis adapter (single-instance mode)');
       }
     } else {
@@ -104,7 +104,7 @@ export class SocketGateway {
         (socket as AuthenticatedSocket).sessionId = payload.sessionId;
 
         next();
-      } catch (error) {
+      } catch {
         next(new Error('Invalid token'));
       }
     });
@@ -514,7 +514,6 @@ socket.on('chat:typing:stop', async (data: { bookingId: string }) => {
      */
     socket.on('admin:sos:join', () => {
       // Verify the user has admin capability before allowing join
-      const user = (socket as any);
       // We need to look up capabilities from JWT payload
       // The JWT token was already validated in the auth middleware
       const token = socket.handshake.auth.token ||

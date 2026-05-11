@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
 import { LiveMap } from '../../components/LiveMap';
 import type { RootStackParamList } from '../../navigation/types';
-import { Shadow } from '../../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -38,7 +37,7 @@ function PulsingDot() {
         Animated.timing(scale, { toValue: 1, duration: 500, useNativeDriver: true }),
       ]),
     ).start();
-  }, []);
+  }, [scale]);
   return (
     <Animated.View
       style={{

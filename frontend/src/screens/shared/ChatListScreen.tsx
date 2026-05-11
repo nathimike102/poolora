@@ -24,7 +24,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 // Conversations will be derived from active/recent bookings
 
-export function ChatListScreen() {
+export function ChatListScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
   const { c, role } = useApp();
   const insets = useSafeAreaInsets();
@@ -48,7 +48,7 @@ export function ChatListScreen() {
             setTotalUnread(unreadRes);
             
             if (bookingsRes.data?.items) {
-              const activeBookings = bookingsRes.data.items.filter((b: Booking) => b.status === 'pending' || b.status === 'confirmed' || b.status === 'completed');
+              const activeBookings = bookingsRes.data.items.filter((b: Booking) => b.status === 'pending' || b.status === 'confirmed' || b.status === 'completed' || b.status === 'rejected' || b.status === 'cancelled');
               
               const mapped = activeBookings.map((b: Booking) => {
                 const otherPartyName = role === 'driver' ? b.rider?.name : b.ride?.driver?.name;
