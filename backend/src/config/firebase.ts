@@ -9,14 +9,39 @@ export function initializeFirebase(): void {
   if (firebaseApp) return;
 
   try {
-    const serviceAccountPath = config.firebase.serviceAccountPath;
+    const { serviceAccountJson, serviceAccountPath } = config.firebase as {
+      serviceAccountJson?: string;
+      serviceAccountPath?: string;
+    };
 
-    if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
+    // Prefer inline JSON (useful for CI / containers where files are not mounted).
+    if (serviceAccountJson) {
+      let parsed: unknown = serviceAccountJson;
+      try {
+        // Allow base64-encoded payloads
+        if (/^[A-Za-z0-9+/=\n\r]+$/.test(serviceAccountJson.trim())) {
+          const decoded = Buffer.from(serviceAccountJson, 'base64').toString('utf8');
+          parsed = JSON.parse(decoded);
+        } else {
+          parsed = JSON.parse(serviceAccountJson);
+        }
+      } catch (err) {
+        // Fall back to raw parse attempt
+        parsed = JSON.parse(serviceAccountJson);
+      }
+
+      firebaseApp = admin.initializeApp({
+        credential: admin.credential.cert(parsed as admin.ServiceAccount),
+        projectId: config.firebase.projectId,
+      });
+
+    } else if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
       const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
       firebaseApp = admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         projectId: config.firebase.projectId,
       });
+
     } else {
       // In development, initialize with project ID only (limited functionality)
       firebaseApp = admin.initializeApp({
