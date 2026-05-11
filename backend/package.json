@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix || true",
     "typecheck": "tsc --noEmit",
     "test": "jest --forceExit",
     "test:frontend": "jest --config frontend-tester/jest.frontend.config.cjs --runInBand",

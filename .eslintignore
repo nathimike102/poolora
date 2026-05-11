@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+android/
+ios/
+frontend/android/
+frontend/ios/
+frontend/build/
+frontend/.expo/
+coverage/
+.expo/
+*.config.js
+*.log
