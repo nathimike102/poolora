@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/AdminController';
-import { requireAuth, requireAdmin } from '../middlewares/auth.middleware';
+import { authenticate } from '../middlewares/auth.middleware';
+import { requireAdmin } from '../middlewares/capability.middleware';
 
 const router = Router();
 
 /**
  * All admin routes require authentication and admin capability
  */
-router.use(requireAuth(), requireAdmin());
+router.use(authenticate, requireAdmin());
 
 /**
  * GET /api/v1/admin/metrics

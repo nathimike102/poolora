@@ -209,12 +209,12 @@ export class ParcelPoolingService {
         'system',
       ),
       parcel.receiver &&
-        notificationService.createNotification(
-          parcel.receiver.toString(),
-          'Parcel On the Way',
-          notificationBody,
-          'system',
-        ),
+      notificationService.createNotification(
+        parcel.receiver.toString(),
+        'Parcel On the Way',
+        notificationBody,
+        'system',
+      ),
     ]);
 
     EventBridge.emit('parcel:picked_up', { parcelId: parcel._id });
@@ -259,12 +259,12 @@ export class ParcelPoolingService {
         'system',
       ),
       parcel.receiver &&
-        notificationService.createNotification(
-          parcel.receiver.toString(),
-          notificationTitle,
-          notificationBody,
-          'system',
-        ),
+      notificationService.createNotification(
+        parcel.receiver.toString(),
+        notificationTitle,
+        notificationBody,
+        'system',
+      ),
     ]);
 
     EventBridge.emit('parcel:completed', { parcelId: parcel._id });
