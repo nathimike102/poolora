@@ -9,6 +9,7 @@ export interface IMessage extends Document {
   contentType: 'text' | 'image' | 'location';
   isRead: boolean;
   readAt?: Date;
+  clientMsgId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +27,7 @@ const MessageSchema = new Schema<IMessage>(
     },
     isRead: { type: Boolean, default: false },
     readAt: Date,
+    clientMsgId: { type: String, sparse: true, unique: true },
   },
   {
     timestamps: true,

@@ -8,5 +8,8 @@ router.use(authenticate);
 
 router.get('/me', UserController.getMe);
 router.get('/saved-routes', UserController.getSavedRoutes);
+router.post('/kyc/submit', UserController.submitKYC);
+router.get('/kyc/status', UserController.getKYCStatus);
+router.get('/:id', UserController.getUserProfile);
 
 export default router;

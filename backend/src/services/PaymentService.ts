@@ -205,7 +205,7 @@ export class PaymentService {
     const paymentEntity = payload.payload.payment!.entity;
     const orderId = paymentEntity.order_id;
 
-    await Payment.findOneAndUpdate(
+    const payment = await Payment.findOneAndUpdate(
       { razorpayOrderId: orderId },
       {
         $set: {
@@ -213,20 +213,28 @@ export class PaymentService {
           failureReason: paymentEntity.error_description || 'Payment failed',
         },
       },
+      { new: true }
     );
-
-    await Booking.findOneAndUpdate(
+    
+    const booking = await Booking.findOneAndUpdate(
       { razorpayOrderId: orderId },
       { $set: { status: BookingStatus.PAYMENT_FAILED } },
+      { new: true }
     );
 
-    EventBridge.publish('payment-events', {
-      eventType: 'payment.failed',
-      data: {
-        orderId,
-        error: paymentEntity.error_description,
-      },
-    });
+    if (booking) {
+      EventBridge.publish('payment-events', {
+        eventType: 'payment.failed',
+        data: {
+          orderId,
+          bookingId: booking._id,
+          userId: booking.rider,
+          amount: payment?.amount || booking.estimatedFare || 0,
+          error: paymentEntity.error_description || 'Payment failed',
+          paymentId: paymentEntity.id,
+        },
+      });
+    }
   }
 
   /**

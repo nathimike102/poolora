@@ -149,4 +149,8 @@ export const config = {
       diamond: 1000,
     } as Record<string, number>,
   },
+
+  services: {
+    mlServiceUrl: optional('ML_SERVICE_URL', 'http://ml-service:8000'),
+  },
 } as const;

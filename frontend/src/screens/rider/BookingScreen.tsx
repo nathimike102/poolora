@@ -14,6 +14,8 @@ import {
   Animated,
   Platform,
   KeyboardAvoidingView,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -54,7 +56,7 @@ function AnimatedPressable({
   onPress: () => void;
   disabled?: boolean;
   scaleValue?: number;
-  style?: unknown;
+  style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }): React.ReactElement {
   const scale = useRef(new Animated.Value(1)).current;

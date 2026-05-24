@@ -7,6 +7,8 @@ import {
   Pressable,
   Image,
   Animated,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,7 +34,7 @@ const AnimatedPressable = ({
   children,
 }: {
   onPress?: () => void;
-  style?: unknown;
+  style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }) => {
   const scale = useRef(new Animated.Value(1)).current;

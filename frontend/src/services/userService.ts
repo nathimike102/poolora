@@ -31,8 +31,13 @@ export const userService = {
    * Get user profile by ID
    */
   async getUserProfile(userId: string): Promise<User> {
-    logger.warn('User profile by ID endpoint is unavailable; returning current profile', { userId });
-    return this.getMyProfile();
+    try {
+      const response = await apiClient.get<ApiResponse<{ user: User }>>(API_ENDPOINTS.users.detail(userId));
+      return response.data.data.user;
+    } catch (error) {
+      logger.error('Failed to get user profile', { error, userId });
+      throw error;
+    }
   },
 
   /**

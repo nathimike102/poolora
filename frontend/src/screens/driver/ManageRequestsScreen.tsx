@@ -6,8 +6,6 @@ import {
   ScrollView,
   Pressable,
   LayoutAnimation,
-  UIManager,
-  Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -58,9 +56,6 @@ interface TripItem {
   earnings: number;
 }
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -565,7 +560,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                     {req.passengers.length} passenger{req.passengers.length > 1 ? 's' : ''}
                   </Text>
                 </View>
-                {req.passengers.map((pax: { gender?: Gender; name: string }, i: number) => (
+                {req.passengers.map((pax: any, i: number) => (
                   <View
                     key={i}
                     style={[

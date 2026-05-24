@@ -11,6 +11,8 @@ import {
   Animated,
   Alert,
   ActivityIndicator,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -62,7 +64,7 @@ function AnimatedPressable({
 }: {
   onPress: () => void;
   scaleValue?: number;
-  style?: unknown;
+  style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }) {
   const scale = useRef(new Animated.Value(1)).current;

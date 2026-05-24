@@ -8,6 +8,7 @@ import {
   IEmergencyContact,
   IUserStats,
   GeoPoint,
+  FraudLevel,
 } from '../types';
 
 // ─── Interface ───────────────────────────────────────────────────────────────
@@ -30,6 +31,9 @@ export interface IUser extends Document {
   lastKnownLocation?: GeoPoint;
   isSuspended: boolean;
   suspendedUntil?: Date;
+  fraudLevel: FraudLevel;
+  blockReason?: string;
+  isBlocked: boolean;
   otpAttempts: number;
   otpLastAttemptAt?: Date;
   isActive: boolean;
@@ -140,6 +144,9 @@ const UserSchema = new Schema<IUser>(
     lastKnownLocation: { type: GeoPointSchema, index: '2dsphere' },
     isSuspended: { type: Boolean, default: false },
     suspendedUntil: Date,
+    fraudLevel: { type: String, enum: Object.values(FraudLevel), default: FraudLevel.CLEAR },
+    blockReason: String,
+    isBlocked: { type: Boolean, default: false },
     otpAttempts: { type: Number, default: 0 },
     otpLastAttemptAt: Date,
     isActive: { type: Boolean, default: true },

@@ -2,30 +2,26 @@
  * screens/SplashScreen.tsx
  */
 
-import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-} from 'react-native';
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
   withDelay,
-} from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+} from "react-native-reanimated";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import { useApp } from '../context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AnimatedDot } from '../components/AnimatedDot';
-import { RidePoolLogo } from '../components/RidePoolLogo';
-import { Typography, Spacing } from '../theme';
-import type { RootStackParamList } from '../navigation/types';
+import { useApp } from "../context/AppContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AnimatedDot } from "../components/AnimatedDot";
+import { SanchariLogo } from "../components/SanchariLogo";
+import { Typography, Spacing } from "../theme";
+import type { RootStackParamList } from "../navigation/types";
 
-type NavProp = NativeStackNavigationProp<RootStackParamList, 'Splash'>;
+type NavProp = NativeStackNavigationProp<RootStackParamList, "Splash">;
 
 export function SplashScreen() {
   const navigation = useNavigation<NavProp>();
@@ -49,7 +45,7 @@ export function SplashScreen() {
 
     // 3. Auto-navigate after 2.8s
     const timer = setTimeout(() => {
-      navigation.replace('Onboarding');
+      navigation.replace("Onboarding");
     }, 2800);
 
     return () => clearTimeout(timer);
@@ -66,19 +62,19 @@ export function SplashScreen() {
   }));
 
   return (
-    <View style={[styles.root, { backgroundColor: c.primary, paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.root,
+        { backgroundColor: c.primary, paddingTop: insets.top },
+      ]}
+    >
       {/* Background decorative circles */}
       <View style={[styles.circleLarge, styles.absolutePosition]} />
       <View style={[styles.circleSmall, styles.absolutePosition]} />
 
       {/* ── Logo + Wordmark ─────────────────────────────────────────────────── */}
-      <Animated.View
-        style={[
-          styles.logoContainer,
-          logoAnimStyle,
-        ]}
-      >
-        <RidePoolLogo
+      <Animated.View style={[styles.logoContainer, logoAnimStyle]}>
+        <SanchariLogo
           size={150}
           backgroundColor="rgba(255,255,255,0.10)"
           borderRadius={36}
@@ -89,12 +85,7 @@ export function SplashScreen() {
       </Animated.View>
 
       {/* ── Loading Dots ────────────────────────────────────────────────────── */}
-      <Animated.View
-        style={[
-          styles.loaderContainer,
-          loaderAnimStyle,
-        ]}
-      >
+      <Animated.View style={[styles.loaderContainer, loaderAnimStyle]}>
         <View style={styles.dotsRow}>
           <AnimatedDot delay={0} />
           <AnimatedDot delay={0.2} />
@@ -111,20 +102,20 @@ export function SplashScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     // overflow: 'hidden' is default in RN — no need to specify
   },
 
   // Decorative background circles
   absolutePosition: {
-    position: 'absolute',
+    position: "absolute",
   },
   circleLarge: {
     width: 400,
     height: 400,
     borderRadius: 200,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: "rgba(255,255,255,0.04)",
     top: -100,
     right: -100,
   },
@@ -132,30 +123,30 @@ const styles = StyleSheet.create({
     width: 300,
     height: 300,
     borderRadius: 150,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: "rgba(255,255,255,0.04)",
     bottom: -60,
     left: -60,
   },
 
   // Logo area
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: Spacing.lg,
   },
 
   // Loading indicator
   loaderContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 60,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 12,
   },
   dotsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
   },
   platformLabel: {
     fontSize: Typography.sm,
-    color: 'rgba(255,255,255,0.4)',
+    color: "rgba(255,255,255,0.4)",
   },
 });

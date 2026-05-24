@@ -49,6 +49,31 @@ export async function authenticate(
 }
 
 /**
+ * Alias for authenticate for consistent naming.
+ */
+export const requireAuth = authenticate;
+
+/**
+ * Middleware to check if the user has a specific capability.
+ * Must be placed after authenticate.
+ */
+export function requireCapability(capability: string) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      return next(new AuthenticationError('Authentication required'));
+    }
+
+    const hasCapability = user.capabilities.includes(capability as any);
+    if (!hasCapability) {
+      return next(new AuthenticationError(`Missing required capability: ${capability}`));
+    }
+
+    next();
+  };
+}
+
+/**
  * Optional authentication — attaches user if token present, otherwise continues.
  */
 export async function optionalAuth(

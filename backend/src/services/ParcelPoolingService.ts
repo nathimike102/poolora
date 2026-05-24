@@ -139,10 +139,13 @@ export class ParcelPoolingService {
       trackingNumber,
     });
 
-    // Emit event
-    EventBridge.emit('parcel:created', {
-      parcelId: parcel._id,
-      rideId: data.rideId,
+    // Publish event
+    EventBridge.publish('ride-events', {
+      eventType: 'parcel:created',
+      data: {
+        parcelId: parcel._id,
+        rideId: data.rideId,
+      },
     });
 
     return { parcel, razorpayOrder };
@@ -175,9 +178,12 @@ export class ParcelPoolingService {
       { parcelId: parcel._id.toString(), trackingNumber: parcel.trackingNumber },
     );
 
-    EventBridge.emit('parcel:accepted', {
-      parcelId: parcel._id,
-      driverId,
+    EventBridge.publish('ride-events', {
+      eventType: 'parcel:accepted',
+      data: {
+        parcelId: parcel._id,
+        driverId,
+      },
     });
 
     return parcel;
@@ -217,7 +223,10 @@ export class ParcelPoolingService {
       ),
     ]);
 
-    EventBridge.emit('parcel:picked_up', { parcelId: parcel._id });
+    EventBridge.publish('ride-events', {
+      eventType: 'parcel:picked_up',
+      data: { parcelId: parcel._id },
+    });
     return parcel;
   }
 
@@ -267,7 +276,10 @@ export class ParcelPoolingService {
       ),
     ]);
 
-    EventBridge.emit('parcel:completed', { parcelId: parcel._id });
+    EventBridge.publish('ride-events', {
+      eventType: 'parcel:completed',
+      data: { parcelId: parcel._id },
+    });
     return parcel;
   }
 
@@ -295,7 +307,11 @@ export class ParcelPoolingService {
     skip = 0,
     limit = 20,
   ): Promise<{ parcels: IParcelPooling[]; total: number }> {
-    const query = role === 'sender' ? { sender: userId } : { driver: userId };
+    const query = role === 'sender' 
+      ? { sender: userId } 
+      : role === 'driver' 
+        ? { driver: userId } 
+        : { receiver: userId };
 
     const [parcels, total] = await Promise.all([
       ParcelPooling.find(query)
@@ -336,7 +352,10 @@ export class ParcelPoolingService {
     parcel.cancelledAt = new Date();
     await parcel.save();
 
-    EventBridge.emit('parcel:cancelled', { parcelId: parcel._id });
+    EventBridge.publish('ride-events', {
+      eventType: 'parcel:cancelled',
+      data: { parcelId: parcel._id },
+    });
     return parcel;
   }
 }

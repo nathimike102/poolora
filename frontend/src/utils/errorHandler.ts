@@ -155,7 +155,7 @@ class ErrorHandler {
     // Handle Joi validation errors format
     if (Array.isArray(response.error.details)) {
       const errors: Record<string, string> = {};
-      response.error.details.forEach((err: unknown) => {
+      response.error.details.forEach((err: any) => {
         if (err.field && err.message) {
           errors[err.field] = err.message;
         }

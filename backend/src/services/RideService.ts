@@ -1,3 +1,4 @@
+import axios from 'axios';
 import mongoose, { Types } from 'mongoose';
 import { Ride, IRide } from '../models/Ride';
 import { User } from '../models/User';
@@ -177,8 +178,17 @@ export class RideService {
     if (params.maxPrice !== undefined) {
       filter.pricePerSeat = { $lte: params.maxPrice };
     }
-    if (params.womenOnly !== undefined) {
-      filter['preferences.womenOnly'] = params.womenOnly;
+
+    // ── Safety: Women-Only Ride Enforcement ──
+    const currentUser = await User.findById(authenticatedUserId);
+    if (!currentUser) throw new NotFoundError('User');
+
+    if (currentUser.gender !== 'female') {
+      // Men (and other/unspecified) cannot see women-only rides
+      filter['preferences.womenOnly'] = { $ne: true };
+    } else if (params.womenOnly === true) {
+      // Female riders can explicitly request women-only rides
+      filter['preferences.womenOnly'] = true;
     }
     if (params.hasAC !== undefined) {
       filter['vehicle.hasAC'] = params.hasAC;
@@ -385,5 +395,70 @@ export class RideService {
     });
 
     return ride;
+  }
+
+  /**
+   * Get an AI-optimized pickup/dropoff sequence for a multi-passenger ride.
+   * Employs VRP/TSP algorithms via the ML service.
+   */
+  async getOptimizedRoute(rideId: string, driverId: string): Promise<any> {
+    const ride = await Ride.findById(rideId);
+    if (!ride) throw new NotFoundError('Ride');
+    if (ride.driver.toString() !== driverId) {
+      throw new AuthorizationError('Only the ride creator can optimize the route');
+    }
+
+    const bookings = await Booking.find({
+      ride: rideId,
+      status: BookingStatus.CONFIRMED,
+    });
+
+    if (bookings.length === 0) {
+      return {
+        optimizedOrder: [],
+        totalDistanceKm: ride.estimatedDistanceKm,
+        segments: [],
+      };
+    }
+
+    // Build waypoints for ML service
+    const waypoints = bookings.flatMap((b) => [
+      {
+        id: `pickup:${b._id}`,
+        lat: b.pickup.location.coordinates[1],
+        lng: b.pickup.location.coordinates[0],
+      },
+      {
+        id: `dropoff:${b._id}`,
+        lat: b.dropoff.location.coordinates[1],
+        lng: b.dropoff.location.coordinates[0],
+      },
+    ]);
+
+    try {
+      const mlServiceUrl = config.services.mlServiceUrl || 'http://ml-service:8000';
+      const response = await axios.post(`${mlServiceUrl}/api/optimize-route`, {
+        origin: {
+          lat: ride.pickup.location.coordinates[1],
+          lng: ride.pickup.location.coordinates[0],
+        },
+        destination: {
+          lat: ride.dropoff.location.coordinates[1],
+          lng: ride.dropoff.location.coordinates[0],
+        },
+        waypoints,
+      });
+
+      return response.data;
+    } catch (error) {
+      logger.error('Route optimization failed', { error: (error as Error).message });
+      // Fallback to naive order if ML service is down
+      return {
+        optimizedOrder: waypoints.map((w) => w.id),
+        totalDistanceKm: ride.estimatedDistanceKm,
+        segments: [],
+        fallback: true,
+      };
+    }
   }
 }

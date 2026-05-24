@@ -34,4 +34,10 @@ router.get('/users', AdminController.getUsers);
  */
 router.get('/payments', AdminController.getPayments);
 
+/**
+ * GET /api/v1/admin/demand-heatmap
+ * Get demand clusters
+ */
+router.get('/demand-heatmap', AdminController.getDemandHeatmap);
+
 export default router;

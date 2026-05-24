@@ -9,8 +9,8 @@ import {
   Modal,
   ActivityIndicator,
   LayoutAnimation,
-  UIManager,
-  Platform,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import ReAnimated, {
   useSharedValue,
@@ -31,9 +31,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../../navigation/types';
 import { Radius, Shadow } from '../../theme';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type RideTab = 'upcoming' | 'past' | 'cancelled';
@@ -70,7 +67,7 @@ const AnimatedPressable = ({
   disabled,
 }: {
   onPress?: () => void;
-  style?: unknown;
+  style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
   disabled?: boolean;
 }) => {

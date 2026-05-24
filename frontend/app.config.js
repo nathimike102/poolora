@@ -14,7 +14,7 @@ module.exports = {
     slug: 'one-piece',
     icon: './assets/splash.png',
     android: {
-      package: 'com.ridepool.app',
+      package: 'com.sanchari.app',
       adaptiveIcon: {
         foregroundImage: './assets/splash.png',
         backgroundColor: '#ffffff',
@@ -28,7 +28,7 @@ module.exports = {
       permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
     },
     ios: {
-      bundleIdentifier: 'com.ridepool.app',
+      bundleIdentifier: 'com.sanchari.app',
       googleServicesFile: './GoogleService-Info.plist',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:

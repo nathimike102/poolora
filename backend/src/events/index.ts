@@ -2,6 +2,9 @@ import { getKafkaProducer, createKafkaConsumer } from '../config/kafka';
 import { KafkaTopic, KafkaEvent } from '../types';
 import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
+import { config } from '../config';
+
+import { eventSchemas } from '../validators/eventValidators';
 
 /**
  * Event bridge for Kafka producer/consumer operations.
@@ -12,12 +15,30 @@ export class EventBridge {
 
   /**
    * Publish an event to a Kafka topic.
-   * Fire-and-forget with error logging.
+   * Includes schema validation and structured logging.
    */
   static publish(
     topic: KafkaTopic,
     event: Omit<KafkaEvent, 'timestamp' | 'source' | 'correlationId'>,
   ): void {
+    // ─── Schema Validation ───
+    const schema = (eventSchemas as any)[event.eventType];
+    if (schema) {
+      const { error } = schema.validate(event.data);
+      if (error) {
+        logger.error('Kafka event validation failed', {
+          eventType: event.eventType,
+          error: error.details[0].message,
+          data: event.data,
+        });
+        // In production, we might want to throw or skip. 
+        // For now, we log and proceed but this should be production-hardened.
+        if (config.isProduction) return; 
+      }
+    } else {
+      logger.warn('No validation schema found for event type', { eventType: event.eventType });
+    }
+
     const fullEvent: KafkaEvent = {
       ...event,
       timestamp: new Date().toISOString(),
@@ -35,25 +56,46 @@ export class EventBridge {
     });
   }
 
+  /**
+   * Alias for publish() to maintain compatibility with legacy code.
+   * @deprecated Use EventBridge.publish() instead.
+   */
+  static emit(eventType: string, data: any): void {
+    // Determine topic based on event type prefix
+    let topic: KafkaTopic = 'user-events';
+    if (eventType.startsWith('ride.')) topic = 'ride-events';
+    else if (eventType.startsWith('booking.')) topic = 'booking-events';
+    else if (eventType.startsWith('payment.')) topic = 'payment-events';
+    else if (eventType.startsWith('driver.location.')) topic = 'location-events';
+    else if (eventType.startsWith('sos.')) topic = 'safety-events';
+    else if (eventType.startsWith('parcel:')) topic = 'ride-events'; // Parcel uses ride-events group
+
+    EventBridge.publish(topic, { eventType, data });
+  }
+
   private static async publishAsync(
     topic: KafkaTopic,
     event: KafkaEvent,
   ): Promise<void> {
+    const { withRetry } = await import('../utils/helpers');
+
     try {
       const producer = getKafkaProducer();
-      await producer.send({
-        topic,
-        messages: [
-          {
-            key: event.correlationId,
-            value: JSON.stringify(event),
-            headers: {
-              eventType: event.eventType,
-              timestamp: event.timestamp,
-              source: event.source,
+      await withRetry(async () => {
+        await producer.send({
+          topic,
+          messages: [
+            {
+              key: event.correlationId,
+              value: JSON.stringify(event),
+              headers: {
+                eventType: event.eventType,
+                timestamp: event.timestamp,
+                source: event.source,
+              },
             },
-          },
-        ],
+          ],
+        });
       });
 
       logger.debug('Kafka event published', {
@@ -196,11 +238,29 @@ export class EventBridge {
             { bookingId: data.bookingId, paymentId: data.paymentId },
           );
         } else if (event.eventType === 'payment.failed' && data.userId) {
-          logger.warn('Payment failure detected — flagging for review', {
+          logger.warn('Payment failure detected — starting fraud analysis', {
             userId: data.userId,
             paymentId: data.paymentId,
+            orderId: data.orderId,
             amount: data.amount,
           });
+
+          try {
+            const { FraudDetectionService } = await import('../services/FraudDetectionService');
+            const fraudService = new FraudDetectionService();
+            const result = await fraudService.analyzePaymentFailure(data.userId, data);
+            
+            if (result.shouldBlock) {
+              logger.error('User blocked after fraud analysis', { userId: data.userId, flags: result.flags });
+            } else if (result.riskLevel === 'high') {
+              logger.warn('User flagged for review after fraud analysis', { userId: data.userId, flags: result.flags });
+            }
+          } catch (error) {
+            logger.error('Failed to run fraud analysis pipeline', {
+              userId: data.userId,
+              error: (error as Error).message,
+            });
+          }
         }
       });
 

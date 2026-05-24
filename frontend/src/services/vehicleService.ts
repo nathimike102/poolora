@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const STORAGE_KEY = '@ridepool_vehicles';
+const STORAGE_KEY = '@sanchari_vehicles';
 
 export interface Vehicle {
   id: string;

@@ -206,7 +206,7 @@ export function OTPScreen() {
               style={{ transform: [{ translateX: shakeAnims[idx] }], width: 46 }}
             >
               <TextInput
-                ref={el => (inputs.current[idx] = el)}
+                ref={el => { inputs.current[idx] = el; }}
                 value={value}
                 onChangeText={val => handleChange(val, idx)}
                 onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, idx)}

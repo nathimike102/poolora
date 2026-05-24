@@ -1,9 +1,11 @@
+import axios from 'axios';
 import { Request, Response, NextFunction } from 'express';
 import { RideService } from '../services/RideService';
 import { AuthenticatedRequest, RideSearchParams } from '../types';
 import { sendSuccess, sendPaginated } from '../utils/helpers';
 import { AppError } from '../utils/AppError';
 import { SocketGateway } from '../sockets/SocketGateway';
+import { config } from '../config';
 
 const rideService = new RideService();
 
@@ -175,6 +177,46 @@ export class RideController {
       });
 
       sendSuccess(res, { tracking }, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/rides/demand-prediction
+   * Get predicted demand for a location.
+   */
+  static async getDemandPrediction(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { lat, lng } = req.query as any;
+      if (!lat || !lng) {
+        throw new AppError('Latitude and longitude are required', 400);
+      }
+
+      const mlServiceUrl = config.services.mlServiceUrl || 'http://ml-service:8000';
+      const response = await axios.post(`${mlServiceUrl}/api/predict-demand`, {
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        hour: new Date().getHours(),
+        day_of_week: new Date().getDay(),
+        historical_rides: 100, // Mock for now or fetch from DB
+      });
+
+      sendSuccess(res, response.data, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/rides/:id/optimize
+   * Get AI-optimized route for a driver's active ride.
+   */
+  static async optimizeRoute(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const result = await rideService.getOptimizedRoute(String(req.params.id), user.userId);
+      sendSuccess(res, result, 200, (req as any).requestId);
     } catch (error) {
       next(error);
     }

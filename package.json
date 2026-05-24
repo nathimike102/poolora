@@ -12,9 +12,7 @@
     "test": "npm run test --workspace backend && npm run test --workspace frontend"
   },
   "version": "1.0.0",
-  "dependencies": {
-    "expo": "~55.0.23",
-    "react": "19.2.0",
-    "react-native": "0.83.6"
+  "devDependencies": {
+    "async-limiter": "^2.0.0"
   }
 }

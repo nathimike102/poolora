@@ -6,7 +6,7 @@
  * - Backend API integration (token management, user session)
  */
 
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import auth, { FirebaseAuthTypes, GoogleAuthProvider } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { GOOGLE_WEB_CLIENT_ID } from '@env';
 import { apiClient, setAuthorizationHeader, clearAuthorizationHeader } from '../api/axios';
@@ -261,7 +261,7 @@ export async function signInWithGoogle(): Promise<FirebaseAuthTypes.UserCredenti
     }
 
     // Create a Firebase credential with the Google ID token
-    const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+    const googleCredential = GoogleAuthProvider.credential(idToken);
 
     // Sign in to Firebase with the credential
     const userCredential = await auth().signInWithCredential(googleCredential);

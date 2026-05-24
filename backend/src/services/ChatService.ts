@@ -20,8 +20,15 @@ export class ChatService {
       bookingId: string;
       content: string;
       contentType: 'text' | 'image' | 'location';
+      clientMsgId?: string;
     },
   ): Promise<IMessage> {
+    // 1. Idempotency check
+    if (data.clientMsgId) {
+      const existing = await Message.findOne({ clientMsgId: data.clientMsgId });
+      if (existing) return existing;
+    }
+
     const booking = await Booking.findById(data.bookingId);
     if (!booking) throw new NotFoundError('Booking');
 
@@ -52,6 +59,7 @@ export class ChatService {
       receiver: receiverId,
       content: sanitizedContent,
       contentType: data.contentType,
+      clientMsgId: data.clientMsgId,
     });
     await this.notificationService.createNotification(
     receiverId,

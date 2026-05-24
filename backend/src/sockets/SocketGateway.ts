@@ -49,11 +49,20 @@ export class SocketGateway {
   private static instance: SocketGateway | null = null;
   private io!: Server;
 
+  static getInstance(httpServer?: HttpServer): SocketGateway {
+    if (!SocketGateway.instance) {
+      SocketGateway.instance = new SocketGateway();
+      if (httpServer) {
+        SocketGateway.instance.initialize(httpServer);
+      }
+    }
+    return SocketGateway.instance;
+  }
+
   /**
    * Initialize Socket.io with Redis adapter for horizontal scaling.
    */
   initialize(httpServer: HttpServer): Server {
-    SocketGateway.instance = this;
     this.io = new Server(httpServer, {
       cors: {
         origin: config.cors.origin,
@@ -303,9 +312,6 @@ export class SocketGateway {
     return updatePayload;
   }
 
-  static getInstance(): SocketGateway | null {
-    return SocketGateway.instance;
-  }
 
   /**
    * Calculate distance milestones for approach alerts.
@@ -352,21 +358,43 @@ export class SocketGateway {
   private registerChatHandlers(socket: AuthenticatedSocket): void {
     /**
      * Real-time chat messages via WebSocket.
+     * Includes client-side ID for idempotency and reliable delivery.
      */
     socket.on('chat:message:send', async (data: {
       bookingId: string;
       content: string;
       contentType?: string;
+      clientMsgId?: string; // For idempotency
     }) => {
       try {
-        const { bookingId, content, contentType = 'text' } = data;
+        const { bookingId, content, contentType = 'text', clientMsgId } = data;
+
+        // Idempotency check if clientMsgId is provided
+        if (clientMsgId) {
+          const existing = await Message.findOne({ clientMsgId });
+          if (existing) {
+            socket.emit('chat:message:sent', {
+              messageId: existing._id,
+              bookingId,
+              timestamp: existing.createdAt,
+              clientMsgId,
+            });
+            return;
+          }
+        }
 
         const booking = await Booking.findById(bookingId);
-        if (!booking) return;
+        if (!booking) {
+          socket.emit('chat:error', { message: 'Booking not found' });
+          return;
+        }
 
         const isRider = booking.rider.toString() === socket.userId;
         const isDriver = booking.driver.toString() === socket.userId;
-        if (!isRider && !isDriver) return;
+        if (!isRider && !isDriver) {
+          socket.emit('chat:error', { message: 'Not authorized for this chat' });
+          return;
+        }
 
         const receiverId = isRider
           ? booking.driver.toString()
@@ -379,6 +407,7 @@ export class SocketGateway {
           receiver: receiverId,
           content,
           contentType,
+          clientMsgId,
         });
 
         // Deliver in real-time to receiver
@@ -389,6 +418,7 @@ export class SocketGateway {
           content,
           contentType,
           timestamp: message.createdAt,
+          clientMsgId,
         });
 
         // Acknowledge to sender
@@ -396,6 +426,7 @@ export class SocketGateway {
           messageId: message._id,
           bookingId,
           timestamp: message.createdAt,
+          clientMsgId,
         });
 
         // Send FCM push notification if receiver is offline
@@ -486,6 +517,37 @@ socket.on('chat:typing:stop', async (data: { bookingId: string }) => {
   // ─── SOS ───────────────────────────────────────────────────────────────────
 
   private registerSOSHandlers(socket: AuthenticatedSocket): void {
+    /**
+     * Trigger SOS alert via socket.
+     */
+    socket.on('sos:trigger', async (data: {
+      bookingId: string;
+      location: { lng: number; lat: number };
+    }) => {
+      try {
+        const { SafetyService } = await import('../services/SafetyService');
+        const safetyService = new SafetyService();
+        const record = await safetyService.triggerSOS(socket.userId, data);
+
+        // Acknowledge to triggerer
+        socket.emit('sos:triggered', {
+          emergencyId: record._id,
+          liveTrackingUrl: record.liveTrackingUrl,
+        });
+
+        // Broadcast to admin dashboard
+        this.io.to('admin:sos').emit('sos:alert', {
+          emergencyId: record._id,
+          userId: socket.userId,
+          location: data.location,
+          timestamp: Date.now(),
+        });
+      } catch (error) {
+        logger.error('SOS trigger error', { error: (error as Error).message });
+        socket.emit('sos:error', { message: 'Failed to trigger SOS' });
+      }
+    });
+
     /**
      * High-frequency SOS location updates (every 5 seconds).
      */

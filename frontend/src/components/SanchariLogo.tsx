@@ -1,20 +1,20 @@
 /**
- * components/RidePoolLogo.tsx
+ * components/SanchariLogo.tsx
  *
  * Reusable Sanchari brand mark rendered with react-native-svg.
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
 import Svg, {
   Circle,
   Defs,
   LinearGradient,
   Path,
   Stop,
-} from 'react-native-svg';
+} from "react-native-svg";
 
-interface RidePoolLogoProps {
+interface SanchariLogoProps {
   /** Container box size */
   size?: number;
   /** Container background color */
@@ -29,20 +29,20 @@ interface RidePoolLogoProps {
   subtitle?: string;
 }
 
-export function RidePoolLogo({
+export function SanchariLogo({
   size = 44,
-  backgroundColor = 'transparent',
+  backgroundColor = "transparent",
   borderRadius,
   showWordmark = false,
-  wordmark = 'Sanchari',
-  subtitle = 'Smart Scheduled Carpooling',
-}: RidePoolLogoProps) {
+  wordmark = "Sanchari",
+  subtitle = "Smart Scheduled Carpooling",
+}: SanchariLogoProps) {
   const svgSize = size;
   const br = borderRadius ?? size * 0.32; // Default proportional radius
 
   return (
     <View
-      testID="ridepool-logo"
+      testID="sanchari-logo"
       style={[
         styles.wrapper,
         showWordmark ? styles.lockup : styles.container,
@@ -58,23 +58,58 @@ export function RidePoolLogo({
     >
       <Svg width={svgSize} height={svgSize} viewBox="0 0 256 256" fill="none">
         <Defs>
-          <LinearGradient id="pinGradient" x1="128" y1="20" x2="128" y2="126" gradientUnits="userSpaceOnUse">
+          <LinearGradient
+            id="pinGradient"
+            x1="128"
+            y1="20"
+            x2="128"
+            y2="126"
+            gradientUnits="userSpaceOnUse"
+          >
             <Stop offset="0%" stopColor="#FFB02E" />
             <Stop offset="100%" stopColor="#FF7A00" />
           </LinearGradient>
-          <LinearGradient id="leftArc" x1="42" y1="56" x2="118" y2="164" gradientUnits="userSpaceOnUse">
+          <LinearGradient
+            id="leftArc"
+            x1="42"
+            y1="56"
+            x2="118"
+            y2="164"
+            gradientUnits="userSpaceOnUse"
+          >
             <Stop offset="0%" stopColor="#0FA7A0" />
             <Stop offset="100%" stopColor="#11B5B0" />
           </LinearGradient>
-          <LinearGradient id="rightArc" x1="138" y1="56" x2="214" y2="164" gradientUnits="userSpaceOnUse">
+          <LinearGradient
+            id="rightArc"
+            x1="138"
+            y1="56"
+            x2="214"
+            y2="164"
+            gradientUnits="userSpaceOnUse"
+          >
             <Stop offset="0%" stopColor="#7A47C1" />
             <Stop offset="100%" stopColor="#8E5BDA" />
           </LinearGradient>
-          <LinearGradient id="roadLeft" x1="28" y1="178" x2="128" y2="200" gradientUnits="userSpaceOnUse">
+          <LinearGradient
+            id="roadLeft"
+            x1="28"
+            y1="178"
+            x2="128"
+            y2="200"
+            gradientUnits="userSpaceOnUse"
+          >
             <Stop offset="0%" stopColor="#18B7AF" />
             <Stop offset="100%" stopColor="#2BA7BE" />
           </LinearGradient>
-          <LinearGradient id="roadRight" x1="120" y1="184" x2="228" y2="206" gradientUnits="userSpaceOnUse">
+          <LinearGradient
+            id="roadRight"
+            x1="120"
+            y1="184"
+            x2="228"
+            y2="206"
+            gradientUnits="userSpaceOnUse"
+          >
             <Stop offset="0%" stopColor="#3D79DD" />
             <Stop offset="100%" stopColor="#2F63C5" />
           </LinearGradient>
@@ -127,14 +162,8 @@ export function RidePoolLogo({
           fill="#0D2F66"
         />
 
-        <Path
-          d="M72 146C64 146 58 150 56 156L54 163H68"
-          fill="#0D2F66"
-        />
-        <Path
-          d="M184 146C192 146 198 150 200 156L202 163H188"
-          fill="#0D2F66"
-        />
+        <Path d="M72 146C64 146 58 150 56 156L54 163H68" fill="#0D2F66" />
+        <Path d="M184 146C192 146 198 150 200 156L202 163H188" fill="#0D2F66" />
         <Path
           d="M71 158C71 152.5 77.3 147 86.5 147C95.7 147 102 151.1 107 157.2C101 162.5 94.4 165 86.8 165C77.8 165 71 162 71 158Z"
           fill="#0D2F66"
@@ -170,32 +199,32 @@ export function RidePoolLogo({
 
 const styles = StyleSheet.create({
   wrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   container: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   lockup: {
     gap: 12,
   },
   wordmarkBlock: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 2,
   },
   wordmark: {
     fontSize: 28,
     lineHeight: 32,
-    fontWeight: '800',
-    color: '#0D2F66',
+    fontWeight: "800",
+    color: "#0D2F66",
     letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 12,
     lineHeight: 16,
-    fontWeight: '600',
-    color: '#6B7A90',
+    fontWeight: "600",
+    color: "#6B7A90",
     letterSpacing: 0.6,
   },
 });

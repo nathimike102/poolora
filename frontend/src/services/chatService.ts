@@ -54,17 +54,22 @@ export const chatService = {
   /**
    * Send a message
    */
-  async sendMessage(bookingId: string, content: string): Promise<Message> {
+  async sendMessage(bookingId: string, content: string, clientMsgId?: string): Promise<Message> {
     try {
-      const payload: SendMessageRequest = { bookingId, content, contentType: 'text' };
+      const payload: SendMessageRequest & { clientMsgId?: string } = { 
+        bookingId, 
+        content, 
+        contentType: 'text',
+        clientMsgId 
+      };
       const response = await apiClient.post<ApiResponse<{ message: Message }>>(
         API_ENDPOINTS.chat.sendMessage,
         payload,
       );
-      logger.info('Message sent', { bookingId });
+      logger.info('Message sent', { bookingId, clientMsgId });
       return response.data.data.message;
     } catch (error) {
-      logger.error('Failed to send message', { error, bookingId });
+      logger.error('Failed to send message', { error, bookingId, clientMsgId });
       throw error;
     }
   },

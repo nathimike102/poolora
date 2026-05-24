@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const STORAGE_KEY = '@ridepool_saved_routes';
+const STORAGE_KEY = '@sanchari_saved_routes';
 
 export interface SavedRoute {
   id: string;

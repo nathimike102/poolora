@@ -49,6 +49,7 @@ export const API_ENDPOINTS = {
   users: {
     me: '/users/me',
     savedRoutes: '/users/saved-routes',
+    detail: (id: string) => `/users/${id}`,
   },
 
   // Rides
@@ -179,8 +180,8 @@ export const ERROR_MESSAGES = {
 
 // ─── Token Storage Keys ────────────────────────────────────────────────────
 export const TOKEN_STORAGE_KEYS = {
-  accessToken: '@ridepool_access_token',
-  refreshToken: '@ridepool_refresh_token',
-  tokenExpiry: '@ridepool_token_expiry',
-  userId: '@ridepool_user_id',
+  accessToken: '@sanchari_access_token',
+  refreshToken: '@sanchari_refresh_token',
+  tokenExpiry: '@sanchari_token_expiry',
+  userId: '@sanchari_user_id',
 } as const;

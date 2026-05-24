@@ -19,6 +19,9 @@ router.get('/upcoming', RideController.getUpcomingRides);
 // Driver's own rides — MUST be before /:id
 router.get('/my-rides', RideController.getMyRides);
 
+// Demand prediction — AI-powered insights for drivers
+router.get('/demand-prediction', RideController.getDemandPrediction);
+
 // Driver live tracking updates (recommended every 5 seconds)
 router.post(
 	'/driver/location',
@@ -36,6 +39,7 @@ router.get('/:id', RideController.getRide);
 // Ride actions
 router.post('/:id/cancel', RideController.cancelRide);
 router.post('/:id/complete', requireDriverVerification(), RideController.completeRide);
+router.post('/:id/optimize', requireDriverVerification(), RideController.optimizeRoute);
 
 export default router;
 

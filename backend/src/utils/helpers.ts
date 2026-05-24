@@ -33,6 +33,27 @@ export function sendPaginated<T>(
   res.status(200).json(response);
 }
 
+export function sendError(
+  res: Response,
+  message: string,
+  code = 500,
+  details?: unknown,
+  requestId = '',
+): void {
+  const response: ApiResponse = {
+    status: 'error',
+    code,
+    error: {
+      id: code.toString(),
+      message,
+      details,
+    },
+    timestamp: new Date().toISOString(),
+    requestId,
+  };
+  res.status(code).json(response);
+}
+
 export function paginate<T>(
   items: T[],
   total: number,
@@ -89,4 +110,21 @@ export function generateTrackingNumber(): string {
 
 export function generateReferralCode(): string {
   return crypto.randomBytes(6).toString('hex').toUpperCase();
+}
+
+/**
+ * Executes an async function with exponential backoff retry.
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delay = 1000,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (retries <= 0) throw error;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    return withRetry(fn, retries - 1, delay * 2);
+  }
 }

@@ -28,7 +28,7 @@ export async function fetchPlaceSuggestions(
 
   if (data.status !== 'OK') return [];
 
-  return data.predictions.slice(0, 5).map((p: unknown) => ({
+  return data.predictions.slice(0, 5).map((p: any) => ({
     placeId: p.place_id,
     name: p.structured_formatting?.main_text ?? p.description,
     subtitle: p.structured_formatting?.secondary_text ?? '',

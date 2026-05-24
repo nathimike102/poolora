@@ -173,4 +173,29 @@ export class AdminController {
       next(error);
     }
   }
+
+  /**
+   * GET /api/v1/admin/demand-heatmap
+   * Get geospatial demand clusters for the admin dashboard.
+   */
+  static async getDemandHeatmap(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { lat, lng, radiusKm = '10' } = req.query as any;
+      if (!lat || !lng) {
+        throw new Error('Latitude and longitude are required');
+      }
+
+      const { AnalyticsService } = await import('../services/AnalyticsService');
+      const analyticsService = new AnalyticsService();
+      const clusters = await analyticsService.getRideClusters(
+        parseFloat(lat),
+        parseFloat(lng),
+        parseFloat(radiusKm),
+      );
+
+      sendSuccess(res, { clusters }, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

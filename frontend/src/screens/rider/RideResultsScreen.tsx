@@ -15,8 +15,8 @@ import {
   Pressable,
   FlatList,
   LayoutAnimation,
-  Platform,
-  UIManager,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -29,10 +29,6 @@ import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Ride as ApiRide, PaginatedResponse } from '../../types/api';
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'RideResults'>;
 type RideResultsRoute = RouteProp<RootStackParamList, 'RideResults'>;
@@ -94,7 +90,7 @@ function AnimatedPressable({
 }: {
   onPress: () => void;
   scaleValue?: number;
-  style?: unknown;
+  style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -192,7 +188,7 @@ export function RideResultsScreen() {
     } else if (incoming && 'data' in incoming && incoming.data) {
       arr = incoming.data.items || [];
     }
-    return arr.map((r: unknown) => ({
+    return arr.map((r: any) => ({
       id: r._id || r.id || String(r._id || Math.random()),
       driver: typeof r.driver === 'string' ? r.driver : r.driver?.name || 'Driver',
       avatar: r.driver?.profilePhotoUrl || r.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop',
@@ -216,7 +212,7 @@ export function RideResultsScreen() {
 
   // Compute filtered + sorted rides
   const rides = useMemo(() => {
-    let list = normalizedSource.filter((r: unknown) => {
+    let list = normalizedSource.filter((r: any) => {
       if (activeFilters.womenOnly && !r.womenOnly) return false;
       if (activeFilters.acOnly && !r.prefs.some((p: string) => p === 'AC')) return false;
       if (activeFilters.minRating > 0 && r.rating < activeFilters.minRating) return false;
