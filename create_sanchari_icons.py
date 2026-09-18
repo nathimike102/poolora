@@ -2,6 +2,7 @@
 """Generate Sanchari app icons for Android in multiple densities."""
 
 import os
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import subprocess
 
@@ -75,7 +76,7 @@ def convert_to_webp(img, quality=80):
 
 def main():
     """Generate icons for all Android densities."""
-    base_dir = '/home/ghost/Desktop/final_sanchari/frontend/android/app/src/main/res'
+    base_dir = Path(__file__).resolve().parent / 'frontend/android/app/src/main/res'
     
     for density, size in DENSITIES.items():
         print(f"Generating {density} icon ({size}x{size})...")
@@ -84,11 +85,11 @@ def main():
         icon = create_sanchari_icon(size)
         
         # Create mipmap directory if needed
-        mipmap_dir = os.path.join(base_dir, f'mipmap-{density}')
+        mipmap_dir = base_dir / f'mipmap-{density}'
         os.makedirs(mipmap_dir, exist_ok=True)
         
         # Save as WebP
-        icon_path = os.path.join(mipmap_dir, 'ic_launcher.webp')
+        icon_path = mipmap_dir / 'ic_launcher.webp'
         icon.save(icon_path, 'WebP', quality=95)
         print(f"  Saved: {icon_path}")
         
@@ -101,12 +102,12 @@ def main():
         
         # Paste the icon in the center
         round_icon.paste(icon, (0, 0))
-        round_icon_path = os.path.join(mipmap_dir, 'ic_launcher_round.webp')
+        round_icon_path = mipmap_dir / 'ic_launcher_round.webp'
         round_icon.save(round_icon_path, 'WebP', quality=95)
         print(f"  Saved: {round_icon_path}")
         
         # Save foreground variant
-        icon.save(os.path.join(mipmap_dir, 'ic_launcher_foreground.webp'), 'WebP', quality=95)
+        icon.save(mipmap_dir / 'ic_launcher_foreground.webp', 'WebP', quality=95)
     
     print("\n✓ Sanchari icons generated successfully!")
     print(f"Icons saved to: {base_dir}")

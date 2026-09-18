@@ -79,7 +79,7 @@ Features
     	6. Safe for her
     	================
     	-> Women-Only Ride Option - Filter for female drivers/passengers with verification
-    	-> Emergency SOS Button - One-tap panic button that alerts emergency contacts and admin
+    	-> Smart SOS Emergency Monitoring - Real-time panic flow with live tracking, periodic safety checks, and admin escalation
     	-> Live Trip Sharing - Share real-time location and trip details with trusted contacts
     	-> Verified Driver Program - Enhanced background checks and verification badges
     	-> Safety Check-ins - Automated wellness prompts during rides
