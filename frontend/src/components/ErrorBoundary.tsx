@@ -18,6 +18,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
+import { reportError } from '../config/errorTracking';
 
 interface Props {
   children: ReactNode;
@@ -39,8 +40,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Log to your crash-reporting service here (e.g. Sentry, Crashlytics)
-    console.error('[ErrorBoundary] Uncaught error:', error, info.componentStack);
+    reportError(error, { source: 'error-boundary' });
+    if (__DEV__) console.error('[ErrorBoundary] Uncaught error:', error, info.componentStack);
   }
 
   private handleRestart = () => {
@@ -51,13 +52,12 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <View testID="error-boundary-fallback" style={styles.container}>
-          <Text style={styles.emoji}>😵</Text>
-          <Text style={styles.title}>Something went wrong</Text>
+          <Text style={styles.title} accessibilityRole="header">Something went wrong</Text>
           <Text style={styles.message}>
-            {this.state.error?.message ?? 'An unexpected error occurred.'}
+            The app hit an unexpected problem. Try again, and if it keeps happening contact support@sanchari.me.
           </Text>
-          <Pressable style={styles.button} onPress={this.handleRestart}>
-            <Text style={styles.buttonText}>Restart</Text>
+          <Pressable style={styles.button} onPress={this.handleRestart} accessibilityRole="button">
+            <Text style={styles.buttonText}>Try again</Text>
           </Pressable>
         </View>
       );
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   button: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#0B7A75',
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,

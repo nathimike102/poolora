@@ -160,7 +160,7 @@ export function ClockTimePicker({
 
             <View style={styles.timeRow}>
               {/* Hour — tap to switch to hour-selection mode */}
-              <TouchableOpacity testID="hour-btn" onPress={() => setMode('hours')}>
+              <TouchableOpacity accessibilityRole="button" testID="hour-btn" onPress={() => setMode('hours')}>
                 <Text style={[
                   styles.timeDigit,
                   mode === 'hours' ? styles.digitActive : styles.digitDim,
@@ -172,7 +172,7 @@ export function ClockTimePicker({
               <Text style={styles.colon}>:</Text>
 
               {/* Minute — tap to switch to minute-selection mode */}
-              <TouchableOpacity testID="minute-btn" onPress={() => setMode('minutes')}>
+              <TouchableOpacity accessibilityRole="button" testID="minute-btn" onPress={() => setMode('minutes')}>
                 <Text style={[
                   styles.timeDigit,
                   mode === 'minutes' ? styles.digitActive : styles.digitDim,
@@ -183,14 +183,14 @@ export function ClockTimePicker({
 
               {/* AM / PM */}
               <View style={styles.amPmCol}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   testID="am-chip"
                   onPress={() => setIsPm(false)}
                   style={[styles.amPmChip, !isPm && styles.amPmChipActive]}
                 >
                   <Text style={styles.amPmText}>AM</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   testID="pm-chip"
                   onPress={() => setIsPm(true)}
                   style={[styles.amPmChip, isPm && styles.amPmChipActive]}
@@ -279,14 +279,14 @@ export function ClockTimePicker({
 
           {/* ── Action buttons ───────────────────────────────────────── */}
           <View style={[styles.actions, { borderTopColor: c.border }]}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.actionBtn}
               onPress={onDismiss}
               activeOpacity={0.7}
             >
               <Text style={[styles.btnText, { color: c.textSec }]}>CANCEL</Text>
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               testID="confirm-btn"
               style={styles.actionBtn}
               onPress={handleConfirm}

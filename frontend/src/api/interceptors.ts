@@ -119,6 +119,13 @@ export function setupRetryInterceptor(): void {
         return Promise.reject(error);
       }
 
+      // Only retry requests that are safe to repeat. Retrying a POST could
+      // create a second booking, payment order or SOS alert.
+      const method = (config.method ?? 'get').toLowerCase();
+      if (!['get', 'head', 'options', 'put', 'delete'].includes(method)) {
+        return Promise.reject(error);
+      }
+
       // Skip retry for certain status codes
       if (
         response.status === HTTP_STATUS.UNAUTHORIZED ||

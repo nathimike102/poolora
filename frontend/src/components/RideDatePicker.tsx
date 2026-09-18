@@ -109,7 +109,7 @@ function DayCell({
 
   return (
     <Animated.View style={[styles.dayCellWrapper, { transform: [{ scale }] }]}>
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         testID={testID}
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -159,7 +159,7 @@ function QuickChip({
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         testID={`quick-chip-${label}`}
         onPress={onPress}
         onPressIn={() => Animated.spring(scale, { toValue: 0.95, useNativeDriver: true, speed: 50, bounciness: 0 }).start()}
@@ -290,7 +290,7 @@ export function RideDatePicker({
       onRequestClose={handleClose}
     >
       {/* Backdrop */}
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={styles.backdrop}
         activeOpacity={1}
         onPress={handleClose}
@@ -316,11 +316,11 @@ export function RideDatePicker({
               <Text style={[styles.title, { color: c.text }]}>Select Date</Text>
               {selectedDate && (
                 <Text style={[styles.selectedLabel, { color: c.primary }]}>
-                  📅 {formatHeader(selectedDate)}
+                  {formatHeader(selectedDate)}
                 </Text>
               )}
             </View>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close date picker"
               onPress={handleClose}
               style={[styles.closeBtn, { backgroundColor: c.bg }]}
             >
@@ -332,7 +332,7 @@ export function RideDatePicker({
 
           {/* Month navigation */}
           <View style={styles.monthNav}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Previous month"
               testID="prev-month"
               onPress={prevMonth}
               disabled={!canGoPrev}
@@ -353,7 +353,7 @@ export function RideDatePicker({
               {MONTHS[viewMonth]} {viewYear}
             </Text>
 
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Next month"
               testID="next-month"
               onPress={nextMonth}
               style={[styles.monthNavBtn, { backgroundColor: c.primaryLight }]}
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingVertical: 6,
     paddingHorizontal: 14,
-    borderRadius: Radius.full,
+    borderRadius: 8,
     borderWidth: 1.5,
   },
   chipLabel: {

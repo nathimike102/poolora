@@ -4,17 +4,11 @@
  * API endpoints and configuration constants
  */
 
-import { Platform } from 'react-native';
 
 // ─── API Base URL Configuration ────────────────────────────────────────────
-// Production backend is deployed at https://sanchari.me.
-// Set REACT_NATIVE_API_BASE_URL in `.env` to override per environment.
-const DEFAULT_BASE_URL = Platform.select({
-  android: 'https://sanchari.me',
-  ios: 'https://sanchari.me',
-  web: 'https://sanchari.me',
-  default: 'https://sanchari.me',
-});
+// The API is served from api.sanchari.me (sanchari.me is the marketing site).
+// Set REACT_NATIVE_API_BASE_URL in `.env` to point at a local or staging API.
+const DEFAULT_BASE_URL = 'https://api.sanchari.me';
 
 export const API_CONFIG = {
   baseUrl: process.env.REACT_NATIVE_API_BASE_URL || DEFAULT_BASE_URL,
@@ -43,6 +37,12 @@ export const API_ENDPOINTS = {
     me: '/auth/me',
     submitKyc: '/auth/kyc',
     approveKyc: (userId: string) => `/auth/kyc/${userId}/approve`,
+    rejectKyc: (userId: string) => `/auth/kyc/${userId}/reject`,
+  },
+
+  // Uploads
+  uploads: {
+    kyc: '/uploads/kyc',
   },
 
   // Users
@@ -116,6 +116,9 @@ export const API_ENDPOINTS = {
 
   // Maps
   maps: {
+    autocomplete: '/maps/autocomplete',
+    geocode: '/maps/geocode',
+    reverseGeocode: '/maps/reverse-geocode',
     directions: '/maps/directions',
     distance: '/maps/distance',
     pickupToDrop: '/maps/pickup-to-drop',
@@ -136,8 +139,10 @@ export const API_ENDPOINTS = {
     sosStatus: (id: string) => `/safety/sos/${id}`,
     updateSosLocation: (id: string) => `/safety/sos/${id}/location`,
     addEvidence: (id: string) => `/safety/sos/${id}/evidence`,
+    checkIn: (id: string) => `/safety/sos/${id}/check-in`,
     acknowledge: (id: string) => `/safety/sos/${id}/acknowledge`,
     resolve: (id: string) => `/safety/sos/${id}/resolve`,
+    notifyPolice: (id: string) => `/safety/sos/${id}/notify-police`,
     emergencyContacts: '/safety/emergency-contacts',
   },
 
@@ -146,6 +151,7 @@ export const API_ENDPOINTS = {
     metrics: '/admin/metrics',
     rides: '/admin/rides',
     users: '/admin/users',
+    kycDocuments: (userId: string) => `/admin/kyc/${userId}/documents`,
     payments: '/admin/payments',
   },
 } as const;

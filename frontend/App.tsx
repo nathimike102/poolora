@@ -38,6 +38,9 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { PaperLightTheme, PaperDarkTheme } from './src/theme';
 import { setupAllInterceptors } from './src/api/interceptors';
 import { logger } from './src/utils/logger';
+import { initErrorTracking } from './src/config/errorTracking';
+
+initErrorTracking();
 
 // ─── Inner app — needs AppProvider to already be mounted ──────────────────────
 // We split this out so we can read isDarkMode from context to pick the theme.

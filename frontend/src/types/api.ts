@@ -74,9 +74,9 @@ export interface RefreshTokenResponse {
 
 // ─── User Types ────────────────────────────────────────────────────────────
 
-export type UserCapability = 'rider' | 'driver' | 'parcel_shipper';
-export type KYCStatus = 'none' | 'submitted' | 'approved' | 'rejected';
-export type VehicleType = 'sedan' | 'suv' | 'hatchback' | 'auto';
+export type UserCapability = 'rider' | 'driver' | 'admin';
+export type KYCStatus = 'none' | 'pending' | 'approved' | 'rejected';
+export type VehicleType = 'sedan' | 'suv' | 'hatchback' | 'mini' | 'auto' | 'bike';
 export type UserGender = 'male' | 'female' | 'other';
 
 export interface User {
@@ -143,7 +143,7 @@ export interface EmergencyContact {
 
 // ─── Ride Types ────────────────────────────────────────────────────────────
 
-export type RideStatus = 'draft' | 'active' | 'cancelled' | 'completed';
+export type RideStatus = 'scheduled' | 'active' | 'in_progress' | 'completed' | 'cancelled';
 export type RideType = 'economy' | 'premium' | 'shared';
 
 export interface GeoPoint {
@@ -180,22 +180,51 @@ export interface Ride {
   allowLuggage: boolean;
   passengers?: User[];
   ratings?: Rating[];
+  /** From the backend route calculation */
+  estimatedDistanceKm?: number;
+  estimatedDurationMins?: number;
+  preferences?: RidePreferences;
+  /** 0-100 match score from ride search */
+  matchScore?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateRideRequest {
-  pickupLocation: Location;
-  dropoffLocation: Location;
-  scheduledDeparture: string;
-  seats: number;
+/** A rider's booked ride as returned by /rides/upcoming */
+export interface UpcomingBooking {
+  rideId: string;
+  bookingId: string;
+  from: string;
+  to: string;
+  departureTime: string;
   pricePerSeat: number;
-  rideType?: RideType;
-  description?: string;
-  amenities?: string[];
-  womenOnly?: boolean;
-  hasAC?: boolean;
-  allowLuggage?: boolean;
+  driverName: string;
+  status: BookingStatus;
+}
+
+export interface RidePreferences {
+  womenOnly: boolean;
+  smokingAllowed: boolean;
+  petsAllowed: boolean;
+  luggageSize: 'none' | 'small' | 'medium' | 'large';
+  maxDetourMins: number;
+}
+
+/** Matches the backend's createRideSchema */
+export interface CreateRideRequest {
+  vehicleId: string;
+  pickup: { lat: number; lng: number; address: string };
+  dropoff: { lat: number; lng: number; address: string };
+  /** ISO datetime in the future */
+  departureTime: string;
+  totalSeats: number;
+  pricePerSeat: number;
+  preferences: {
+    womenOnly: boolean;
+    smokingAllowed: boolean;
+    petsAllowed: boolean;
+    luggageSize: 'none' | 'small' | 'medium' | 'large';
+  };
 }
 
 export interface SearchRidesRequest {
@@ -230,6 +259,17 @@ export interface Booking {
   pickupLocation: Location;
   dropoffLocation: Location;
   specialRequirements?: string;
+  /** Populated driver (public fields; phone only once confirmed) */
+  driver?: User;
+  /** 0-100 route and schedule match computed when the booking was made */
+  matchScore?: number;
+  estimatedFare?: number;
+  cancellationReason?: string;
+  /** Set by the backend when the booking is completed */
+  driverEarnings?: number;
+  finalFare?: number;
+  pickup?: { address?: string };
+  dropoff?: { address?: string };
   createdAt: string;
   updatedAt: string;
 }
@@ -237,9 +277,23 @@ export interface Booking {
 export interface CreateBookingRequest {
   rideId: string;
   seatsBooked: number;
-  pickupLocation?: Location;
-  dropoffLocation?: Location;
-  specialRequirements?: string;
+  pickup: { lat: number; lng: number; address: string };
+  dropoff: { lat: number; lng: number; address: string };
+  /** Pay from wallet balance instead of Razorpay */
+  useWallet?: boolean;
+}
+
+export interface RazorpayOrder {
+  id: string;
+  amount: number; // paise
+  currency: string;
+}
+
+export interface CreateBookingResult {
+  booking: Booking;
+  razorpayOrder: RazorpayOrder | null;
+  razorpayKeyId?: string;
+  paidViaWallet: boolean;
 }
 
 // ─── Rating Types ──────────────────────────────────────────────────────────
@@ -249,8 +303,10 @@ export interface Rating {
   ride: string; // ride ID
   rater: User;
   ratee: User;
-  rating: number; // 1-5
-  review?: string;
+  /** 1-5, named `score` by the backend */
+  score: number;
+  comment?: string;
+  tags?: string[];
   createdAt: string;
 }
 

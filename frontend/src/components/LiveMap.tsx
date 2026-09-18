@@ -2,21 +2,23 @@
  * components/LiveMap.tsx
  *
  * Real map component powered by react-native-maps + expo-location.
- * Drop-in replacement for MockMap — same prop interface.
+ * Map used for ride routes and live driver position.
  *
  * Features:
  * - Requests user location permission and centres map automatically
- * - Shows an animated route polyline between origin & destination
- * - Shows a driver marker when showDriver is true
- * - Shows origin (purple) / destination (red) markers when showRoute is true
+ * - Shows origin (teal) / destination (red) markers joined by a dashed line
+ *   when showRoute is true and both coordinates are known
+ * - Shows a driver marker only when a real driver location is provided
  * - Supports dark mode via custom map styling
- * - Falls back to a default Bangalore centre if location is unavailable
+ * - Centres on Bangalore if the user's location is unavailable
+ *
+ * Nothing is drawn from placeholder data: without coordinates the map just
+ * shows the user's area.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ActivityIndicator,
   Platform,
@@ -31,8 +33,9 @@ import MapView, {
 import * as Location from 'expo-location';
 
 import { useApp } from '../context/AppContext';
+import { Icon } from './Icon';
 
-/* ── Props (identical to MockMap for drop-in swap) ───────────────── */
+/* ── Props ─────────────────────────────────────────────────────── */
 interface LiveMapProps {
   showRoute?: boolean;
   showDriver?: boolean;
@@ -47,11 +50,10 @@ interface LiveMapProps {
   driverLocation?: { latitude: number; longitude: number };
 }
 
-/* ── Fallback coords (Koramangala, Bangalore) ───────────────────── */
-const DEFAULT_ORIGIN = { latitude: 12.9352, longitude: 77.6245 };
-const DEFAULT_DESTINATION = { latitude: 12.9716, longitude: 77.5946 }; // MG Road
+/* ── Fallback camera centre (Bangalore) ─────────────────────────── */
 const DEFAULT_REGION: Region = {
-  ...DEFAULT_ORIGIN,
+  latitude: 12.9352,
+  longitude: 77.6245,
   latitudeDelta: 0.06,
   longitudeDelta: 0.06,
 };
@@ -87,17 +89,11 @@ export function LiveMap({
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Resolve coordinates — use props if given, else defaults
-  const origin = originProp ?? DEFAULT_ORIGIN;
-  const destination = destinationProp ?? DEFAULT_DESTINATION;
-  const driverLocation = React.useMemo(
-    () =>
-      driverProp ?? {
-        latitude: (origin.latitude + destination.latitude) / 2 + 0.003,
-        longitude: (origin.longitude + destination.longitude) / 2 - 0.002,
-      },
-    [driverProp, origin.latitude, origin.longitude, destination.latitude, destination.longitude],
-  );
+  const origin = originProp;
+  const destination = destinationProp;
+  const driverLocation = driverProp;
+  const canShowRoute = showRoute && Boolean(origin && destination);
+  const canShowDriver = showDriver && Boolean(driverLocation);
 
   /* ── Request location permission & get user position ──────────── */
   useEffect(() => {
@@ -129,9 +125,9 @@ export function LiveMap({
 
   /* ── Fit markers into view when route is visible ──────────────── */
   useEffect(() => {
-    if (!showRoute || !mapRef.current) return;
+    if (!canShowRoute || !mapRef.current || !origin || !destination) return;
     const coords = [origin, destination];
-    if (showDriver) coords.push(driverLocation);
+    if (canShowDriver && driverLocation) coords.push(driverLocation);
 
     // Small delay to let MapView fully mount
     const timer = setTimeout(() => {
@@ -141,7 +137,7 @@ export function LiveMap({
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [showRoute, showDriver, origin, destination, driverLocation]);
+  }, [canShowRoute, canShowDriver, origin, destination, driverLocation]);
 
   /* ── Region to show ───────────────────────────────────────────── */
   const region: Region = initialRegion
@@ -169,13 +165,14 @@ export function LiveMap({
           mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
         >
           {/* ── Route polyline ────────────────────────────────── */}
-          {showRoute && (
+          {canShowRoute && origin && destination && (
             <>
+              {/* Straight dashed line: indicates direction, not the road route */}
               <Polyline
-                coordinates={generateCurvedRoute(origin, destination)}
-                strokeColor="#7C3AED"
-                strokeWidth={4}
-                lineDashPattern={undefined}
+                coordinates={[origin, destination]}
+                strokeColor={c.primary}
+                strokeWidth={3}
+                lineDashPattern={[8, 6]}
               />
               {/* Origin marker */}
               <Marker coordinate={origin} anchor={{ x: 0.5, y: 0.5 }}>
@@ -193,7 +190,7 @@ export function LiveMap({
           )}
 
           {/* ── Driver marker ─────────────────────────────────── */}
-          {showDriver && (
+          {canShowDriver && driverLocation && (
             <Marker
               coordinate={driverLocation}
               anchor={{ x: 0.5, y: 0.5 }}
@@ -201,14 +198,14 @@ export function LiveMap({
             >
               <View style={styles.driverMarkerOuter}>
                 <View style={styles.driverMarkerInner}>
-                  <Text style={{ fontSize: 18 }}>🚗</Text>
+                  <Icon name="car" size={20} color="#FFFFFF" />
                 </View>
               </View>
             </Marker>
           )}
 
           {/* ── User location blue dot (fallback if showsUserLocation fails) ── */}
-          {userLocation && !showRoute && (
+          {userLocation && !canShowRoute && (
             <Marker coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }}>
               <View style={styles.userDotOuter}>
                 <View style={styles.userDotInner} />
@@ -219,36 +216,6 @@ export function LiveMap({
       )}
     </View>
   );
-}
-
-/* ── Generate a simple curved route between two points ───────────── */
-function generateCurvedRoute(
-  from: { latitude: number; longitude: number },
-  to: { latitude: number; longitude: number },
-  steps = 30,
-) {
-  const points: { latitude: number; longitude: number }[] = [];
-  const midLat = (from.latitude + to.latitude) / 2;
-  const midLng = (from.longitude + to.longitude) / 2;
-  // Offset the control point to create a slight curve
-  const offsetLat = (to.longitude - from.longitude) * 0.15;
-  const offsetLng = -(to.latitude - from.latitude) * 0.15;
-  const ctrlLat = midLat + offsetLat;
-  const ctrlLng = midLng + offsetLng;
-
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const lat =
-      (1 - t) * (1 - t) * from.latitude +
-      2 * (1 - t) * t * ctrlLat +
-      t * t * to.latitude;
-    const lng =
-      (1 - t) * (1 - t) * from.longitude +
-      2 * (1 - t) * t * ctrlLng +
-      t * t * to.longitude;
-    points.push({ latitude: lat, longitude: lng });
-  }
-  return points;
 }
 
 /* ── Styles ──────────────────────────────────────────────────────── */
@@ -263,12 +230,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Origin marker — purple ring
+  // Origin marker, teal ring
   originMarkerOuter: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#0B7A75',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -295,7 +262,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
 
-  // Driver marker — purple circle with car emoji
+  // Driver marker, teal circle
   driverMarkerOuter: {
     width: 44,
     height: 44,
@@ -313,7 +280,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#0B7A75',
     justifyContent: 'center',
     alignItems: 'center',
   },

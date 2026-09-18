@@ -1,10 +1,13 @@
 /**
  * utils/tokenStorage.ts
- * 
- * Secure token storage using expo-secure-store
- * Falls back to AsyncStorage if secure store unavailable
+ *
+ * Token storage in the platform keychain/keystore via expo-secure-store.
+ * Tokens are never written to unencrypted AsyncStorage on iOS or Android; if
+ * secure storage fails the write fails and the user is asked to sign in again.
+ * The web build has no secure store, so it uses AsyncStorage there.
  */
 
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { logger } from './logger';
@@ -19,56 +22,60 @@ export interface StoredTokens {
 
 // ─── Token Storage Service ────────────────────────────────────────────────
 
-/**
- * Tries to use SecureStore first, falls back to AsyncStorage
- */
+const isWeb = Platform.OS === 'web';
+
 async function secureSet(key: string, value: string): Promise<void> {
   try {
-    // Try secure store first
-    await SecureStore.setItemAsync(key, value);
-  } catch (_error) {
-    logger.warn('SecureStore unavailable, falling back to AsyncStorage', { key, error: _error });
-    try {
-      // Fallback to AsyncStorage
-      await AsyncStorage.setItem(key, value);
-    } catch (asyncError) {
-      logger.error('Failed to store token', { key, error: asyncError });
-      throw asyncError;
-    }
+    if (isWeb) await AsyncStorage.setItem(key, value);
+    else await SecureStore.setItemAsync(key, value);
+  } catch (error) {
+    logger.error('Failed to store token securely', { key, error });
+    throw error;
   }
 }
 
 async function secureGet(key: string): Promise<string | null> {
-  try {
-    // Try secure store first
-    const value = await SecureStore.getItemAsync(key);
-    if (value !== null) return value;
-  } catch (_error) {
-    logger.debug('SecureStore unavailable, trying AsyncStorage', { key, error: _error });
+  if (isWeb) {
+    try {
+      return await AsyncStorage.getItem(key);
+    } catch {
+      return null;
+    }
   }
 
   try {
-    // Fallback to AsyncStorage
-    return await AsyncStorage.getItem(key);
-  } catch (_error) {
-    logger.error('Failed to retrieve token', { key, error: _error });
+    const value = await SecureStore.getItemAsync(key);
+    if (value !== null) return value;
+  } catch (error) {
+    logger.error('Failed to read token from secure storage', { key, error });
+    return null;
+  }
+
+  // One-time migration: older builds could leave tokens in AsyncStorage.
+  try {
+    const legacy = await AsyncStorage.getItem(key);
+    if (legacy === null) return null;
+    await AsyncStorage.removeItem(key);
+    await SecureStore.setItemAsync(key, legacy);
+    return legacy;
+  } catch {
     return null;
   }
 }
 
 async function secureRemove(key: string): Promise<void> {
-  try {
-    // Try secure store first
-    await SecureStore.deleteItemAsync(key);
-  } catch (_error) {
-    logger.debug('SecureStore remove failed, trying AsyncStorage', { key, error: _error });
+  if (!isWeb) {
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch (error) {
+      logger.debug('SecureStore remove failed', { key, error });
+    }
   }
-
   try {
-    // Also remove from AsyncStorage
+    // Also clears anything an older build left in AsyncStorage
     await AsyncStorage.removeItem(key);
-  } catch (_error) {
-    logger.warn('Failed to remove token', { key, error: _error });
+  } catch (error) {
+    logger.warn('Failed to remove token', { key, error });
   }
 }
 

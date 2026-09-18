@@ -33,7 +33,7 @@
  * --background: #ffffff        -> LightColors.bg (grey50 for app screens)
  * --foreground: oklch(0.145)   -> LightColors.text = '#111827'
  * --card: #ffffff              -> LightColors.surface = '#FFFFFF'
- * --primary: #030213           -> shadcn default; overridden to '#7C3AED'
+ * --primary: #030213           -> shadcn default; overridden to '#0B7A75' (Sanchari teal, from the logo)
  * --secondary: oklch(0.95...)  -> LightColors.surfaceVariant = '#F3F4F6'
  * --muted: #ececf0             -> LightColors.muted = '#ECECF0'
  * --muted-foreground: #717182  -> LightColors.mutedFg = '#717182'
@@ -63,9 +63,9 @@ import { MD3LightTheme, MD3DarkTheme, type MD3Theme } from 'react-native-paper';
 // ---- Colour Palette ----------------------------------------------------------
 
 export const Palette = {
-  primary:      '#7C3AED',
-  primaryDark:  '#5B21B6',
-  primaryLight: '#EDE9FE',
+  primary:      '#0B7A75',
+  primaryDark:  '#08605C',
+  primaryLight: '#E3F2F1',
 
   success:      '#10B981',
   successDark:  '#059669',
@@ -156,10 +156,10 @@ export const ChartColors = {
     chart5: '#F59E0B',
   },
   dark: {
-    chart1: '#6366F1',
+    chart1: '#2B6CC4',
     chart2: '#22C55E',
     chart3: '#F59E0B',
-    chart4: '#A855F7',
+    chart4: '#F7931E',
     chart5: '#EF4444',
   },
 } as const;
@@ -231,9 +231,9 @@ export const LightColors: AppColors = {
 };
 
 export const DarkColors: AppColors = {
-  primary:      '#9F67FF',
-  primaryDark:  '#7C3AED',
-  primaryLight: '#2E1065',
+  primary:      '#00857F',
+  primaryDark:  '#0B7A75',
+  primaryLight: '#0E3B39',
   success:      '#34D399',
   successDark:  '#10B981',
   successLight: '#064E3B',
@@ -404,10 +404,10 @@ export const PaperDarkTheme: MD3Theme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary:            '#9F67FF',
-    primaryContainer:   '#2E1065',
+    primary:            '#00857F',
+    primaryContainer:   '#0E3B39',
     onPrimary:          Palette.white,
-    onPrimaryContainer: '#EDE9FE',
+    onPrimaryContainer: '#E3F2F1',
     secondary:          '#34D399',
     secondaryContainer: '#064E3B',
     onSecondary:        Palette.white,

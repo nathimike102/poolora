@@ -140,7 +140,7 @@ function TabItem({ label, routeName, isActive, onPress, primaryColor }: TabItemP
 
   return (
     <Animated.View style={[styles.tabItem, { transform: [{ scale }] }]}>
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         testID={`custom-tab-${routeName}`}
         onPress={onPress}
         onPressIn={handlePressIn}

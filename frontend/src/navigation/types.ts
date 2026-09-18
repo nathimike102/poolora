@@ -18,7 +18,7 @@ import type { Ride, PaginatedResponse } from '../types/api';
 
 export type RiderTabParamList = {
   RiderHome: undefined;
-  Search: { pickedLocation?: string; pickedField?: 'from' | 'to' } | undefined;
+  Search: { pickedLocation?: string; pickedField?: 'from' | 'to'; from?: string; to?: string } | undefined;
   MyRides: undefined;
   ChatList: undefined;
   Profile: undefined;
@@ -52,19 +52,29 @@ export type RootStackParamList = {
   DriverTabs: NavigatorScreenParams<DriverTabParamList>;
 
   // Rider detail screens (pushed above tabs)
-  RideResults: { rides?: PaginatedResponse<Ride> | Ride[] } | undefined;
+  RideResults:
+    | {
+        rides?: PaginatedResponse<Ride> | Ride[];
+        /** What the rider searched for, shown in the results header */
+        route?: { from: string; to: string; seats: number };
+      }
+    | undefined;
   Booking: { rideId: string };
-  ActiveRide: { rideId: string };
+  ActiveRide: { rideId: string; bookingId?: string };
   RideDetail: { rideId: string };
-  Payment: { rideId: string; amount: number };
+  Payment: {
+    bookingId: string;
+    orderId: string;
+    keyId: string;
+    /** Rupees */
+    amount: number;
+    summary: string;
+  };
   AddSavedRoute: undefined;
 
   // Driver detail screens (pushed above tabs)
   Earnings: undefined;
   KYC: undefined;
-  PersonalDetails: undefined;
-  VehicleDetails: undefined;
-  AddVehicle: undefined;
   UpcomingRides: undefined;
   DriverRideDetails: { rideId: string };
 
@@ -84,6 +94,12 @@ export type RootStackParamList = {
   Notifications: undefined;
   SOS: undefined;
   EmergencyContacts: undefined;
+
+  // Admin screens
+  AdminDashboard: undefined;
+  AdminIncidents: undefined;
+  AdminMetrics: undefined;
+  AdminVerifications: undefined;
 
   // Map picker
   MapPicker: { field: 'from' | 'to' };

@@ -12,6 +12,7 @@ module.exports = {
   expo: {
     name: 'Sanchari',
     slug: 'one-piece',
+    version: '1.0.0',
     icon: './assets/splash.png',
     android: {
       package: 'com.sanchari.app',
@@ -27,9 +28,11 @@ module.exports = {
       },
       permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
     },
+    autolinking: {
+      searchPaths: ['./node_modules'],
+    },
     ios: {
       bundleIdentifier: 'com.sanchari.app',
-      googleServicesFile: './GoogleService-Info.plist',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           'Sanchari needs your location to show your position on the map and find rides near you.',
@@ -45,9 +48,17 @@ module.exports = {
             'Sanchari needs your location to show your position on the map and find rides near you.',
         },
       ],
+      [
+        'expo-image-picker',
+        {
+          photosPermission: 'Sanchari uses your photos so you can add driver verification documents and a profile picture.',
+          cameraPermission: 'Sanchari uses the camera so you can photograph driver verification documents.',
+        },
+      ],
       '@react-native-google-signin/google-signin',
       'expo-font',
       'expo-secure-store',
+      '@sentry/react-native/expo',
     ],
     // Disable Over-the-Air updates in native builds to avoid remote update downloads
     // Rebuild the native app for this change to take effect.

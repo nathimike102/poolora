@@ -259,3 +259,15 @@ Animated.loop = (anim) => ({
 });
 
 console.warn = jest.fn();
+
+// Mock Razorpay native checkout
+jest.mock('react-native-razorpay', () => ({
+  __esModule: true,
+  default: { open: jest.fn() },
+}));
+
+// Mock Sentry native SDK
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  captureException: jest.fn(),
+}));

@@ -42,8 +42,8 @@ export function GradientButton({
   onPress,
   disabled = false,
   loading = false,
-  colorStart = '#7C3AED',
-  colorEnd = '#5B21B6',
+  colorStart = '#0B7A75',
+  colorEnd = '#08605C',
   disabledColor = '#E5E7EB',
   height = 56,
   style,
@@ -74,7 +74,7 @@ export function GradientButton({
 
   return (
     <ReAnimated.View style={animStyle}>
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         testID={testID}
         onPress={handlePress}
         onPressIn={handlePressIn}

@@ -21,7 +21,7 @@ describe('ErrorBoundary', () => {
     // Silence console.error for this test
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     
-    const { getByTestId, getByText } = render(
+    const { getByTestId, getByText, queryByText } = render(
       <ErrorBoundary>
         <ProblematicComponent />
       </ErrorBoundary>
@@ -29,7 +29,8 @@ describe('ErrorBoundary', () => {
     
     expect(getByTestId('error-boundary-fallback')).toBeTruthy();
     expect(getByText('Something went wrong')).toBeTruthy();
-    expect(getByText('Test Error')).toBeTruthy();
+    // Internal error details are not shown to users
+    expect(queryByText('Test Error')).toBeNull();
     
     spy.mockRestore();
   });

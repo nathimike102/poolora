@@ -58,13 +58,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   badge: {
-    backgroundColor: '#312E81',
-    color: '#E0E7FF',
+    backgroundColor: '#0B2447',
+    color: '#E8EEF9',
     fontSize: 12,
     fontWeight: '600',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 999,
+    borderRadius: 8,
     overflow: 'hidden',
   },
 });

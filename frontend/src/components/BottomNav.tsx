@@ -171,7 +171,7 @@ function TabItem({ item, isActive, onPress, primaryColor, surfaceColor, errorCol
 
   return (
     <Animated.View style={[styles.tabItem, { transform: [{ scale }] }]}>
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         testID={`nav-tab-${item.tab}`}
         onPress={onPress}
         onPressIn={handlePressIn}

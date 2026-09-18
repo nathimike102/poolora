@@ -13,6 +13,7 @@ import {
   Animated,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
+import { Icon } from './Icon';
 import { Typography, Radius, Shadow } from '../theme';
 
 export function RoleToggle() {
@@ -53,7 +54,7 @@ export function RoleToggle() {
             // translateX slides the pill between left (Rider) and right (Driver)
             transform: [{ translateX: pillX }],
           },
-          Shadow.primary('#7C3AED'),
+          Shadow.primary('#0B7A75'),
         ]}
       />
 
@@ -62,13 +63,15 @@ export function RoleToggle() {
         testID="role-toggle-rider"
         onPress={() => { if (!isRider) switchRole(); }}
         activeOpacity={isRider ? 1 : 0.7} // no feedback when already active
+        accessibilityRole="tab"
+        accessibilityState={{ selected: isRider }}
         style={styles.tab}
       >
-        <Text style={styles.tabEmoji}>🚕</Text>
+        <Icon name="account" size={18} color={isRider ? '#FFFFFF' : 'rgba(255,255,255,0.75)'} />
         <Text
           style={[
             styles.tabLabel,
-            { color: isRider ? '#FFFFFF' : 'rgba(255,255,255,0.45)' },
+            { color: isRider ? '#FFFFFF' : 'rgba(255,255,255,0.75)' },
           ]}
         >
           Rider
@@ -80,13 +83,15 @@ export function RoleToggle() {
         testID="role-toggle-driver"
         onPress={() => { if (isRider) switchRole(); }}
         activeOpacity={!isRider ? 1 : 0.7}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: !isRider }}
         style={styles.tab}
       >
-        <Text style={styles.tabEmoji}>🚗</Text>
+        <Icon name="steering" size={18} color={!isRider ? '#FFFFFF' : 'rgba(255,255,255,0.75)'} />
         <Text
           style={[
             styles.tabLabel,
-            { color: !isRider ? '#FFFFFF' : 'rgba(255,255,255,0.45)' },
+            { color: !isRider ? '#FFFFFF' : 'rgba(255,255,255,0.75)' },
           ]}
         >
           Driver
@@ -117,7 +122,7 @@ const styles = StyleSheet.create({
     bottom: 4,
     left: 4,
     borderRadius: Radius.md,
-    backgroundColor: '#7C3AED', // solid fallback; use expo-linear-gradient for gradient
+    backgroundColor: '#0B7A75', // solid fallback; use expo-linear-gradient for gradient
   },
 
   tab: {

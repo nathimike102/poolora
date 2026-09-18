@@ -22,7 +22,11 @@ import {
   signOut as signOutFromFirebase,
   restoreAuthState,
   logoutAll,
+  devLogin,
+  getCurrentUserFromState,
 } from "../services/authService";
+import { env } from "../config/env";
+import { PolicyModal } from "../components/PolicyModal";
 import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { logger } from "../utils/logger";
 
@@ -169,10 +173,45 @@ export function AppProvider({ children }: AppProviderProps) {
         } else {
           logger.debug("No backend auth state to restore");
         }
+        // If dev bypass is enabled, perform a local dev login so the app
+        // can be used without real authentication.
+        // __DEV__ is false in release builds, so this can never ship enabled.
+        if (__DEV__ && env.DEV_AUTH_BYPASS === 'true') {
+          try {
+            await devLogin('rider');
+            const u = getCurrentUserFromState();
+            if (u) {
+              setUser({
+                id: u.id ?? u._id,
+                name: u.name,
+                phone: u.phone,
+                avatarUrl: u.profilePhotoUrl,
+                isVerified: u.isVerified,
+              });
+            }
+            setRoleState('rider');
+            logger.info('Developer bypass login applied');
+          } catch (e) {
+            logger.warn('Dev bypass login failed', { error: e });
+          }
+        }
       } catch (error) {
         logger.warn("Failed to restore backend auth state on startup", {
           error,
         });
+      }
+    })();
+  }, []);
+
+  // Policy modal handling
+  const [policyVisible, setPolicyVisible] = React.useState(false);
+  useEffect(() => {
+    (async () => {
+      try {
+        const accepted = await AsyncStorage.getItem('@sanchari_policy_accepted');
+        if (!accepted) setPolicyVisible(true);
+      } catch {
+        setPolicyVisible(true);
       }
     })();
   }, []);
@@ -247,7 +286,12 @@ export function AppProvider({ children }: AppProviderProps) {
     ],
   );
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+      <PolicyModal visible={policyVisible} onAccept={() => setPolicyVisible(false)} />
+    </AppContext.Provider>
+  );
 }
 
 // ─── Hook ──────────────────────────────────────────────────────────────────────

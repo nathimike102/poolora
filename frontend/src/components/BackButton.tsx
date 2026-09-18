@@ -31,7 +31,7 @@ export function BackButton({ onPress }: BackButtonProps) {
   };
 
   return (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
       testID="back-button"
       onPress={handlePress}
       style={[
