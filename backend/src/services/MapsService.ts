@@ -1,5 +1,7 @@
 import axios from 'axios';
+import crypto from 'crypto';
 import { config } from '../config';
+import { getRedisClient } from '../config/redis';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 
@@ -16,6 +18,47 @@ function getApiKey(): string {
   }
   return key;
 }
+
+/**
+ * GET a Google Maps web service with a short-lived Redis cache. Only successful
+ * responses are cached, the API key is excluded from the cache key, and TTLs
+ * stay well inside Google's temporary-caching allowance.
+ */
+async function cachedMapsGet(
+  url: string,
+  params: Record<string, string>,
+  ttlSeconds: number,
+): Promise<{ data: any }> {
+  const redis = getRedisClient();
+  const cacheKey = `maps:${crypto
+    .createHash('sha1')
+    .update(url + JSON.stringify(Object.entries(params).sort()))
+    .digest('hex')}`;
+
+  if (redis) {
+    try {
+      const hit = await redis.get(cacheKey);
+      if (hit) return { data: JSON.parse(hit) };
+    } catch (error) {
+      logger.warn('Maps cache read failed', { error: (error as Error).message });
+    }
+  }
+
+  const response = await axios.get(url, { params: { ...params, key: getApiKey() }, timeout: 10000 });
+
+  if (redis && (response.data?.status === 'OK' || response.data?.status === 'ZERO_RESULTS')) {
+    redis.setex(cacheKey, ttlSeconds, JSON.stringify(response.data)).catch((error: Error) => {
+      logger.warn('Maps cache write failed', { error: error.message });
+    });
+  }
+  return response;
+}
+
+const CACHE_TTL = {
+  autocomplete: 10 * 60,
+  geocode: 24 * 60 * 60,
+  route: 10 * 60,
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +86,8 @@ export interface RouteResult {
 export interface AutocompleteResult {
   description: string;
   placeId: string;
+  mainText: string;
+  secondaryText: string;
 }
 
 export interface DistanceResult {
@@ -190,13 +235,11 @@ export interface AddressValidationResult {
  */
 export async function autocomplete(input: string): Promise<AutocompleteResult[]> {
   try {
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/place/autocomplete/json`, {
-      params: {
-        input,
-        components: 'country:in',
-        key: getApiKey(),
-      },
-    });
+    const response = await cachedMapsGet(
+      `${GOOGLE_MAPS_BASE}/place/autocomplete/json`,
+      { input: input.trim().toLowerCase(), components: 'country:in' },
+      CACHE_TTL.autocomplete,
+    );
 
     const data = response.data;
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
@@ -210,10 +253,12 @@ export async function autocomplete(input: string): Promise<AutocompleteResult[]>
     return (data.predictions ?? []).slice(0, 5).map((p: any) => ({
       description: p.description,
       placeId: p.place_id,
+      mainText: p.structured_formatting?.main_text ?? p.description,
+      secondaryText: p.structured_formatting?.secondary_text ?? '',
     }));
   } catch (error: any) {
     if (error instanceof AppError) throw error;
-    logger.error('Autocomplete request failed', { error: error.message, input });
+    logger.error('Autocomplete request failed', { error: error.message });
     throw new AppError('Autocomplete service unavailable', 502, 'AUTOCOMPLETE_ERROR');
   }
 }
@@ -223,12 +268,11 @@ export async function autocomplete(input: string): Promise<AutocompleteResult[]>
  */
 export async function geocodeAddress(address: string): Promise<GeocodeResult> {
   try {
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/geocode/json`, {
-      params: {
-        address,
-        key: getApiKey(),
-      },
-    });
+    const response = await cachedMapsGet(
+      `${GOOGLE_MAPS_BASE}/geocode/json`,
+      { address },
+      CACHE_TTL.geocode,
+    );
 
     const data = response.data;
     if (data.status !== 'OK' || !data.results?.length) {
@@ -258,12 +302,11 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
  */
 export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult> {
   try {
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/geocode/json`, {
-      params: {
-        latlng: `${lat},${lng}`,
-        key: getApiKey(),
-      },
-    });
+    const response = await cachedMapsGet(
+      `${GOOGLE_MAPS_BASE}/geocode/json`,
+      { latlng: `${lat},${lng}` },
+      CACHE_TTL.geocode,
+    );
 
     const data = response.data;
     if (data.status !== 'OK' || !data.results?.length) {
@@ -296,14 +339,15 @@ export async function getRoute(
   destination: { lat: number; lng: number },
 ): Promise<RouteResult> {
   try {
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/directions/json`, {
-      params: {
+    const response = await cachedMapsGet(
+      `${GOOGLE_MAPS_BASE}/directions/json`,
+      {
         origin: `${origin.lat},${origin.lng}`,
         destination: `${destination.lat},${destination.lng}`,
         mode: 'driving',
-        key: getApiKey(),
       },
-    });
+      CACHE_TTL.route,
+    );
 
     const data = response.data;
     if (data.status !== 'OK' || !data.routes?.length) {
@@ -339,14 +383,15 @@ export async function calculateDistance(
   destination: { lat: number; lng: number },
 ): Promise<DistanceResult> {
   try {
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/distancematrix/json`, {
-      params: {
+    const response = await cachedMapsGet(
+      `${GOOGLE_MAPS_BASE}/distancematrix/json`,
+      {
         origins: `${origin.lat},${origin.lng}`,
         destinations: `${destination.lat},${destination.lng}`,
         mode: 'driving',
-        key: getApiKey(),
       },
-    });
+      CACHE_TTL.route,
+    );
 
     const data = response.data;
     if (data.status !== 'OK') {

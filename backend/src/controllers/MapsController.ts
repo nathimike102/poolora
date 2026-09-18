@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import {
+  autocomplete,
+  geocodeAddress,
+  reverseGeocode,
   getRoute,
   calculateDistance,
   getDirections,
@@ -16,6 +19,51 @@ import {
 } from '../services/MapsService';
 
 export class MapsController {
+  /**
+   * GET /maps/geocode?address=...
+   * Coordinates for an address the rider picked from suggestions.
+   */
+  static async geocode(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await geocodeAddress(String(req.query.address));
+      sendSuccess(res, result, 200, (req as AuthenticatedRequest).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /maps/reverse-geocode?lat=...&lng=...
+   * Address for a point the rider pinned on the map.
+   */
+  static async reverseGeocode(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { lat, lng } = req.query as unknown as { lat: number; lng: number };
+      const result = await reverseGeocode(lat, lng);
+      sendSuccess(
+        res,
+        { formattedAddress: result.formattedAddress, placeId: result.placeId, lat, lng },
+        200,
+        (req as AuthenticatedRequest).requestId,
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /maps/autocomplete?input=...
+   * Place suggestions. Proxied so the Google API key never ships in the app.
+   */
+  static async autocomplete(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const results = await autocomplete(String(req.query.input));
+      sendSuccess(res, { results }, 200, (req as AuthenticatedRequest).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * GET /api/v1/maps/directions?originLat=...&originLng=...&destLat=...&destLng=...
    * Get driving route between two points.

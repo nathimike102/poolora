@@ -1,7 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { config } from '../config';
-import { getRedisClient } from '../config/redis';
 import { UnifiedAuthService } from '../auth';
 import { AuthenticationError } from '../utils/AppError';
 import { JWTPayload, AuthenticatedRequest } from '../types';
@@ -24,6 +21,22 @@ export async function authenticate(
   next: NextFunction,
 ): Promise<void> {
   try {
+    // Dev bypass: attaches a fake admin so developers can test flows without
+    // real auth. Requires NODE_ENV to be *explicitly* "development", so a
+    // staging or production deploy with NODE_ENV unset can never enable it.
+    if (process.env.DEV_AUTH_BYPASS === 'true' && process.env.NODE_ENV === 'development') {
+      const payload: JWTPayload = {
+        userId: 'dev-user',
+        phone: '+10000000000',
+        capabilities: ['rider', 'driver', 'admin'] as any,
+        driverVerified: true,
+        sessionId: 'dev-session',
+      };
+      (req as AuthenticatedRequest).user = payload;
+      next();
+      return;
+    }
+
     const token = extractToken(req);
 
     if (!token) {
@@ -46,64 +59,6 @@ export async function authenticate(
   } catch (error) {
     next(error);
   }
-}
-
-/**
- * Alias for authenticate for consistent naming.
- */
-export const requireAuth = authenticate;
-
-/**
- * Middleware to check if the user has a specific capability.
- * Must be placed after authenticate.
- */
-export function requireCapability(capability: string) {
-  return (req: Request, _res: Response, next: NextFunction) => {
-    const user = (req as AuthenticatedRequest).user;
-    if (!user) {
-      return next(new AuthenticationError('Authentication required'));
-    }
-
-    const hasCapability = user.capabilities.includes(capability as any);
-    if (!hasCapability) {
-      return next(new AuthenticationError(`Missing required capability: ${capability}`));
-    }
-
-    next();
-  };
-}
-
-/**
- * Optional authentication — attaches user if token present, otherwise continues.
- */
-export async function optionalAuth(
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const token = extractToken(req);
-    if (!token) {
-      next();
-      return;
-    }
-
-    const payload = jwt.verify(token, config.jwt.accessSecret) as JWTPayload;
-    const redis = getRedisClient();
-    if (redis) {
-      const sessionExists = await redis.exists(`session:${payload.userId}:${payload.sessionId}`);
-      if (sessionExists) {
-        (req as AuthenticatedRequest).user = payload;
-      }
-    } else {
-      // Redis unavailable — trust the JWT
-      (req as AuthenticatedRequest).user = payload;
-    }
-  } catch {
-    // Silently ignore invalid tokens in optional auth
-  }
-
-  next();
 }
 
 function extractToken(req: Request): string | null {

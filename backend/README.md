@@ -19,11 +19,32 @@ The backend is built using a modern, scalable architecture:
 - **Logging**: Winston
 - **Testing**: Jest & Supertest
 
+## Safety and SOS Subsystem
+
+The current backend already exposes a real-time SOS flow through `SafetyService`, `EmergencyRecord`, and Socket.IO admin channels. The planned differentiator is to evolve that into a monitored emergency session with dynamic escalation.
+
+- **Trigger**: passenger or driver starts an SOS from an active booking
+- **Session state**: create a tracked emergency record with live location history, timeline events, and admin assignment
+- **Monitoring**: send periodic health checks and increase polling frequency when risk rises
+- **Escalation**: move from `TRIGGERED` to `ACKNOWLEDGED`, then to `RESOLVED` or `FALSE_ALARM` after admin review
+- **Admin channel**: broadcast alerts on `admin:sos` for live dashboard handling
+- **Evidence**: attach audio, screenshots, and telemetry to the emergency record when available
+- **Security**: keep identity and location data behind authenticated, role-based access and tokenized live tracking URLs
+
+Suggested event names for this layer:
+
+- `SOS_TRIGGERED`
+- `STATUS_UPDATED`
+- `USER_NOT_RESPONDING`
+- `EMERGENCY_ESCALATED`
+- `POLICE_NOTIFIED`
+
 ## Getting Started
 
 ### Prerequisites
 
 Ensure you have the following installed on your local development machine:
+
 - Node.js (v18+)
 - npm or yarn
 - MongoDB (or Docker)
@@ -46,11 +67,13 @@ Ensure you have the following installed on your local development machine:
 ### Running the Application
 
 **Development Mode** (with auto-reload):
+
 ```bash
 npm run dev
 ```
 
 **Production Build & Run**:
+
 ```bash
 npm run build
 npm run start

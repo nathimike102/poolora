@@ -105,6 +105,24 @@ export const eventSchemas = {
     }).required(),
     timestamp: Joi.number().required(),
   }),
+  'sos.escalated': Joi.object({
+    emergencyId: Joi.string().hex().length(24).required(),
+    reason: Joi.string().required(),
+    timestamp: Joi.number().required(),
+    missedCheckIns: Joi.number().optional(),
+  }),
+  'sos.resolved': Joi.object({
+    emergencyId: Joi.string().hex().length(24).required(),
+    resolvedBy: Joi.string().hex().length(24).optional(),
+    resolutionNotes: Joi.string().optional(),
+    timestamp: Joi.number().required(),
+  }),
+  'sos.police_notified': Joi.object({
+    emergencyId: Joi.string().hex().length(24).required(),
+    notifiedBy: Joi.string().hex().length(24).required(),
+    notes: Joi.string().optional(),
+    timestamp: Joi.number().required(),
+  }),
 
   // ─── Parcel Events ─────────────────────────────────────────────────────────
   'parcel:created': Joi.object({

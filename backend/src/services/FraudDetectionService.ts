@@ -1,9 +1,8 @@
-import axios from 'axios';
+import { mlClient } from '../utils/mlClient';
 import { User } from '../models/User';
 import { Payment } from '../models/Payment';
 import { Booking } from '../models/Booking';
 import { logger } from '../utils/logger';
-import { config } from '../config';
 import { FraudLevel, KYCStatus } from '../types';
 
 interface FraudCheckResult {
@@ -16,7 +15,6 @@ interface FraudCheckResult {
 }
 
 export class FraudDetectionService {
-  private static readonly ML_SERVICE_URL = config.services.mlServiceUrl || 'http://ml-service:8000';
 
   /**
    * Analyze a payment failure for potential fraud.
@@ -54,7 +52,7 @@ export class FraudDetectionService {
       // 3. Call ML Service for statistical anomaly detection
       let mlResult;
       try {
-        const response = await axios.post(`${FraudDetectionService.ML_SERVICE_URL}/api/fraud-check`, {
+        const response = await mlClient.post('/api/fraud-check', {
           user_id: userId,
           cancellation_count_7d: userBookings.filter(b => b.status === 'cancelled' && b.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length,
           cancellation_count_30d: cancellations30d,

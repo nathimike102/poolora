@@ -4,7 +4,14 @@ import { authenticate } from '../middlewares/auth.middleware';
 import { requireAdmin } from '../middlewares/capability.middleware';
 import { authRateLimit, otpRateLimit } from '../middlewares/rateLimit.middleware';
 import { validate } from '../middlewares/validation.middleware';
-import { sendOtpSchema, verifyOtpSchema, refreshTokenSchema, submitKycSchema } from '../validators';
+import {
+  sendOtpSchema,
+  verifyOtpSchema,
+  refreshTokenSchema,
+  submitKycSchema,
+  kycReviewParamsSchema,
+  rejectKycSchema,
+} from '../validators';
 
 const router = Router();
 
@@ -20,6 +27,7 @@ router.get('/me', authenticate, AuthController.getMe);
 
 // KYC
 router.post('/kyc', authenticate, validate(submitKycSchema), AuthController.submitKyc);
-router.post('/kyc/:userId/approve', authenticate, requireAdmin(), AuthController.approveKyc);
+router.post('/kyc/:userId/approve', authenticate, requireAdmin(), validate(kycReviewParamsSchema), AuthController.approveKyc);
+router.post('/kyc/:userId/reject', authenticate, requireAdmin(), validate(rejectKycSchema), AuthController.rejectKyc);
 
 export default router;

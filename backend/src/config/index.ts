@@ -64,6 +64,7 @@ export const config = {
   },
 
   twilio: {
+    enabled: process.env.TWILIO_ENABLED === 'true',
     accountSid: process.env.TWILIO_ACCOUNT_SID || '',
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
     phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
@@ -151,6 +152,7 @@ export const config = {
   },
 
   services: {
-    mlServiceUrl: optional('ML_SERVICE_URL', 'http://ml-service:8000'),
+    mlServiceUrl: optional('ML_SERVICE_URL', 'http://sanchari-ml:8000'),
+    mlServiceApiKey: process.env.ML_SERVICE_API_KEY || '',
   },
 } as const;

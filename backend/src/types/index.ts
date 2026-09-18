@@ -76,6 +76,24 @@ export enum SOSStatus {
   FALSE_ALARM = 'false_alarm',
 }
 
+export enum SOSRiskLevel {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+}
+
+export enum SOSMonitoringState {
+  ACTIVE = 'active',
+  ESCALATED = 'escalated',
+  RESOLVED = 'resolved',
+}
+
+export enum SOSCheckInStatus {
+  OK = 'ok',
+  PARTIAL_OK = 'partial_ok',
+  NOT_OK = 'not_ok',
+}
+
 export enum FraudLevel {
   CLEAR = 'clear',
   FLAGGED = 'flagged',

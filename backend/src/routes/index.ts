@@ -12,6 +12,8 @@ import userRoutes from './user.routes';
 import notificationRoutes from './notification.routes';
 import parcelRoutes from './parcel.routes';
 import adminRoutes from './admin.routes';
+import trackRoutes from './track.routes';
+import uploadRoutes from './upload.routes';
 
 const router = Router();
 
@@ -28,6 +30,8 @@ router.use('/wallet', walletRoutes);
 router.use('/maps', mapsRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
+router.use('/track', trackRoutes);
+router.use('/uploads', uploadRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {

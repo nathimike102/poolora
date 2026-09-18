@@ -1,11 +1,18 @@
 import { Router } from 'express';
 import { MapsController } from '../controllers/MapsController';
 import { authenticate } from '../middlewares/auth.middleware';
+import { validate } from '../middlewares/validation.middleware';
+import { autocompleteSchema, geocodeSchema, reverseGeocodeSchema } from '../validators';
 
 const router = Router();
 
 // All maps routes require authentication
 router.use(authenticate);
+
+// Place suggestions (debounced by the client, cached here)
+router.get('/autocomplete', validate(autocompleteSchema), MapsController.autocomplete);
+router.get('/geocode', validate(geocodeSchema), MapsController.geocode);
+router.get('/reverse-geocode', validate(reverseGeocodeSchema), MapsController.reverseGeocode);
 
 // Directions & distance stay on the backend (secure, heavy operations)
 router.get('/directions', MapsController.directions);

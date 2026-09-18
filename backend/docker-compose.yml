@@ -44,6 +44,7 @@ services:
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
       KAFKA_BROKERS: kafka:29092
       LOG_LEVEL: info
+      ML_SERVICE_API_KEY: ${ML_SERVICE_API_KEY}
     depends_on:
       mongo:
         condition: service_healthy
@@ -223,7 +224,7 @@ services:
     ports:
       - "127.0.0.1:3001:3000"
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: sanchari-admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
       GF_INSTALL_PLUGINS: grafana-piechart-panel
     volumes:
       - grafana-data:/var/lib/grafana

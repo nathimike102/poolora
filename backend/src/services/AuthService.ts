@@ -1,12 +1,13 @@
 import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import { config } from '../config';
 import { getRedisClient, requireRedis } from '../config/redis';
 import { User, IUser } from '../models/User';
 import { OtpChallenge } from '../models/OtpChallenge';
-import { JWTPayload, UserCapability, KYCStatus } from '../types';
+import { kycPrefix } from './UploadService';
+import { JWTPayload, UserCapability, KYCStatus, IVehicle } from '../types';
 import {
   AppError,
   AuthenticationError,
@@ -19,6 +20,10 @@ import { EventBridge } from '../events';
 
 export class AuthService {
   private isTwilioConfigured(): boolean {
+    if (!config.twilio.enabled) {
+      return false;
+    }
+
     const sid = config.twilio.accountSid;
     const token = config.twilio.authToken;
     const from = config.twilio.phoneNumber;
@@ -96,10 +101,15 @@ export class AuthService {
       if (this.isTwilioConfigured()) {
         try {
           await this.sendOtpViaTwilio(phone, otp);
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const twilioError = axios.isAxiosError(error)
+            ? error.response?.data || error.message
+            : error instanceof Error
+              ? error.message
+              : String(error);
           logger.error('Twilio OTP send failed (redis unavailable branch)', {
             phone,
-            error: error?.response?.data || error?.message,
+            error: twilioError,
           });
           throw new AppError('Failed to send OTP SMS', 502, 'OTP_PROVIDER_ERROR');
         }
@@ -131,11 +141,16 @@ export class AuthService {
     if (this.isTwilioConfigured()) {
       try {
         await this.sendOtpViaTwilio(phone, otp);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const twilioError = axios.isAxiosError(error)
+          ? error.response?.data || error.message
+          : error instanceof Error
+            ? error.message
+            : String(error);
         // Keep OTP and let user retry within TTL, but report provider failure.
         logger.error('Twilio OTP send failed', {
           phone,
-          error: error?.response?.data || error?.message,
+          error: twilioError,
         });
         throw new AppError('Failed to send OTP SMS', 502, 'OTP_PROVIDER_ERROR');
       }
@@ -325,9 +340,16 @@ export class AuthService {
     data: {
       licenseNumber: string;
       drivingLicenseUrl: string;
-      vehicle: any;
+      vehicle: IVehicle;
     },
   ): Promise<IUser> {
+    // Documents must be files this user uploaded, not arbitrary links
+    const prefix = kycPrefix(userId);
+    const docs = [data.drivingLicenseUrl, data.vehicle.registrationDocUrl, data.vehicle.insuranceDocUrl, ...data.vehicle.photos];
+    if (docs.some((doc) => !doc.startsWith(prefix))) {
+      throw new AppError('Documents must be uploaded through the app', 400, 'INVALID_DOCUMENT');
+    }
+
     const user = await User.findById(userId);
     if (!user) throw new NotFoundError('User');
 
@@ -384,6 +406,30 @@ export class AuthService {
     EventBridge.publish('user-events', {
       eventType: 'kyc.approved',
       data: { userId },
+    });
+
+    return user;
+  }
+
+  /**
+   * Admin rejects KYC. The driver may correct the documents and resubmit.
+   */
+  async rejectKyc(userId: string, reason: string): Promise<IUser> {
+    const user = await User.findById(userId);
+    if (!user) throw new NotFoundError('User');
+
+    if (user.kyc.status !== KYCStatus.PENDING) {
+      throw new AppError('No pending KYC to reject', 400);
+    }
+
+    user.kyc.status = KYCStatus.REJECTED;
+    user.kyc.reviewedAt = new Date();
+    user.kyc.rejectionReason = reason;
+    await user.save();
+
+    EventBridge.publish('user-events', {
+      eventType: 'kyc.rejected',
+      data: { userId, reason },
     });
 
     return user;
@@ -478,13 +524,16 @@ export class AuthService {
       sessionId,
     };
 
-    const accessToken = jwt.sign(jwtPayload, config.jwt.accessSecret, {
-      expiresIn: config.jwt.accessExpiry,
-    } as any);
+    const accessOptions: SignOptions = {
+      expiresIn: config.jwt.accessExpiry as SignOptions['expiresIn'],
+    };
+    const refreshOptions: SignOptions = {
+      expiresIn: config.jwt.refreshExpiry as SignOptions['expiresIn'],
+    };
 
-    const refreshToken = jwt.sign(jwtPayload, config.jwt.refreshSecret, {
-      expiresIn: config.jwt.refreshExpiry,
-    } as any);
+    const accessToken = jwt.sign(jwtPayload, config.jwt.accessSecret as jwt.Secret, accessOptions);
+
+    const refreshToken = jwt.sign(jwtPayload, config.jwt.refreshSecret as jwt.Secret, refreshOptions);
 
     return { accessToken, refreshToken };
   }

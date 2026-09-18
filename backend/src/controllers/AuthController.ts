@@ -114,6 +114,18 @@ export class AuthController {
   }
 
   /**
+   * POST /api/v1/auth/kyc/:userId/reject (Admin only)
+   */
+  static async rejectKyc(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await authService.rejectKyc(String(req.params.userId), req.body.reason);
+      sendSuccess(res, { user: result }, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/v1/auth/firebase-login
    *
    * Exchange a Firebase ID token for the platform's own JWT session tokens.

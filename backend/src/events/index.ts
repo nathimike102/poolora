@@ -241,7 +241,7 @@ export class EventBridge {
           logger.warn('Payment failure detected — starting fraud analysis', {
             userId: data.userId,
             paymentId: data.paymentId,
-            orderId: data.orderId,
+            orderId: (data as any).orderId,
             amount: data.amount,
           });
 
@@ -268,7 +268,12 @@ export class EventBridge {
       await EventBridge.subscribe('safety-events', 'safety-events-group', async (event) => {
         logger.info('Safety event', { type: event.eventType });
 
-        if (event.eventType === 'sos.triggered' || event.eventType === 'sos.location.updated') {
+        if (
+          event.eventType === 'sos.triggered' ||
+          event.eventType === 'sos.location.updated' ||
+          event.eventType === 'sos.escalated' ||
+          event.eventType === 'sos.resolved'
+        ) {
           const { SocketGateway } = await import('../sockets/SocketGateway');
           const gateway = SocketGateway.getInstance();
           if (gateway) {

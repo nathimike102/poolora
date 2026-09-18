@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import * as Sentry from '@sentry/node';
 import { AppError, ValidationError } from '../utils/AppError';
 import { ApiResponse } from '../types';
 import { logger } from '../utils/logger';
@@ -90,6 +91,9 @@ export function globalErrorHandler(
 
   // Known operational errors
   if (err instanceof AppError) {
+    if (err.statusCode >= 500) {
+      Sentry.captureException(err, { tags: { requestId, errorId: err.errorId } });
+    }
     const response: ApiResponse = {
       status: 'error',
       code: err.statusCode,
@@ -106,6 +110,7 @@ export function globalErrorHandler(
   }
 
   // Unknown / programming errors
+  Sentry.captureException(err, { tags: { requestId } });
   logger.error('Unhandled error', {
     requestId,
     error: err.message,

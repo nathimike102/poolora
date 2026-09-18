@@ -1,6 +1,5 @@
-import axios from 'axios';
 import { Ride } from '../models/Ride';
-import { config } from '../config';
+import { mlClient } from '../utils/mlClient';
 import { logger } from '../utils/logger';
 import { AppError } from '../utils/AppError';
 
@@ -11,8 +10,7 @@ export class AnalyticsService {
    */
   async getDemandPrediction(lat: number, lng: number): Promise<any> {
     try {
-      const mlServiceUrl = config.services.mlServiceUrl || 'http://ml-service:8000';
-      const response = await axios.post(`${mlServiceUrl}/api/predict-demand`, {
+      const response = await mlClient.post('/api/predict-demand', {
         lat,
         lng,
         hour: new Date().getHours(),
