@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,9 @@ import {
   ScrollView,
   Pressable,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path } from 'react-native-svg';
 
@@ -16,46 +17,92 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
+import { rideService } from '../../services/rideService';
+import type { Ride } from '../../types/api';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-/* ── Mock data ──────────────────────────────────────────────────── */
-const upcomingRides = [
-  { id: '3', from: 'Andheri West', to: 'BKC', date: 'Mon, 2 Mar', time: '08:15 AM', booked: 3, total: 4, earned: 540 },
-  { id: '4', from: 'HSR Layout', to: 'Whitefield', date: 'Tue, 3 Mar', time: '09:00 AM', booked: 2, total: 4, earned: 440 },
-  { id: '5', from: 'Koramangala', to: 'MG Road', date: 'Wed, 4 Mar', time: '07:30 AM', booked: 4, total: 4, earned: 720 },
-  { id: '6', from: 'Indiranagar', to: 'Electronic City', date: 'Thu, 5 Mar', time: '08:45 AM', booked: 1, total: 4, earned: 380 },
-];
+interface UpcomingRide {
+  id: string;
+  from: string;
+  to: string;
+  date: string;
+  time: string;
+  booked: number;
+  total: number;
+  earned: number;
+}
+
+function toUpcoming(r: Ride): UpcomingRide {
+  const departure = new Date(r.scheduledDeparture);
+  const booked = (r.seats ?? 0) - (r.availableSeats ?? 0);
+  return {
+    id: r._id,
+    from: r.pickupLocation?.address || 'Pickup',
+    to: r.dropoffLocation?.address || 'Drop',
+    date: departure.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }),
+    time: departure.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    booked,
+    total: r.seats ?? 0,
+    earned: booked * r.pricePerSeat,
+  };
+}
 
 /* ═══════════════════════════════════════════════════════════════════ */
 export function UpcomingRidesScreen() {
   const { c } = useApp();
   const insets = useSafeAreaInsets();
+  const [rides, setRides] = useState<UpcomingRide[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      rideService
+        .getMyRides(undefined, 1, 50)
+        .then(res => {
+          if (!active) return;
+          const upcoming = (res.data?.items ?? [])
+            .filter(r => r.status === 'scheduled' || r.status === 'active')
+            .sort((a, b) => a.scheduledDeparture.localeCompare(b.scheduledDeparture));
+          setRides(upcoming.map(toUpcoming));
+          setLoadError(false);
+        })
+        .catch(() => active && setLoadError(true));
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <BackButton />
-        <Text style={[styles.headerTitle, { color: c.text }]}>Upcoming Rides</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Upcoming rides</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        style={styles.flex1}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {upcomingRides.map(r => (
-          <RideCard key={r.id} ride={r} />
-        ))}
+      <ScrollView style={styles.flex1} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {rides === null && !loadError && <ActivityIndicator color={c.primary} style={{ marginTop: 24 }} />}
+        {loadError && (
+          <Text style={{ fontSize: 14, color: c.error, textAlign: 'center' }}>
+            Your rides could not be loaded. Check your connection and try again.
+          </Text>
+        )}
+        {rides?.length === 0 && (
+          <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', marginTop: 24 }}>
+            You have no upcoming rides.
+          </Text>
+        )}
+        {rides?.map(r => <RideCard key={r.id} ride={r} />)}
       </ScrollView>
     </View>
   );
 }
 
 /* ── Ride Card ──────────────────────────────────────────────────── */
-function RideCard({ ride }: { ride: typeof upcomingRides[number] }) {
+function RideCard({ ride }: { ride: UpcomingRide }) {
   const navigation = useNavigation<Nav>();
   const { c } = useApp();
   const scale = useRef(new Animated.Value(1)).current;
@@ -70,6 +117,8 @@ function RideCard({ ride }: { ride: typeof upcomingRides[number] }) {
       onPressIn={onIn}
       onPressOut={onOut}
       onPress={() => navigation.navigate('DriverRideDetails', { rideId: ride.id })}
+      accessibilityRole="button"
+      accessibilityLabel={`${ride.from} to ${ride.to}, ${ride.date} ${ride.time}, ${ride.booked} of ${ride.total} seats booked`}
     >
       <Animated.View
         style={[
@@ -91,7 +140,7 @@ function RideCard({ ride }: { ride: typeof upcomingRides[number] }) {
           {/* Ride info */}
           <View style={styles.flex1}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>
-              {ride.from} → {ride.to}
+              {ride.from} to {ride.to}
             </Text>
             <Text style={{ fontSize: 12, color: c.textSec, marginTop: 3 }}>
               {ride.date} · {ride.time}
@@ -108,7 +157,7 @@ function RideCard({ ride }: { ride: typeof upcomingRides[number] }) {
               </Text>
               <Text style={{ fontSize: 12, color: c.textSec, marginHorizontal: 4 }}>·</Text>
               <Text style={{ fontSize: 12, fontWeight: '600', color: c.success }}>
-                ₹{ride.earned} est.
+                ₹{ride.earned} from booked seats
               </Text>
             </View>
           </View>

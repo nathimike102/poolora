@@ -40,7 +40,7 @@ export interface AdminUser {
   email?: string;
   capabilities: string[];
   gender?: string;
-  kyc: { status: string };
+  kyc: { status: string; submittedAt?: string };
   stats: { totalRidesAsDriver: number; totalRidesAsRider: number; avgRatingAsDriver: number };
   isSuspended: boolean;
   createdAt: string;
@@ -136,4 +136,35 @@ export const adminService = {
       throw error;
     }
   },
+
+  /**
+   * Submitted KYC details with short-lived document links
+   */
+  async getKycDocuments(userId: string): Promise<KycReview> {
+    const response = await apiClient.get<ApiResponse<KycReview>>(API_ENDPOINTS.admin.kycDocuments(userId));
+    return response.data.data;
+  },
+
+  async approveKyc(userId: string): Promise<void> {
+    await apiClient.post(API_ENDPOINTS.auth.approveKyc(userId));
+    logger.info('KYC approved', { userId });
+  },
+
+  async rejectKyc(userId: string, reason: string): Promise<void> {
+    await apiClient.post(API_ENDPOINTS.auth.rejectKyc(userId), { reason });
+    logger.info('KYC rejected', { userId });
+  },
 };
+
+export interface KycReview {
+  name: string;
+  status: string;
+  licenseNumber?: string;
+  vehicle?: { make: string; model: string; year: number; color: string; plateNumber: string; vehicleType: string };
+  documents: {
+    licence: string | null;
+    registration: string | null;
+    insurance: string | null;
+    photos: (string | null)[];
+  };
+}

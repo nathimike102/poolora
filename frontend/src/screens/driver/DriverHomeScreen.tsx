@@ -6,24 +6,23 @@ import {
   ScrollView,
   Pressable,
   Animated,
-  Switch,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { userService } from '../../services/userService';
-import { walletService } from '../../services/walletService';
 import { bookingService } from '../../services/bookingService';
 import { rideService } from '../../services/rideService';
 import type { Booking, Ride } from '../../types/api';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle as SvgCircle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RoleToggle } from '../../components/RoleToggle';
 import type { RootStackParamList } from '../../navigation/types';
+import { Icon, type IconName } from '../../components/Icon';
 import { Shadow } from '../../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -44,7 +43,7 @@ const AnimatedPressable = ({
   const onOut = () =>
     Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
   return (
-    <Pressable onPressIn={onIn} onPressOut={onOut} onPress={onPress}>
+    <Pressable accessibilityRole="button" onPressIn={onIn} onPressOut={onOut} onPress={onPress}>
       <Animated.View style={[style, { transform: [{ scale }] }]}>
         {children}
       </Animated.View>
@@ -59,14 +58,13 @@ export function DriverHomeScreen() {
   const navigation = useNavigation<Nav>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
-  const [isOnline, setIsOnline] = useState(true);
-  const [, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  const [driverName, setDriverName] = useState('Rajesh Kumar');
-  const [rating, setRating] = useState(4.9);
-  const [earnings, setEarnings] = useState(0);
+  const [driverName, setDriverName] = useState('');
+  const [rating, setRating] = useState<{ avg: number; count: number } | null>(null);
+  const [todayEarnings, setTodayEarnings] = useState(0);
   const [ridesToday, setRidesToday] = useState(0);
-  
+
   interface UpcomingRide {
     id: string;
     from: string;
@@ -78,7 +76,7 @@ export function DriverHomeScreen() {
     earned: number;
   }
 
-  const [pendingRequests, setPendingRequests] = useState<Record<string, unknown>[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [upcomingRides, setUpcomingRides] = useState<UpcomingRide[]>([]);
 
   useFocusEffect(
@@ -86,68 +84,60 @@ export function DriverHomeScreen() {
       let isActive = true;
       const fetchDashboardData = async () => {
         try {
-          setLoading(true);
-          
-          const [userProfile, wallet, bookingsRes, ridesRes] = await Promise.all([
-            userService.getMyProfile().catch(() => null),
-            walletService.getBalance().catch(() => null),
-            bookingService.getDriverBookings().catch(() => null),
-            rideService.getMyRides().catch(() => null)
+          const [userProfile, completedRes, pendingRes, ridesRes] = await Promise.all([
+            userService.getMyProfile(),
+            bookingService.getDriverBookings(1, 100, 'completed'),
+            bookingService.getDriverBookings(1, 50, 'pending'),
+            rideService.getMyRides(undefined, 1, 20),
           ]);
-          
-          if (isActive) {
-            if (userProfile) {
-              setDriverName(userProfile.name);
-              setRating(userProfile.stats?.avgRatingAsDriver || 4.9);
-              setRidesToday(userProfile.stats?.totalRidesAsDriver || 0);
-            }
-            if (wallet) {
-              setEarnings(wallet.totalEarnings || wallet.balance || 0);
-            }
-            if (bookingsRes) {
-              const pending = (bookingsRes.data?.items || []).filter((b: Booking) => b.status === 'pending');
-              setPendingRequests(pending.map((b: Booking) => ({
-                id: b._id,
-                rider: b.rider?.name || 'Rider',
-                from: b.pickupLocation?.address || 'Pickup',
-                to: b.dropoffLocation?.address || 'Dropoff',
-                seats: b.seatsBooked,
-                price: b.totalPrice,
-                aiScore: 90,
-                expiresIn: '—',
-                verified: b.rider?.isVerified || false
-              })));
-            }
-            if (ridesRes) {
-              const active = (ridesRes.data?.items || []).filter((r: Ride) => r.status === 'active' || r.status === 'draft');
-              setUpcomingRides(active.map((r: Ride) => ({
-                id: r._id,
-                from: r.pickupLocation?.address || 'Pickup',
-                to: r.dropoffLocation?.address || 'Dropoff',
-                date: new Date(r.scheduledDeparture).toLocaleDateString(),
-                time: new Date(r.scheduledDeparture).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                booked: r.seats - r.availableSeats,
-                total: r.seats,
-                earned: (r.seats - r.availableSeats) * r.pricePerSeat
-              })));
-            }
-          }
-        } catch (e) {
-          console.error(e);
-        } finally {
-          if (isActive) setLoading(false);
+          if (!isActive) return;
+
+          setDriverName(userProfile.name);
+          const stats = userProfile.stats;
+          setRating(stats && stats.totalRatingsAsDriver > 0
+            ? { avg: stats.avgRatingAsDriver, count: stats.totalRatingsAsDriver }
+            : null);
+
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+          const today = (completedRes.data?.items ?? []).filter(
+            (b: Booking) => new Date(b.updatedAt) >= startOfToday,
+          );
+          setRidesToday(today.length);
+          setTodayEarnings(today.reduce((sum: number, b: Booking) => sum + (b.driverEarnings ?? 0), 0));
+
+          setPendingCount(pendingRes.data?.total ?? pendingRes.data?.items?.length ?? 0);
+
+          const upcoming = (ridesRes.data?.items ?? []).filter(
+            (r: Ride) => r.status === 'scheduled' || r.status === 'active',
+          );
+          setUpcomingRides(upcoming.map((r: Ride) => {
+            const departure = new Date(r.scheduledDeparture);
+            const booked = (r.seats ?? 0) - (r.availableSeats ?? 0);
+            return {
+              id: r._id,
+              from: r.pickupLocation?.address || 'Pickup',
+              to: r.dropoffLocation?.address || 'Drop',
+              date: departure.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }),
+              time: departure.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              booked,
+              total: r.seats ?? 0,
+              earned: booked * r.pricePerSeat,
+            };
+          }));
+          setLoadError(false);
+        } catch {
+          if (isActive) setLoadError(true);
         }
       };
-      
+
       fetchDashboardData();
       return () => { isActive = false; };
     }, [])
   );
 
-  const TRUST = 920;
-  const RADIUS = 21;
-  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-  const TRUST_DASH = CIRCUMFERENCE * 0.92;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
@@ -167,37 +157,16 @@ export function DriverHomeScreen() {
           {/* Row 1: Name | Trust + Bell */}
           <View style={styles.headerRow}>
             <View>
-              <Text style={styles.greeting}>Good morning 🌞</Text>
+              <Text style={styles.greeting}>{greeting}</Text>
               <Text style={styles.driverName}>{driverName}</Text>
             </View>
 
             <View style={styles.headerRight}>
-              {/* Trust ring */}
-              <View style={styles.trustWrap}>
-                <View style={{ width: 52, height: 52 }}>
-                  <Svg width={52} height={52} viewBox="0 0 52 52" style={{ transform: [{ rotate: '-90deg' }] }}>
-                    <SvgCircle cx={26} cy={26} r={RADIUS} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={4} />
-                    <SvgCircle
-                      cx={26}
-                      cy={26}
-                      r={RADIUS}
-                      fill="none"
-                      stroke="#10B981"
-                      strokeWidth={4}
-                      strokeLinecap="round"
-                      strokeDasharray={`${TRUST_DASH} ${CIRCUMFERENCE}`}
-                    />
-                  </Svg>
-                  <View style={styles.trustLabel}>
-                    <Text style={styles.trustScore}>{TRUST}</Text>
-                  </View>
-                </View>
-                <Text style={styles.trustText}>Trust</Text>
-              </View>
-
               {/* Bell */}
               <Pressable
                 onPress={() => navigation.navigate('Notifications')}
+                accessibilityRole="button"
+                accessibilityLabel="Notifications"
                 style={styles.bellBtn}
               >
                 <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -214,58 +183,39 @@ export function DriverHomeScreen() {
           <RoleToggle />
 
           {/* Earnings card */}
-          <AnimatedPressable onPress={() => navigation.navigate('Earnings' as unknown as never)}>
-          <View style={styles.earningsCard}>
+          <AnimatedPressable onPress={() => navigation.navigate('Earnings')}>
+          <View style={styles.earningsCard} accessibilityRole="button" accessibilityLabel="View earnings">
             <View style={styles.flex1}>
-              <Text style={styles.earningsLabel}>TODAY'S EARNINGS</Text>
-              <Text style={styles.earningsValue}>₹{earnings}</Text>
-              <Text style={styles.earningsDelta}>▲ ₹120 vs yesterday</Text>
+              <Text style={styles.earningsLabel}>Earned today</Text>
+              <Text style={styles.earningsValue}>₹{todayEarnings.toLocaleString('en-IN')}</Text>
             </View>
             <View style={styles.earningsDivider} />
             <View style={[styles.flex1, { alignItems: 'center' }]}>
-              <Text style={styles.earningsLabel}>RIDES</Text>
+              <Text style={styles.earningsLabel}>Rides today</Text>
               <Text style={styles.earningsValue}>{ridesToday}</Text>
-              <Text style={styles.earningsSubLabel}>Total</Text>
             </View>
             <View style={styles.earningsDivider} />
             <View style={[styles.flex1, { alignItems: 'center' }]}>
-              <Text style={styles.earningsLabel}>RATING</Text>
-              <Text style={styles.earningsValue}>{rating}</Text>
-              <View style={styles.miniStars}>
-                {[1, 2, 3, 4, 5].map(s => (
-                  <Svg key={s} width={10} height={10} viewBox="0 0 24 24">
-                    <Path
-                      d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                      fill={s <= 4 ? '#FFB300' : 'rgba(255,255,255,0.3)'}
-                    />
-                  </Svg>
-                ))}
-              </View>
+              <Text style={styles.earningsLabel}>Rating</Text>
+              <Text style={styles.earningsValue}>{rating ? rating.avg.toFixed(1) : 'New'}</Text>
+              <Text style={styles.earningsSubLabel}>
+                {rating ? `${rating.count} ${rating.count === 1 ? 'rating' : 'ratings'}` : 'No ratings yet'}
+              </Text>
             </View>
           </View>
           </AnimatedPressable>
-
-          {/* Online toggle */}
-          <View style={styles.onlineRow}>
-            <View>
-              <Text style={styles.onlineStatus}>
-                Status: {isOnline ? '🟢 Online' : '⚫ Offline'}
-              </Text>
-              <Text style={styles.onlineSub}>
-                {isOnline ? 'Receiving new ride requests' : 'Not receiving requests'}
-              </Text>
-            </View>
-            <Switch
-              value={isOnline}
-              onValueChange={setIsOnline}
-              trackColor={{ false: 'rgba(255,255,255,0.2)', true: '#10B981' }}
-              thumbColor="white"
-            />
-          </View>
         </LinearGradient>
 
+        {loadError && (
+          <View style={styles.sectionPad}>
+            <Text style={{ fontSize: 14, color: c.error }}>
+              Some of your dashboard could not be loaded. Check your connection.
+            </Text>
+          </View>
+        )}
+
         {/* ── Pending requests banner (online only) ─────────── */}
-        {isOnline && pendingRequests.length > 0 && (
+        {pendingCount > 0 && (
           <View style={styles.sectionPad}>
             <AnimatedPressable onPress={() => navigation.navigate('ManageRequests' as unknown as never)}>
               <View style={[styles.pendingBanner, { backgroundColor: c.surface, borderColor: c.accent }]}>
@@ -280,11 +230,11 @@ export function DriverHomeScreen() {
                 <View style={styles.flex1}>
                   <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Pending Requests</Text>
                   <Text style={{ fontSize: 13, color: c.textSec, marginTop: 1 }}>
-                    {pendingRequests.length} rider{pendingRequests.length > 1 ? 's' : ''} waiting for your response
+                    {pendingCount} {pendingCount === 1 ? 'rider is' : 'riders are'} waiting for your response
                   </Text>
                 </View>
                 <View style={[styles.countCircle, { backgroundColor: c.accent }]}>
-                  <Text style={styles.countText}>{pendingRequests.length}</Text>
+                  <Text style={styles.countText}>{pendingCount}</Text>
                 </View>
                 <Svg width={18} height={18} viewBox="0 0 24 24">
                   <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill={c.textSec} />
@@ -294,16 +244,21 @@ export function DriverHomeScreen() {
           </View>
         )}
 
-        {/* ── Upcoming rides (online only) ────────────────────── */}
-        {isOnline && (
+        {/* ── Upcoming rides ─────────────────────────────────── */}
+        {(
         <View style={styles.sectionPad}>
           <View style={styles.sectionHeader}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }}>Upcoming Rides</Text>
-            <Pressable onPress={() => navigation.navigate('UpcomingRides')}>
+            <Pressable accessibilityRole="button" onPress={() => navigation.navigate('UpcomingRides')}>
               <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Manage</Text>
             </Pressable>
           </View>
 
+          {upcomingRides.length === 0 && !loadError && (
+            <View style={[styles.upcomingCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <Text style={{ fontSize: 14, color: c.textSec }}>You have no upcoming rides. Create one to start taking bookings.</Text>
+            </View>
+          )}
           {upcomingRides.map(r => (
             <AnimatedPressable key={r.id} onPress={() => navigation.navigate('DriverRideDetails', { rideId: r.id })} style={{ marginBottom: 12 }}>
               <View style={[styles.upcomingCard, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -319,7 +274,7 @@ export function DriverHomeScreen() {
 
                   <View style={styles.flex1}>
                     <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>
-                      {r.from} → {r.to}
+                      {r.from} to {r.to}
                     </Text>
                     <Text style={{ fontSize: 12, color: c.textSec, marginTop: 3 }}>
                       {r.date} · {r.time}
@@ -336,7 +291,7 @@ export function DriverHomeScreen() {
                       </Text>
                       <Text style={{ fontSize: 12, color: c.textSec, marginHorizontal: 4 }}>·</Text>
                       <Text style={{ fontSize: 12, fontWeight: '600', color: c.success }}>
-                        ₹{r.earned} est.
+                        ₹{r.earned} from booked seats
                       </Text>
                     </View>
                   </View>
@@ -358,14 +313,14 @@ export function DriverHomeScreen() {
           </Text>
           <View style={styles.actionsGrid}>
             {([
-              { icon: '🛣️', label: 'Create Ride', nav: 'CreateRide' as const, bg: c.primaryLight, fg: c.primary },
-              { icon: '💰', label: 'View Earnings', nav: 'Earnings', bg: c.successLight, fg: c.success },
-              { icon: '📋', label: 'Manage KYC', nav: 'KYC', bg: c.warningLight, fg: c.warning },
-              { icon: '🚨', label: 'SOS', nav: 'SOS', bg: c.errorLight, fg: c.error },
-            ] as { icon: string; label: string; nav: string; bg: string; fg: string }[]).map(item => (
-              <AnimatedPressable key={item.label} onPress={() => navigation.navigate(item.nav as unknown as never)} style={{ flex: 1 }}>
-                <View style={[styles.actionCard, { backgroundColor: item.bg }]}>
-                  <Text style={{ fontSize: 36 }}>{item.icon}</Text>
+              { icon: 'road-variant', label: 'Create ride', nav: 'CreateRide', bg: c.primaryLight, fg: c.primary },
+              { icon: 'cash', label: 'Earnings', nav: 'Earnings', bg: c.successLight, fg: c.successDark },
+              { icon: 'card-account-details-outline', label: 'Verification', nav: 'KYC', bg: c.warningLight, fg: '#8A5A00' },
+              { icon: 'alert', label: 'SOS', nav: 'SOS', bg: c.errorLight, fg: c.error },
+            ] as { icon: IconName; label: string; nav: string; bg: string; fg: string }[]).map(item => (
+              <AnimatedPressable key={item.label} onPress={() => navigation.navigate(item.nav as never)} style={{ flex: 1 }}>
+                <View style={[styles.actionCard, { backgroundColor: item.bg }]} accessibilityRole="button" accessibilityLabel={item.label}>
+                  <Icon name={item.icon} size={32} color={item.fg} />
                   <Text style={{ fontSize: 15, fontWeight: '600', color: item.fg, textAlign: 'center' }}>{item.label}</Text>
                 </View>
               </AnimatedPressable>
@@ -387,23 +342,11 @@ const styles = StyleSheet.create({
   /* Header */
   headerGradient: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  greeting: { fontSize: 13, color: 'rgba(255,255,255,0.65)' },
+  greeting: { fontSize: 13, color: 'rgba(255,255,255,0.85)' },
   driverName: { fontSize: 20, fontWeight: '800', color: 'white', marginTop: 1 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 
   /* Trust ring */
-  trustWrap: { alignItems: 'center', gap: 2 },
-  trustLabel: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trustScore: { fontSize: 13, fontWeight: '800', color: 'white' },
-  trustText: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.65)', letterSpacing: 0.5 },
 
   /* Bell */
   bellBtn: {
@@ -426,17 +369,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 12,
   },
-  earningsLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
+  earningsLabel: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   earningsValue: { fontSize: 28, fontWeight: '800', color: 'white' },
-  earningsDelta: { fontSize: 12, color: 'rgba(0,200,83,0.9)' },
-  earningsSubLabel: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  earningsSubLabel: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   earningsDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
-  miniStars: { flexDirection: 'row', gap: 2, marginTop: 4 },
 
   /* Online */
-  onlineRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
-  onlineStatus: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.9)' },
-  onlineSub: { fontSize: 11, color: 'rgba(255,255,255,0.5)' },
 
   /* Pending */
   sectionPad: { paddingHorizontal: 20, paddingTop: 20 },

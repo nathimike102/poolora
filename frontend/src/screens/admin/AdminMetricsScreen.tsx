@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useApp } from '../../context/AppContext';
+import { Icon, type IconName } from '../../components/Icon';
 import { adminService, SystemMetrics } from '../../services/adminService';
 
 export const AdminMetricsScreen: React.FC = () => {
@@ -69,7 +70,7 @@ export const AdminMetricsScreen: React.FC = () => {
   }: {
     title: string;
     value: string | number;
-    icon: string;
+    icon: IconName;
     color: string;
   }) => (
     <View
@@ -81,7 +82,7 @@ export const AdminMetricsScreen: React.FC = () => {
         },
       ]}
     >
-      <Text style={styles.metricIcon}>{icon}</Text>
+      <Icon name={icon} size={28} color={color} />
       <View style={{ flex: 1 }}>
         <Text style={[styles.metricTitle, { color: c.textSec }]}>
           {title}
@@ -96,7 +97,7 @@ export const AdminMetricsScreen: React.FC = () => {
       style={[styles.container, { backgroundColor: c.bg }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Text style={[styles.title, { color: c.text }]}>📊 System Metrics</Text>
+      <Text style={[styles.title, { color: c.text }]}>System metrics</Text>
 
       {/* Top Row */}
       <View style={styles.row}>
@@ -104,7 +105,7 @@ export const AdminMetricsScreen: React.FC = () => {
           <MetricCard
             title="Total Rides"
             value={metrics.totalRides}
-            icon="🚗"
+            icon="car"
             color="#4CAF50"
           />
         </View>
@@ -112,7 +113,7 @@ export const AdminMetricsScreen: React.FC = () => {
           <MetricCard
             title="Active Rides"
             value={metrics.activeRides}
-            icon="⏱️"
+            icon="timer-outline"
             color="#2196F3"
           />
         </View>
@@ -124,7 +125,7 @@ export const AdminMetricsScreen: React.FC = () => {
           <MetricCard
             title="Daily Revenue"
             value={`₹${metrics.revenue.toLocaleString()}`}
-            icon="💰"
+            icon="cash"
             color="#FF9800"
           />
         </View>
@@ -132,7 +133,7 @@ export const AdminMetricsScreen: React.FC = () => {
           <MetricCard
             title="Avg Rating"
             value={metrics.avgRating.toFixed(2)}
-            icon="⭐"
+            icon="star-outline"
             color="#FFD700"
           />
         </View>
@@ -144,15 +145,15 @@ export const AdminMetricsScreen: React.FC = () => {
           <MetricCard
             title="Total Users"
             value={metrics.totalUsers}
-            icon="👥"
-            color="#9C27B0"
+            icon="account-group"
+            color="#2B6CC4"
           />
         </View>
         <View style={styles.columnHalf}>
           <MetricCard
             title="Active Drivers"
             value={metrics.activeDrivers}
-            icon="🚕"
+            icon="steering"
             color="#00BCD4"
           />
         </View>
@@ -164,7 +165,7 @@ export const AdminMetricsScreen: React.FC = () => {
           <MetricCard
             title="Completed Today"
             value={metrics.completedToday}
-            icon="✅"
+            icon="check-circle-outline"
             color="#4CAF50"
           />
         </View>
@@ -172,8 +173,8 @@ export const AdminMetricsScreen: React.FC = () => {
           <MetricCard
             title="Active Riders"
             value={metrics.activeRiders}
-            icon="🧑‍💻"
-            color="#3F51B5"
+            icon="account"
+            color="#0B2447"
           />
         </View>
       </View>

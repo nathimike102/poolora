@@ -1,899 +1,373 @@
-import React, { useRef, useState } from 'react';
+/**
+ * screens/driver/KYCScreen.tsx
+ *
+ * Driver verification. Collects exactly what the Sanchari team reviews:
+ * driving licence, vehicle details, registration certificate, insurance and a
+ * vehicle photo. Documents are reviewed by a person; nothing is auto-approved.
+ */
+
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
+  TextInput,
   ScrollView,
   Pressable,
-  TextInput,
-  Animated,
+  StyleSheet,
   ActivityIndicator,
+  Alert,
+  Switch,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
+import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '../../context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
-import type { RootStackParamList } from '../../navigation/types';
-import { Shadow } from '../../theme';
+import { Icon } from '../../components/Icon';
+import { userService } from '../../services/userService';
+import { kycService, type LocalFile } from '../../services/kycService';
+import { errorHandler } from '../../utils/errorHandler';
+import { Radius, Spacing, Typography } from '../../theme';
+import type { User, VehicleType } from '../../types/api';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type DocKey = 'licence' | 'registration' | 'insurance' | 'vehiclePhoto';
 
-/* ── Types & data ──────────────────────────────────────────── */
-type UploadState = 'idle' | 'uploading' | 'done';
-
-interface UploadField {
-  id: string;
-  label: string;
-  hint: string;
-  state: UploadState;
-}
-
-const DOC_STEPS = [
-  { id: 'aadhaar', label: 'Aadhaar', emoji: '🪪', color: '#3B82F6' },
-  { id: 'liveness', label: 'Liveness', emoji: '🤳', color: '#7C3AED' },
-  { id: 'driving', label: 'DL', emoji: '🚗', color: '#F59E0B' },
-  { id: 'rc', label: 'RC', emoji: '📄', color: '#10B981' },
-  { id: 'pan', label: 'PAN', emoji: '🧾', color: '#EC4899' },
-  { id: 'insurance', label: 'Insurance', emoji: '🛡️', color: '#14B8A6' },
+const DOCS: { key: DocKey; label: string; hint: string }[] = [
+  { key: 'licence', label: 'Driving licence', hint: 'Front side, all text readable' },
+  { key: 'registration', label: 'Registration certificate (RC)', hint: 'The page showing the registration number' },
+  { key: 'insurance', label: 'Vehicle insurance', hint: 'The current policy page' },
+  { key: 'vehiclePhoto', label: 'Photo of your vehicle', hint: 'Number plate clearly visible' },
 ];
 
-/* ── Sub-components ────────────────────────────────────────── */
+const VEHICLE_TYPES: { value: VehicleType; label: string }[] = [
+  { value: 'hatchback', label: 'Hatchback' },
+  { value: 'sedan', label: 'Sedan' },
+  { value: 'suv', label: 'SUV' },
+  { value: 'mini', label: 'Mini' },
+];
 
-function WarningBanner({ text, color }: { text: string; color: string }) {
-  return (
-    <View style={[s.warnBanner, { backgroundColor: color + '12', borderColor: color + '35' }]}>
-      <Svg width={15} height={15} viewBox="0 0 24 24">
-        <Path
-          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
-          fill={color}
-        />
-      </Svg>
-      <Text style={{ fontSize: 13, fontWeight: '600', color, flex: 1 }}>{text}</Text>
-    </View>
-  );
-}
-
-function InfoBox({
-  color,
-  title,
-  items,
-  textSecColor,
-}: {
-  color: string;
-  title: string;
-  items: string[];
-  textSecColor: string;
-}) {
-  return (
-    <View style={[s.infoBox, { backgroundColor: color + '10', borderColor: color + '28' }]}>
-      <View style={s.infoHeader}>
-        <Svg width={14} height={14} viewBox="0 0 24 24">
-          <Path
-            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
-            fill={color}
-          />
-        </Svg>
-        <Text style={{ fontSize: 13, fontWeight: '700', color }}>{title}</Text>
-      </View>
-      {items.map((item, i) => (
-        <View key={i} style={s.infoRow}>
-          <Text style={{ color, fontSize: 9, marginTop: 4 }}>●</Text>
-          <Text style={{ fontSize: 12, color: textSecColor, lineHeight: 18, flex: 1 }}>{item}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function UploadBox({
-  field,
-  onUpload,
-  cSurface,
-  cBg,
-  cBorder,
-  cText,
-  cTextSec,
-  cSuccess,
-  cPrimary,
-  cPrimaryLight,
-}: {
-  field: UploadField;
-  onUpload: (id: string) => void;
-  cSurface: string;
-  cBg: string;
-  cBorder: string;
-  cText: string;
-  cTextSec: string;
-  cSuccess: string;
-  cPrimary: string;
-  cPrimaryLight: string;
-}) {
-  const done = field.state === 'done';
-  const uploading = field.state === 'uploading';
-  return (
-    <Pressable onPress={() => !done && onUpload(field.id)}>
-      <View
-        style={[
-          s.uploadRow,
-          {
-            backgroundColor: done ? cSuccess + '12' : cSurface,
-            borderColor: done ? cSuccess + '50' : cBorder,
-            borderStyle: done ? 'solid' : 'dashed',
-          },
-        ]}
-      >
-        <View
-          style={[
-            s.uploadIcon,
-            {
-              backgroundColor: done ? cSuccess + '20' : cBg,
-              borderColor: done ? cSuccess + '40' : cBorder,
-            },
-          ]}
-        >
-          {done ? (
-            <Svg width={20} height={20} viewBox="0 0 24 24">
-              <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill={cSuccess} />
-            </Svg>
-          ) : uploading ? (
-            <ActivityIndicator size="small" color={cPrimary} />
-          ) : (
-            <Svg width={20} height={20} viewBox="0 0 24 24">
-              <Path
-                d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"
-                fill={cTextSec}
-              />
-            </Svg>
-          )}
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: done ? cSuccess : cText }}>
-            {done ? `${field.label} — Uploaded ✓` : field.label}
-          </Text>
-          <Text style={{ fontSize: 12, color: cTextSec, marginTop: 2 }}>{field.hint}</Text>
-        </View>
-        {!done && (
-          <View style={[s.browseBtn, { backgroundColor: cPrimaryLight }]}>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: cPrimary }}>Browse</Text>
-          </View>
-        )}
-      </View>
-    </Pressable>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════ */
 export function KYCScreen() {
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
-  const [docStep, setDocStep] = useState(0);
-  const [completedDoc, setCompletedDoc] = useState<Set<number>>(new Set());
-  const [submitted, setSubmitted] = useState(false);
+  const [profile, setProfile] = useState<User | null>(null);
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [make, setMake] = useState('');
+  const [model, setModel] = useState('');
+  const [year, setYear] = useState('');
+  const [color, setColor] = useState('');
+  const [plate, setPlate] = useState('');
+  const [vehicleType, setVehicleType] = useState<VehicleType>('hatchback');
+  const [hasAC, setHasAC] = useState(true);
+  const [files, setFiles] = useState<Partial<Record<DocKey, LocalFile>>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [error, setError] = useState('');
 
-  // Step 0 – Aadhaar
-  const [aadhaarNum, setAadhaarNum] = useState('');
+  useFocusEffect(
+    useCallback(() => {
+      userService.getMyProfile().then(setProfile).catch(() => undefined);
+    }, []),
+  );
 
-  // Step 1 – Liveness
-  const [livenessDone, setLivenessDone] = useState(false);
-
-  // Step 2 – DL
-  const [dlUploads, setDlUploads] = useState<UploadField[]>([
-    { id: 'dl_front', label: 'Upload Front Side', hint: 'DL number must be visible', state: 'idle' },
-    { id: 'dl_back', label: 'Upload Back Side', hint: 'Address & vehicle category visible', state: 'idle' },
-  ]);
-  const [dlNumber, setDlNumber] = useState('');
-
-  // Step 3 – RC
-  const [rcUploads, setRcUploads] = useState<UploadField[]>([
-    { id: 'rc_front', label: 'Upload RC Front', hint: 'Reg. number & owner name visible', state: 'idle' },
-    { id: 'rc_back', label: 'Upload RC Back', hint: 'Insurance & fitness details visible', state: 'idle' },
-  ]);
-  const [plateNum, setPlateNum] = useState('');
-
-  // Step 4 – PAN
-  const [panUploads, setPanUploads] = useState<UploadField[]>([
-    { id: 'pan_card', label: 'Upload PAN Card', hint: 'Name, PAN number & DOB visible', state: 'idle' },
-  ]);
-  const [panNumber, setPanNumber] = useState('');
-
-  // Step 5 – Insurance
-  const [insUploads, setInsUploads] = useState<UploadField[]>([
-    { id: 'ins_doc', label: 'Upload Insurance Certificate', hint: 'Valid & non-expired certificate', state: 'idle' },
-  ]);
-  const [policyNum, setPolicyNum] = useState('');
-  const [expiry, setExpiry] = useState('');
-
-  /* helpers */
-  const allDone = (fields: UploadField[]) => fields.every(f => f.state === 'done');
-
-  const handleUpload = (
-    id: string,
-    setter: React.Dispatch<React.SetStateAction<UploadField[]>>,
-  ) => {
-    setter(prev => prev.map(f => (f.id === id ? { ...f, state: 'uploading' as UploadState } : f)));
-    setTimeout(
-      () => setter(prev => prev.map(f => (f.id === id ? { ...f, state: 'done' as UploadState } : f))),
-      1200,
-    );
+  const pick = async (key: DocKey, source: 'camera' | 'library') => {
+    const perm =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission needed', `Allow ${source === 'camera' ? 'camera' : 'photo library'} access to add this document.`);
+      return;
+    }
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.7 };
+    const result =
+      source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+    setFiles(prev => ({
+      ...prev,
+      [key]: { uri: asset.uri, mimeType, name: `${key}.${mimeType === 'image/png' ? 'png' : 'jpg'}` },
+    }));
   };
 
-  const handleAadhaar = (v: string) => {
-    const d = v.replace(/\D/g, '').slice(0, 12);
-    const parts = [d.slice(0, 4), d.slice(4, 8), d.slice(8, 12)].filter(Boolean);
-    setAadhaarNum(parts.join(' '));
-  };
+  const choose = (key: DocKey) =>
+    Alert.alert('Add document', undefined, [
+      { text: 'Take photo', onPress: () => pick(key, 'camera') },
+      { text: 'Choose from library', onPress: () => pick(key, 'library') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
 
-  const canProceed = () => {
-    if (docStep === 0) return aadhaarNum.replace(/\s/g, '').length === 12;
-    if (docStep === 1) return livenessDone;
-    if (docStep === 2) return allDone(dlUploads) && dlNumber.trim().length > 5;
-    if (docStep === 3) return allDone(rcUploads) && plateNum.trim().length > 3;
-    if (docStep === 4) return allDone(panUploads) && panNumber.trim().length === 10;
-    if (docStep === 5) return allDone(insUploads) && policyNum.trim().length > 3 && expiry.length > 0;
-    return false;
-  };
+  const yearNumber = Number(year);
+  const currentYear = new Date().getFullYear();
+  const complete =
+    licenseNumber.trim().length >= 8 &&
+    make.trim() &&
+    model.trim() &&
+    color.trim() &&
+    plate.trim().length >= 6 &&
+    Number.isInteger(yearNumber) &&
+    yearNumber >= 2000 &&
+    yearNumber <= currentYear + 1 &&
+    DOCS.every(d => files[d.key]);
 
-  const handleContinue = () => {
-    setCompletedDoc(prev => new Set(prev).add(docStep));
-    if (docStep < DOC_STEPS.length - 1) {
-      setDocStep(docStep + 1);
-    } else {
-      setSubmitted(true);
+  const submit = async () => {
+    if (!complete || submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const user = await kycService.submit(
+        {
+          licenseNumber: licenseNumber.trim().toUpperCase(),
+          vehicle: {
+            make: make.trim(),
+            model: model.trim(),
+            year: yearNumber,
+            color: color.trim(),
+            plateNumber: plate.replace(/\s+/g, '').toUpperCase(),
+            vehicleType,
+            hasAC,
+          },
+          licence: files.licence!,
+          registration: files.registration!,
+          insurance: files.insurance!,
+          vehiclePhoto: files.vehiclePhoto!,
+        },
+        (done, total) => setProgress(done < total ? `Uploading document ${done + 1} of ${total}` : 'Submitting'),
+      );
+      setProfile(user);
+    } catch (err) {
+      setError(err instanceof Error && !('isAxiosError' in err) ? err.message : errorHandler.process(err).message);
+    } finally {
+      setSubmitting(false);
+      setProgress('');
     }
   };
 
-  const ds = DOC_STEPS[docStep];
-  const ok = canProceed();
+  const status = profile?.kyc?.status ?? 'none';
 
-  /* ── Published success animation ─────────────────────────── */
-  const pubScale = useRef(new Animated.Value(0)).current;
-  React.useEffect(() => {
-    if (submitted) {
-      Animated.spring(pubScale, { toValue: 1, friction: 4, useNativeDriver: true }).start();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submitted]);
+  const header = (
+    <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
+      <BackButton onPress={() => navigation.goBack()} />
+      <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Driver verification</Text>
+    </View>
+  );
 
-  /* ═══════════ SUBMITTED VIEW ═══════════════════════════════ */
-  if (submitted) {
+  if (status === 'pending' || status === 'approved') {
+    const approved = status === 'approved';
     return (
-      <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-        {/* Header */}
-        <LinearGradient
-          colors={[c.primaryDark, c.primary]}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
-          style={s.onbHeader}
-        >
-          <BackButton onPress={() => navigation.goBack()} />
-          <View style={{ marginLeft: 12 }}>
-            <Text style={{ fontSize: 17, fontWeight: '800', color: 'white' }}>Driver Onboarding</Text>
-            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>Step 3 of 3 · Documents</Text>
-          </View>
-        </LinearGradient>
-
-        <ScrollView contentContainerStyle={s.submitBody} showsVerticalScrollIndicator={false}>
-          <Animated.View
-            style={{
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              backgroundColor: c.successLight,
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: [{ scale: pubScale }],
-            }}
-          >
-            <Text style={{ fontSize: 40 }}>🎉</Text>
-          </Animated.View>
-
-          <Text style={{ fontSize: 22, fontWeight: '800', color: c.text, marginTop: 20 }}>All Done!</Text>
-          <Text style={{ fontSize: 14, color: c.textSec, marginTop: 8, lineHeight: 22, textAlign: 'center' }}>
-            All 6 documents submitted. Our team will verify within 2–4 hours.
+      <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+        {header}
+        <View style={styles.centered}>
+          <Icon name={approved ? 'check-decagram' : 'timer-sand'} size={56} color={approved ? c.success : c.primary} />
+          <Text style={[styles.statusTitle, { color: c.text }]}>
+            {approved ? 'You are verified' : 'Documents under review'}
           </Text>
-
-          {/* Status list */}
-          <View style={[s.submitList, { backgroundColor: c.surface, borderColor: c.border }]}>
-            {DOC_STEPS.map((st, i) => (
-              <View key={st.id} style={s.submitRow}>
-                <View style={[s.submitEmoji, { backgroundColor: st.color + '18' }]}>
-                  <Text style={{ fontSize: 18 }}>{st.emoji}</Text>
-                </View>
-                <Text style={{ flex: 1, fontSize: 14, color: c.text, fontWeight: '500' }}>{st.label}</Text>
-                <View
-                  style={[
-                    s.submitBadge,
-                    {
-                      backgroundColor: completedDoc.has(i) ? c.successLight : c.bg,
-                      borderColor: c.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: '700',
-                      color: completedDoc.has(i) ? c.success : c.textSec,
-                    }}
-                  >
-                    {completedDoc.has(i) ? 'Submitted ✓' : 'Skipped'}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <Pressable onPress={() => navigation.navigate('DriverTabs' as unknown as never)} style={{ width: '100%', marginTop: 20 }}>
-            <LinearGradient
-              colors={[c.primary, c.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={s.ctaGrad}
-            >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Go to Dashboard</Text>
-              <Svg width={18} height={18} viewBox="0 0 24 24">
-                <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="white" />
-              </Svg>
-            </LinearGradient>
-          </Pressable>
-        </ScrollView>
+          <Text style={[styles.statusBody, { color: c.textSec }]}>
+            {approved
+              ? 'You can offer rides now.'
+              : 'A member of the Sanchari team checks every submission. We will notify you when it has been reviewed.'}
+          </Text>
+        </View>
       </View>
     );
   }
 
-  /* ═══════════ MAIN VIEW ════════════════════════════════════ */
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      {/* ── Onboarding header ──────────────────────────────── */}
-      <LinearGradient
-        colors={[c.primaryDark, c.primary]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={s.onbHeader}
-      >
-        <BackButton
-          onPress={docStep === 0 ? () => navigation.goBack() : () => setDocStep(docStep - 1)}
-        />
-        <View style={{ marginLeft: 12 }}>
-          <Text style={{ fontSize: 17, fontWeight: '800', color: 'white' }}>Driver Onboarding</Text>
-          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>Step 3 of 3 · Documents</Text>
-        </View>
-      </LinearGradient>
+    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+      {header}
+      <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          {status === 'rejected' && (
+            <View style={[styles.notice, { backgroundColor: c.errorLight }]} accessibilityLiveRegion="polite">
+              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>Your last submission was not approved</Text>
+              {profile?.kyc?.rejectionReason ? (
+                <Text style={{ fontSize: 14, color: c.text, marginTop: 4 }}>{profile.kyc.rejectionReason}</Text>
+              ) : null}
+              <Text style={{ fontSize: 14, color: c.text, marginTop: 4 }}>Correct the details below and submit again.</Text>
+            </View>
+          )}
 
-      {/* ── Doc sub-step tabs ──────────────────────────────── */}
-      <View style={[s.tabSection, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        {/* Progress bar */}
-        <View style={[s.progressTrack, { backgroundColor: c.border }]}>
-          <LinearGradient
-            colors={[c.primary, ds.color]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[s.progressFill, { width: `${((docStep + 1) / DOC_STEPS.length) * 100}%` as unknown as number }]}
-          />
-        </View>
-
-        {/* Tab row */}
-        <View style={s.tabRow}>
-          {DOC_STEPS.map((st, i) => {
-            const isDone = completedDoc.has(i);
-            const isActive = i === docStep;
-            return (
-              <Pressable key={st.id} onPress={() => isDone && setDocStep(i)} style={s.tabItem}>
-                <View
-                  style={[
-                    s.tabCircle,
-                    {
-                      backgroundColor: isDone ? c.successLight : isActive ? st.color + '18' : c.bg,
-                      borderColor: isDone ? c.success + '60' : isActive ? st.color : c.border,
-                      borderWidth: isActive ? 2 : 1.5,
-                    },
-                  ]}
-                >
-                  {isDone ? (
-                    <Svg width={14} height={14} viewBox="0 0 24 24">
-                      <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill={c.success} />
-                    </Svg>
-                  ) : (
-                    <Text style={{ fontSize: 16 }}>{st.emoji}</Text>
-                  )}
-                </View>
-                <Text
-                  style={{
-                    fontSize: 9,
-                    fontWeight: isActive ? '700' : '500',
-                    color: isDone ? c.success : isActive ? st.color : c.textSec,
-                  }}
-                >
-                  {st.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* ── Step content ───────────────────────────────────── */}
-      <ScrollView
-        style={s.flex1}
-        contentContainerStyle={s.stepBody}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hero */}
-        <View style={s.heroCenter}>
-          <View style={[s.heroIcon, { backgroundColor: ds.color + '18', borderColor: ds.color + '35' }]}>
-            <Text style={{ fontSize: 34 }}>{ds.emoji}</Text>
-          </View>
-          <Text style={{ fontSize: 21, fontWeight: '800', color: c.text, textAlign: 'center' }}>
-            {docStep === 0 && 'Aadhaar Verification'}
-            {docStep === 1 && 'Liveness Check'}
-            {docStep === 2 && 'Driving Licence'}
-            {docStep === 3 && 'Vehicle Registration (RC)'}
-            {docStep === 4 && 'PAN Card'}
-            {docStep === 5 && 'Vehicle Insurance'}
+          <Text style={{ fontSize: 14, color: c.textSec, lineHeight: 20 }}>
+            Riders can only book drivers whose documents have been checked. Your documents are stored privately
+            and are only seen by the team reviewing your application.
           </Text>
-          <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center', marginTop: 3 }}>
-            {docStep === 0 && 'Required for driver identity verification'}
-            {docStep === 1 && 'Real-time face match to confirm identity'}
-            {docStep === 2 && 'Upload a valid, non-expired Indian DL'}
-            {docStep === 3 && "Upload your vehicle's Registration Certificate"}
-            {docStep === 4 && 'Required for income tax compliance'}
-            {docStep === 5 && 'Upload a valid vehicle insurance certificate'}
-          </Text>
-        </View>
 
-        {/* ── AADHAAR ── */}
-        {docStep === 0 && (
-          <View style={{ gap: 16 }}>
-            <WarningBanner text="Mandatory for all drivers. Cannot be skipped." color={c.error} />
-            <View>
-              <Text style={[s.fieldLabel, { color: c.textSec }]}>AADHAAR NUMBER</Text>
-              <TextInput
-                placeholder="XXXX  XXXX  XXXX"
-                placeholderTextColor={c.textSec}
-                value={aadhaarNum}
-                onChangeText={handleAadhaar}
-                maxLength={14}
-                keyboardType="number-pad"
-                style={[
-                  s.styledInput,
-                  {
-                    backgroundColor: c.surface,
-                    borderColor: c.border,
-                    color: c.text,
-                    letterSpacing: 3,
-                    fontFamily: 'monospace',
-                    fontWeight: '700',
-                    fontSize: 17,
-                  },
-                ]}
-              />
-            </View>
-            <InfoBox
-              color="#3B82F6"
-              title="Privacy Protection"
-              textSecColor={c.textSec}
-              items={[
-                'Encrypted with AES-256 — never stored in plain text',
-                'Shared only with UIDAI for verification',
-                'Deleted from servers after verification',
-              ]}
-            />
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>Licence</Text>
+            <Field label="Driving licence number" value={licenseNumber} onChange={setLicenseNumber} autoCapitalize="characters" c={c} />
           </View>
-        )}
 
-        {/* ── LIVENESS ── */}
-        {docStep === 1 && (
-          <View style={{ gap: 16 }}>
-            <WarningBanner text="Live face scan required. No photos allowed." color={c.primary} />
-            <View
-              style={[
-                s.livenessBox,
-                {
-                  borderColor: livenessDone ? c.success + '60' : c.border,
-                  backgroundColor: livenessDone ? c.successLight : c.surface,
-                },
-              ]}
-            >
-              {livenessDone ? (
-                <View style={s.heroCenter}>
-                  <View
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 28,
-                      backgroundColor: c.successLight,
-                      borderWidth: 2,
-                      borderColor: c.success + '40',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Svg width={28} height={28} viewBox="0 0 24 24">
-                      <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill={c.success} />
-                    </Svg>
-                  </View>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: c.success }}>Liveness Verified ✓</Text>
-                  <Text style={{ fontSize: 12, color: c.textSec }}>Face matched successfully</Text>
-                </View>
-              ) : (
-                <View style={s.heroCenter}>
-                  <Text style={{ fontSize: 48 }}>🤳</Text>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: c.text, textAlign: 'center' }}>
-                    Position your face in the frame and blink when prompted
-                  </Text>
-                  <Text style={{ fontSize: 12, color: c.textSec, textAlign: 'center' }}>
-                    No sunglasses · Good lighting · Face clearly visible
-                  </Text>
-                  <Pressable onPress={() => setLivenessDone(true)}>
-                    <LinearGradient
-                      colors={[c.primary, c.primaryDark]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={s.liveBtn}
-                    >
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: 'white' }}>Start Liveness Check</Text>
-                    </LinearGradient>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-            <InfoBox
-              color={c.primary}
-              title="How it works"
-              textSecColor={c.textSec}
-              items={[
-                'Short video (3–5 s) captured in real time',
-                'AI checks liveness — cannot be spoofed with photos',
-                'Data encrypted and deleted post-verification',
-              ]}
-            />
-          </View>
-        )}
-
-        {/* ── DRIVING LICENCE ── */}
-        {docStep === 2 && (
-          <View style={{ gap: 16 }}>
-            <WarningBanner text="Both sides are mandatory. No skip allowed." color={c.error} />
-            {dlUploads.map(f => (
-              <UploadBox
-                key={f.id}
-                field={f}
-                onUpload={id => handleUpload(id, setDlUploads)}
-                cSurface={c.surface}
-                cBg={c.bg}
-                cBorder={c.border}
-                cText={c.text}
-                cTextSec={c.textSec}
-                cSuccess={c.success}
-                cPrimary={c.primary}
-                cPrimaryLight={c.primaryLight}
-              />
-            ))}
-            <View>
-              <Text style={[s.fieldLabel, { color: c.textSec }]}>DL NUMBER</Text>
-              <TextInput
-                placeholder="e.g. KA01 20190012345"
-                placeholderTextColor={c.textSec}
-                value={dlNumber}
-                onChangeText={setDlNumber}
-                maxLength={20}
-                style={[s.styledInput, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-              />
-            </View>
-            <InfoBox
-              color="#F59E0B"
-              title="Requirements"
-              textSecColor={c.textSec}
-              items={[
-                'Valid & not expired',
-                'Must cover the vehicle category you drive',
-                'Verified within 2–4 hours by Sanchari AI',
-              ]}
-            />
-          </View>
-        )}
-
-        {/* ── RC ── */}
-        {docStep === 3 && (
-          <View style={{ gap: 16 }}>
-            <WarningBanner text="RC must be in your name. Both sides mandatory." color="#10B981" />
-            {rcUploads.map(f => (
-              <UploadBox
-                key={f.id}
-                field={f}
-                onUpload={id => handleUpload(id, setRcUploads)}
-                cSurface={c.surface}
-                cBg={c.bg}
-                cBorder={c.border}
-                cText={c.text}
-                cTextSec={c.textSec}
-                cSuccess={c.success}
-                cPrimary={c.primary}
-                cPrimaryLight={c.primaryLight}
-              />
-            ))}
-            <View>
-              <Text style={[s.fieldLabel, { color: c.textSec }]}>NUMBER PLATE</Text>
-              <View style={[s.plateWrap, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <View style={s.plateBadge}>
-                  <Text style={{ fontSize: 11 }}>🇮🇳</Text>
-                  <Text style={{ fontSize: 7, color: 'white', fontWeight: '700' }}>IND</Text>
-                </View>
-                <TextInput
-                  placeholder="KA 01 AB 1234"
-                  placeholderTextColor={c.textSec}
-                  value={plateNum}
-                  onChangeText={v => setPlateNum(v.toUpperCase())}
-                  autoCapitalize="characters"
-                  style={{
-                    flex: 1,
-                    paddingHorizontal: 14,
-                    fontSize: 17,
-                    fontWeight: '800',
-                    color: c.text,
-                    letterSpacing: 3,
-                    fontFamily: 'monospace',
-                  }}
-                />
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>Vehicle</Text>
+            <Field label="Make" value={make} onChange={setMake} placeholder="For example, Maruti Suzuki" c={c} />
+            <Field label="Model" value={model} onChange={setModel} placeholder="For example, Swift" c={c} />
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Field label="Year" value={year} onChange={t => setYear(t.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={4} c={c} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field label="Colour" value={color} onChange={setColor} c={c} />
               </View>
             </View>
-            <InfoBox
-              color="#10B981"
-              title="Accepted vehicle types"
-              textSecColor={c.textSec}
-              items={['Sedan / Hatchback / SUV', 'Auto / Electric vehicle', 'Bike / Scooter for parcels only']}
-            />
-          </View>
-        )}
-
-        {/* ── PAN ── */}
-        {docStep === 4 && (
-          <View style={{ gap: 16 }}>
-            <WarningBanner text="PAN required for income tax compliance." color="#EC4899" />
-            {panUploads.map(f => (
-              <UploadBox
-                key={f.id}
-                field={f}
-                onUpload={id => handleUpload(id, setPanUploads)}
-                cSurface={c.surface}
-                cBg={c.bg}
-                cBorder={c.border}
-                cText={c.text}
-                cTextSec={c.textSec}
-                cSuccess={c.success}
-                cPrimary={c.primary}
-                cPrimaryLight={c.primaryLight}
-              />
-            ))}
-            <View>
-              <Text style={[s.fieldLabel, { color: c.textSec }]}>PAN NUMBER</Text>
-              <TextInput
-                placeholder="e.g. ABCDE1234F"
-                placeholderTextColor={c.textSec}
-                value={panNumber}
-                onChangeText={v => setPanNumber(v.toUpperCase().slice(0, 10))}
-                maxLength={10}
-                autoCapitalize="characters"
-                style={[
-                  s.styledInput,
-                  {
-                    backgroundColor: c.surface,
-                    borderColor: c.border,
-                    color: c.text,
-                    letterSpacing: 3,
-                    fontFamily: 'monospace',
-                    fontWeight: '700',
-                    fontSize: 17,
-                  },
-                ]}
-              />
+            <Field label="Registration number" value={plate} onChange={setPlate} autoCapitalize="characters" placeholder="For example, AP05AB1234" c={c} />
+            <Text style={[styles.label, { color: c.textSec }]}>Type</Text>
+            <View style={styles.chips} accessibilityRole="radiogroup">
+              {VEHICLE_TYPES.map(t => {
+                const selected = vehicleType === t.value;
+                return (
+                  <Pressable
+                    key={t.value}
+                    onPress={() => setVehicleType(t.value)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                    style={[styles.chip, { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primaryLight : c.bg }]}
+                  >
+                    <Text style={{ fontSize: 14, color: selected ? c.primary : c.text }}>{t.label}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
-            <InfoBox
-              color="#EC4899"
-              title="PAN Card requirements"
-              textSecColor={c.textSec}
-              items={[
-                'Issued by Income Tax Department of India',
-                'Name on PAN must match your Aadhaar',
-                '10-character format — e.g. ABCDE1234F',
-              ]}
-            />
-          </View>
-        )}
-
-        {/* ── INSURANCE ── */}
-        {docStep === 5 && (
-          <View style={{ gap: 16 }}>
-            <WarningBanner text="Valid & non-expired insurance mandatory." color="#14B8A6" />
-            {insUploads.map(f => (
-              <UploadBox
-                key={f.id}
-                field={f}
-                onUpload={id => handleUpload(id, setInsUploads)}
-                cSurface={c.surface}
-                cBg={c.bg}
-                cBorder={c.border}
-                cText={c.text}
-                cTextSec={c.textSec}
-                cSuccess={c.success}
-                cPrimary={c.primary}
-                cPrimaryLight={c.primaryLight}
-              />
-            ))}
-            <View>
-              <Text style={[s.fieldLabel, { color: c.textSec }]}>POLICY NUMBER</Text>
-              <TextInput
-                placeholder="e.g. OG-24-1234-1234"
-                placeholderTextColor={c.textSec}
-                value={policyNum}
-                onChangeText={setPolicyNum}
-                style={[s.styledInput, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-              />
+            <View style={styles.switchRow}>
+              <Text style={{ flex: 1, fontSize: 15, color: c.text }}>Air conditioning</Text>
+              <Switch value={hasAC} onValueChange={setHasAC} accessibilityLabel="Air conditioning" trackColor={{ false: c.border, true: c.primary }} />
             </View>
-            <View>
-              <Text style={[s.fieldLabel, { color: c.textSec }]}>POLICY EXPIRY DATE</Text>
-              <TextInput
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={c.textSec}
-                value={expiry}
-                onChangeText={setExpiry}
-                style={[s.styledInput, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-              />
-            </View>
-            <InfoBox
-              color="#14B8A6"
-              title="Insurance requirements"
-              textSecColor={c.textSec}
-              items={[
-                '3rd-party or comprehensive accepted',
-                'Must cover at least 3rd-party liability',
-                'Policy must be valid for the next 30+ days',
-              ]}
-            />
           </View>
-        )}
 
-        <Text style={{ fontSize: 11, color: c.textSec, textAlign: 'center', marginTop: 8 }}>
-          ○ Documents reviewed within 2–4 hours by Sanchari AI
-        </Text>
-      </ScrollView>
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>Documents</Text>
+            {DOCS.map(doc => {
+              const file = files[doc.key];
+              return (
+                <Pressable
+                  key={doc.key}
+                  onPress={() => choose(doc.key)}
+                  disabled={submitting}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${doc.label}, ${file ? 'added, tap to replace' : 'not added'}`}
+                  style={[styles.docRow, { borderColor: file ? c.success : c.border }]}
+                >
+                  {file ? (
+                    <Image source={{ uri: file.uri }} style={styles.thumb} />
+                  ) : (
+                    <View style={[styles.thumb, styles.thumbEmpty, { backgroundColor: c.bg }]}>
+                      <Icon name="camera-plus-outline" size={22} color={c.textSec} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>{doc.label}</Text>
+                    <Text style={{ fontSize: 13, color: c.textSec }}>{file ? 'Added. Tap to replace.' : doc.hint}</Text>
+                  </View>
+                  {file ? <Icon name="check-circle" size={22} color={c.success} /> : null}
+                </Pressable>
+              );
+            })}
+          </View>
 
-      {/* ── Bottom CTA ─────────────────────────────────────── */}
-      <View style={[s.bottomBar, { backgroundColor: c.surface, borderTopColor: c.border }]}>
-        <Pressable onPress={handleContinue} disabled={!ok}>
-          <LinearGradient
-            colors={ok ? [c.primary, c.primaryDark] : [c.border, c.border]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={s.ctaGrad}
+          {error ? (
+            <Text style={{ color: c.error, fontSize: 14 }} accessibilityLiveRegion="polite">{error}</Text>
+          ) : null}
+
+          <Pressable
+            onPress={submit}
+            disabled={!complete || submitting}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !complete || submitting, busy: submitting }}
+            style={[styles.primaryBtn, { backgroundColor: complete ? c.primary : c.border }]}
           >
-            <Text style={{ fontSize: 16, fontWeight: '700', color: ok ? 'white' : c.textSec }}>
-              {docStep === 0 && 'Verify Aadhaar'}
-              {docStep === 1 && 'Confirm Liveness'}
-              {docStep === 2 && 'Upload DL & Continue'}
-              {docStep === 3 && 'Upload RC & Continue'}
-              {docStep === 4 && 'Upload PAN & Continue'}
-              {docStep === 5 && 'Submit All Documents'}
-            </Text>
-            {ok && (
-              <Svg width={18} height={18} viewBox="0 0 24 24">
-                <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="white" />
-              </Svg>
+            {submitting ? (
+              <View style={styles.row}>
+                <ActivityIndicator color={c.textOnPrimary} />
+                <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]} accessibilityLiveRegion="polite">{progress}</Text>
+              </View>
+            ) : (
+              <Text style={[styles.primaryBtnText, { color: complete ? c.textOnPrimary : c.textSec }]}>Submit for review</Text>
             )}
-          </LinearGradient>
-        </Pressable>
-      </View>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════ */
-const s = StyleSheet.create({
+function Field({
+  label,
+  value,
+  onChange,
+  c,
+  placeholder,
+  keyboardType,
+  autoCapitalize,
+  maxLength,
+}: {
+  label: string;
+  value: string;
+  onChange: (t: string) => void;
+  c: ReturnType<typeof useApp>['c'];
+  placeholder?: string;
+  keyboardType?: 'default' | 'number-pad';
+  autoCapitalize?: 'none' | 'characters' | 'words';
+  maxLength?: number;
+}) {
+  return (
+    <View style={{ marginBottom: Spacing.md }}>
+      <Text style={[styles.label, { color: c.textSec }]}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder}
+        placeholderTextColor={c.textSec}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize ?? 'words'}
+        maxLength={maxLength}
+        accessibilityLabel={label}
+        style={[styles.input, { borderColor: c.border, backgroundColor: c.bg, color: c.text }]}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
   root: { flex: 1 },
-  flex1: { flex: 1 },
-
-  /* Onboarding header */
-  onbHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 14 },
-
-  /* Tab section */
-  tabSection: { borderBottomWidth: 1, paddingHorizontal: 16, paddingVertical: 12 },
-  progressTrack: { height: 3, borderRadius: 2, overflow: 'hidden', marginBottom: 12 },
-  progressFill: { height: '100%', borderRadius: 2 },
-  tabRow: { flexDirection: 'row', gap: 4 },
-  tabItem: { flex: 1, alignItems: 'center', gap: 4 },
-  tabCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-
-  /* Step body */
-  stepBody: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 },
-
-  /* Hero */
-  heroCenter: { alignItems: 'center', gap: 8, marginBottom: 16 },
-  heroIcon: { width: 68, height: 68, borderRadius: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-
-  /* Warning banner */
-  warnBanner: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
+    gap: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
   },
-
-  /* Info box */
-  infoBox: { borderRadius: 14, borderWidth: 1, padding: 14 },
-  infoHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 4 },
-
-  /* Upload box */
-  uploadRow: {
+  headerTitle: { fontSize: 18, fontWeight: Typography.bold },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 8 },
+  statusTitle: { fontSize: 22, fontWeight: Typography.bold, textAlign: 'center', marginTop: 8 },
+  statusBody: { fontSize: 15, lineHeight: 22, textAlign: 'center' },
+  body: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: 60 },
+  notice: { borderRadius: Radius.md, padding: Spacing.md },
+  card: { borderRadius: Radius.lg, borderWidth: 1, padding: Spacing.lg },
+  sectionTitle: { fontSize: 16, fontWeight: Typography.bold, marginBottom: Spacing.md },
+  label: { fontSize: 13, fontWeight: Typography.semibold, marginBottom: 6 },
+  input: { minHeight: 48, borderWidth: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.md, fontSize: 15 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm },
+  chip: { minHeight: 40, paddingHorizontal: 14, borderRadius: Radius.sm, borderWidth: 1.5, justifyContent: 'center' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48 },
+  docRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    padding: 15,
-    borderRadius: 14,
+    gap: 12,
     borderWidth: 1.5,
+    borderRadius: Radius.sm,
+    padding: Spacing.sm,
+    marginBottom: Spacing.sm,
+    minHeight: 64,
   },
-  uploadIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  browseBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
-
-  /* Field label */
-  fieldLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.7, marginBottom: 8 },
-
-  /* Styled input */
-  styledInput: {
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    paddingHorizontal: 18,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-
-  /* Plate input */
-  plateWrap: { height: 52, borderRadius: 14, borderWidth: 2, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
-  plateBadge: {
-    width: 40,
-    height: '100%',
-    backgroundColor: '#003580',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 1,
-  },
-
-  /* Liveness */
-  livenessBox: { borderWidth: 2, borderStyle: 'dashed', borderRadius: 18, padding: 24, minHeight: 190 },
-  liveBtn: { paddingVertical: 12, paddingHorizontal: 28, borderRadius: 12, marginTop: 4 },
-
-  /* Bottom CTA */
-  bottomBar: { borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 },
-  ctaGrad: {
-    height: 54,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-
-  /* Submitted */
-  submitBody: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 40, paddingBottom: 40 },
-  submitList: { width: '100%', borderRadius: 18, borderWidth: 1, padding: 16, marginTop: 20, gap: 12, ...Shadow.sm },
-  submitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  submitEmoji: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  submitBadge: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1 },
+  thumb: { width: 48, height: 48, borderRadius: Radius.xs },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  primaryBtn: { minHeight: 52, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg },
+  primaryBtnText: { fontSize: 16, fontWeight: Typography.bold },
 });

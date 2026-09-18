@@ -8,9 +8,10 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
-import { walletService } from '../../services/walletService';
+import { bookingService } from '../../services/bookingService';
 import { userService } from '../../services/userService';
-import type { Transaction } from '../../types/api';
+import type { Booking } from '../../types/api';
+import { Icon } from '../../components/Icon';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Defs, LinearGradient as SvgGrad, Stop, Polyline, Line } from 'react-native-svg';
 
@@ -21,40 +22,67 @@ import { Shadow } from '../../theme';
 type Period = 'today' | 'week' | 'month';
 
 /* ── Data ──────────────────────────────────────────────────── */
-const todayData = [
-  { time: '7AM', amt: 0 },
-  { time: '8AM', amt: 220 },
-  { time: '9AM', amt: 0 },
-  { time: '10AM', amt: 180 },
-  { time: '12PM', amt: 0 },
-  { time: '2PM', amt: 200 },
-  { time: '5PM', amt: 247 },
-  { time: '9PM', amt: 0 },
-];
+type Point = { time: string; amt: number };
 
-const weekData = [
-  { time: 'Mon', amt: 650 },
-  { time: 'Tue', amt: 820 },
-  { time: 'Wed', amt: 940 },
-  { time: 'Thu', amt: 760 },
-  { time: 'Fri', amt: 1100 },
-  { time: 'Sat', amt: 1350 },
-  { time: 'Sun', amt: 847 },
-];
+interface PeriodSummary {
+  earnings: number;
+  rides: number;
+  chart: Point[];
+}
 
-const monthData = [
-  { time: 'W1', amt: 4200 },
-  { time: 'W2', amt: 5100 },
-  { time: 'W3', amt: 4800 },
-  { time: 'W4', amt: 6200 },
-];
+interface CompletedTrip {
+  id: string;
+  rider: string;
+  route: string;
+  time: string;
+  amount: number;
+}
 
-// Initial mock data as fallback
-const initialPeriodStats = {
-  today: { earnings: 847, rides: 4, km: 48.2 },
-  week: { earnings: 6467, rides: 31, km: 388 },
-  month: { earnings: 20300, rides: 124, km: 1520 },
-};
+const DAY_MS = 86_400_000;
+
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** Builds period totals and chart buckets from real completed bookings. */
+function summarise(bookings: Booking[], now = new Date()): Record<Period, PeriodSummary> {
+  const today = startOfDay(now);
+  const trips = bookings
+    .filter(b => typeof b.driverEarnings === 'number')
+    .map(b => ({ at: new Date(b.updatedAt).getTime(), amt: b.driverEarnings as number }));
+
+  const sumIn = (from: number, to: number) =>
+    trips.filter(t => t.at >= from && t.at < to).reduce((acc, t) => acc + t.amt, 0);
+  const countIn = (from: number, to: number) => trips.filter(t => t.at >= from && t.at < to).length;
+  const end = now.getTime() + 1;
+
+  const hourBlocks = [0, 6, 10, 14, 18, 24];
+  const todayChart = hourBlocks.slice(0, -1).map((h, k) => ({
+    time: ['12AM', '6AM', '10AM', '2PM', '6PM'][k],
+    amt: sumIn(today + h * 3_600_000, today + hourBlocks[k + 1] * 3_600_000),
+  }));
+
+  const weekChart = Array.from({ length: 7 }, (_, k) => {
+    const from = today - (6 - k) * DAY_MS;
+    return {
+      time: new Date(from).toLocaleDateString([], { weekday: 'short' }),
+      amt: sumIn(from, from + DAY_MS),
+    };
+  });
+
+  const monthChart = Array.from({ length: 4 }, (_, k) => {
+    const from = today - (27 - k * 7) * DAY_MS;
+    return { time: `W${k + 1}`, amt: sumIn(from, from + 7 * DAY_MS) };
+  });
+
+  const weekStart = today - 6 * DAY_MS;
+  const monthStart = today - 27 * DAY_MS;
+  return {
+    today: { earnings: sumIn(today, end), rides: countIn(today, end), chart: todayChart },
+    week: { earnings: sumIn(weekStart, end), rides: countIn(weekStart, end), chart: weekChart },
+    month: { earnings: sumIn(monthStart, end), rides: countIn(monthStart, end), chart: monthChart },
+  };
+}
 
 /* ── Mini area chart (SVG) ────────────────────────────────── */
 const CHART_W = 300;
@@ -138,79 +166,51 @@ export function EarningsScreen() {
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<Period>('today');
   const [loading, setLoading] = useState(true);
-  
-  interface EarningsTransaction {
-    id: string;
-    type: 'bonus' | 'ride';
-    rider: string;
-    route: string;
-    time: string;
-    amount: number;
-  }
-
-  const [statsData, setStatsData] = useState(initialPeriodStats);
-  const [transactionsData, setTransactionsData] = useState<EarningsTransaction[]>([]);
-  const [balance, setBalance] = useState(6320);
+  const [loadError, setLoadError] = useState(false);
+  const [summary, setSummary] = useState<Record<Period, PeriodSummary> | null>(null);
+  const [recent, setRecent] = useState<CompletedTrip[]>([]);
+  const [lifetime, setLifetime] = useState<{ earnings: number; rides: number } | null>(null);
 
   useFocusEffect(
     React.useCallback(() => {
       let isActive = true;
-      const fetchEarnings = async () => {
+      (async () => {
+        setLoading(true);
+        setLoadError(false);
         try {
-          setLoading(true);
-          const [walletRes, txRes, userRes] = await Promise.all([
-            walletService.getBalance().catch(() => null),
-            walletService.getTransactions().catch(() => null),
+          const [bookingsRes, profile] = await Promise.all([
+            bookingService.getDriverBookings(1, 100, 'completed'),
             userService.getMyProfile().catch(() => null),
           ]);
-          
-          if (isActive) {
-            let totalEarned = 847;
-            let rides = 4;
-            let currentBalance = 6320;
-            
-            if (walletRes) {
-              totalEarned = walletRes.totalEarnings || walletRes.balance || 847;
-              currentBalance = walletRes.balance || 0;
-            }
-            if (userRes) {
-              rides = userRes.stats?.totalRidesAsDriver || 4;
-            }
-            if (txRes && txRes.data?.items) {
-              setTransactionsData(txRes.data.items.map((tx: Transaction) => ({
-                id: tx._id,
-                rider: tx.relatedEntity ? 'Ride ID: ' + tx.relatedEntity.slice(-4) : 'User',
-                route: tx.description || 'Ride payment',
-                time: new Date(tx.createdAt).toLocaleString(),
-                amount: tx.amount,
-                type: tx.description.toLowerCase().includes('bonus') ? 'bonus' : 'ride'
-              })));
-            } else {
-              setTransactionsData([]);
-            }
-            
-            setBalance(currentBalance);
-            
-            setStatsData({
-              today: { earnings: totalEarned, rides: rides, km: Math.round(rides * 12.5) },
-              week: { earnings: totalEarned * 5, rides: rides * 5, km: Math.round(rides * 12.5 * 5) },
-              month: { earnings: totalEarned * 20, rides: rides * 20, km: Math.round(rides * 12.5 * 20) },
-            });
+          if (!isActive) return;
+          const bookings = bookingsRes.data?.items ?? [];
+          setSummary(summarise(bookings));
+          setRecent(
+            bookings.slice(0, 10).map(b => ({
+              id: b._id,
+              rider: b.rider?.name ?? 'Rider',
+              route: [b.pickup?.address, b.dropoff?.address].filter(Boolean).join(' to '),
+              time: new Date(b.updatedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+              amount: b.driverEarnings ?? 0,
+            })),
+          );
+          if (profile?.stats) {
+            setLifetime({ earnings: profile.stats.totalEarnings, rides: profile.stats.totalRidesAsDriver });
           }
-        } catch (e) {
-          console.error(e);
+        } catch {
+          if (isActive) setLoadError(true);
         } finally {
           if (isActive) setLoading(false);
         }
+      })();
+      return () => {
+        isActive = false;
       };
-      
-      fetchEarnings();
-      return () => { isActive = false; };
-    }, [])
+    }, []),
   );
 
-  const stats = statsData[period];
-  const chartData = { today: todayData, week: weekData, month: monthData }[period];
+  const stats = summary?.[period];
+  const periodLabel = period === 'today' ? 'Today' : period === 'week' ? 'Last 7 days' : 'Last 4 weeks';
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
@@ -220,42 +220,32 @@ export function EarningsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Gradient header ──────────────────────────────── */}
+        {/* ── Header ──────────────────────────────────────── */}
         <LinearGradient
-          colors={['#1A2E4A', c.primary]}
+          colors={['#0B2447', c.primary]}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={styles.gradientHeader}
         >
           <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Earnings</Text>
-            <Pressable style={styles.reportBtn}>
-              <Svg width={16} height={16} viewBox="0 0 24 24">
-                <Path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="white" />
-              </Svg>
-              <Text style={styles.reportText}>Report</Text>
-            </Pressable>
+            <Text style={styles.headerTitle} accessibilityRole="header">Earnings</Text>
           </View>
 
           {/* Period tabs */}
-          <View style={styles.periodBar}>
+          <View style={styles.periodBar} accessibilityRole="tablist">
             {(['today', 'week', 'month'] as Period[]).map(p => {
               const active = period === p;
               return (
-                <Pressable key={p} onPress={() => setPeriod(p)} style={styles.flex1}>
-                  <View
-                    style={[
-                      styles.periodTab,
-                      active && styles.periodTabActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.periodText,
-                        { color: active ? c.primary : 'rgba(255,255,255,0.8)' },
-                      ]}
-                    >
-                      {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'This Month'}
+                <Pressable
+                  key={p}
+                  onPress={() => setPeriod(p)}
+                  style={styles.flex1}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                >
+                  <View style={[styles.periodTab, active && styles.periodTabActive]}>
+                    <Text style={[styles.periodText, { color: active ? c.primary : '#FFFFFF' }]}>
+                      {p === 'today' ? 'Today' : p === 'week' ? '7 days' : '4 weeks'}
                     </Text>
                   </View>
                 </Pressable>
@@ -264,118 +254,110 @@ export function EarningsScreen() {
           </View>
         </LinearGradient>
 
-        {/* ── Earnings card ────────────────────────────────── */}
-        <View style={styles.cardWrap}>
-          <View style={[styles.earningsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={{ fontSize: 12, color: c.textSec, marginBottom: 4 }}>
-              {period === 'today' ? "TODAY'S" : period === 'week' ? "THIS WEEK'S" : "THIS MONTH'S"} EARNINGS
-            </Text>
-            <Text style={{ fontSize: 36, fontWeight: '800', color: c.text }}>
-              ₹{stats.earnings.toLocaleString()}
-            </Text>
-            <Text style={{ fontSize: 13, color: c.success }}>▲ 12% from last {period}</Text>
-
-            {/* Stats row */}
-            <View style={styles.statsRow}>
-              <View style={styles.statCol}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>{stats.rides}</Text>
-                <Text style={{ fontSize: 12, color: c.textSec }}>Rides</Text>
-              </View>
-              <View style={[styles.statDivider, { backgroundColor: c.border }]} />
-              <View style={styles.statCol}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>{stats.km}</Text>
-                <Text style={{ fontSize: 12, color: c.textSec }}>km driven</Text>
-              </View>
-              <View style={[styles.statDivider, { backgroundColor: c.border }]} />
-              <View style={styles.statCol}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>
-                  ₹{stats.rides ? Math.round(stats.earnings / stats.rides) : 0}
+        {loadError ? (
+          <View style={styles.section}>
+            <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border, alignItems: 'center' }]}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>We couldn't load your earnings</Text>
+              <Text style={{ fontSize: 13, color: c.textSec, marginTop: 4 }}>Pull back to this screen to try again.</Text>
+            </View>
+          </View>
+        ) : (
+          <>
+            {/* ── Earnings card ────────────────────────────── */}
+            <View style={styles.cardWrap}>
+              <View style={[styles.earningsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+                <Text style={{ fontSize: 12, color: c.textSec, marginBottom: 4 }}>
+                  {periodLabel.toUpperCase()}
                 </Text>
-                <Text style={{ fontSize: 12, color: c.textSec }}>per ride</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* ── Chart ────────────────────────────────────────── */}
-        <View style={styles.section}>
-          <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginBottom: 4 }}>
-              Earnings Trend
-            </Text>
-            <MiniChart data={chartData} color={c.primary} borderColor={c.border} />
-          </View>
-        </View>
-
-        {/* ── Achievement ──────────────────────────────────── */}
-        <View style={styles.section}>
-          <LinearGradient
-            colors={['#FFB300', '#FF8A50']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.achieveCard}
-          >
-            <Text style={{ fontSize: 36 }}>🏆</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: 'white' }}>5-Star Streak!</Text>
-              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
-                All 4 rides today rated 5 stars. Keep it up!
-              </Text>
-            </View>
-          </LinearGradient>
-        </View>
-
-        {/* ── Transactions ─────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 12 }}>
-            Recent Transactions
-          </Text>
-          <View style={[styles.txList, { backgroundColor: c.surface, borderColor: c.border }]}>
-            {transactionsData.length === 0 && !loading ? (
-              <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text style={{ color: c.textSec }}>No transactions found</Text>
-              </View>
-            ) : transactionsData.map((t, i) => (
-              <View key={t.id}>
-                {i > 0 && (
-                  <View style={[styles.txDivider, { backgroundColor: c.border }]} />
-                )}
-                <View style={styles.txRow}>
-                  <View
-                    style={[
-                      styles.txIcon,
-                      { backgroundColor: t.type === 'bonus' ? c.warningLight : c.successLight },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 20 }}>{t.type === 'bonus' ? '🎁' : '🚗'}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{t.rider}</Text>
-                    <Text style={{ fontSize: 12, color: c.textSec }}>{t.route}</Text>
-                    <Text style={{ fontSize: 11, color: c.textSec }}>{t.time}</Text>
-                  </View>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: c.success }}>
-                    +₹{t.amount}
+                {loading || !stats ? (
+                  <View style={[styles.skeleton, { backgroundColor: c.surfaceVariant }]} />
+                ) : (
+                  <Text style={{ fontSize: 36, fontWeight: '800', color: c.text }}>
+                    ₹{stats.earnings.toLocaleString('en-IN')}
                   </Text>
+                )}
+
+                <View style={styles.statsRow}>
+                  <View style={styles.statCol}>
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>{stats?.rides ?? 0}</Text>
+                    <Text style={{ fontSize: 12, color: c.textSec }}>Completed rides</Text>
+                  </View>
+                  <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+                  <View style={styles.statCol}>
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>
+                      ₹{stats?.rides ? Math.round(stats.earnings / stats.rides) : 0}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: c.textSec }}>Average per ride</Text>
+                  </View>
                 </View>
               </View>
-            ))}
-          </View>
-        </View>
-
-        {/* ── Payout ───────────────────────────────────────── */}
-        <View style={[styles.section, { marginBottom: 8 }]}>
-          <View style={[styles.payoutCard, { backgroundColor: c.primaryLight }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>Available for Payout</Text>
-              <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>₹{balance.toLocaleString()}</Text>
-              <Text style={{ fontSize: 12, color: c.textSec }}>Next auto-payout: March 1</Text>
             </View>
-            <Pressable style={[styles.withdrawBtn, { backgroundColor: c.primary }]}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: 'white' }}>Withdraw</Text>
-            </Pressable>
-          </View>
-        </View>
+
+            {/* ── Chart ────────────────────────────────────── */}
+            {stats && stats.rides > 0 && (
+              <View style={styles.section}>
+                <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginBottom: 4 }}>
+                    Earnings over time
+                  </Text>
+                  <MiniChart data={stats.chart} color={c.primary} borderColor={c.textSec} />
+                </View>
+              </View>
+            )}
+
+            {/* ── Recent completed rides ───────────────────── */}
+            <View style={styles.section}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 12 }}>
+                Recent completed rides
+              </Text>
+              <View style={[styles.txList, { backgroundColor: c.surface, borderColor: c.border }]}>
+                {recent.length === 0 && !loading ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: c.textSec, textAlign: 'center' }}>
+                      Completed rides and what you earned from them will appear here.
+                    </Text>
+                  </View>
+                ) : (
+                  recent.map((t, i) => (
+                    <View key={t.id}>
+                      {i > 0 && <View style={[styles.txDivider, { backgroundColor: c.border }]} />}
+                      <View style={styles.txRow}>
+                        <View style={[styles.txIcon, { backgroundColor: c.successLight }]}>
+                          <Icon name="car" size={22} color={c.success} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{t.rider}</Text>
+                          {t.route ? <Text style={{ fontSize: 12, color: c.textSec }}>{t.route}</Text> : null}
+                          <Text style={{ fontSize: 11, color: c.textSec }}>{t.time}</Text>
+                        </View>
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: c.success }}>
+                          +₹{t.amount.toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            </View>
+
+            {/* ── Lifetime ─────────────────────────────────── */}
+            {lifetime && (
+              <View style={[styles.section, { marginBottom: 8 }]}>
+                <View style={[styles.payoutCard, { backgroundColor: c.primaryLight }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>All-time earnings</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>
+                      ₹{lifetime.earnings.toLocaleString('en-IN')}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: c.textSec }}>
+                      From {lifetime.rides} completed {lifetime.rides === 1 ? 'ride' : 'rides'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -391,16 +373,6 @@ const styles = StyleSheet.create({
   gradientHeader: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   headerTitle: { fontSize: 22, fontWeight: '800', color: 'white' },
-  reportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  reportText: { fontSize: 13, color: 'white', fontWeight: '600' },
 
   /* Period */
   periodBar: {
@@ -415,6 +387,7 @@ const styles = StyleSheet.create({
 
   /* Earnings card */
   cardWrap: { paddingHorizontal: 20, marginTop: -12 },
+  skeleton: { height: 40, width: 160, borderRadius: 8, marginVertical: 2 },
   earningsCard: {
     borderRadius: 20,
     borderWidth: 1,
@@ -432,7 +405,6 @@ const styles = StyleSheet.create({
   xLabel: { fontSize: 11 },
 
   /* Achievement */
-  achieveCard: { borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 },
 
   /* Transactions */
   txList: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
@@ -447,5 +419,4 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  withdrawBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 },
 });

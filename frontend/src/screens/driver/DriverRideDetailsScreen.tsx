@@ -1,188 +1,220 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
-import { useRoute } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+/**
+ * screens/driver/DriverRideDetailsScreen.tsx
+ *
+ * A driver's view of one of their rides: route, seats, confirmed riders and
+ * the actions to complete or cancel the ride.
+ */
+
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '../../context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
+import { Icon } from '../../components/Icon';
 import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
+import { rideService } from '../../services/rideService';
+import { bookingService } from '../../services/bookingService';
+import type { Booking, Ride } from '../../types/api';
+import { errorHandler } from '../../utils/errorHandler';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'DriverRideDetails'>;
 
-/* ── Mock data (keyed by id) ────────────────────────────────────── */
-const ridesMap: Record<string, {
-  id: string; from: string; to: string; date: string; time: string;
-  booked: number; total: number; earned: number;
-  riders: { name: string; pickup: string; seats: number }[];
-}> = {
-  '3': {
-    id: '3', from: 'Andheri West', to: 'BKC', date: 'Mon, 2 Mar', time: '08:15 AM',
-    booked: 3, total: 4, earned: 540,
-    riders: [
-      { name: 'Priya S.', pickup: 'Andheri Station', seats: 1 },
-      { name: 'Arjun K.', pickup: 'DN Nagar Metro', seats: 2 },
-    ],
-  },
-  '4': {
-    id: '4', from: 'HSR Layout', to: 'Whitefield', date: 'Tue, 3 Mar', time: '09:00 AM',
-    booked: 2, total: 4, earned: 440,
-    riders: [
-      { name: 'Sneha R.', pickup: 'HSR BDA Complex', seats: 1 },
-      { name: 'Vikram M.', pickup: 'Silk Board', seats: 1 },
-    ],
-  },
-  '5': {
-    id: '5', from: 'Koramangala', to: 'MG Road', date: 'Wed, 4 Mar', time: '07:30 AM',
-    booked: 4, total: 4, earned: 720,
-    riders: [
-      { name: 'Meera P.', pickup: 'Forum Mall', seats: 2 },
-      { name: 'Rahul D.', pickup: 'Sony Signal', seats: 2 },
-    ],
-  },
-  '6': {
-    id: '6', from: 'Indiranagar', to: 'Electronic City', date: 'Thu, 5 Mar', time: '08:45 AM',
-    booked: 1, total: 4, earned: 380,
-    riders: [
-      { name: 'Kiran T.', pickup: '100ft Road', seats: 1 },
-    ],
-  },
-};
-
-/* ═══════════════════════════════════════════════════════════════════ */
 export function DriverRideDetailsScreen() {
-  const route = useRoute<Route>();
+  const { rideId } = useRoute<Route>().params;
+  const navigation = useNavigation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
-  const ride = ridesMap[route.params.rideId];
+  const [ride, setRide] = useState<Ride | null>(null);
+  const [riders, setRiders] = useState<Booking[]>([]);
+  const [loadError, setLoadError] = useState(false);
+  const [acting, setActing] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [r, confirmed] = await Promise.all([
+        rideService.getRide(rideId),
+        bookingService.getDriverBookings(1, 100, 'confirmed'),
+      ]);
+      setRide(r);
+      setRiders(
+        (confirmed.data?.items ?? []).filter(b => {
+          const bookingRide = b.ride as unknown as { _id?: string } | string | undefined;
+          return (typeof bookingRide === 'string' ? bookingRide : bookingRide?._id) === rideId;
+        }),
+      );
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    }
+  }, [rideId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  const runAction = (title: string, message: string, confirmLabel: string, action: () => Promise<unknown>) => {
+    Alert.alert(title, message, [
+      { text: 'Not now', style: 'cancel' },
+      {
+        text: confirmLabel,
+        style: 'destructive',
+        onPress: async () => {
+          setActing(true);
+          try {
+            await action();
+            await load();
+          } catch (error) {
+            Alert.alert('Something went wrong', errorHandler.process(error).message);
+          } finally {
+            setActing(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const header = (
+    <View style={[styles.header, { borderBottomColor: c.border }]}>
+      <BackButton onPress={() => navigation.goBack()} />
+      <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Ride details</Text>
+      <View style={styles.headerSpacer} />
+    </View>
+  );
 
   if (!ride) {
     return (
       <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-        <View style={[styles.header, { borderBottomColor: c.border }]}>
-          <BackButton />
-          <Text style={[styles.headerTitle, { color: c.text }]}>Ride Details</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        {header}
         <View style={styles.center}>
-          <Text style={{ color: c.textSec, fontSize: 15 }}>Ride not found.</Text>
+          {loadError ? (
+            <Text style={{ color: c.textSec, fontSize: 15 }}>This ride could not be loaded.</Text>
+          ) : (
+            <ActivityIndicator color={c.primary} accessibilityLabel="Loading ride" />
+          )}
         </View>
       </View>
     );
   }
 
+  const departure = new Date(ride.scheduledDeparture);
+  const booked = (ride.seats ?? 0) - (ride.availableSeats ?? 0);
+  const status = ride.status as string;
+  const isOpen = status === 'scheduled' || status === 'active' || status === 'in_progress';
+
   return (
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: c.border }]}>
-        <BackButton />
-        <Text style={[styles.headerTitle, { color: c.text }]}>Ride Details</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      {header}
 
-      <ScrollView
-        style={styles.flex1}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Route card */}
+      <ScrollView style={styles.flex1} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <View style={styles.routeRow}>
-            <View style={[styles.dot, { backgroundColor: c.primary }]} />
-            <Text style={[styles.routeText, { color: c.text }]}>{ride.from}</Text>
+          <Text style={[styles.sectionLabel, { color: c.textSec }]}>Route</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{ride.pickupLocation.address}</Text>
+          <Text style={{ fontSize: 14, color: c.textSec, marginVertical: 4 }}>to</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{ride.dropoffLocation.address}</Text>
+          <View style={styles.infoRow}>
+            <Icon name="calendar" size={16} color={c.textSec} />
+            <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>
+              {departure.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} at{' '}
+              {departure.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
           </View>
-          <View style={[styles.routeLine, { borderColor: c.border }]} />
-          <View style={styles.routeRow}>
-            <View style={[styles.dot, { backgroundColor: c.success }]} />
-            <Text style={[styles.routeText, { color: c.text }]}>{ride.to}</Text>
+          <View style={styles.infoRow}>
+            <Icon name="information-outline" size={16} color={c.textSec} />
+            <Text style={{ fontSize: 14, color: c.text, marginLeft: 8, textTransform: 'capitalize' }}>
+              {status.replace('_', ' ')}
+            </Text>
           </View>
         </View>
 
-        {/* Schedule card */}
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.sectionLabel, { color: c.textSec }]}>SCHEDULE</Text>
-          <View style={styles.infoRow}>
-            <Svg width={16} height={16} viewBox="0 0 24 24">
-              <Path
-                d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7v-5z"
-                fill={c.textSec}
-              />
-            </Svg>
-            <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>{ride.date}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Svg width={16} height={16} viewBox="0 0 24 24">
-              <Path
-                d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"
-                fill={c.textSec}
-              />
-            </Svg>
-            <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>{ride.time}</Text>
-          </View>
-        </View>
-
-        {/* Seats & earnings card */}
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={[styles.sectionLabel, { color: c.textSec }]}>SEATS</Text>
+              <Text style={[styles.sectionLabel, { color: c.textSec }]}>Seats booked</Text>
               <Text style={{ fontSize: 22, fontWeight: '800', color: c.text }}>
-                {ride.booked}/{ride.total}
+                {booked} of {ride.seats}
               </Text>
-              <Text style={{ fontSize: 12, color: c.textSec }}>booked</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: c.border }]} />
             <View style={styles.statItem}>
-              <Text style={[styles.sectionLabel, { color: c.textSec }]}>EARNINGS</Text>
-              <Text style={{ fontSize: 22, fontWeight: '800', color: c.success }}>
-                ₹{ride.earned}
+              <Text style={[styles.sectionLabel, { color: c.textSec }]}>Booked fares</Text>
+              <Text style={{ fontSize: 22, fontWeight: '800', color: c.successDark }}>
+                ₹{(booked * ride.pricePerSeat).toLocaleString('en-IN')}
               </Text>
-              <Text style={{ fontSize: 12, color: c.textSec }}>estimated</Text>
+              <Text style={{ fontSize: 12, color: c.textSec }}>before platform fee</Text>
             </View>
           </View>
         </View>
 
-        {/* Riders list */}
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.sectionLabel, { color: c.textSec, marginBottom: 12 }]}>RIDERS</Text>
-          {ride.riders.map((rider, i) => (
-            <View
-              key={rider.name}
-              style={[
-                styles.riderRow,
-                i < ride.riders.length - 1 && { borderBottomWidth: 1, borderBottomColor: c.border },
-              ]}
-            >
-              <View style={[styles.riderAvatar, { backgroundColor: c.primaryLight }]}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>
-                  {rider.name.charAt(0)}
-                </Text>
+          <Text style={[styles.sectionLabel, { color: c.textSec, marginBottom: 12 }]}>Confirmed riders</Text>
+          {riders.length === 0 ? (
+            <Text style={{ fontSize: 14, color: c.textSec }}>No confirmed riders yet.</Text>
+          ) : (
+            riders.map((b, i) => (
+              <View
+                key={b._id}
+                style={[styles.riderRow, i < riders.length - 1 && { borderBottomWidth: 1, borderBottomColor: c.border }]}
+              >
+                <View style={[styles.riderAvatar, { backgroundColor: c.primaryLight }]}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>
+                    {(b.rider?.name ?? 'R').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.flex1}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{b.rider?.name ?? 'Rider'}</Text>
+                  <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
+                    {b.seatsBooked} {b.seatsBooked === 1 ? 'seat' : 'seats'}
+                    {b.pickup?.address ? ` · Pickup: ${b.pickup.address}` : ''}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.flex1}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{rider.name}</Text>
-                <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
-                  Pickup: {rider.pickup} · {rider.seats} seat{rider.seats > 1 ? 's' : ''}
-                </Text>
-              </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
+
+        {isOpen && (
+          <View style={styles.actions}>
+            <Pressable
+              onPress={() =>
+                runAction('Complete this ride?', 'Riders will be asked to rate the trip.', 'Complete ride', () =>
+                  rideService.completeRide(rideId),
+                )
+              }
+              disabled={acting}
+              accessibilityRole="button"
+              style={[styles.actionBtn, { backgroundColor: c.primary }]}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>Complete ride</Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                runAction(
+                  'Cancel this ride?',
+                  'All booked riders are notified and fully refunded.',
+                  'Cancel ride',
+                  () => rideService.cancelRide(rideId),
+                )
+              }
+              disabled={acting}
+              accessibilityRole="button"
+              style={[styles.actionBtn, { backgroundColor: c.errorLight }]}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>Cancel ride</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
-/* ── Styles ──────────────────────────────────────────────────────── */
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex1: { flex: 1 },
@@ -197,26 +229,14 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center' },
   headerSpacer: { width: 44 },
   scrollContent: { padding: 20, gap: 16 },
-
-  /* Card */
   card: { borderRadius: 16, borderWidth: 1, padding: 16, ...Shadow.sm },
-
-  /* Route */
-  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  routeText: { fontSize: 15, fontWeight: '700' },
-  routeLine: { borderLeftWidth: 2, borderStyle: 'dashed', height: 20, marginLeft: 4 },
-
-  /* Info rows */
-  sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, marginBottom: 8 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-
-  /* Stats */
+  sectionLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   statItem: { flex: 1, alignItems: 'center' },
-  statDivider: { width: 1, height: 50 },
-
-  /* Riders */
+  statDivider: { width: 1, height: 48, marginHorizontal: 12 },
   riderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  riderAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  riderAvatar: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  actions: { gap: 12 },
+  actionBtn: { minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });

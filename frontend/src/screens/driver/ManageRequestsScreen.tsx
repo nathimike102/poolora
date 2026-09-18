@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   View,
   StyleSheet,
   FlatList,
@@ -22,25 +23,26 @@ import { BackButton } from '../../components/BackButton';
 import { ImageWithFallback } from '../../components/ImageWithFallback';
 import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
+import { Icon } from '../../components/Icon';
+import { errorHandler } from '../../utils/errorHandler';
 
 type Gender = UserGender;
-type Status = BookingStatus | 'accepted'; // 'accepted' maps to 'confirmed' in BookingStatus
+type Status = BookingStatus;
 
 interface RequestItem {
   id: string;
   tripId: string;
   rider: string;
-  avatar: string;
-  rating: number;
+  avatar?: string;
+  rating: number | null;
+  ratingCount: number;
   trips: number;
   from: string;
   to: string;
   date: string;
   seats: number;
   price: number;
-  aiScore: number;
-  expiresIn: string;
-  verified: boolean;
+  aiScore: number | null;
   passengers: Array<{ name: string; gender: string }>;
   status: Status;
 }
@@ -68,7 +70,7 @@ function GenderBadge({ gender }: { gender: Gender }): React.ReactElement {
   const map: Record<string, { bg: string; border: string; text: string }> = {
     Female: { bg: '#FFF1F2', border: '#FCA5A5', text: '#E11D48' },
     Male:   { bg: '#EFF6FF', border: '#93C5FD', text: '#2563EB' },
-    Other:  { bg: '#F5F3FF', border: '#C4B5FD', text: '#7C3AED' },
+    Other:  { bg: '#E3F2F1', border: '#9CD3CF', text: '#0B7A75' },
   };
   const s = map[normalizedGender];
   return (
@@ -117,41 +119,60 @@ export function ManageRequestsScreen(): React.ReactElement {
           if (isActive) {
             const bookings: Booking[] = res.data?.items || [];
             
-            // Map bookings to requests
-            const reqs = bookings.map(b => ({
-              id: b._id,
-              tripId: b.ride?._id || 'unknown',
-              rider: b.rider?.name || 'Rider',
-              avatar: b.rider?.profilePhotoUrl || 'https://images.unsplash.com/photo-1580746453801-37b0bc56f3b4?w=80&h=80&fit=crop&crop=face',
-              rating: b.rider?.stats?.avgRatingAsRider || 4.5,
-              trips: b.rider?.stats?.totalRidesAsRider || 0,
-              from: b.pickupLocation?.address || 'Pickup',
-              to: b.dropoffLocation?.address || 'Dropoff',
-              date: new Date(b.ride?.scheduledDeparture || new Date()).toLocaleString(),
-              seats: b.seatsBooked,
-              price: b.totalPrice,
-              aiScore: 90,
-              expiresIn: '4h 20m',
-              verified: b.rider?.isVerified || false,
-              passengers: [{ name: b.rider?.name || 'Rider', gender: b.rider?.gender || 'Other' }],
-              status: b.status,
-            }));
-            
+            type PopulatedRide = {
+              _id: string;
+              pickup?: { address?: string };
+              dropoff?: { address?: string };
+              departureTime?: string;
+              totalSeats?: number;
+              availableSeats?: number;
+              pricePerSeat?: number;
+            };
+            const rideOf = (b: Booking) => b.ride as unknown as PopulatedRide | undefined;
+
+            const reqs: RequestItem[] = bookings.map(b => {
+              const ride = rideOf(b);
+              const stats = b.rider?.stats;
+              const ratingCount = stats?.totalRatingsAsRider ?? 0;
+              return {
+                id: b._id,
+                tripId: ride?._id ?? 'unknown',
+                rider: b.rider?.name || 'Rider',
+                avatar: b.rider?.profilePhotoUrl,
+                rating: ratingCount > 0 ? stats?.avgRatingAsRider ?? null : null,
+                ratingCount,
+                trips: stats?.totalRidesAsRider ?? 0,
+                from: b.pickup?.address || 'Pickup',
+                to: b.dropoff?.address || 'Drop',
+                date: ride?.departureTime
+                  ? new Date(ride.departureTime).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                  : '',
+                seats: b.seatsBooked,
+                price: b.estimatedFare ?? 0,
+                aiScore: b.matchScore ? Math.round(b.matchScore) : null,
+                passengers: [{ name: b.rider?.name || 'Rider', gender: b.rider?.gender || '' }],
+                status: b.status,
+              };
+            });
+
             setRequests(reqs);
 
-            // Group into TRIPS
-            const tripMap = new Map();
+            // Group into trips
+            const tripMap = new Map<string, TripItem>();
             bookings.forEach(b => {
-              if (!b.ride || tripMap.has(b.ride._id)) return;
-              tripMap.set(b.ride._id, {
-                id: b.ride._id,
-                label: `${b.ride.pickupLocation?.address || 'Start'} → ${b.ride.dropoffLocation?.address || 'End'}`,
-                from: b.ride.pickupLocation?.address,
-                to: b.ride.dropoffLocation?.address,
-                date: new Date(b.ride.scheduledDeparture).toLocaleDateString(),
-                totalSeats: b.ride.seats,
-                filledSeats: b.ride.seats - b.ride.availableSeats,
-                earnings: b.ride.pricePerSeat * (b.ride.seats - b.ride.availableSeats),
+              const ride = rideOf(b);
+              if (!ride || tripMap.has(ride._id)) return;
+              const totalSeats = ride.totalSeats ?? 0;
+              const filledSeats = totalSeats - (ride.availableSeats ?? 0);
+              tripMap.set(ride._id, {
+                id: ride._id,
+                label: `${ride.pickup?.address || 'Start'} to ${ride.dropoff?.address || 'end'}`,
+                from: ride.pickup?.address,
+                to: ride.dropoff?.address,
+                date: ride.departureTime ? new Date(ride.departureTime).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '',
+                totalSeats,
+                filledSeats,
+                earnings: (ride.pricePerSeat ?? 0) * filledSeats,
               });
             });
             const fetchedTrips = Array.from(tripMap.values());
@@ -160,8 +181,8 @@ export function ManageRequestsScreen(): React.ReactElement {
               setActiveTripId(fetchedTrips[0].id);
             }
           }
-        } catch (error) {
-          console.error(error);
+        } catch {
+          if (isActive) setRequests([]);
         } finally {
           if (isActive) setLoading(false);
         }
@@ -179,8 +200,10 @@ export function ManageRequestsScreen(): React.ReactElement {
     try {
       await bookingService.confirmBooking(id);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setRequests(prev => prev.map(r => (r.id === id ? { ...r, status: 'accepted' } : r)));
-    } catch (e) { console.error(e); }
+      setRequests(prev => prev.map(r => (r.id === id ? { ...r, status: 'confirmed' } : r)));
+    } catch (error) {
+      Alert.alert('Could not accept request', errorHandler.process(error).message);
+    }
   };
 
   const reject = async (id: string) => {
@@ -188,12 +211,13 @@ export function ManageRequestsScreen(): React.ReactElement {
       await bookingService.rejectBooking(id);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setRequests(prev => prev.map(r => (r.id === id ? { ...r, status: 'rejected' } : r)));
-    } catch (e) { console.error(e); }
+    } catch (error) {
+      Alert.alert('Could not decline request', errorHandler.process(error).message);
+    }
   };
 
   const tabCounts: Record<string, number> = {
     pending: requests.filter(r => r.tripId === activeTripId && r.status === 'pending').length,
-    accepted: requests.filter(r => r.tripId === activeTripId && r.status === 'accepted').length,
     rejected: requests.filter(r => r.tripId === activeTripId && r.status === 'rejected').length,
     confirmed: requests.filter(r => r.tripId === activeTripId && r.status === 'confirmed').length,
     cancelled: requests.filter(r => r.tripId === activeTripId && r.status === 'cancelled').length,
@@ -201,9 +225,9 @@ export function ManageRequestsScreen(): React.ReactElement {
   };
 
   const TABS: { key: Status; label: string; color: string; bg: string }[] = [
-    { key: 'pending', label: 'Pending', color: '#D97706', bg: '#FEF3C7' },
-    { key: 'accepted', label: 'Accepted', color: '#059669', bg: '#D1FAE5' },
-    { key: 'rejected', label: 'Rejected', color: '#E11D48', bg: '#FFF1F2' },
+    { key: 'pending', label: 'Pending', color: '#92400E', bg: '#FEF3C7' },
+    { key: 'confirmed', label: 'Accepted', color: '#047857', bg: '#D1FAE5' },
+    { key: 'rejected', label: 'Declined', color: '#BE123C', bg: '#FFF1F2' },
   ];
 
   /* ═══════════════════════════════════════════════════════════ */
@@ -214,7 +238,7 @@ export function ManageRequestsScreen(): React.ReactElement {
         {/* Title row */}
         <View style={styles.titleRow}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={[styles.title, { color: c.text }]}>Ride Requests</Text>
+          <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">Ride requests</Text>
           {totalPending > 0 && (
             <View style={[styles.pendingBadge, { backgroundColor: c.accent + '20', borderColor: c.accent + '50' }]}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: c.accent }}>
@@ -233,7 +257,7 @@ export function ManageRequestsScreen(): React.ReactElement {
           {trips.map(t => {
             const isActive = t.id === activeTripId;
             return (
-              <Pressable key={t.id} onPress={() => setActiveTripId(t.id)}>
+              <Pressable accessibilityRole="button" key={t.id} onPress={() => setActiveTripId(t.id)}>
                 <View
                   style={[
                     styles.tripChip,
@@ -274,7 +298,7 @@ export function ManageRequestsScreen(): React.ReactElement {
               <View style={styles.summaryTop}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>
-                    {trip.from} → {trip.to}
+                    {trip.from} to {trip.to}
                   </Text>
                   <Text style={{ fontSize: 12, color: c.textSec, marginTop: 3 }}>
                     {trip.date} · {trip.totalSeats} seats total
@@ -284,7 +308,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                   <Text style={{ fontSize: 20, fontWeight: '800', color: c.success }}>
                     ₹{trip.earnings}
                   </Text>
-                  <Text style={{ fontSize: 11, color: c.textSec }}>if full</Text>
+                  <Text style={{ fontSize: 11, color: c.textSec }}>from booked seats</Text>
                 </View>
               </View>
 
@@ -326,7 +350,7 @@ export function ManageRequestsScreen(): React.ReactElement {
               {TABS.map(tab => {
                 const isActive2 = activeTab === tab.key;
                 return (
-                  <Pressable key={tab.key} onPress={() => setActiveTab(tab.key)} style={{ flex: 1 }}>
+                  <Pressable accessibilityRole="button" key={tab.key} onPress={() => setActiveTab(tab.key)} style={{ flex: 1 }}>
                     <View
                       style={[
                         styles.tabBtn,
@@ -356,25 +380,27 @@ export function ManageRequestsScreen(): React.ReactElement {
             {visibleRequests.length > 0 && (
               <Text variant="bodyMedium" style={{ fontWeight: '700', color: c.text, marginTop: 4, marginBottom: -2 }}>
                 {visibleRequests.length}{' '}
-                {activeTab === 'pending' ? 'Pending' : activeTab === 'accepted' ? 'Accepted' : 'Declined'}{' '}
-                Request{visibleRequests.length !== 1 ? 's' : ''}
+                {activeTab === 'pending' ? 'pending' : activeTab === 'confirmed' ? 'accepted' : 'declined'}{' '}
+                {visibleRequests.length !== 1 ? 'requests' : 'request'}
               </Text>
             )}
           </>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={{ fontSize: 52 }}>
-              {activeTab === 'pending' ? '⏳' : activeTab === 'accepted' ? '✅' : '❌'}
-            </Text>
+            <Icon
+              name={activeTab === 'pending' ? 'timer-sand' : activeTab === 'confirmed' ? 'check-circle-outline' : 'close-circle-outline'}
+              size={48}
+              color={c.textSec}
+            />
             <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>
               {activeTab === 'pending' && 'No pending requests'}
-              {activeTab === 'accepted' && 'No accepted requests yet'}
+              {activeTab === 'confirmed' && 'No accepted requests yet'}
               {activeTab === 'rejected' && 'No declined requests'}
             </Text>
             <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center', lineHeight: 19, paddingHorizontal: 20 }}>
               {activeTab === 'pending' && 'New ride requests from riders will appear here.'}
-              {activeTab === 'accepted' && 'When you accept a request it will show up here.'}
+              {activeTab === 'confirmed' && 'When you accept a request it will show up here.'}
               {activeTab === 'rejected' && 'Declined requests will be moved here.'}
             </Text>
           </View>
@@ -387,7 +413,7 @@ export function ManageRequestsScreen(): React.ReactElement {
               {
                 backgroundColor: c.surface,
                 borderColor:
-                  req.status === 'accepted'
+                  req.status === 'confirmed'
                     ? c.success + '50'
                     : req.status === 'rejected'
                     ? c.error + '40'
@@ -398,61 +424,18 @@ export function ManageRequestsScreen(): React.ReactElement {
             {/* Top banner */}
             {req.status === 'pending' ? (
               <View style={[styles.bannerRow, { backgroundColor: c.warningLight }]}>
-                <View style={styles.row}>
-                  <Svg width={14} height={14} viewBox="0 0 24 24">
-                    <Path
-                      d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"
-                      fill={c.warning}
-                    />
-                  </Svg>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#92400E' }}>
-                    Expires in {req.expiresIn}
-                  </Text>
-                </View>
-                {/* AI score badge */}
-                <View
-                  style={[
-                    styles.aiBadge,
-                    {
-                      backgroundColor:
-                        req.aiScore >= 90
-                          ? c.successLight
-                          : req.aiScore >= 75
-                          ? c.primaryLight
-                          : c.accent + '22',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: '800',
-                      lineHeight: 15,
-                      color:
-                        req.aiScore >= 90
-                          ? c.success
-                          : req.aiScore >= 75
-                          ? c.primary
-                          : c.accent,
-                    }}
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#92400E' }}>Waiting for your answer</Text>
+                {req.aiScore !== null && (
+                  <View
+                    style={[styles.aiBadge, { backgroundColor: req.aiScore >= 75 ? c.successLight : c.primaryLight }]}
+                    accessibilityLabel={`Match score ${req.aiScore} out of 100`}
                   >
-                    {req.aiScore}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 8,
-                      fontWeight: '700',
-                      color:
-                        req.aiScore >= 90
-                          ? c.success
-                          : req.aiScore >= 75
-                          ? c.primary
-                          : c.accent,
-                    }}
-                  >
-                    AI
-                  </Text>
-                </View>
+                    <Text style={{ fontSize: 13, fontWeight: '800', lineHeight: 15, color: req.aiScore >= 75 ? c.successDark : c.primary }}>
+                      {req.aiScore}
+                    </Text>
+                    <Text style={{ fontSize: 9, fontWeight: '700', color: req.aiScore >= 75 ? c.successDark : c.primary }}>match</Text>
+                  </View>
+                )}
               </View>
             ) : (
               <View
@@ -460,7 +443,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                   styles.bannerRow,
                   {
                     backgroundColor:
-                      req.status === 'accepted' ? c.successLight : c.errorLight,
+                      req.status === 'confirmed' ? c.successLight : c.errorLight,
                   },
                 ]}
               >
@@ -468,21 +451,21 @@ export function ManageRequestsScreen(): React.ReactElement {
                   <Svg width={14} height={14} viewBox="0 0 24 24">
                     <Path
                       d={
-                        req.status === 'accepted'
+                        req.status === 'confirmed'
                           ? 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'
                           : 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
                       }
-                      fill={req.status === 'accepted' ? c.success : c.error}
+                      fill={req.status === 'confirmed' ? c.success : c.error}
                     />
                   </Svg>
                   <Text
                     style={{
                       fontSize: 12,
                       fontWeight: '700',
-                      color: req.status === 'accepted' ? '#065F46' : '#9F1239',
+                      color: req.status === 'confirmed' ? '#065F46' : '#9F1239',
                     }}
                   >
-                    {req.status === 'accepted' ? 'Request Accepted' : 'Request Declined'}
+                    {req.status === 'confirmed' ? 'Request accepted' : 'Request declined'}
                   </Text>
                 </View>
                 <StatusChip status={req.status} />
@@ -493,38 +476,21 @@ export function ManageRequestsScreen(): React.ReactElement {
             <View style={styles.cardBody}>
               {/* Rider row */}
               <View style={styles.riderRow}>
-                <View style={{ position: 'relative' }}>
-                  <ImageWithFallback
-                    src={req.avatar}
-                    alt={req.rider}
-                    width={54}
-                    height={54}
-                    borderRadius={14}
-                  />
-                  {req.verified && (
-                    <View style={[styles.verifiedDot, { backgroundColor: c.primary }]}>
-                      <Svg width={9} height={9} viewBox="0 0 24 24">
-                        <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="white" />
-                      </Svg>
-                    </View>
-                  )}
-                </View>
+                {req.avatar ? (
+                  <ImageWithFallback src={req.avatar} alt={req.rider} width={54} height={54} borderRadius={14} />
+                ) : (
+                  <View style={[styles.avatarFallback, { backgroundColor: c.primaryLight }]}>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: c.primary }}>{req.rider.charAt(0).toUpperCase()}</Text>
+                  </View>
+                )}
                 <View style={{ flex: 1 }}>
                   <Text variant="titleSmall" style={{ fontWeight: '800', color: c.text }}>{req.rider}</Text>
                   <View style={[styles.row, { flexWrap: 'wrap', marginTop: 4 }]}>
-                    <View style={styles.row}>
-                      <Svg width={12} height={12} viewBox="0 0 24 24">
-                        <Path
-                          d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                          fill="#FFB300"
-                        />
-                      </Svg>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: c.text, marginLeft: 2 }}>
-                        {req.rating}
-                      </Text>
-                    </View>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: c.text }}>
+                      {req.rating !== null ? `Rated ${req.rating.toFixed(1)} (${req.ratingCount})` : 'No ratings yet'}
+                    </Text>
                     <Text variant="bodySmall" style={{ color: c.textSec, marginLeft: 8 }}>
-                      {req.trips} trips
+                      {req.trips} {req.trips === 1 ? 'trip' : 'trips'}
                     </Text>
                     <View style={[styles.seatLabel, { backgroundColor: c.primaryLight }]}>
                       <Text style={{ fontSize: 11, fontWeight: '600', color: c.primary }}>
@@ -560,7 +526,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                     {req.passengers.length} passenger{req.passengers.length > 1 ? 's' : ''}
                   </Text>
                 </View>
-                {req.passengers.map((pax: any, i: number) => (
+                {req.passengers.map((pax, i) => (
                   <View
                     key={i}
                     style={[
@@ -577,9 +543,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                         {i + 1}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 18 }}>
-                      {pax.gender === 'female' ? '👩' : pax.gender === 'male' ? '👨' : '🧑'}
-                    </Text>
+                    <Icon name={pax.gender === 'female' ? 'human-female' : pax.gender === 'male' ? 'human-male' : 'account'} size={20} color={c.textSec} />
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
                         {pax.name}
@@ -588,7 +552,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                         {pax.gender ? (pax.gender === 'male' ? 'Male' : pax.gender === 'female' ? 'Female' : 'Other') : 'Not specified'}
                       </Text>
                     </View>
-                    {pax.gender && <GenderBadge gender={pax.gender} />}
+                    {pax.gender ? <GenderBadge gender={pax.gender as Gender} /> : null}
                   </View>
                 ))}
               </View>
@@ -613,7 +577,7 @@ export function ManageRequestsScreen(): React.ReactElement {
               {/* Action buttons */}
               {req.status === 'pending' && (
                 <View style={[styles.actionRow, { marginTop: 4 }]}>
-                  <Pressable onPress={() => reject(req.id)} style={{ flex: 1 }}>
+                  <Pressable onPress={() => reject(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Decline request from ${req.rider}`}>
                     <View style={[styles.actionBtn, { backgroundColor: c.errorLight }]}>
                       <Svg width={14} height={14} viewBox="0 0 24 24">
                         <Path
@@ -625,19 +589,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                     </View>
                   </Pressable>
 
-                  <Pressable
-                    onPress={() => navigation.navigate('Chat', { chatId: req.id, recipientName: req.rider })}
-                    style={[styles.chatBtn, { backgroundColor: c.bg, borderColor: c.border }]}
-                  >
-                    <Svg width={16} height={16} viewBox="0 0 24 24">
-                      <Path
-                        d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"
-                        fill={c.textSec}
-                      />
-                    </Svg>
-                  </Pressable>
-
-                  <Pressable onPress={() => accept(req.id)} style={{ flex: 1 }}>
+                  <Pressable onPress={() => accept(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Accept request from ${req.rider}`}>
                     <LinearGradient
                       colors={[c.success, '#059669']}
                       start={{ x: 0, y: 0 }}
@@ -656,7 +608,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                 </View>
               )}
 
-              {req.status === 'accepted' && (
+              {req.status === 'confirmed' && (
                 <View style={[styles.statusBanner, { backgroundColor: c.successLight }]}>
                   <Svg width={16} height={16} viewBox="0 0 24 24">
                     <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill={c.success} />
@@ -702,10 +654,10 @@ const styles = StyleSheet.create({
   pendingBadge: {
     paddingVertical: 4,
     paddingHorizontal: 12,
-    borderRadius: 20,
+    borderRadius: 8,
     borderWidth: 1,
   },
-  tripChip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 22, borderWidth: 1.5 },
+  tripChip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1.5 },
 
   /* Body */
   body: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 100, gap: 16 },
@@ -726,7 +678,7 @@ const styles = StyleSheet.create({
   tabRow: { flexDirection: 'row', gap: 10 },
   tabBtn: {
     height: 42,
-    borderRadius: 22,
+    borderRadius: 8,
     borderWidth: 1.5,
     flexDirection: 'row',
     alignItems: 'center',
@@ -764,6 +716,7 @@ const styles = StyleSheet.create({
 
   /* Rider row */
   riderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarFallback: { width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   verifiedDot: {
     position: 'absolute',
     bottom: -3,
@@ -777,7 +730,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  seatLabel: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 20, marginLeft: 8 },
+  seatLabel: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 8, marginLeft: 8 },
 
   /* Passenger table */
   passTable: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
@@ -831,8 +784,8 @@ const styles = StyleSheet.create({
   statusBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 12 },
 
   /* Gender badge */
-  genderBadge: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1 },
+  genderBadge: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1 },
 
   /* Status chip */
-  statusChip: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 20 },
+  statusChip: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 8 },
 });
