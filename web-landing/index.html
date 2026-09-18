@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="index, follow" />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      #root {
+        height: 100%;
+      }
+    </style>
+    <!-- Title, description, canonical, icons, Open Graph and the Organization
+         structured data are injected at build time from src/config (see
+         vite.config.ts). Per-page tags are then updated by src/app/usePageMeta.ts.
+         Analytics is not injected here: it loads only after the visitor accepts
+         it in the consent banner. -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
