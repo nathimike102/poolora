@@ -7,8 +7,6 @@ import { Request, Response, NextFunction } from 'express';
 import { PaymentWebhookController } from '../../controllers/PaymentWebhookController';
 import { PaymentService } from '../../services/PaymentService';
 
-jest.mock('../../services/PaymentService');
-
 describe('PaymentWebhookController', () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
@@ -49,20 +47,8 @@ describe('PaymentWebhookController', () => {
         body: { event: 'payment.captured' },
       };
 
-      const mockValidate = jest.fn().mockReturnValue(false);
-      (PaymentService.prototype.validateWebhookSignature as jest.Mock) = mockValidate;
+      jest.spyOn(PaymentService.prototype, 'validateWebhookSignature').mockReturnValue(false);
 
-      // Re-import to pick up mock
-      jest.isolateModules(async () => {
-        const { PaymentWebhookController: Controller } = require('../../controllers/PaymentWebhookController');
-        await Controller.handleWebhook(
-          mockReq as Request,
-          mockRes as Response,
-          mockNext,
-        );
-      });
-
-      // The main module level test
       await PaymentWebhookController.handleWebhook(
         mockReq as Request,
         mockRes as Response,
@@ -93,12 +79,6 @@ describe('PaymentWebhookController', () => {
         rawBody: JSON.stringify(webhookBody),
       } as any;
 
-      // Mock the payment service methods
-      const paymentServiceInstance = new PaymentService();
-      jest.spyOn(paymentServiceInstance, 'validateWebhookSignature').mockReturnValue(true);
-      jest.spyOn(paymentServiceInstance, 'handleWebhookEvent').mockResolvedValue(undefined);
-
-      // Since the controller creates its own instance, we need to mock at module level
       jest.spyOn(PaymentService.prototype, 'validateWebhookSignature').mockReturnValue(true);
       jest.spyOn(PaymentService.prototype, 'handleWebhookEvent').mockResolvedValue(undefined);
 

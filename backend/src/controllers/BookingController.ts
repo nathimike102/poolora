@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { config } from '../config';
 import { BookingService } from '../services/BookingService';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess, sendPaginated } from '../utils/helpers';
@@ -16,7 +17,13 @@ export class BookingController {
       const result = await bookingService.createBooking(user.userId, req.body);
       sendSuccess(
         res,
-        { booking: result.booking, razorpayOrder: result.razorpayOrder },
+        {
+          booking: result.booking,
+          razorpayOrder: result.razorpayOrder,
+          paidViaWallet: Boolean(result.paidViaWallet),
+          // Public key id the app needs to open Razorpay Checkout for this order
+          razorpayKeyId: result.razorpayOrder ? config.razorpay.keyId : undefined,
+        },
         201,
         (req as any).requestId,
       );

@@ -88,6 +88,14 @@ export class WalletService {
         if (wallet.isLocked) {
             throw new AppError('Wallet is locked. Please contact support.', 403, 'WALLET_LOCKED');
         }
+        // Reject before the user pays, rather than refunding afterwards.
+        if (wallet.balance + amount > config.wallet.maxWalletBalance) {
+            throw new AppError(
+                `Top-up would exceed the maximum wallet balance of ₹${config.wallet.maxWalletBalance}`,
+                400,
+                'BALANCE_LIMIT_EXCEEDED',
+            );
+        }
 
         // In dev/test when Razorpay keys are not configured, return a mock order
         if (!isRazorpayConfigured()) {
@@ -120,7 +128,9 @@ export class WalletService {
 
     /**
      * Verifies Razorpay payment and credits the wallet.
-     * Idempotent — safe to call multiple times for the same payment.
+     * Idempotent and concurrency-safe: the transaction record is claimed first
+     * (unique idempotencyKey), then the balance is credited with an atomic $inc,
+     * so the same payment can never be credited twice.
      */
     async confirmTopUp(
         userId: string,
@@ -128,7 +138,7 @@ export class WalletService {
         razorpayPaymentId: string,
         razorpaySignature: string,
     ) {
-        // 1. Verify signature
+        // 1. Verify signature (compare as text so malformed input fails cleanly)
         const expectedSignature = crypto
             .createHmac('sha256', config.razorpay.keySecret)
             .update(`${razorpayOrderId}|${razorpayPaymentId}`)
@@ -136,23 +146,30 @@ export class WalletService {
 
         if (
             razorpaySignature.length !== expectedSignature.length ||
-            !crypto.timingSafeEqual(
-                Buffer.from(razorpaySignature, 'hex'),
-                Buffer.from(expectedSignature, 'hex'),
-            )
+            !crypto.timingSafeEqual(Buffer.from(razorpaySignature), Buffer.from(expectedSignature))
         ) {
             throw new AppError('Invalid payment signature', 401, 'INVALID_SIGNATURE');
         }
 
-        // 2. Idempotency — if already processed, return existing transaction
-        const existing = await WalletTransaction.findOne({
-            idempotencyKey: `topup_${razorpayPaymentId}`,
-        });
-        if (existing) {
-            logger.info('Duplicate top-up confirmation ignored', { razorpayPaymentId });
-            const wallet = await Wallet.findById(existing.wallet);
-            return { transaction: existing, wallet };
+        const idempotencyKey = `topup_${razorpayPaymentId}`;
+
+        // 2. Already processed (or in flight)?
+        const existing = await WalletTransaction.findOne({ idempotencyKey });
+        if (existing) return this.resolveExistingTopUp(existing, userId);
+
+        // 3. Confirm with Razorpay that this payment was captured for this user's top-up order
+        const [order, payment] = await Promise.all([
+            razorpay.orders.fetch(razorpayOrderId),
+            razorpay.payments.fetch(razorpayPaymentId),
+        ]);
+        const notes = (order.notes ?? {}) as Record<string, unknown>;
+        if (notes.purpose !== 'wallet_topup' || String(notes.userId) !== userId) {
+            throw new AppError('This payment does not belong to your wallet', 403, 'TOPUP_OWNER_MISMATCH');
         }
+        if (payment.order_id !== razorpayOrderId || payment.status !== 'captured') {
+            throw new AppError('Payment has not been captured', 409, 'PAYMENT_NOT_CAPTURED');
+        }
+        const amountInr = Number(order.amount) / 100;
 
         const wallet = await Wallet.findOne({ userId });
         if (!wallet) throw new NotFoundError('Wallet');
@@ -160,45 +177,87 @@ export class WalletService {
             throw new AppError('Wallet is locked', 403, 'WALLET_LOCKED');
         }
 
-        // Fetch order amount from Razorpay
-        const order = await razorpay.orders.fetch(razorpayOrderId);
-        const amountInr = (order.amount as number) / 100;
+        // 4. Claim the payment. A concurrent confirm for the same payment hits the unique index.
+        let transaction;
+        try {
+            transaction = await WalletTransaction.create({
+                wallet: wallet._id,
+                userId,
+                type: WalletTransactionType.TOPUP,
+                amount: amountInr,
+                balanceBefore: wallet.balance,
+                balanceAfter: wallet.balance + amountInr,
+                status: WalletTransactionStatus.PENDING,
+                razorpayOrderId,
+                razorpayPaymentId,
+                razorpaySignature,
+                description: `Wallet top-up of ₹${amountInr}`,
+                idempotencyKey,
+            });
+        } catch (error) {
+            if ((error as { code?: number }).code === 11000) {
+                const claimed = await WalletTransaction.findOne({ idempotencyKey });
+                if (claimed) return this.resolveExistingTopUp(claimed, userId);
+            }
+            throw error;
+        }
 
-        if (wallet.balance + amountInr > config.wallet.maxWalletBalance) {
+        // 5. Credit atomically, respecting the lock and the balance ceiling
+        const before = await Wallet.findOneAndUpdate(
+            {
+                _id: wallet._id,
+                isLocked: false,
+                balance: { $lte: config.wallet.maxWalletBalance - amountInr },
+            },
+            { $inc: { balance: amountInr, lifetimeTopUp: amountInr } },
+            { new: false },
+        );
+
+        if (!before) {
+            transaction.status = WalletTransactionStatus.FAILED;
+            await transaction.save();
+            // Money was captured but not credited; surface it for a refund.
+            logger.error('Captured top-up could not be credited; refund required', {
+                userId,
+                razorpayPaymentId,
+                amountInr,
+            });
             throw new AppError(
-                `Top-up would exceed maximum wallet balance of ₹${config.wallet.maxWalletBalance}`,
+                `Top-up would exceed the maximum wallet balance of ₹${config.wallet.maxWalletBalance}. The payment will be refunded.`,
                 400,
                 'BALANCE_LIMIT_EXCEEDED',
             );
         }
 
-        const balanceBefore = wallet.balance;
-        wallet.balance += amountInr;
-        wallet.lifetimeTopUp += amountInr;
-        await wallet.save();
+        transaction.balanceBefore = before.balance;
+        transaction.balanceAfter = before.balance + amountInr;
+        transaction.status = WalletTransactionStatus.COMPLETED;
+        await transaction.save();
 
-        const transaction = await WalletTransaction.create({
-            wallet: wallet._id,
-            userId,
-            type: WalletTransactionType.TOPUP,
-            amount: amountInr,
-            balanceBefore,
-            balanceAfter: wallet.balance,
-            status: WalletTransactionStatus.COMPLETED,
-            razorpayOrderId,
-            razorpayPaymentId,
-            razorpaySignature,
-            description: `Wallet top-up of ₹${amountInr}`,
-            idempotencyKey: `topup_${razorpayPaymentId}`,
-        });
+        const updatedWallet = await Wallet.findById(wallet._id);
 
         EventBridge.publish('payment-events', {
             eventType: 'wallet.topup.completed',
-            data: { userId, amount: amountInr, walletBalance: wallet.balance },
+            data: { userId, amount: amountInr, walletBalance: transaction.balanceAfter },
         });
 
         logger.info('Wallet top-up confirmed', { userId, amountInr, razorpayPaymentId });
-        return { transaction, wallet };
+        return { transaction, wallet: updatedWallet };
+    }
+
+    private async resolveExistingTopUp(
+        existing: InstanceType<typeof WalletTransaction>,
+        userId: string,
+    ) {
+        if (existing.userId.toString() !== userId) {
+            throw new AppError('This payment does not belong to your wallet', 403, 'TOPUP_OWNER_MISMATCH');
+        }
+        if (existing.status === WalletTransactionStatus.PENDING) {
+            throw new AppError('This top-up is already being processed', 409, 'TOPUP_IN_PROGRESS');
+        }
+        logger.info('Duplicate top-up confirmation ignored', { razorpayPaymentId: existing.razorpayPaymentId });
+        const wallet = await Wallet.findById(existing.wallet);
+        return { transaction: existing, wallet };
     }
 
     // ── Deduct (used internally by BookingService) ────────────────────────────

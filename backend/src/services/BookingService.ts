@@ -4,7 +4,8 @@ import { Booking, IBooking } from '../models/Booking';
 import { Ride } from '../models/Ride';
 import { User } from '../models/User';
 import { config } from '../config';
-import { BookingStatus, RideStatus } from '../types';
+import { BookingStatus, PaymentStatus, RideStatus } from '../types';
+import { Payment } from '../models/Payment';
 import {
   AppError,
   NotFoundError,
@@ -132,8 +133,8 @@ export class BookingService {
     let paidViaWallet = false;
 
     if (data.useWallet) {
-      // Wallet payment
-      await walletService.deductForBooking(riderId, 'pending', estimatedFare);
+      // Wallet payment. Create the booking first so the debit is keyed to its
+      // real id (one debit per booking), then roll back if the debit fails.
       const booking = await Booking.create({
         ride: data.rideId,
         rider: riderId,
@@ -152,6 +153,12 @@ export class BookingService {
         matchScore: matchResult?.overallScore || 0,
         // No razorpayOrderId — wallet paid
       });
+      try {
+        await walletService.deductForBooking(riderId, booking._id.toString(), estimatedFare);
+      } catch (error) {
+        await Booking.deleteOne({ _id: booking._id });
+        throw error;
+      }
       paidViaWallet = true;
 
       EventBridge.publish('booking-events', {
@@ -226,14 +233,30 @@ export class BookingService {
       throw new ConflictError('Booking is not in pending state');
     }
 
+    // Card/UPI bookings can only be accepted once Razorpay has authorized the
+    // payment (recorded by the signed webhook). Wallet bookings are paid upfront.
+    if (booking.razorpayOrderId) {
+      const paid = await Payment.exists({
+        razorpayOrderId: booking.razorpayOrderId,
+        status: { $in: [PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED] },
+      });
+      if (!paid) {
+        throw new AppError('The rider has not completed payment for this booking yet', 409, 'PAYMENT_PENDING');
+      }
+    }
+
+    // Reserve seats atomically so two confirmations can't overbook the ride
+    const ride = await Ride.findOneAndUpdate(
+      { _id: booking.ride, availableSeats: { $gte: booking.seatsBooked } },
+      { $inc: { availableSeats: -booking.seatsBooked } },
+      { new: true },
+    );
+    if (!ride) {
+      throw new ConflictError('Not enough seats left on this ride to accept this booking');
+    }
+
     booking.status = BookingStatus.CONFIRMED;
     await booking.save();
-
-    // Decrease available seats
-    await Ride.findByIdAndUpdate(
-      booking.ride,
-      { $inc: { availableSeats: -booking.seatsBooked } },
-    );
 
     EventBridge.publish('booking-events', {
       eventType: 'booking.confirmed',
@@ -245,6 +268,55 @@ export class BookingService {
     });
 
     return booking;
+  }
+
+  /**
+   * Returns the rider's money for a booking that will not go ahead. Wallet
+   * payments go back to the wallet; captured card/UPI payments are refunded
+   * through Razorpay. Uncaptured authorizations are released by Razorpay
+   * automatically. Failures are logged for manual follow-up rather than
+   * blocking the cancellation.
+   */
+  async refundBooking(booking: IBooking, reason: string, actorId: string): Promise<void> {
+    const amount = booking.estimatedFare;
+
+    if (!booking.razorpayOrderId) {
+      try {
+        await walletService.refundToWallet(booking.rider.toString(), booking._id.toString(), amount, reason);
+      } catch (refundError) {
+        logger.error('Wallet refund failed; needs manual refund', {
+          bookingId: booking._id,
+          error: (refundError as Error).message,
+        });
+      }
+      return;
+    }
+
+    const payment = await Payment.findOne({
+      razorpayOrderId: booking.razorpayOrderId,
+      status: { $in: [PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED] },
+    });
+    if (!payment) return; // never paid
+
+    if (payment.status === PaymentStatus.AUTHORIZED) {
+      logger.info('Uncaptured authorization will be released by Razorpay', { bookingId: booking._id });
+      return;
+    }
+
+    try {
+      await (getRazorpayClient().payments as any).refund(payment.razorpayPaymentId, {
+        amount: Math.round(amount * 100), // paise
+        notes: { bookingId: booking._id.toString(), reason, cancelledBy: actorId },
+      });
+      await Payment.updateOne({ _id: payment._id }, { $set: { status: PaymentStatus.REFUNDED } });
+      logger.info('Razorpay refund initiated', { bookingId: booking._id, paymentId: payment.razorpayPaymentId, amount });
+    } catch (refundError) {
+      logger.error('Razorpay refund failed; needs manual refund', {
+        bookingId: booking._id,
+        paymentId: payment.razorpayPaymentId,
+        error: (refundError as Error).message,
+      });
+    }
   }
 
   /**
@@ -263,6 +335,9 @@ export class BookingService {
     booking.status = BookingStatus.REJECTED;
     booking.cancellationReason = reason;
     await booking.save();
+
+    // The rider paid upfront, so a declined request is refunded in full
+    await this.refundBooking(booking, reason || 'Declined by driver', driverId);
 
     EventBridge.publish('booking-events', {
       eventType: 'booking.rejected',
@@ -298,7 +373,9 @@ export class BookingService {
 
     const originalStatus = booking.status;
     booking.status = BookingStatus.CANCELLED;
-    booking.cancelledBy = new Types.ObjectId(cancelledBy);
+    booking.cancelledBy = Types.ObjectId.isValid(cancelledBy)
+      ? new Types.ObjectId(cancelledBy)
+      : (cancelledBy as any);
     booking.cancellationReason = reason;
     booking.cancelledAt = new Date();
     await booking.save();
@@ -311,49 +388,7 @@ export class BookingService {
       );
     }
 
-    // Refund to wallet if booking was paid via wallet (no razorpayOrderId)
-    if (!booking.razorpayOrderId && originalStatus === BookingStatus.PENDING) {
-      try {
-        await walletService.refundToWallet(
-          booking.rider.toString(),
-          booking._id.toString(),
-          booking.estimatedFare,
-          reason,
-        );
-      } catch (refundError) {
-        logger.error('Wallet refund failed after cancellation', {
-          bookingId: booking._id,
-          error: (refundError as Error).message,
-        });
-      }
-    }
-
-    // Initiate Razorpay refund if payment was captured
-    if (booking.razorpayOrderId && booking.razorpayPaymentId) {
-      try {
-        const razorpay = getRazorpayClient();
-        await (razorpay.payments as any).refund(booking.razorpayPaymentId, {
-          amount: Math.round(booking.estimatedFare * 100), // paise
-          notes: {
-            bookingId: booking._id.toString(),
-            reason,
-            cancelledBy,
-          },
-        });
-        logger.info('Razorpay refund initiated', {
-          bookingId: booking._id,
-          paymentId: booking.razorpayPaymentId,
-          amount: booking.estimatedFare,
-        });
-      } catch (refundError) {
-        logger.error('Razorpay refund failed after cancellation', {
-          bookingId: booking._id,
-          paymentId: booking.razorpayPaymentId,
-          error: (refundError as Error).message,
-        });
-        // Non-fatal: log for manual follow-up, don't fail the cancellation
-      }
-    }
+    await this.refundBooking(booking, reason, cancelledBy);
 
     EventBridge.publish('booking-events', {
       eventType: 'booking.cancelled',
@@ -456,13 +491,27 @@ export class BookingService {
 
     const [bookings, total] = await Promise.all([
       Booking.find(filter)
-        .populate('ride', 'pickup dropoff departureTime vehicle')
-        .populate(role === 'rider' ? 'driver' : 'rider', 'name phone profilePhotoUrl')
+        .populate('ride', 'pickup dropoff departureTime vehicle totalSeats availableSeats pricePerSeat')
+        .populate(
+          role === 'rider' ? 'driver' : 'rider',
+          role === 'rider'
+            ? 'name phone profilePhotoUrl stats.avgRatingAsDriver stats.totalRatingsAsDriver stats.totalRidesAsDriver'
+            : 'name phone profilePhotoUrl gender stats.avgRatingAsRider stats.totalRatingsAsRider stats.totalRidesAsRider',
+        )
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit),
       Booking.countDocuments(filter),
     ]);
+
+    // Phone numbers are exchanged only for confirmed bookings.
+    const counterpart = role === 'rider' ? 'driver' : 'rider';
+    for (const booking of bookings) {
+      const person = booking.get(counterpart) as { phone?: string } | null;
+      if (booking.status !== BookingStatus.CONFIRMED && person && typeof person === 'object') {
+        person.phone = undefined;
+      }
+    }
 
     return paginate(bookings, total, page, limit);
   }

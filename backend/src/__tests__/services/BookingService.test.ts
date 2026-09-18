@@ -8,11 +8,12 @@ import { Booking } from '../../models/Booking';
 import { Ride } from '../../models/Ride';
 import { User } from '../../models/User';
 import { BookingStatus, RideStatus } from '../../types';
+import { Payment } from '../../models/Payment';
 
 jest.mock('../../models/Booking');
 jest.mock('../../models/Ride');
 jest.mock('../../models/User');
-jest.mock('../../models/Payment', () => ({ Payment: {} }));
+jest.mock('../../models/Payment', () => ({ Payment: { exists: jest.fn(), findOne: jest.fn(), updateOne: jest.fn() } }));
 jest.mock('../../events', () => ({
   EventBridge: { publish: jest.fn() },
 }));
@@ -23,13 +24,16 @@ jest.mock('../../config', () => ({
       maxPendingRequestsPerRider: 3,
       maxPickupDistanceFromRouteKm: 2,
     },
-    razorpay: { keyId: '', keySecret: '' },
+    razorpay: { keyId: 'rzp_test', keySecret: 'secret' },
   },
 }));
+const mockDeductForBooking = jest.fn();
+const mockRefundToWallet = jest.fn();
+const mockRazorpayRefund = jest.fn();
 jest.mock('../../services/WalletService', () => ({
   WalletService: jest.fn().mockImplementation(() => ({
-    deductForBooking: jest.fn(),
-    refundToWallet: jest.fn(),
+    deductForBooking: (...args: unknown[]) => mockDeductForBooking(...args),
+    refundToWallet: (...args: unknown[]) => mockRefundToWallet(...args),
     awardCoinsForRide: jest.fn(),
   })),
 }));
@@ -44,7 +48,7 @@ jest.mock('razorpay', () => {
       create: jest.fn().mockResolvedValue({ id: 'order_test_123' }),
     },
     payments: {
-      refund: jest.fn().mockResolvedValue({ id: 'rfnd_123' }),
+      refund: (...args: unknown[]) => mockRazorpayRefund(...args),
     },
   }));
 });
@@ -158,6 +162,48 @@ describe('BookingService', () => {
     });
   });
 
+  describe('createBooking with wallet', () => {
+    const walletRide = {
+      _id: 'ride123',
+      driver: { toString: () => 'driver456' },
+      status: RideStatus.ACTIVE,
+      availableSeats: 3,
+      pricePerSeat: 150,
+      departureTime: new Date(Date.now() + 3600000),
+      pickup: { location: { coordinates: [77.1, 28.7] } },
+      dropoff: { location: { coordinates: [77.2, 28.8] } },
+    };
+    const input = {
+      rideId: 'ride123',
+      seatsBooked: 2,
+      pickup: { lng: 77.1, lat: 28.7, address: 'A' },
+      dropoff: { lng: 77.2, lat: 28.8, address: 'B' },
+      useWallet: true,
+    };
+
+    beforeEach(() => {
+      (Ride.findById as jest.Mock).mockResolvedValue(walletRide);
+      (Booking.countDocuments as jest.Mock).mockResolvedValue(0);
+      (Booking.findOne as jest.Mock).mockResolvedValue(null);
+      (User.findById as jest.Mock).mockResolvedValue({ _id: 'x' });
+      (Booking.create as jest.Mock).mockResolvedValue({ _id: { toString: () => 'booking789' } });
+    });
+
+    it('debits the wallet against the real booking id', async () => {
+      const result = await bookingService.createBooking('rider123', input);
+
+      expect(result.paidViaWallet).toBe(true);
+      expect(mockDeductForBooking).toHaveBeenCalledWith('rider123', 'booking789', 300);
+    });
+
+    it('removes the booking when the wallet debit fails', async () => {
+      mockDeductForBooking.mockRejectedValueOnce(new Error('Insufficient wallet balance'));
+
+      await expect(bookingService.createBooking('rider123', input)).rejects.toThrow('Insufficient wallet balance');
+      expect(Booking.deleteOne).toHaveBeenCalledWith({ _id: expect.anything() });
+    });
+  });
+
   describe('confirmBooking', () => {
     it('should confirm a pending booking', async () => {
       const mockBooking = {
@@ -170,16 +216,51 @@ describe('BookingService', () => {
         save: jest.fn().mockResolvedValue(true),
       };
       (Booking.findById as jest.Mock).mockResolvedValue(mockBooking);
-      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({});
+      (Ride.findOneAndUpdate as jest.Mock).mockResolvedValue({ availableSeats: 2 });
 
       const result = await bookingService.confirmBooking('booking123', 'driver456');
 
       expect(result.status).toBe(BookingStatus.CONFIRMED);
       expect(mockBooking.save).toHaveBeenCalled();
-      expect(Ride.findByIdAndUpdate).toHaveBeenCalledWith(
-        'ride789',
+      expect(Ride.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: 'ride789', availableSeats: { $gte: 1 } },
         { $inc: { availableSeats: -1 } },
+        { new: true },
       );
+    });
+
+    it('should not confirm a card/UPI booking before payment is authorized', async () => {
+      (Booking.findById as jest.Mock).mockResolvedValue({
+        _id: 'booking123',
+        driver: { toString: () => 'driver456' },
+        ride: 'ride789',
+        status: BookingStatus.PENDING,
+        seatsBooked: 1,
+        razorpayOrderId: 'order_1',
+        save: jest.fn(),
+      });
+      (Payment.exists as jest.Mock).mockResolvedValue(null);
+
+      await expect(bookingService.confirmBooking('booking123', 'driver456')).rejects.toThrow(
+        'has not completed payment',
+      );
+      expect(Ride.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should not confirm when the ride no longer has enough seats', async () => {
+      const save = jest.fn();
+      (Booking.findById as jest.Mock).mockResolvedValue({
+        _id: 'booking123',
+        driver: { toString: () => 'driver456' },
+        ride: 'ride789',
+        status: BookingStatus.PENDING,
+        seatsBooked: 2,
+        save,
+      });
+      (Ride.findOneAndUpdate as jest.Mock).mockResolvedValue(null);
+
+      await expect(bookingService.confirmBooking('booking123', 'driver456')).rejects.toThrow('Not enough seats');
+      expect(save).not.toHaveBeenCalled();
     });
 
     it('should reject confirmation from non-driver', async () => {
@@ -206,6 +287,47 @@ describe('BookingService', () => {
       await expect(
         bookingService.confirmBooking('booking123', 'driver456'),
       ).rejects.toThrow('not in pending state');
+    });
+  });
+
+  describe('refunds', () => {
+    const base = {
+      _id: 'booking123',
+      rider: { toString: () => 'rider123' },
+      driver: { toString: () => 'driver456' },
+      ride: 'ride789',
+      seatsBooked: 1,
+      estimatedFare: 300,
+      save: jest.fn().mockResolvedValue(true),
+    };
+
+    it('refunds a confirmed wallet booking to the wallet on cancel', async () => {
+      (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.CONFIRMED, razorpayOrderId: undefined });
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({});
+
+      await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
+
+      expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', 300, 'Changed plans');
+    });
+
+    it('refunds a captured card payment through Razorpay when the driver declines', async () => {
+      (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.PENDING, razorpayOrderId: 'order_1' });
+      (Payment.findOne as jest.Mock).mockResolvedValue({ _id: 'pay_doc', status: 'captured', razorpayPaymentId: 'pay_1' });
+      mockRazorpayRefund.mockResolvedValue({ id: 'rfnd_1' });
+
+      await bookingService.rejectBooking('booking123', 'driver456', 'Car is full');
+
+      expect(mockRazorpayRefund).toHaveBeenCalledWith('pay_1', expect.objectContaining({ amount: 30000 }));
+      expect(Payment.updateOne).toHaveBeenCalledWith({ _id: 'pay_doc' }, { $set: { status: 'refunded' } });
+    });
+
+    it('does not call the refund API for an uncaptured authorization', async () => {
+      (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.PENDING, razorpayOrderId: 'order_1' });
+      (Payment.findOne as jest.Mock).mockResolvedValue({ _id: 'pay_doc', status: 'authorized', razorpayPaymentId: 'pay_1' });
+
+      await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
+
+      expect(mockRazorpayRefund).not.toHaveBeenCalled();
     });
   });
 

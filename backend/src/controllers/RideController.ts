@@ -1,13 +1,13 @@
-import axios from 'axios';
 import { Request, Response, NextFunction } from 'express';
 import { RideService } from '../services/RideService';
 import { AuthenticatedRequest, RideSearchParams } from '../types';
 import { sendSuccess, sendPaginated } from '../utils/helpers';
 import { AppError } from '../utils/AppError';
 import { SocketGateway } from '../sockets/SocketGateway';
-import { config } from '../config';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 const rideService = new RideService();
+const analyticsService = new AnalyticsService();
 
 export class RideController {
   /**
@@ -58,11 +58,12 @@ export class RideController {
       sendSuccess(
         res,
         {
-          rides: result.rides,
+          items: result.items,
           scores: result.scores,
           total: result.total,
           page,
           limit,
+          totalPages: Math.ceil(result.total / limit),
         },
         200,
         (req as any).requestId,
@@ -111,7 +112,8 @@ export class RideController {
    */
   static async getRide(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const ride = await rideService.getRideById(String(req.params.id));
+      const user = (req as AuthenticatedRequest).user;
+      const ride = await rideService.getRideById(String(req.params.id), user.userId);
       sendSuccess(res, { ride }, 200, (req as any).requestId);
     } catch (error) {
       next(error);
@@ -193,16 +195,15 @@ export class RideController {
         throw new AppError('Latitude and longitude are required', 400);
       }
 
-      const mlServiceUrl = config.services.mlServiceUrl || 'http://ml-service:8000';
-      const response = await axios.post(`${mlServiceUrl}/api/predict-demand`, {
-        lat: parseFloat(lat),
-        lng: parseFloat(lng),
-        hour: new Date().getHours(),
-        day_of_week: new Date().getDay(),
-        historical_rides: 100, // Mock for now or fetch from DB
-      });
+      const latNum = parseFloat(lat);
+      const lngNum = parseFloat(lng);
+      if (!Number.isFinite(latNum) || Math.abs(latNum) > 90 || !Number.isFinite(lngNum) || Math.abs(lngNum) > 180) {
+        throw new AppError('Latitude and longitude are invalid', 400);
+      }
 
-      sendSuccess(res, response.data, 200, (req as any).requestId);
+      // Uses real ride history for the area rather than a placeholder count
+      const prediction = await analyticsService.getDemandPrediction(latNum, lngNum);
+      sendSuccess(res, prediction, 200, (req as any).requestId);
     } catch (error) {
       next(error);
     }

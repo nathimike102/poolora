@@ -1,5 +1,4 @@
-import axios from 'axios';
-import mongoose, { Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { Ride, IRide } from '../models/Ride';
 import { User } from '../models/User';
 import { Booking } from '../models/Booking';
@@ -18,10 +17,21 @@ import {
   ConflictError,
 } from '../utils/AppError';
 import { toGeoPoint, paginate } from '../utils/helpers';
+import { mlClient } from '../utils/mlClient';
 import { MatchingEngineClient } from './MatchingEngineClient';
 import { getRoute } from './MapsService';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
+
+export type SearchResultRide = Omit<IRide, 'driver'> & {
+  driver: {
+    _id: string;
+    name: string;
+    profilePhotoUrl?: string;
+    stats: { avgRatingAsDriver: number; totalRatingsAsDriver: number; totalRidesAsDriver: number };
+  };
+  matchScore?: number;
+};
 
 export class RideService {
   private matchingEngine = new MatchingEngineClient();
@@ -160,7 +170,7 @@ export class RideService {
     params: RideSearchParams,
     page: number,
     limit: number,
-  ): Promise<{ rides: IRide[]; scores: MatchScore[]; total: number }> {
+  ): Promise<{ rides: IRide[]; scores: MatchScore[]; total: number; items: SearchResultRide[] }> {
     const radiusMeters = (params.radiusKm || config.ride.defaultSearchRadiusKm) * 1000;
     const timeDeviation = params.timeDeviationMins || config.ride.defaultTimeDeviationMins;
     const departureDate = new Date(params.departureTime);
@@ -249,17 +259,42 @@ export class RideService {
     })).filter((c) => c.driver);
 
     const scores = await this.matchingEngine.scoreRides(candidates, params);
+    const scoreByRide = new Map(scores.map((s) => [s.rideId, s]));
 
-    return { rides: enrichedRides, scores, total };
+    // Public driver details only: phone numbers are shared after a booking is confirmed
+    const items: SearchResultRide[] = candidates.map(({ ride, driver }) => ({
+      ...ride,
+      driver: {
+        _id: driver._id.toString(),
+        name: driver.name,
+        profilePhotoUrl: driver.profilePhotoUrl,
+        stats: {
+          avgRatingAsDriver: driver.stats?.avgRatingAsDriver ?? 0,
+          totalRatingsAsDriver: driver.stats?.totalRatingsAsDriver ?? 0,
+          totalRidesAsDriver: driver.stats?.totalRidesAsDriver ?? 0,
+        },
+      },
+      matchScore: scoreByRide.get(ride._id.toString())?.overallScore,
+    }));
+
+    return { rides: enrichedRides, scores, total, items };
   }
 
   /**
    * Get a single ride by ID.
    */
-  async getRideById(rideId: string): Promise<IRide> {
-    const ride = await Ride.findById(rideId).populate('driver', 'name phone profilePhotoUrl stats');
+  async getRideById(rideId: string, viewerId: string): Promise<IRide> {
+    const ride = await Ride.findById(rideId);
     if (!ride) throw new NotFoundError('Ride');
-    return ride;
+
+    // The driver's phone number is shared only with the driver and riders
+    // whose booking on this ride has been confirmed.
+    const canSeeContact =
+      ride.driver.toString() === viewerId ||
+      Boolean(await Booking.exists({ ride: ride._id, rider: viewerId, status: BookingStatus.CONFIRMED }));
+    const driverFields = canSeeContact ? 'name phone profilePhotoUrl stats' : 'name profilePhotoUrl stats';
+
+    return ride.populate('driver', driverFields);
   }
 
   /**
@@ -304,43 +339,37 @@ export class RideService {
       throw new ConflictError('Ride already completed or cancelled');
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    // Close the ride first so no new bookings can be made, then cancel and
+    // refund each active booking individually.
+    ride.status = RideStatus.CANCELLED;
+    ride.cancelledAt = new Date();
+    ride.cancellationReason = reason;
+    await ride.save();
 
-    try {
-      ride.status = RideStatus.CANCELLED;
-      ride.cancelledAt = new Date();
-      ride.cancellationReason = reason;
-      await ride.save({ session });
-
-      // Cancel all active bookings for this ride
-      await Booking.updateMany(
-        { ride: rideId, status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] } },
-        {
-          $set: {
-            status: BookingStatus.CANCELLED,
-            cancelledBy: new Types.ObjectId(driverId),
-            cancellationReason: 'Ride cancelled by driver',
-            cancelledAt: new Date(),
-          },
-        },
-        { session },
-      );
-
-      await session.commitTransaction();
-
-      EventBridge.publish('ride-events', {
-        eventType: 'ride.cancelled',
-        data: { rideId, driverId, reason },
-      });
-
-      return ride;
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
+    const activeBookings = await Booking.find({
+      ride: rideId,
+      status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
+    }).select('_id');
+    const { BookingService } = await import('./BookingService');
+    const bookingService = new BookingService();
+    for (const { _id } of activeBookings) {
+      try {
+        await bookingService.cancelBooking(_id.toString(), driverId, 'Ride cancelled by driver');
+      } catch (error) {
+        logger.error('Failed to cancel booking for cancelled ride', {
+          rideId,
+          bookingId: _id,
+          error: (error as Error).message,
+        });
+      }
     }
+
+    EventBridge.publish('ride-events', {
+      eventType: 'ride.cancelled',
+      data: { rideId, driverId, reason },
+    });
+
+    return ride;
   }
 
   /**
@@ -359,6 +388,7 @@ export class RideService {
         populate: { path: 'driver', select: 'name phone profilePhotoUrl' },
       })
       .sort({ createdAt: -1 })
+      .limit(50)
       .lean();
 
     return bookings
@@ -369,7 +399,10 @@ export class RideService {
         dropoff: b.ride.dropoff,
         departureTime: b.ride.departureTime,
         pricePerSeat: b.ride.pricePerSeat,
-        driver: b.ride.driver,
+        // Contact details only once the driver has confirmed the booking
+        driver: b.status === BookingStatus.CONFIRMED || !b.ride.driver
+          ? b.ride.driver
+          : { ...b.ride.driver, phone: undefined },
         status: b.status,
         bookingId: b._id,
       }));
@@ -436,8 +469,7 @@ export class RideService {
     ]);
 
     try {
-      const mlServiceUrl = config.services.mlServiceUrl || 'http://ml-service:8000';
-      const response = await axios.post(`${mlServiceUrl}/api/optimize-route`, {
+      const response = await mlClient.post('/api/optimize-route', {
         origin: {
           lat: ride.pickup.location.coordinates[1],
           lng: ride.pickup.location.coordinates[0],
