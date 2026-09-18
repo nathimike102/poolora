@@ -1,4 +1,5 @@
-import * as admin from 'firebase-admin';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 import twilio from 'twilio';
 import { User } from '../models/User';
 import { Notification } from '../models/Notification';
@@ -6,14 +7,14 @@ import { logger } from '../utils/logger';
 import { config } from '../config';
 
 /**
- * Notification service — handles:
+ * Notification service. Handles:
  * 1. In-app notifications (notification bell)
  * 2. Push notifications (FCM)
  * 3. SMS notifications (Twilio)
  */
 export class NotificationService {
   private fcmInitialized: boolean = false;
-  private twilioClient: twilio.Twilio | null = null;
+  private twilioClient: any = null;
 
   constructor() {
     this.initializeFCM();
@@ -25,14 +26,14 @@ export class NotificationService {
    */
   private initializeFCM(): void {
     try {
-      if (!admin.apps.length) {
+      if (!getApps().length) {
         const serviceAccountJson = config.firebase.serviceAccountJson
           ? JSON.parse(config.firebase.serviceAccountJson)
           : require(config.firebase.serviceAccountPath);
 
         if (serviceAccountJson.project_id) {
-          admin.initializeApp({
-            credential: admin.credential.cert(serviceAccountJson),
+          initializeApp({
+            credential: cert(serviceAccountJson),
             projectId: config.firebase.projectId || serviceAccountJson.project_id,
           });
           this.fcmInitialized = true;
@@ -52,6 +53,12 @@ export class NotificationService {
    */
   private initializeTwilio(): void {
     try {
+      if (!config.twilio.enabled) {
+        logger.info('Twilio is disabled via config');
+        this.twilioClient = null;
+        return;
+      }
+
       if (
         config.twilio.accountSid &&
         config.twilio.authToken &&
@@ -119,7 +126,7 @@ export class NotificationService {
         return;
       }
 
-      const messaging = admin.messaging();
+      const messaging = getMessaging();
       const failedTokens: string[] = [];
 
       // Send to all tokens in parallel
@@ -179,6 +186,13 @@ export class NotificationService {
    */
   async sendSMS(phone: string, message: string): Promise<void> {
     try {
+      if (!config.twilio.enabled) {
+        logger.debug('Twilio disabled, skipping SMS', {
+          phone: phone.slice(-4),
+        });
+        return;
+      }
+
       if (!this.twilioClient) {
         logger.debug('Twilio not initialized, skipping SMS', {
           phone: phone.slice(-4),

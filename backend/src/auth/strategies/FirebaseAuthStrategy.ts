@@ -1,4 +1,4 @@
-import admin from 'firebase-admin';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import { AuthStrategy, AuthResult, AuthProvider } from '../AuthStrategy';
 import { getFirebaseAuth } from '../../config/firebase';
 import { User, IUser } from '../../models/User';
@@ -11,14 +11,14 @@ import { EventBridge } from '../../events';
  * Verifies Firebase ID tokens and synchronizes the user into the local database.
  *
  * Flow:
- *   1. admin.auth().verifyIdToken(token)
+ *   1. getAuth().verifyIdToken(token)
  *   2. Look up the user by firebaseUid  (fast path)
  *   3. Fall back to look-up by phone / email (linking path)
  *   4. Create a brand-new user if neither matches (registration path)
  */
 export class FirebaseAuthStrategy implements AuthStrategy {
   async authenticate(token: string): Promise<AuthResult> {
-    let decoded: admin.auth.DecodedIdToken;
+    let decoded: DecodedIdToken;
 
     try {
       decoded = await getFirebaseAuth().verifyIdToken(token, true /* checkRevoked */);
@@ -33,7 +33,7 @@ export class FirebaseAuthStrategy implements AuthStrategy {
       if (code === 'auth/argument-error') {
         throw new AuthenticationError('Malformed Firebase token');
       }
-      // Any other Firebase error — let the caller try fallback
+      // Any other Firebase error: let the caller try the fallback
       throw new AuthenticationError('Firebase token verification failed');
     }
 
@@ -43,7 +43,7 @@ export class FirebaseAuthStrategy implements AuthStrategy {
 
   // ─── User Synchronization ───────────────────────────────────────────────
 
-  private async syncUser(decoded: admin.auth.DecodedIdToken): Promise<IUser> {
+  private async syncUser(decoded: DecodedIdToken): Promise<IUser> {
     const { uid, phone_number: phone, email, name, picture } = decoded;
 
     // 1. Fast path — user already linked

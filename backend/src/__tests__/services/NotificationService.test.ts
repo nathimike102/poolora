@@ -6,18 +6,18 @@
 import { NotificationService } from '../../services/NotificationService';
 import { User } from '../../models/User';
 import { Notification } from '../../models/Notification';
-import * as admin from 'firebase-admin';
+import { getMessaging } from 'firebase-admin/messaging';
 
 jest.mock('../../models/User');
 jest.mock('../../models/Notification');
-jest.mock('firebase-admin', () => {
+jest.mock('firebase-admin/app', () => ({
+  getApps: jest.fn(() => []),
+  initializeApp: jest.fn(),
+  cert: jest.fn(),
+}));
+jest.mock('firebase-admin/messaging', () => {
   const mockSend = jest.fn().mockResolvedValue('message-id-123');
-  return {
-    apps: [],
-    initializeApp: jest.fn(),
-    credential: { cert: jest.fn() },
-    messaging: jest.fn(() => ({ send: mockSend })),
-  };
+  return { getMessaging: jest.fn(() => ({ send: mockSend })) };
 });
 jest.mock('twilio', () => {
   const mockCreate = jest.fn().mockResolvedValue({ sid: 'SM123' });
@@ -33,6 +33,7 @@ jest.mock('../../config', () => ({
       projectId: '',
     },
     twilio: {
+      enabled: true,
       accountSid: 'AC_TEST_SID',
       authToken: 'test_auth_token',
       phoneNumber: '+15555555555',
@@ -88,12 +89,10 @@ describe('NotificationService', () => {
   describe('sendPushNotification', () => {
     it('should skip if FCM is not initialized', async () => {
       // FCM is not initialized in test (no service account)
-      const logSpy = jest.fn();
-
       await service.sendPushNotification('user123', 'Title', 'Body');
 
       // Should not throw and should not call messaging
-      expect(admin.messaging).not.toHaveBeenCalled();
+      expect(getMessaging).not.toHaveBeenCalled();
     });
 
     it('should skip if user has no FCM tokens', async () => {
@@ -105,7 +104,7 @@ describe('NotificationService', () => {
 
       await service.sendPushNotification('user123', 'Title', 'Body');
 
-      expect(admin.messaging).not.toHaveBeenCalled();
+      expect(getMessaging).not.toHaveBeenCalled();
     });
 
     it('should send push to all FCM tokens', async () => {
@@ -118,7 +117,7 @@ describe('NotificationService', () => {
       });
 
       const mockSend = jest.fn().mockResolvedValue('msg-id');
-      (admin.messaging as jest.Mock).mockReturnValue({ send: mockSend });
+      (getMessaging as jest.Mock).mockReturnValue({ send: mockSend });
 
       await service.sendPushNotification('user123', 'Title', 'Body', { key: 'val' });
 
@@ -144,7 +143,7 @@ describe('NotificationService', () => {
       const mockSend = jest.fn()
         .mockResolvedValueOnce('msg-id') // valid-token succeeds
         .mockRejectedValueOnce(new Error('Invalid registration')); // invalid-token fails
-      (admin.messaging as jest.Mock).mockReturnValue({ send: mockSend });
+      (getMessaging as jest.Mock).mockReturnValue({ send: mockSend });
       (User.updateOne as jest.Mock).mockResolvedValue({ modifiedCount: 1 });
 
       await service.sendPushNotification('user123', 'Title', 'Body');
@@ -208,7 +207,7 @@ describe('NotificationService', () => {
 
   describe('broadcastSMS', () => {
     it('should return sent/failed counts', async () => {
-      const sendSmsSpy = jest.spyOn(service, 'sendSMS')
+      jest.spyOn(service, 'sendSMS')
         .mockResolvedValueOnce() // first succeeds
         .mockRejectedValueOnce(new Error('fail')); // second fails
 
