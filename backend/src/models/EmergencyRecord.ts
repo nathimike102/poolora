@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
-import { SOSStatus, GeoPoint } from '../types';
+import { SOSStatus, SOSRiskLevel, SOSMonitoringState, GeoPoint } from '../types';
 
 export interface IEmergencyRecord extends Document {
   _id: Types.ObjectId;
@@ -23,6 +23,17 @@ export interface IEmergencyRecord extends Document {
   adminNotifiedAt?: Date;
   adminAssignee?: Types.ObjectId;
   liveTrackingUrl: string;
+  riskLevel: SOSRiskLevel;
+  monitoringState: SOSMonitoringState;
+  checkInIntervalSeconds: number;
+  lastCheckInAt?: Date;
+  nextCheckInAt?: Date;
+  missedCheckIns: number;
+  escalatedAt?: Date;
+  escalationReason?: string;
+  policeNotifiedAt?: Date;
+  // Retention: when sensitive SOS data should be purged
+  retentionExpiresAt?: Date;
   timeline: Array<{
     event: string;
     timestamp: Date;
@@ -73,6 +84,27 @@ const EmergencyRecordSchema = new Schema<IEmergencyRecord>(
     adminNotifiedAt: Date,
     adminAssignee: { type: Schema.Types.ObjectId, ref: 'User' },
     liveTrackingUrl: { type: String, required: true },
+    riskLevel: {
+      type: String,
+      enum: Object.values(SOSRiskLevel),
+      default: SOSRiskLevel.LOW,
+      index: true,
+    },
+    monitoringState: {
+      type: String,
+      enum: Object.values(SOSMonitoringState),
+      default: SOSMonitoringState.ACTIVE,
+      index: true,
+    },
+    checkInIntervalSeconds: { type: Number, default: 120 },
+    lastCheckInAt: Date,
+    nextCheckInAt: { type: Date, index: true },
+    missedCheckIns: { type: Number, default: 0 },
+    escalatedAt: Date,
+    escalationReason: String,
+    policeNotifiedAt: Date,
+    // Retention: when sensitive SOS data should be purged
+    retentionExpiresAt: { type: Date, index: true },
     timeline: [
       {
         event: { type: String, required: true },
@@ -91,6 +123,7 @@ const EmergencyRecordSchema = new Schema<IEmergencyRecord>(
 
 EmergencyRecordSchema.index({ 'triggerLocation': '2dsphere' });
 EmergencyRecordSchema.index({ status: 1, createdAt: -1 });
+EmergencyRecordSchema.index({ status: 1, nextCheckInAt: 1 });
 
 export const EmergencyRecord = mongoose.model<IEmergencyRecord>(
   'EmergencyRecord',

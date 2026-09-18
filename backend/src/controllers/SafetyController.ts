@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { SafetyService } from '../services/SafetyService';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
+import { SOSCheckInStatus } from '../types';
 
 const safetyService = new SafetyService();
 
@@ -26,8 +27,9 @@ export class SafetyController {
    */
   static async updateSOSLocation(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const user = (req as AuthenticatedRequest).user;
       const { location } = req.body;
-      await safetyService.updateSOSLocation(String(req.params.id), location);
+      await safetyService.updateSOSLocation(String(req.params.id), user.userId, location);
       sendSuccess(res, { message: 'Location updated' }, 200, (req as any).requestId);
     } catch (error) {
       next(error);
@@ -40,9 +42,33 @@ export class SafetyController {
    */
   static async addEvidence(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const user = (req as AuthenticatedRequest).user;
       const { type, url } = req.body;
-      await safetyService.addEvidence(String(req.params.id), type, url);
+      await safetyService.addEvidence(String(req.params.id), user.userId, type, url);
       sendSuccess(res, { message: 'Evidence added' }, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/safety/sos/:id/check-in
+   * Update SOS monitoring state.
+   */
+  static async updateSOSCheckIn(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const { status, notes, location } = req.body as {
+        status: SOSCheckInStatus;
+        notes?: string;
+        location?: { lng: number; lat: number };
+      };
+      const record = await safetyService.updateSOSCheckIn(String(req.params.id), user.userId, {
+        status,
+        notes,
+        location,
+      });
+      sendSuccess(res, { emergency: record }, 200, (req as any).requestId);
     } catch (error) {
       next(error);
     }
@@ -131,6 +157,20 @@ export class SafetyController {
       const user = (req as AuthenticatedRequest).user;
       const contacts = await safetyService.updateEmergencyContacts(user.userId, req.body.contacts);
       sendSuccess(res, { contacts }, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/safety/sos/:id/notify-police (Admin)
+   */
+  static async notifyPolice(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const { notes } = req.body as { notes?: string };
+      const record = await safetyService.notifyPolice(String(req.params.id), user.userId, notes);
+      sendSuccess(res, { emergency: record }, 200, (req as any).requestId);
     } catch (error) {
       next(error);
     }

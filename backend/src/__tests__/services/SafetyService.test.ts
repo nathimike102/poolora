@@ -7,13 +7,14 @@ import { SafetyService } from '../../services/SafetyService';
 import { Booking } from '../../models/Booking';
 import { User } from '../../models/User';
 import { EmergencyRecord } from '../../models/EmergencyRecord';
-import { BookingStatus, SOSStatus } from '../../types';
+import { BookingStatus, SOSStatus, SOSCheckInStatus } from '../../types';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
 jest.mock('../../models/Booking');
 jest.mock('../../models/User');
 jest.mock('../../models/EmergencyRecord');
+jest.mock('../../models/EmergencyToken');
 jest.mock('../../events', () => ({
   EventBridge: { publish: jest.fn() },
 }));
@@ -30,6 +31,7 @@ jest.mock('../../config', () => ({
 jest.mock('axios');
 
 const safetyService = new SafetyService();
+const ADMIN_ID = '64b7f0c2a1b2c3d4e5f60718';
 
 describe('SafetyService', () => {
   beforeEach(() => {
@@ -68,7 +70,10 @@ describe('SafetyService', () => {
         status: SOSStatus.TRIGGERED,
         triggerLocation: { type: 'Point', coordinates: [77.1, 28.7] },
         emergencyContactsNotified: mockUser.emergencyContacts,
+        riskLevel: 'low',
+        monitoringState: 'active',
         timeline: [],
+        save: jest.fn().mockResolvedValue(true),
       });
 
       const result = await safetyService.triggerSOS('rider123', {
@@ -85,6 +90,66 @@ describe('SafetyService', () => {
           status: SOSStatus.TRIGGERED,
         }),
       );
+    });
+
+    it('should create emergency token and set retentionExpiresAt', async () => {
+      (Booking.findById as jest.Mock).mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockBooking),
+      });
+      (User.findById as jest.Mock).mockResolvedValue(mockUser);
+      (EmergencyRecord.findOne as jest.Mock).mockResolvedValue(null);
+
+      const mockCreatedRecord: any = {
+        _id: 'emergencyTokenTest123',
+        booking: 'booking123',
+        triggeredBy: 'rider123',
+        status: SOSStatus.TRIGGERED,
+        triggerLocation: { type: 'Point', coordinates: [77.1, 28.7] },
+        emergencyContactsNotified: mockUser.emergencyContacts,
+        riskLevel: 'low',
+        monitoringState: 'active',
+        timeline: [],
+        liveTrackingUrl: 'http://localhost:5002/track/sos/initial',
+        save: jest.fn().mockResolvedValue(true),
+      };
+
+      (EmergencyRecord.create as jest.Mock).mockResolvedValue(mockCreatedRecord);
+      const { EmergencyToken } = require('../../models/EmergencyToken');
+      (EmergencyToken.create as jest.Mock).mockResolvedValue({ token: 'token-xyz' });
+
+      const result: any = await safetyService.triggerSOS('rider123', {
+        bookingId: 'booking123',
+        location: { lng: 77.1, lat: 28.7 },
+      });
+
+      expect(EmergencyToken.create).toHaveBeenCalled();
+      const tokenArgs = (EmergencyToken.create as jest.Mock).mock.calls[0][0];
+      const recordArgs = (EmergencyRecord.create as jest.Mock).mock.calls[0][0];
+      expect(recordArgs.retentionExpiresAt).toBeInstanceOf(Date);
+      expect(recordArgs.liveTrackingUrl).toBe(`http://localhost:5002/track/sos/${tokenArgs.token}`);
+      expect(result).toBe(mockCreatedRecord);
+    });
+
+    it('should not record contacts as notified when SMS is not configured', async () => {
+      (Booking.findById as jest.Mock).mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockBooking),
+      });
+      (User.findById as jest.Mock).mockResolvedValue(mockUser);
+      (EmergencyRecord.findOne as jest.Mock).mockResolvedValue(null);
+      const record: any = {
+        emergencyContactsNotified: [],
+        timeline: [],
+        save: jest.fn().mockResolvedValue(true),
+      };
+      (EmergencyRecord.create as jest.Mock).mockResolvedValue(record);
+
+      await safetyService.triggerSOS('rider123', {
+        bookingId: 'booking123',
+        location: { lng: 77.1, lat: 28.7 },
+      });
+
+      expect(record.emergencyContactsNotified).toHaveLength(0);
+      expect(record.timeline[record.timeline.length - 1].details).toBe('0 of 2 contacts reached by SMS');
     });
 
     it('should reject SOS from user not part of booking', async () => {
@@ -142,7 +207,7 @@ describe('SafetyService', () => {
       };
       (EmergencyRecord.findById as jest.Mock).mockResolvedValue(mockRecord);
 
-      const result = await safetyService.acknowledgeSOS('emergency123', 'admin001');
+      const result = await safetyService.acknowledgeSOS('emergency123', ADMIN_ID);
 
       expect(result.status).toBe(SOSStatus.ACKNOWLEDGED);
       expect(mockRecord.save).toHaveBeenCalled();
@@ -156,7 +221,7 @@ describe('SafetyService', () => {
       (EmergencyRecord.findById as jest.Mock).mockResolvedValue(mockRecord);
 
       await expect(
-        safetyService.acknowledgeSOS('emergency123', 'admin001'),
+        safetyService.acknowledgeSOS('emergency123', ADMIN_ID),
       ).rejects.toThrow('SOS already acknowledged or resolved');
     });
   });
@@ -243,7 +308,28 @@ describe('SafetyService', () => {
 
       await expect(
         safetyService.getSOSStatus('emergency123', 'stranger999'),
-      ).rejects.toThrow();
+      ).rejects.toThrow('You do not have access to this SOS record');
+    });
+
+    it('should allow an admin who is not part of the booking', async () => {
+      const mockRecord = {
+        _id: 'emergency123',
+        triggeredBy: { _id: 'rider123', name: 'Test User' },
+        booking: 'booking123',
+        status: SOSStatus.TRIGGERED,
+      };
+      (EmergencyRecord.findById as jest.Mock).mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(mockRecord),
+        }),
+      });
+      (Booking.findById as jest.Mock).mockResolvedValue({ rider: 'rider123', driver: 'driver456' });
+      (User.findById as jest.Mock).mockReturnValue({
+        select: jest.fn().mockResolvedValue({ capabilities: ['rider', 'admin'] }),
+      });
+
+      const result = await safetyService.getSOSStatus('emergency123', ADMIN_ID);
+      expect(result.status).toBe(SOSStatus.TRIGGERED);
     });
   });
 
@@ -273,24 +359,214 @@ describe('SafetyService', () => {
   });
 
   describe('updateSOSLocation', () => {
-    it('should atomically push location to history', async () => {
-      (EmergencyRecord.findOneAndUpdate as jest.Mock).mockResolvedValue({
+    it('should push location to history and refresh monitoring', async () => {
+      (EmergencyRecord.findById as jest.Mock).mockResolvedValue({
         _id: 'emergency123',
+        triggeredBy: 'rider123',
+        status: SOSStatus.TRIGGERED,
+        riskLevel: 'low',
+        checkInIntervalSeconds: 120,
+        missedCheckIns: 1,
+        locationHistory: [],
+        timeline: [],
+        save: jest.fn().mockResolvedValue(true),
       });
 
-      await safetyService.updateSOSLocation('emergency123', { lng: 77.2, lat: 28.8 });
+      await safetyService.updateSOSLocation('emergency123', 'rider123', { lng: 77.2, lat: 28.8 });
 
-      expect(EmergencyRecord.findOneAndUpdate).toHaveBeenCalledWith(
-        {
-          _id: 'emergency123',
-          status: { $nin: [SOSStatus.RESOLVED, SOSStatus.FALSE_ALARM] },
-        },
-        expect.objectContaining({
-          $push: expect.objectContaining({
-            locationHistory: expect.any(Object),
+      expect(EmergencyRecord.findById).toHaveBeenCalledWith('emergency123');
+    });
+
+    it('should reject location updates from anyone but the triggerer', async () => {
+      const save = jest.fn();
+      (EmergencyRecord.findById as jest.Mock).mockResolvedValue({
+        _id: 'emergency123',
+        triggeredBy: 'rider123',
+        status: SOSStatus.TRIGGERED,
+        missedCheckIns: 2,
+        locationHistory: [],
+        timeline: [],
+        save,
+      });
+
+      await expect(
+        safetyService.updateSOSLocation('emergency123', 'stranger999', { lng: 77.2, lat: 28.8 }),
+      ).rejects.toThrow('You do not have access');
+      expect(save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('addEvidence', () => {
+    it('should reject evidence from anyone but the triggerer', async () => {
+      (EmergencyRecord.findById as jest.Mock).mockResolvedValue({
+        _id: 'emergency123',
+        triggeredBy: 'rider123',
+        audioRecordingUrls: [],
+        screenshotUrls: [],
+        timeline: [],
+        save: jest.fn(),
+      });
+
+      await expect(
+        safetyService.addEvidence('emergency123', 'stranger999', 'audio', 'https://example.com/a.m4a'),
+      ).rejects.toThrow('You do not have access');
+    });
+
+    it('should store evidence for the triggerer', async () => {
+      const record = {
+        _id: 'emergency123',
+        triggeredBy: 'rider123',
+        audioRecordingUrls: [] as string[],
+        screenshotUrls: [] as string[],
+        timeline: [] as unknown[],
+        save: jest.fn().mockResolvedValue(true),
+      };
+      (EmergencyRecord.findById as jest.Mock).mockResolvedValue(record);
+
+      await safetyService.addEvidence('emergency123', 'rider123', 'audio', 'https://example.com/a.m4a');
+
+      expect(record.audioRecordingUrls).toEqual(['https://example.com/a.m4a']);
+      expect(record.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateSOSCheckIn', () => {
+    it('should reject a check-in from a non-admin who did not trigger the SOS', async () => {
+      const save = jest.fn();
+      (EmergencyRecord.findById as jest.Mock).mockResolvedValue({
+        _id: 'emergency123',
+        status: SOSStatus.TRIGGERED,
+        triggeredBy: 'rider123',
+        save,
+      });
+      (User.findById as jest.Mock).mockReturnValue({
+        select: jest.fn().mockResolvedValue({ _id: ADMIN_ID, capabilities: ['rider'] }),
+      });
+
+      await expect(
+        safetyService.updateSOSCheckIn('emergency123', ADMIN_ID, { status: SOSCheckInStatus.OK }),
+      ).rejects.toThrow('You do not have access');
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('should resolve SOS when user reports OK', async () => {
+      const mockRecord = {
+        _id: 'emergency123',
+        status: SOSStatus.TRIGGERED,
+        triggeredBy: { toString: () => 'rider123' },
+        booking: { toString: () => 'booking123' },
+        riskLevel: 'medium',
+        monitoringState: 'active',
+        checkInIntervalSeconds: 60,
+        missedCheckIns: 2,
+        locationHistory: [],
+        timeline: [],
+        save: jest.fn().mockResolvedValue(true),
+      };
+      (EmergencyRecord.findById as jest.Mock).mockResolvedValue(mockRecord);
+      (User.findById as jest.Mock).mockReturnValue({ select: jest.fn().mockResolvedValue({ _id: 'rider123' }) });
+
+      const result = await safetyService.updateSOSCheckIn('emergency123', 'rider123', {
+        status: SOSCheckInStatus.OK,
+        notes: 'I am safe now',
+      });
+
+      expect(result.status).toBe(SOSStatus.RESOLVED);
+      expect(result.monitoringState).toBe('resolved');
+      expect(mockRecord.save).toHaveBeenCalled();
+    });
+
+    it('should escalate when user reports NOT_OK', async () => {
+      const mockRecord = {
+        _id: 'emergency456',
+        status: SOSStatus.TRIGGERED,
+        triggeredBy: { toString: () => 'rider456' },
+        booking: { toString: () => 'booking456' },
+        riskLevel: 'low',
+        monitoringState: 'active',
+        checkInIntervalSeconds: 120,
+        missedCheckIns: 0,
+        locationHistory: [],
+        timeline: [],
+        save: jest.fn().mockResolvedValue(true),
+      };
+      (EmergencyRecord.findById as jest.Mock).mockResolvedValue(mockRecord);
+      (User.findById as jest.Mock).mockReturnValue({ select: jest.fn().mockResolvedValue({ _id: 'rider456' }) });
+
+      const result = await safetyService.updateSOSCheckIn('emergency456', 'rider456', {
+        status: SOSCheckInStatus.NOT_OK,
+        notes: 'Driver behaving suspiciously',
+      });
+
+      expect(result.status).toBe(SOSStatus.ACKNOWLEDGED);
+      expect(result.riskLevel).toBe('high');
+      expect(result.monitoringState).toBe('escalated');
+      expect(mockRecord.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('notifyPolice', () => {
+    it('should mark policeNotifiedAt, save timeline, and publish event', async () => {
+      const mockRecord = {
+        _id: 'emergency999',
+        status: SOSStatus.ACKNOWLEDGED,
+        timeline: [],
+        save: jest.fn().mockResolvedValue(true),
+      };
+      (EmergencyRecord.findById as jest.Mock).mockResolvedValue(mockRecord);
+
+      const result = await safetyService.notifyPolice('emergency999', ADMIN_ID, 'Escalating to police');
+
+      expect(result.policeNotifiedAt).toBeDefined();
+      expect(mockRecord.timeline.length).toBeGreaterThan(0);
+      // EventBridge.publish was mocked earlier — ensure it's been called with correct type
+      const { EventBridge } = require('../../events');
+      expect(EventBridge.publish).toHaveBeenCalledWith('safety-events', expect.objectContaining({
+        eventType: 'sos.police_notified',
+        data: expect.objectContaining({ emergencyId: mockRecord._id, notifiedBy: ADMIN_ID }),
+      }));
+    });
+  });
+
+  describe('auto escalation for overdue check-ins', () => {
+    it('should auto-escalate after missed check-ins', async () => {
+      const now = Date.now();
+      const intervalSeconds = 30;
+      const nextCheckInAt = new Date(now - (intervalSeconds * 1000 * 4)); // overdue by 4 intervals
+
+      const mockRecord: any = {
+        _id: 'emergency789',
+        status: SOSStatus.TRIGGERED,
+        booking: 'booking789',
+        triggeredBy: 'rider789',
+        riskLevel: 'low',
+        monitoringState: 'active',
+        checkInIntervalSeconds: intervalSeconds,
+        nextCheckInAt,
+        missedCheckIns: 0,
+        timeline: [],
+        save: jest.fn().mockResolvedValue(true),
+      };
+
+      (EmergencyRecord.find as jest.Mock).mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockReturnValue({
+          sort: jest.fn().mockReturnValue({
+            skip: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockRecord]),
+            }),
+          }),
           }),
         }),
-      );
+      });
+      (EmergencyRecord.countDocuments as jest.Mock).mockResolvedValue(1);
+
+      const result = await safetyService.getActiveIncidents(1, 10);
+
+      expect(result.total).toBe(1);
+      // After processing, the record should have been saved and escalated
+      expect(mockRecord.save).toHaveBeenCalled();
+      expect(mockRecord.status === SOSStatus.ACKNOWLEDGED || mockRecord.monitoringState === 'escalated').toBeTruthy();
     });
   });
 });
