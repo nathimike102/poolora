@@ -8,12 +8,14 @@ Provides:
   - Route Optimization (VRP/TSP pickup sequencing)
 """
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+import hmac
 import math
+import os
 import logging
 import time
 import numpy as np
@@ -33,13 +35,21 @@ app = FastAPI(
     version="1.0.0",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ─── Internal authentication ─────────────────────────────────────────────────
+# This service is only called by the Sanchari backend. /api/* requires the
+# shared key in X-Internal-Api-Key; health and metrics stay open for probes.
+INTERNAL_API_KEY = os.environ.get("ML_SERVICE_API_KEY", "")
+if not INTERNAL_API_KEY:
+    logger.warning("ML_SERVICE_API_KEY is not set; /api/* endpoints will reject all requests")
+
+
+@app.middleware("http")
+async def require_internal_key(request: Request, call_next):
+    if request.url.path.startswith("/api/"):
+        provided = request.headers.get("x-internal-api-key", "")
+        if not INTERNAL_API_KEY or not hmac.compare_digest(provided, INTERNAL_API_KEY):
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    return await call_next(request)
 
 # ─── Metrics (simple in-memory for Prometheus) ───────────────────────────────
 request_count = defaultdict(int)
