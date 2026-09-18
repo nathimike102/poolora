@@ -1,4 +1,13 @@
-import { env } from '../config/env';
+/**
+ * services/placesService.ts
+ *
+ * Place suggestions and geocoding through the Sanchari backend, which keeps the
+ * Google Maps key server-side and caches responses.
+ */
+
+import { apiClient } from '../api/axios';
+import { API_ENDPOINTS } from '../api/constants';
+import type { ApiResponse } from '../types/api';
 
 export interface PlaceSuggestion {
   placeId: string;
@@ -6,31 +15,47 @@ export interface PlaceSuggestion {
   subtitle: string;
 }
 
-const AUTOCOMPLETE_URL =
-  'https://maps.googleapis.com/maps/api/place/autocomplete/json';
+export interface GeocodedPlace {
+  formattedAddress: string;
+  lat: number;
+  lng: number;
+  placeId: string;
+}
 
 /**
- * Fetch up to 5 place suggestions from Google Places Autocomplete API.
+ * Fetch up to 5 place suggestions in India. Callers should debounce input.
  */
-export async function fetchPlaceSuggestions(
-  input: string,
-): Promise<PlaceSuggestion[]> {
-  if (!input.trim()) return [];
+export async function fetchPlaceSuggestions(input: string): Promise<PlaceSuggestion[]> {
+  if (input.trim().length < 2) return [];
 
-  const params = new URLSearchParams({
-    input,
-    key: env.GOOGLE_MAPS_API_KEY,
-    components: 'country:in',
-  });
+  const response = await apiClient.get<
+    ApiResponse<{ results: Array<{ placeId: string; mainText: string; secondaryText: string }> }>
+  >(API_ENDPOINTS.maps.autocomplete, { params: { input } });
 
-  const res = await fetch(`${AUTOCOMPLETE_URL}?${params}`);
-  const data = await res.json();
-
-  if (data.status !== 'OK') return [];
-
-  return data.predictions.slice(0, 5).map((p: any) => ({
-    placeId: p.place_id,
-    name: p.structured_formatting?.main_text ?? p.description,
-    subtitle: p.structured_formatting?.secondary_text ?? '',
+  return response.data.data.results.map(r => ({
+    placeId: r.placeId,
+    name: r.mainText,
+    subtitle: r.secondaryText,
   }));
+}
+
+/** Resolve an address to coordinates. */
+export async function geocodePlace(address: string): Promise<GeocodedPlace> {
+  const response = await apiClient.get<ApiResponse<GeocodedPlace>>(API_ENDPOINTS.maps.geocode, {
+    params: { address },
+  });
+  return response.data.data;
+}
+
+/** Address for coordinates, e.g. a point pinned on the map. */
+export async function reverseGeocodePlace(lat: number, lng: number): Promise<GeocodedPlace> {
+  const response = await apiClient.get<ApiResponse<GeocodedPlace>>(API_ENDPOINTS.maps.reverseGeocode, {
+    params: { lat, lng },
+  });
+  return response.data.data;
+}
+
+/** The text to put in an input when a suggestion is chosen. */
+export function suggestionLabel(s: PlaceSuggestion): string {
+  return s.subtitle ? `${s.name}, ${s.subtitle}` : s.name;
 }

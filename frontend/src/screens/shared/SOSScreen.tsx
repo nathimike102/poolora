@@ -1,11 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Share,
 } from 'react-native';
+import * as Location from 'expo-location';
 import ReAnimated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,65 +20,85 @@ import ReAnimated, {
 } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
+import { Icon } from '../../components/Icon';
+import { bookingService } from '../../services/bookingService';
+import { safetyService, type EmergencyContact, type SOSResponse } from '../../services/safetyService';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const CIRCUMFERENCE = 2 * Math.PI * 78;
+/** India's single emergency number (police, fire, ambulance). */
+const EMERGENCY_NUMBER = '112';
+const LOCATION_UPDATE_MS = 15_000;
 
-const EMERGENCY_CONTACTS = [
-  { name: 'Mom', phone: '+91 98765 43210', relation: 'Primary', verified: true },
-  { name: 'Dad', phone: '+91 87654 32109', relation: 'Secondary', verified: true },
-  { name: 'Rohan (Friend)', phone: '+91 76543 21098', relation: 'Emergency', verified: false },
-];
+type Phase = 'idle' | 'holding' | 'countdown' | 'sending' | 'active' | 'failed';
+
+async function getCurrentLocation(): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return null;
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  } catch {
+    return null;
+  }
+}
+
+/** SOS is tied to a confirmed booking so the safety team knows the ride, driver and rider. */
+async function findActiveBookingId(): Promise<string | null> {
+  const [asRider, asDriver] = await Promise.all([
+    bookingService.getRiderBookings(1, 1, 'confirmed').catch(() => null),
+    bookingService.getDriverBookings(1, 1, 'confirmed').catch(() => null),
+  ]);
+  return asRider?.data?.items?.[0]?._id ?? asDriver?.data?.items?.[0]?._id ?? null;
+}
+
+function callEmergency() {
+  Linking.openURL(`tel:${EMERGENCY_NUMBER}`);
+}
 
 export function SOSScreen() {
   const navigation = useNavigation<Nav>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
-  const [phase, setPhase] = useState<'idle' | 'holding' | 'countdown' | 'active'>('idle');
+  const [phase, setPhase] = useState<Phase>('idle');
   const [holdProgress, setHoldProgress] = useState(0);
   const [countdown, setCountdown] = useState(10);
+  const [contacts, setContacts] = useState<EmergencyContact[] | null>(null);
+  const [activeBookingId, setActiveBookingId] = useState<string | null | undefined>(undefined);
+  const [emergency, setEmergency] = useState<SOSResponse | null>(null);
+  const [failure, setFailure] = useState('');
   const holdInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Pulsing animation for active phase
   const pulseScale = useSharedValue(1);
-  const blinkOpacity = useSharedValue(1);
+
+  useEffect(() => {
+    safetyService.getEmergencyContacts().then(setContacts).catch(() => setContacts([]));
+    findActiveBookingId().then(setActiveBookingId);
+  }, []);
 
   useEffect(() => {
     if (phase === 'active') {
       pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.05, { duration: 500 }),
-          withTiming(1, { duration: 500 }),
-        ),
-        -1,
-      );
-      blinkOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.3, { duration: 400 }),
-          withTiming(1, { duration: 400 }),
-        ),
+        withSequence(withTiming(1.05, { duration: 500 }), withTiming(1, { duration: 500 })),
         -1,
       );
     }
-  }, [phase, pulseScale, blinkOpacity]);
+  }, [phase, pulseScale]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
   }));
-  const blinkStyle = useAnimatedStyle(() => ({
-    opacity: blinkOpacity.value,
-  }));
 
   const startHold = () => {
-    if (phase !== 'idle') return;
+    if (phase !== 'idle' || !activeBookingId) return;
     setPhase('holding');
     let progress = 0;
     holdInterval.current = setInterval(() => {
@@ -83,7 +108,7 @@ export function SOSScreen() {
         clearInterval(holdInterval.current!);
         setPhase('countdown');
       }
-    }, 100);
+    }, 60);
   };
 
   const endHold = () => {
@@ -94,165 +119,212 @@ export function SOSScreen() {
     }
   };
 
-  useEffect(() => {
-    if (phase === 'countdown') {
-      const interval = setInterval(() => {
-        setCountdown(t => {
-          if (t <= 1) {
-            clearInterval(interval);
-            setPhase('active');
-            return 0;
-          }
-          return t - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
+  const raiseSOS = useCallback(async () => {
+    if (!activeBookingId) return;
+    setPhase('sending');
+    const location = await getCurrentLocation();
+    if (!location) {
+      setFailure('We could not get your location, so the alert was not sent. Call 112 now.');
+      setPhase('failed');
+      return;
     }
-  }, [phase]);
+    try {
+      const record = await safetyService.triggerSOS(activeBookingId, location);
+      setEmergency(record);
+      setPhase('active');
+    } catch {
+      setFailure('The alert could not reach Sanchari. Check your connection and call 112 now.');
+      setPhase('failed');
+    }
+  }, [activeBookingId]);
 
-  const resetAll = () => {
+  // Countdown gives a few seconds to cancel an accidental trigger
+  useEffect(() => {
+    if (phase !== 'countdown') return;
+    const interval = setInterval(() => {
+      setCountdown(t => {
+        if (t <= 1) {
+          clearInterval(interval);
+          raiseSOS();
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase, raiseSOS]);
+
+  // Keep the safety team's view of the location current while the alert is active
+  useEffect(() => {
+    if (phase !== 'active' || !emergency) return;
+    const interval = setInterval(async () => {
+      const location = await getCurrentLocation();
+      if (location) safetyService.updateSOSLocation(emergency._id, location).catch(() => undefined);
+    }, LOCATION_UPDATE_MS);
+    return () => clearInterval(interval);
+  }, [phase, emergency]);
+
+  const markSafe = async () => {
+    if (emergency) {
+      try {
+        await safetyService.updateSOSCheckIn(emergency._id, 'ok', 'User confirmed safe from the app');
+      } catch {
+        Alert.alert(
+          'Could not close the alert',
+          'Your alert is still active. Check your connection and try again.',
+        );
+        return;
+      }
+    }
     setPhase('idle');
     setCountdown(10);
     setHoldProgress(0);
+    setEmergency(null);
+    navigation.goBack();
   };
 
-  /* ═══════════════════  ACTIVE PHASE  ═══════════════════ */
-  if (phase === 'active') {
+  const shareLocation = async () => {
+    const location = await getCurrentLocation();
+    if (!location) {
+      Alert.alert('Location unavailable', 'Allow location access to share where you are.');
+      return;
+    }
+    Share.share({
+      message: `My current location: https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`,
+    });
+  };
+
+  /* ═══════════════════  ACTIVE / SENDING / FAILED  ═══════════════════ */
+  if (phase === 'active' || phase === 'sending' || phase === 'failed') {
+    const notified = emergency?.emergencyContactsNotified ?? [];
     return (
-      <View style={[s.root, { backgroundColor: '#E53935', paddingTop: insets.top }]}>
-        <View style={s.activeBody}>
-          {/* Pulsing icon */}
-          <ReAnimated.View
-            style={[s.activeCircle, pulseStyle]}
-          >
-            <Svg width={54} height={54} viewBox="0 0 24 24">
-              <Path
-                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
-                fill="white"
-              />
-            </Svg>
-          </ReAnimated.View>
-
-          <Text style={s.activeTitle}>SOS ACTIVATED</Text>
-          <Text style={s.activeSub}>Emergency contacts notified · Live location shared</Text>
-
-          {/* Sharing card */}
-          <View style={s.sharingCard}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: 'white', marginBottom: 10 }}>
-              📍 Your live location is being shared with:
-            </Text>
-            {['Mom (Primary)', 'Dad', 'Sanchari Safety Team'].map(name => (
-              <View key={name} style={s.contactDot}>
-                <View style={s.greenDot} />
-                <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)' }}>{name}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Admin monitor */}
-          <View style={s.monitorCard}>
-            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', textAlign: 'center' }}>
-              Admin monitoring status
-            </Text>
-            <View style={s.monitorRow}>
-              <ReAnimated.View style={[s.blinkDot, blinkStyle]} />
-              <Text style={{ fontSize: 15, fontWeight: '700', color: 'white' }}>
-                Sanchari Safety Team Active
+      <View style={[s.root, { backgroundColor: '#B71C1C', paddingTop: insets.top }]}>
+        <ScrollView contentContainerStyle={s.activeBody}>
+          {phase === 'sending' ? (
+            <>
+              <ActivityIndicator size="large" color="white" />
+              <Text style={s.activeTitle} accessibilityLiveRegion="assertive">Sending SOS alert</Text>
+            </>
+          ) : phase === 'failed' ? (
+            <>
+              <Icon name="alert-circle" size={54} color="white" />
+              <Text style={s.activeTitle} accessibilityLiveRegion="assertive">SOS not sent</Text>
+              <Text style={s.activeSub}>{failure}</Text>
+            </>
+          ) : (
+            <>
+              <ReAnimated.View style={[s.activeCircle, pulseStyle]}>
+                <Icon name="alert" size={54} color="white" />
+              </ReAnimated.View>
+              <Text style={s.activeTitle} accessibilityLiveRegion="assertive">SOS alert active</Text>
+              <Text style={s.activeSub}>
+                The Sanchari safety team has been alerted and can see your location.
               </Text>
-            </View>
-          </View>
 
-          {/* Call police */}
-          <Pressable style={s.callBtn}>
-            <Svg width={24} height={24} viewBox="0 0 24 24">
-              <Path
-                d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
-                fill="#E53935"
-              />
-            </Svg>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#E53935' }}>Call Police · 100</Text>
-          </Pressable>
+              <View style={s.sharingCard}>
+                {notified.length > 0 ? (
+                  <>
+                    <Text style={s.cardTitle}>Text message with your live location sent to:</Text>
+                    {notified.map(contact => (
+                      <View key={contact.phone} style={s.contactDot}>
+                        <View style={s.greenDot} />
+                        <Text style={s.cardText}>{contact.name}</Text>
+                      </View>
+                    ))}
+                  </>
+                ) : (
+                  <Text style={s.cardText}>
+                    We could not text your emergency contacts. Call them directly if you can.
+                  </Text>
+                )}
+              </View>
+            </>
+          )}
 
-          {/* Cancel */}
           <Pressable
-            onPress={() => { resetAll(); navigation.goBack(); }}
-            style={s.cancelRow}
+            style={s.callBtn}
+            onPress={callEmergency}
+            accessibilityRole="button"
+            accessibilityLabel="Call 112 emergency services"
           >
-            <Svg width={16} height={16} viewBox="0 0 24 24">
-              <Path
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                fill="rgba(255,255,255,0.6)"
-              />
-            </Svg>
-            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>Resolved — Cancel SOS</Text>
+            <Icon name="phone" size={24} color="#B71C1C" />
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#B71C1C' }}>Call 112</Text>
           </Pressable>
-        </View>
+
+          {phase === 'active' && (
+            <Pressable onPress={markSafe} style={s.safeBtn} accessibilityRole="button">
+              <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>I'm safe, close the alert</Text>
+            </Pressable>
+          )}
+          {phase === 'failed' && (
+            <View style={s.failedActions}>
+              <Pressable onPress={raiseSOS} style={s.safeBtn} accessibilityRole="button">
+                <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Try sending again</Text>
+              </Pressable>
+              <Pressable onPress={markSafe} style={s.cancelRow} accessibilityRole="button">
+                <Text style={{ fontSize: 14, color: 'white', textDecorationLine: 'underline' }}>Close</Text>
+              </Pressable>
+            </View>
+          )}
+        </ScrollView>
       </View>
     );
   }
 
   /* ═══════════════════  IDLE / HOLDING / COUNTDOWN  ═══════════════════ */
   const isCountdown = phase === 'countdown';
+  const canRaise = Boolean(activeBookingId);
 
   return (
-    <View style={[s.root, { backgroundColor: isCountdown ? '#E53935' : c.bg, paddingTop: insets.top }]}>
-      {/* Header */}
+    <View style={[s.root, { backgroundColor: isCountdown ? '#B71C1C' : c.bg, paddingTop: insets.top }]}>
       <View
         style={[
           s.header,
           {
-            backgroundColor: isCountdown ? '#C62828' : c.surface,
-            borderBottomColor: isCountdown ? '#C62828' : c.border,
+            backgroundColor: isCountdown ? '#B71C1C' : c.surface,
+            borderBottomColor: isCountdown ? '#B71C1C' : c.border,
           },
         ]}
       >
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={{ fontSize: 18, fontWeight: '700', color: isCountdown ? 'white' : c.text }}>
-          Safety & SOS
+        <Text
+          accessibilityRole="header"
+          style={{ fontSize: 18, fontWeight: '700', color: isCountdown ? 'white' : c.text }}
+        >
+          Safety and SOS
         </Text>
       </View>
 
       {isCountdown ? (
-        /* ── Countdown ── */
         <View style={s.countdownBody}>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: 'white' }}>SOS activating in...</Text>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: 'white' }} accessibilityLiveRegion="assertive">
+            Sending SOS in {countdown} seconds
+          </Text>
           <View style={s.countdownCircle}>
             <Text style={{ fontSize: 56, fontWeight: '800', color: 'white' }}>{countdown}</Text>
           </View>
           <Pressable
-            onPress={() => { setPhase('idle'); setCountdown(10); }}
+            onPress={() => { setPhase('idle'); setCountdown(10); setHoldProgress(0); }}
             style={s.cancelBtnOutline}
+            accessibilityRole="button"
           >
-            <Text style={{ fontSize: 17, fontWeight: '700', color: 'white' }}>CANCEL</Text>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: 'white' }}>Cancel</Text>
           </Pressable>
         </View>
       ) : (
-        /* ── Idle / Holding ── */
         <ScrollView style={s.flex1} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-          {/* SOS button */}
           <View style={s.sosSection}>
             <Pressable
               onPressIn={startHold}
               onPressOut={endHold}
-              style={[
-                s.sosBtn,
-                { elevation: phase === 'holding' ? 16 : 8 },
-              ]}
+              disabled={!canRaise}
+              accessibilityRole="button"
+              accessibilityLabel="SOS. Press and hold for 3 seconds to alert the safety team and your emergency contacts"
+              accessibilityState={{ disabled: !canRaise }}
+              style={[s.sosBtn, !canRaise && { opacity: 0.4 }, { elevation: phase === 'holding' ? 16 : 8 }]}
             >
-              {/* Progress ring */}
-              <Svg
-                width={170}
-                height={170}
-                style={{ position: 'absolute', top: -10, left: -10 }}
-              >
-                <Circle
-                  cx={85}
-                  cy={85}
-                  r={78}
-                  fill="none"
-                  stroke="rgba(255,255,255,0.3)"
-                  strokeWidth={4}
-                />
+              <Svg width={170} height={170} style={{ position: 'absolute', top: -10, left: -10 }}>
+                <Circle cx={85} cy={85} r={78} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={4} />
                 <Circle
                   cx={85}
                   cy={85}
@@ -267,92 +339,86 @@ export function SOSScreen() {
                   origin="85,85"
                 />
               </Svg>
-              <Svg width={44} height={44} viewBox="0 0 24 24" style={{ zIndex: 1 }}>
-                <Path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
-                  fill="white"
-                />
-              </Svg>
+              <Icon name="alert" size={44} color="white" />
               <Text style={s.sosLabel}>SOS</Text>
             </Pressable>
             <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center' }}>
-              {phase === 'holding' ? 'Keep holding...' : 'Hold for 5 seconds to activate SOS'}
+              {activeBookingId === undefined
+                ? 'Checking for an active ride'
+                : !canRaise
+                  ? 'SOS alerts work during a confirmed ride. If you are in danger now, call 112.'
+                  : phase === 'holding'
+                    ? 'Keep holding'
+                    : 'Press and hold for 3 seconds to alert the safety team and your emergency contacts'}
             </Text>
           </View>
 
-          {/* Emergency contacts */}
           <View>
             <View style={s.sectionHeader}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>Emergency Contacts</Text>
-              <Pressable onPress={() => navigation.navigate('EmergencyContacts' as any)}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>Emergency contacts</Text>
+              <Pressable
+                onPress={() => navigation.navigate('EmergencyContacts')}
+                accessibilityRole="button"
+                hitSlop={8}
+              >
                 <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Manage</Text>
               </Pressable>
             </View>
 
             <View style={[s.contactsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-              {EMERGENCY_CONTACTS.map((contact, i) => (
-                <View key={contact.name}>
-                  {i > 0 && <View style={[s.divider, { backgroundColor: c.border }]} />}
-                  <View style={s.contactRow}>
-                    <View style={[s.contactIcon, { backgroundColor: c.primaryLight }]}>
-                      <Text style={{ fontSize: 22 }}>👤</Text>
-                    </View>
-                    <View style={s.flex1}>
-                      <View style={s.contactNameRow}>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{contact.name}</Text>
-                        <View
-                          style={[
-                            s.relationBadge,
-                            {
-                              backgroundColor: contact.relation === 'Primary' ? c.successLight : c.bg,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 10,
-                              fontWeight: '700',
-                              color: contact.relation === 'Primary' ? c.success : c.textSec,
-                            }}
-                          >
-                            {contact.relation}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={{ fontSize: 13, color: c.textSec }}>{contact.phone}</Text>
-                    </View>
-                    {contact.verified && (
-                      <Svg width={18} height={18} viewBox="0 0 24 24">
-                        <Path
-                          d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"
-                          fill={c.success}
-                        />
-                      </Svg>
-                    )}
-                  </View>
+              {contacts === null ? (
+                <ActivityIndicator style={{ padding: 16 }} color={c.primary} />
+              ) : contacts.length === 0 ? (
+                <View style={s.contactRow}>
+                  <Text style={{ flex: 1, fontSize: 14, color: c.textSec }}>
+                    Add people who should get a text with your location if you raise an SOS.
+                  </Text>
                 </View>
-              ))}
+              ) : (
+                contacts.map((contact, i) => (
+                  <View key={contact.phone}>
+                    {i > 0 && <View style={[s.divider, { backgroundColor: c.border }]} />}
+                    <View style={s.contactRow}>
+                      <View style={[s.contactIcon, { backgroundColor: c.primaryLight }]}>
+                        <Icon name="account" size={22} color={c.primary} />
+                      </View>
+                      <View style={s.flex1}>
+                        <View style={s.contactNameRow}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{contact.name}</Text>
+                          {contact.relation ? (
+                            <View style={[s.relationBadge, { backgroundColor: c.bg }]}>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSec }}>
+                                {contact.relation}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={{ fontSize: 13, color: c.textSec }}>{contact.phone}</Text>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
           </View>
 
-          {/* Quick actions */}
           <View style={s.quickRow}>
-            <Pressable style={[s.quickBtn, { backgroundColor: c.errorLight }]}>
-              <Svg width={24} height={24} viewBox="0 0 24 24">
-                <Path
-                  d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
-                  fill={c.error}
-                />
-              </Svg>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: c.error }}>Call 100</Text>
+            <Pressable
+              onPress={callEmergency}
+              style={[s.quickBtn, { backgroundColor: c.errorLight }]}
+              accessibilityRole="button"
+              accessibilityLabel="Call 112 emergency services"
+            >
+              <Icon name="phone" size={24} color={c.error} />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: c.error }}>Call 112</Text>
             </Pressable>
-            <Pressable style={[s.quickBtn, { backgroundColor: c.warningLight }]}>
-              <Text style={{ fontSize: 26 }}>📍</Text>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: c.warning }}>Share Location</Text>
-            </Pressable>
-            <Pressable style={[s.quickBtn, { backgroundColor: c.primaryLight }]}>
-              <Text style={{ fontSize: 26 }}>💬</Text>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: c.primary }}>Alert Contacts</Text>
+            <Pressable
+              onPress={shareLocation}
+              style={[s.quickBtn, { backgroundColor: c.primaryLight }]}
+              accessibilityRole="button"
+            >
+              <Icon name="map-marker" size={24} color={c.primary} />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Share location</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -424,7 +490,7 @@ const s = StyleSheet.create({
   },
 
   /* Active phase */
-  activeBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20, paddingHorizontal: 24 },
+  activeBody: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 20, paddingHorizontal: 24, paddingVertical: 32 },
   activeCircle: {
     width: 100,
     height: 100,
@@ -433,8 +499,21 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activeTitle: { fontSize: 28, fontWeight: '800', color: 'white' },
-  activeSub: { fontSize: 15, color: 'rgba(255,255,255,0.8)' },
+  activeTitle: { fontSize: 28, fontWeight: '800', color: 'white', textAlign: 'center' },
+  activeSub: { fontSize: 15, color: 'white', textAlign: 'center', lineHeight: 22 },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: 'white', marginBottom: 10 },
+  cardText: { fontSize: 14, color: 'white', lineHeight: 20 },
+  safeBtn: {
+    width: '100%',
+    minHeight: 52,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  failedActions: { width: '100%', alignItems: 'center', gap: 16 },
   sharingCard: {
     width: '100%',
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -443,15 +522,6 @@ const s = StyleSheet.create({
   },
   contactDot: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   greenDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#00E676' },
-  monitorCard: {
-    width: '100%',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-  },
-  monitorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  blinkDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00E676' },
   callBtn: {
     width: '100%',
     height: 60,
@@ -481,7 +551,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   contactNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  relationBadge: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 20 },
+  relationBadge: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 8 },
   divider: { height: 1, marginLeft: 16 },
 
   /* Quick actions */

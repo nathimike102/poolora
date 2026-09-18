@@ -16,7 +16,41 @@ import type {
   PaginatedResponse,
   PaginatedResult,
   GeoPoint,
+  Location,
+  RidePreferences,
+  UpcomingBooking,
 } from '../types/api';
+
+type BackendPlace = { location?: { coordinates?: [number, number] }; address?: string };
+
+function toLocation(place: BackendPlace | undefined): Location {
+  const [lng, lat] = place?.location?.coordinates ?? [0, 0];
+  return { lat, lng, address: place?.address };
+}
+
+/**
+ * The backend returns `{ ride }` using its own field names (pickup, dropoff,
+ * departureTime, preferences). Map that to the app's Ride shape so screens
+ * render real values instead of falling back to placeholders.
+ */
+export function normalizeRide(payload: unknown): Ride {
+  const raw = ((payload as { ride?: unknown })?.ride ?? payload) as Record<string, any>;
+  if (!raw || raw.pickupLocation) return raw as Ride;
+  const preferences = raw.preferences as RidePreferences | undefined;
+  return {
+    ...raw,
+    pickupLocation: toLocation(raw.pickup),
+    dropoffLocation: toLocation(raw.dropoff),
+    scheduledDeparture: raw.departureTime,
+    estimatedArrival: raw.estimatedArrivalTime,
+    seats: raw.totalSeats,
+    availableSeats: raw.availableSeats,
+    womenOnly: Boolean(preferences?.womenOnly),
+    hasAC: Boolean(raw.vehicle?.hasAC),
+    allowLuggage: preferences ? preferences.luggageSize !== 'none' : false,
+    preferences,
+  } as Ride;
+}
 
 /**
  * Service for all ride-related operations
@@ -49,12 +83,10 @@ export const rideService = {
         `${API_ENDPOINTS.rides.search}?${queryParams.toString()}`,
       );
 
-      logger.info('Rides searched successfully', {
-        count: response.data.data.items?.length || 0,
-        total: response.data.data.total,
-      });
+      const items = (response.data.data.items ?? []).map(normalizeRide);
+      logger.info('Rides searched successfully', { count: items.length, total: response.data.data.total });
 
-      return response.data;
+      return { ...response.data, data: { ...response.data.data, items } };
     } catch (error) {
       logger.error('Failed to search rides', { error });
       throw error;
@@ -69,9 +101,10 @@ export const rideService = {
    */
   async createRide(rideData: CreateRideRequest): Promise<Ride> {
     try {
-      const response = await apiClient.post<ApiResponse<Ride>>(API_ENDPOINTS.rides.create, rideData);
-      logger.info('Ride created successfully', { rideId: response.data.data._id });
-      return response.data.data;
+      const response = await apiClient.post<ApiResponse<unknown>>(API_ENDPOINTS.rides.create, rideData);
+      const ride = normalizeRide(response.data.data);
+      logger.info('Ride created successfully', { rideId: ride._id });
+      return ride;
     } catch (error) {
       logger.error('Failed to create ride', { error });
       throw error;
@@ -86,8 +119,8 @@ export const rideService = {
    */
   async getRide(rideId: string): Promise<Ride> {
     try {
-      const response = await apiClient.get<ApiResponse<Ride>>(API_ENDPOINTS.rides.detail(rideId));
-      return response.data.data;
+      const response = await apiClient.get<ApiResponse<unknown>>(API_ENDPOINTS.rides.detail(rideId));
+      return normalizeRide(response.data.data);
     } catch (error) {
       logger.error('Failed to get ride', { error, rideId });
       throw error;
@@ -117,8 +150,9 @@ export const rideService = {
         `${API_ENDPOINTS.rides.myRides}?${queryParams.toString()}`,
       );
 
-      logger.info('Driver rides fetched', { count: response.data.data.items?.length || 0 });
-      return response.data;
+      const items = (response.data.data.items ?? []).map(normalizeRide);
+      logger.info('Driver rides fetched', { count: items.length });
+      return { ...response.data, data: { ...response.data.data, items } };
     } catch (error) {
       logger.error('Failed to get driver rides', { error });
       throw error;
@@ -130,11 +164,22 @@ export const rideService = {
    *
    * @returns Upcoming rides
    */
-  async getUpcomingRides(): Promise<Ride[]> {
+  async getUpcomingRides(): Promise<UpcomingBooking[]> {
     try {
-      const response = await apiClient.get<ApiResponse<Ride[]>>(API_ENDPOINTS.rides.upcoming);
-      logger.info('Upcoming rides fetched', { count: response.data.data.length });
-      return response.data.data;
+      // Backend responds with { rides: [{ id, bookingId, pickup, dropoff, departureTime, pricePerSeat, driver, status }] }
+      const response = await apiClient.get<ApiResponse<{ rides: Array<Record<string, any>> }>>(API_ENDPOINTS.rides.upcoming);
+      const rides = (response.data.data.rides ?? []).map(r => ({
+        rideId: String(r.id),
+        bookingId: String(r.bookingId),
+        from: r.pickup?.address ?? '',
+        to: r.dropoff?.address ?? '',
+        departureTime: r.departureTime,
+        pricePerSeat: r.pricePerSeat,
+        driverName: r.driver?.name ?? 'Driver',
+        status: r.status,
+      }));
+      logger.info('Upcoming rides fetched', { count: rides.length });
+      return rides;
     } catch (error) {
       logger.error('Failed to get upcoming rides', { error });
       throw error;

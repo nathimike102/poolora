@@ -2,7 +2,7 @@
  * screens/rider/RiderHomeScreen.tsx
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -16,11 +16,11 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle as SvgCircle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { Text, IconButton, Button, Chip } from 'react-native-paper';
+import { Text, IconButton, Button } from 'react-native-paper';
 
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,7 +30,8 @@ import type { RootStackParamList, RiderTabParamList } from '../../navigation/typ
 import { getSavedRoutes, deleteSavedRoute, type SavedRoute } from '../../services/savedRouteService';
 import { rideService } from '../../services';
 import { logger } from '../../utils/logger';
-import type { Ride } from '../../types/api';
+import type { UpcomingBooking } from '../../types/api';
+import { Icon } from '../../components/Icon';
 
 type NavProp = CompositeNavigationProp<
   BottomTabNavigationProp<RiderTabParamList, 'RiderHome'>,
@@ -40,17 +41,9 @@ type NavProp = CompositeNavigationProp<
 // ─── Quick Actions Config ──────────────────────────────────────────────────────
 
 const quickActions = [
-  { icon: '🚗', label: 'Find Ride', route: 'Search' as const, color: '#EDE9FE', textColor: '#7C3AED' },
-  { icon: '📦', label: 'Parcel', route: 'ShipParcel' as const, color: '#FFF3EE', textColor: '#FF8A50' },
-  { icon: '🗺️', label: 'Trip Pool', route: 'PlanTrip' as const, color: '#E8F5E9', textColor: '#00C853' },
-  { icon: '⚡', label: 'Instant', route: 'Search' as const, color: '#FFF8E1', textColor: '#FFB300' },
-];
-
-// ─── Default Routes Config ────────────────────────────────────────────────────
-
-const defaultRoutes = [
-  { icon: '🏠', from: 'Home', to: 'Office', time: '45 min', saves: '₹200' },
-  { icon: '🏋️', from: 'Home', to: 'Gym', time: '20 min', saves: '₹100' },
+  { icon: 'car' as const, label: 'Find a ride', route: 'Search' as const },
+  { icon: 'car-clock' as const, label: 'My rides', route: 'MyRides' as const },
+  { icon: 'shield-alert' as const, label: 'Safety', route: 'SOS' as const },
 ];
 
 // ─── AnimatedPressable ────────────────────────────────────────────────────────
@@ -88,7 +81,7 @@ function AnimatedPressable({
   }, [scale]);
 
   return (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       activeOpacity={1}
       onPress={onPress}
       onPressIn={handlePressIn}
@@ -105,7 +98,7 @@ function AnimatedPressable({
 
 export function RiderHomeScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c } = useApp();
+  const { c, user } = useApp();
   const insets = useSafeAreaInsets();
 
   const [greeting] = useState(() => {
@@ -116,7 +109,7 @@ export function RiderHomeScreen() {
   });
 
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
-  const [upcomingRides, setUpcomingRides] = useState<Ride[]>([]);
+  const [upcomingRides, setUpcomingRides] = useState<UpcomingBooking[]>([]);
   const [loadingRides, setLoadingRides] = useState(false);
   const [ridesError, setRidesError] = useState<string | null>(null);
 
@@ -137,7 +130,7 @@ export function RiderHomeScreen() {
           setUpcomingRides(rides);
         } catch (error) {
           logger.error('Failed to fetch upcoming rides', { error });
-          setRidesError(error instanceof Error ? error.message : 'Failed to load rides');
+          setRidesError('Your upcoming rides could not be loaded.');
           setUpcomingRides([]);
         } finally {
           setLoadingRides(false);
@@ -185,8 +178,10 @@ export function RiderHomeScreen() {
           <View style={styles.headerTopRow}>
             {/* Left: Greeting + Name */}
             <View>
-              <Text variant="bodyMedium" style={styles.greetingText}>{greeting} 🌞</Text>
-              <Text variant="headlineSmall" style={styles.nameText}>Priya Sharma</Text>
+              <Text variant="bodyMedium" style={styles.greetingText}>{greeting}</Text>
+              {user?.name ? (
+                <Text variant="headlineSmall" style={styles.nameText}>{user.name}</Text>
+              ) : null}
             </View>
 
             {/* Right: Bell */}
@@ -198,10 +193,9 @@ export function RiderHomeScreen() {
                   iconColor="white"
                   size={20}
                   onPress={() => navigation.navigate('Notifications')}
+                  accessibilityLabel="Notifications"
                   style={styles.bellButton}
                 />
-                {/* Notification dot */}
-                <View style={[styles.notifDot, { backgroundColor: c.accent }]} />
               </View>
             </View>
           </View>
@@ -217,11 +211,11 @@ export function RiderHomeScreen() {
               <AnimatedPressable
                 key={item.label}
                 scaleValue={0.93}
-                onPress={() => navigation.navigate(item.route)}
-                style={[styles.quickActionCard, { backgroundColor: item.color }]}
+                onPress={() => navigation.navigate(item.route as never)}
+                style={[styles.quickActionCard, { backgroundColor: c.primaryLight }]}
               >
-                <Text style={styles.quickActionIcon}>{item.icon}</Text>
-                <Text variant="labelSmall" style={[styles.quickActionLabel, { color: item.textColor }]}>{item.label}</Text>
+                <Icon name={item.icon} size={28} color={c.primary} />
+                <Text variant="labelSmall" style={[styles.quickActionLabel, { color: c.primaryDark }]}>{item.label}</Text>
               </AnimatedPressable>
             ))}
           </View>
@@ -239,9 +233,10 @@ export function RiderHomeScreen() {
               <Text variant="bodyMedium" style={[styles.errorText, { color: c.error }]}>{ridesError}</Text>
               <Button mode="outlined" compact onPress={() => {
                 setLoadingRides(true);
+                setRidesError(null);
                 rideService.getUpcomingRides()
                   .then(setUpcomingRides)
-                  .catch(err => setRidesError(err.message || 'Failed to load rides'))
+                  .catch(() => setRidesError('Your upcoming rides could not be loaded.'))
                   .finally(() => setLoadingRides(false));
               }} style={{ marginTop: Spacing.sm }}>
                 Retry
@@ -251,7 +246,7 @@ export function RiderHomeScreen() {
             <>
               <View style={styles.sectionHeader}>
                 <Text variant="titleMedium" style={[styles.sectionTitle, { color: c.text }]}>Upcoming Rides</Text>
-                <Button mode="text" compact onPress={() => navigation.navigate('MyRides' as any)} labelStyle={{ color: c.primary }}>
+                <Button mode="text" compact onPress={() => navigation.navigate('MyRides')} labelStyle={{ color: c.primary }}>
                   See all
                 </Button>
               </View>
@@ -264,63 +259,38 @@ export function RiderHomeScreen() {
               >
                 {upcomingRides.map((ride) => (
                   <AnimatedPressable
-                    key={ride._id}
+                    key={ride.bookingId}
                     scaleValue={0.97}
-                    onPress={() => navigation.navigate('RideDetail', { rideId: ride._id })}
-                    style={[
-                      styles.rideCard,
-                      {
-                        backgroundColor: c.surface,
-                        borderColor: c.border,
-                        ...Shadow.sm,
-                      },
-                    ]}
+                    onPress={() => navigation.navigate('ActiveRide', { rideId: ride.rideId, bookingId: ride.bookingId })}
+                    style={[styles.rideCard, { backgroundColor: c.surface, borderColor: c.border, ...Shadow.sm }]}
                   >
-                    {/* Status + Price */}
                     <View style={styles.rideCardTopRow}>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          {
-                              backgroundColor: ride.status === 'active' ? c.successLight : c.warningLight,
-                            },
-                          ]}
-                        >
-                          <Text
-                            variant="labelSmall"
-                            style={[
-                              styles.statusText,
-                              { color: ride.status === 'active' ? c.success : c.warning },
-                            ]}
-                          >
-                            {ride.status === 'active' ? '● ACTIVE' : '● DRAFT'}
-                          </Text>
-                        </View>
-                        <Text variant="titleMedium" style={[styles.ridePrice, { color: c.primary }]}>₹{ride.totalPrice || 0}</Text>
-                      </View>
-
-                      {/* Route */}
-                      <View style={styles.routeColumn}>
-                        <View style={styles.routeRow}>
-                          <View style={[styles.routeDotFrom, { backgroundColor: c.primary }]} />
-                          <Text variant="bodyMedium" style={[styles.routeText, { color: c.text }]}>{ride.pickupLocation?.address || 'Pickup'}</Text>
-                        </View>
-                        <View style={[styles.routeLine, { backgroundColor: c.border }]} />
-                        <View style={styles.routeRow}>
-                          <View style={[styles.routeDotTo, { backgroundColor: c.error }]} />
-                          <Text variant="bodyMedium" style={[styles.routeText, { color: c.text }]}>{ride.dropoffLocation?.address || 'Dropoff'}</Text>
-                        </View>
-                      </View>
-
-                      {/* Date */}
-                      <View style={styles.rideDateRow}>
-                        <Svg width={12} height={12} viewBox="0 0 24 24" fill={c.textSec}>
-                          <Path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
-                        </Svg>
-                        <Text variant="bodySmall" style={[styles.rideDateText, { color: c.textSec }]}>
-                          {new Date(ride.scheduledDeparture || ride.createdAt).toLocaleDateString()}
+                      <View style={[styles.statusBadge, { backgroundColor: ride.status === 'confirmed' ? c.successLight : c.warningLight }]}>
+                        <Text variant="labelSmall" style={[styles.statusText, { color: ride.status === 'confirmed' ? c.successDark : '#8A5A00' }]}>
+                          {ride.status === 'confirmed' ? 'Confirmed' : 'Waiting for driver'}
                         </Text>
                       </View>
+                      <Text variant="titleMedium" style={[styles.ridePrice, { color: c.primary }]}>₹{ride.pricePerSeat}</Text>
+                    </View>
+
+                    <View style={styles.routeColumn}>
+                      <View style={styles.routeRow}>
+                        <View style={[styles.routeDotFrom, { backgroundColor: c.primary }]} />
+                        <Text variant="bodyMedium" style={[styles.routeText, { color: c.text }]} numberOfLines={1}>{ride.from}</Text>
+                      </View>
+                      <View style={[styles.routeLine, { backgroundColor: c.border }]} />
+                      <View style={styles.routeRow}>
+                        <View style={[styles.routeDotTo, { backgroundColor: c.error }]} />
+                        <Text variant="bodyMedium" style={[styles.routeText, { color: c.text }]} numberOfLines={1}>{ride.to}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.rideDateRow}>
+                      <Icon name="clock-outline" size={12} color={c.textSec} />
+                      <Text variant="bodySmall" style={[styles.rideDateText, { color: c.textSec }]}>
+                        {new Date(ride.departureTime).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })} with {ride.driverName}
+                      </Text>
+                    </View>
                   </AnimatedPressable>
                 ))}
               </ScrollView>
@@ -348,107 +318,44 @@ export function RiderHomeScreen() {
           </View>
 
           <View style={styles.routesColumn}>
-            {/* Default routes */}
-            {defaultRoutes.map((route, i) => (
-              <AnimatedPressable
-                key={`default-${i}`}
-                scaleValue={0.98}
-                onPress={() => navigation.navigate('RideResults')}
-                style={[
-                  styles.routeCard,
-                  {
-                    backgroundColor: c.surface,
-                    borderColor: c.border,
-                    ...Shadow.sm,
-                  },
-                ]}
-              >
-                <View style={[styles.routeIconWrap, { backgroundColor: c.bg }]}>
-                  <Text style={styles.routeEmoji}>{route.icon}</Text>
-                </View>
-                <View style={styles.flex1}>
-                  <Text variant="bodyMedium" style={[styles.routeCardTitle, { color: c.text }]}>
-                    {route.from} → {route.to}
-                  </Text>
-                  <Text variant="bodySmall" style={[styles.routeCardSub, { color: c.textSec }]}>
-                    ~{route.time} · Save {route.saves}
-                  </Text>
-                </View>
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill={c.textSec}>
-                  <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-                </Svg>
-              </AnimatedPressable>
-            ))}
-
-            {/* User-saved routes */}
+            {savedRoutes.length === 0 && (
+              <Text variant="bodySmall" style={{ color: c.textSec }}>
+                Save routes you travel often to search them in one tap.
+              </Text>
+            )}
             {savedRoutes.map(route => (
               <AnimatedPressable
                 key={route.id}
                 scaleValue={0.98}
-                onPress={() => navigation.navigate('RideResults')}
-                style={[
-                  styles.routeCard,
-                  {
-                    backgroundColor: c.surface,
-                    borderColor: c.border,
-                    ...Shadow.sm,
-                  },
-                ]}
+                onPress={() => navigation.navigate('Search', { from: route.from, to: route.to })}
+                style={[styles.routeCard, { backgroundColor: c.surface, borderColor: c.border, ...Shadow.sm }]}
               >
                 <View style={[styles.routeIconWrap, { backgroundColor: c.bg }]}>
-                  <Text style={styles.routeEmoji}>{route.icon}</Text>
+                  <Icon name={route.icon} size={20} color={c.primary} />
                 </View>
                 <View style={styles.flex1}>
-                  <Text variant="bodyMedium" style={[styles.routeCardTitle, { color: c.text }]}>
-                    {route.name}
-                  </Text>
-                  <Text variant="bodySmall" style={[styles.routeCardSub, { color: c.textSec }]}>
-                    {route.time ? `~${route.time}` : ''}{route.time && route.savings ? ' · ' : ''}{route.savings ? `Save ${route.savings}` : ''}
+                  <Text variant="bodyMedium" style={[styles.routeCardTitle, { color: c.text }]}>{route.name}</Text>
+                  <Text variant="bodySmall" style={[styles.routeCardSub, { color: c.textSec }]} numberOfLines={1}>
+                    {route.from} to {route.to}
                   </Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => handleDeleteRoute(route)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete saved route ${route.name}`}
                   style={styles.deleteBtn}
                 >
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill={c.error}>
-                    <Path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-                  </Svg>
+                  <Icon name="delete-outline" size={18} color={c.error} />
                 </TouchableOpacity>
               </AnimatedPressable>
             ))}
           </View>
         </View>
-
-        {/* ── Ship a Parcel Banner ────────────────────────────────────── */}
-        <View style={styles.bannerSection}>
-          <AnimatedPressable
-            scaleValue={0.98}
-            onPress={() => navigation.navigate('ShipParcel')}
-            style={styles.bannerWrap}
-          >
-            <LinearGradient
-              colors={['#FF8A50', '#FF6B35']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.bannerGradient}
-            >
-              <Text style={styles.bannerEmoji}>📦</Text>
-              <View style={styles.flex1}>
-                <Text variant="titleMedium" style={styles.bannerTitle}>Ship a Parcel</Text>
-                <Text variant="bodySmall" style={styles.bannerSub}>Send packages via verified drivers</Text>
-              </View>
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="white">
-                <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-              </Svg>
-            </LinearGradient>
-          </AnimatedPressable>
-        </View>
       </ScrollView>
     </View>
   );
 }
-
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -506,7 +413,7 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: Radius.full,
     borderWidth: 1.5,
-    borderColor: 'rgba(124,58,237,0.8)',
+    borderColor: 'rgba(11,122,117,0.8)',
   },
 
   // ── Section Layout ─────────────────────────────────────────────
@@ -575,7 +482,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: Radius.full,
+    borderRadius: 8,
   },
   statusText: {
     fontWeight: Typography.bold,

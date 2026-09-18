@@ -30,9 +30,12 @@ export const walletService = {
    */
   async getBalance(): Promise<Wallet> {
     try {
-      const response = await apiClient.get<ApiResponse<Wallet>>(API_ENDPOINTS.wallet.wallet);
-      logger.info('Wallet balance fetched', { balance: response.data.data.balance });
-      return response.data.data;
+      // The backend responds with { wallet, benefits }
+      const response = await apiClient.get<ApiResponse<{ wallet: Wallet } | Wallet>>(API_ENDPOINTS.wallet.wallet);
+      const data = response.data.data;
+      const wallet = 'wallet' in data ? data.wallet : data;
+      logger.info('Wallet balance fetched');
+      return wallet;
     } catch (error) {
       logger.error('Failed to get wallet balance', { error });
       throw error;

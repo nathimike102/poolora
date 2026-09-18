@@ -1,27 +1,42 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { IconName } from '../components/Icon';
 
 const STORAGE_KEY = '@sanchari_saved_routes';
 
+/** Routes saved on this device for quick searching. */
 export interface SavedRoute {
   id: string;
   name: string;
   from: string;
   to: string;
-  icon: string;
-  time: string;
-  savings: string;
+  icon: IconName;
   createdAt: number;
 }
 
+const LEGACY_ICONS: Record<string, IconName> = {
+  '🏠': 'home', '🏢': 'office-building', '✈️': 'airplane', '🏥': 'hospital-building',
+  '🎓': 'school', '🛒': 'cart', '🏋️': 'dumbbell', '📍': 'map-marker',
+};
+
 export async function getSavedRoutes(): Promise<SavedRoute[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
-  return JSON.parse(raw) as SavedRoute[];
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    // Older builds stored an emoji and free-text time/savings; keep only what the user chose.
+    return (JSON.parse(raw) as Array<SavedRoute & { icon: string }>).map(r => ({
+      id: r.id,
+      name: r.name,
+      from: r.from,
+      to: r.to,
+      icon: LEGACY_ICONS[r.icon] ?? (r.icon as IconName) ?? 'map-marker',
+      createdAt: r.createdAt,
+    }));
+  } catch {
+    return [];
+  }
 }
 
-export async function addSavedRoute(
-  route: Omit<SavedRoute, 'id' | 'createdAt'>,
-): Promise<SavedRoute> {
+export async function addSavedRoute(route: Omit<SavedRoute, 'id' | 'createdAt'>): Promise<SavedRoute> {
   const routes = await getSavedRoutes();
   const newRoute: SavedRoute = {
     ...route,
@@ -35,6 +50,5 @@ export async function addSavedRoute(
 
 export async function deleteSavedRoute(id: string): Promise<void> {
   const routes = await getSavedRoutes();
-  const filtered = routes.filter(r => r.id !== id);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(routes.filter(r => r.id !== id)));
 }

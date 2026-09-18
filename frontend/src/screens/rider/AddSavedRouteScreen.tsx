@@ -20,18 +20,19 @@ import { useApp } from '../../context/AppContext';
 import { addSavedRoute } from '../../services/savedRouteService';
 import { Spacing, Radius, Shadow, Typography } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
+import { Icon, type IconName } from '../../components/Icon';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const ICONS = [
-  { emoji: '🏠', label: 'Home' },
-  { emoji: '🏢', label: 'Office' },
-  { emoji: '✈️', label: 'Airport' },
-  { emoji: '🏥', label: 'Hospital' },
-  { emoji: '🎓', label: 'College' },
-  { emoji: '🛒', label: 'Market' },
-  { emoji: '🏋️', label: 'Gym' },
-  { emoji: '📍', label: 'Other' },
+const ICONS: { icon: IconName; label: string }[] = [
+  { icon: 'home', label: 'Home' },
+  { icon: 'office-building', label: 'Office' },
+  { icon: 'airplane', label: 'Airport' },
+  { icon: 'hospital-building', label: 'Hospital' },
+  { icon: 'school', label: 'College' },
+  { icon: 'cart', label: 'Market' },
+  { icon: 'dumbbell', label: 'Gym' },
+  { icon: 'map-marker', label: 'Other' },
 ];
 
 export function AddSavedRouteScreen() {
@@ -42,9 +43,7 @@ export function AddSavedRouteScreen() {
   const [routeName, setRouteName] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [time, setTime] = useState('');
-  const [savings, setSavings] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState('🏠');
+  const [selectedIcon, setSelectedIcon] = useState<IconName>('home');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -68,8 +67,6 @@ export function AddSavedRouteScreen() {
         from: from.trim(),
         to: to.trim(),
         icon: selectedIcon,
-        time: time.trim() || '',
-        savings: savings.trim() || '',
       });
       navigation.goBack();
     } catch {
@@ -83,12 +80,12 @@ export function AddSavedRouteScreen() {
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       {/* ── Header ───────────────────────────────── */}
       <LinearGradient
-        colors={['#1A2E4A', c.primary]}
+        colors={['#0B2447', c.primary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path
               d="M19 12H5M12 5l-7 7 7 7"
@@ -117,7 +114,8 @@ export function AddSavedRouteScreen() {
           <Text style={[styles.label, { color: c.text }]}>Route Name</Text>
           <TextInput
             style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-            placeholder="e.g. Home → Office"
+            placeholder="For example, Home to office"
+            accessibilityLabel="Route name"
             placeholderTextColor={c.textSec}
             value={routeName}
             onChangeText={setRouteName}
@@ -127,7 +125,8 @@ export function AddSavedRouteScreen() {
           <Text style={[styles.label, { color: c.text }]}>Starting Location</Text>
           <TextInput
             style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-            placeholder="e.g. Koramangala 6th Block"
+            placeholder="Where you start"
+            accessibilityLabel="Starting location"
             placeholderTextColor={c.textSec}
             value={from}
             onChangeText={setFrom}
@@ -137,7 +136,8 @@ export function AddSavedRouteScreen() {
           <Text style={[styles.label, { color: c.text }]}>Destination</Text>
           <TextInput
             style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-            placeholder="e.g. MG Road"
+            placeholder="Where you're going"
+            accessibilityLabel="Destination"
             placeholderTextColor={c.textSec}
             value={to}
             onChangeText={setTo}
@@ -147,11 +147,14 @@ export function AddSavedRouteScreen() {
           <Text style={[styles.label, { color: c.text }]}>Route Icon</Text>
           <View style={styles.iconRow}>
             {ICONS.map(item => {
-              const isSelected = selectedIcon === item.emoji;
+              const isSelected = selectedIcon === item.icon;
               return (
                 <Pressable
                   key={item.label}
-                  onPress={() => setSelectedIcon(item.emoji)}
+                  onPress={() => setSelectedIcon(item.icon)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: isSelected }}
+                  accessibilityLabel={item.label}
                   style={[
                     styles.iconChip,
                     {
@@ -160,7 +163,7 @@ export function AddSavedRouteScreen() {
                     },
                   ]}
                 >
-                  <Text style={styles.iconEmoji}>{item.emoji}</Text>
+                  <Icon name={item.icon} size={22} color={isSelected ? c.primary : c.textSec} />
                   <Text style={[styles.iconLabel, { color: isSelected ? c.primary : c.textSec }]}>
                     {item.label}
                   </Text>
@@ -169,35 +172,12 @@ export function AddSavedRouteScreen() {
             })}
           </View>
 
-          {/* Estimated Time (optional) */}
-          <Text style={[styles.label, { color: c.text }]}>
-            Estimated Time <Text style={{ color: c.textSec, fontWeight: '400' }}>(optional)</Text>
-          </Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-            placeholder="e.g. 35 min"
-            placeholderTextColor={c.textSec}
-            value={time}
-            onChangeText={setTime}
-          />
-
-          {/* Estimated Savings (optional) */}
-          <Text style={[styles.label, { color: c.text }]}>
-            Estimated Savings <Text style={{ color: c.textSec, fontWeight: '400' }}>(optional)</Text>
-          </Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-            placeholder="e.g. ₹280/week"
-            placeholderTextColor={c.textSec}
-            value={savings}
-            onChangeText={setSavings}
-          />
         </ScrollView>
       </KeyboardAvoidingView>
 
       {/* ── Save Button ──────────────────────────── */}
       <View style={[styles.bottomBar, { borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <Pressable onPress={handleSave} disabled={saving}>
+        <Pressable onPress={handleSave} disabled={saving} accessibilityRole="button">
           <LinearGradient
             colors={[c.primary, c.primaryDark]}
             start={{ x: 0, y: 0 }}
@@ -205,7 +185,7 @@ export function AddSavedRouteScreen() {
             style={[styles.saveBtn, saving && { opacity: 0.6 }]}
           >
             <Text style={styles.saveBtnText}>
-              {saving ? 'Saving…' : 'Save Route'}
+              {saving ? 'Saving' : 'Save route'}
             </Text>
           </LinearGradient>
         </Pressable>
@@ -227,8 +207,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
   },
   backBtn: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',

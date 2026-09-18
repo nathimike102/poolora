@@ -31,6 +31,8 @@ import { RideDatePicker } from '../../components/RideDatePicker';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList, RiderTabParamList } from '../../navigation/types';
 import { rideService } from '../../services';
+import { fetchPlaceSuggestions, geocodePlace, suggestionLabel, type PlaceSuggestion } from '../../services/placesService';
+import { errorHandler } from '../../utils/errorHandler';
 import { logger } from '../../utils/logger';
 
 type NavProp = CompositeNavigationProp<
@@ -39,23 +41,7 @@ type NavProp = CompositeNavigationProp<
 >;
 type SearchRoute = RouteProp<RiderTabParamList, 'Search'>;
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const recentSearches = [
-  { from: 'Koramangala 6th Block', to: 'MG Road Metro' },
-  { from: 'HSR Layout Sector 1', to: 'Whitefield ITPL' },
-  { from: 'Home', to: 'Kempegowda Airport' },
-];
-
-const ALL_LOCATIONS = [
-  'Koramangala 6th Block', 'Koramangala 4th Block', 'MG Road Metro Station',
-  'HSR Layout Sector 1', 'Whitefield ITPL', 'Indiranagar 100 Feet Road',
-  'Electronic City Phase 1', 'Kempegowda International Airport',
-  'Marathahalli Bridge', 'Hebbal Flyover', 'Jayanagar 4th Block',
-  'BTM Layout 2nd Stage', 'Yelahanka New Town', 'Banashankari BDA Complex',
-  'Vidhana Soudha',
-];
-const DEFAULT_SUGGESTIONS = ALL_LOCATIONS.slice(0, 5);
+const SUGGESTION_DEBOUNCE_MS = 300;
 
 // ─── AnimatedPressable ────────────────────────────────────────────────────────
 
@@ -91,7 +77,7 @@ function AnimatedPressable({
   }, [scale]);
 
   return (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       activeOpacity={1}
       onPress={onPress}
       onPressIn={handlePressIn}
@@ -120,15 +106,24 @@ export function SearchScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [seats, setSeats] = useState(1);
   const [activeInput, setActiveInput] = useState<'from' | 'to' | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestRequest = useRef(0);
+
+  useEffect(() => () => {
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+  }, []);
 
   const [searching, setSearching] = useState(false);
   const canSearch = from.length > 2 && to.length > 2;
 
   // Apply a location picked from the map picker screen
   useEffect(() => {
-    const params = route.params as { pickedLocation?: string; pickedField?: 'from' | 'to' } | undefined;
+    const params = route.params;
+    if (params?.from) setFrom(params.from);
+    if (params?.to) setTo(params.to);
     if (params?.pickedLocation) {
       if (params.pickedField === 'to') setTo(params.pickedLocation);
       else setFrom(params.pickedLocation);
@@ -166,20 +161,33 @@ export function SearchScreen() {
     setTo(t);
   }, [from, to]);
 
-  const getFiltered = (text: string) =>
-    text.trim()
-      ? ALL_LOCATIONS.filter(l => l.toLowerCase().includes(text.toLowerCase())).slice(0, 5)
-      : DEFAULT_SUGGESTIONS;
+  // Debounced so typing doesn't fire a request per keystroke; stale responses are ignored.
+  const requestSuggestions = (text: string) => {
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    if (text.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    suggestTimer.current = setTimeout(async () => {
+      const requestId = ++suggestRequest.current;
+      try {
+        const results = await fetchPlaceSuggestions(text);
+        if (requestId === suggestRequest.current) setSuggestions(results);
+      } catch {
+        if (requestId === suggestRequest.current) setSuggestions([]);
+      }
+    }, SUGGESTION_DEBOUNCE_MS);
+  };
 
   const onFromFocus = () => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     setActiveInput('from');
-    setSuggestions(getFiltered(from));
+    requestSuggestions(from);
   };
   const onToFocus = () => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     setActiveInput('to');
-    setSuggestions(getFiltered(to));
+    requestSuggestions(to);
   };
   const onInputBlur = () => {
     hideTimer.current = setTimeout(() => {
@@ -187,13 +195,43 @@ export function SearchScreen() {
       setSuggestions([]);
     }, 180);
   };
-  const onFromChange = (t: string) => { setFrom(t); setSuggestions(getFiltered(t)); };
-  const onToChange = (t: string) => { setTo(t); setSuggestions(getFiltered(t)); };
-  const pickSuggestion = (loc: string) => {
+  const onFromChange = (t: string) => { setFrom(t); requestSuggestions(t); };
+  const onToChange = (t: string) => { setTo(t); requestSuggestions(t); };
+  const pickSuggestion = (place: PlaceSuggestion) => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    if (activeInput === 'from') setFrom(loc); else setTo(loc);
+    if (activeInput === 'from') setFrom(suggestionLabel(place)); else setTo(suggestionLabel(place));
     setSuggestions([]);
     setActiveInput(null);
+  };
+
+  const runSearch = async () => {
+    if (!canSearch || searching) return;
+    setSearching(true);
+    try {
+      const scheduledAt = selectedDate ? new Date(selectedDate) : new Date();
+      const [hours, minutes] = time.split(':');
+      scheduledAt.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+
+      const [pickup, dropoff] = await Promise.all([geocodePlace(from), geocodePlace(to)]);
+      const results = await rideService.searchRides({
+        pickupLat: pickup.lat,
+        pickupLng: pickup.lng,
+        dropoffLat: dropoff.lat,
+        dropoffLng: dropoff.lng,
+        departureTime: scheduledAt.toISOString(),
+      });
+
+      logger.info('Search successful', { results: results.data.items?.length || 0 });
+      navigation.navigate('RideResults', {
+        rides: results,
+        route: { from: pickup.formattedAddress, to: dropoff.formattedAddress, seats },
+      });
+    } catch (error) {
+      logger.error('Search failed', { error });
+      Alert.alert('Search failed', errorHandler.process(error).message);
+    } finally {
+      setSearching(false);
+    }
   };
 
   return (
@@ -211,7 +249,7 @@ export function SearchScreen() {
         >
           {/* Back + Title */}
           <View style={styles.headerRow}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
               activeOpacity={0.7}
               onPress={() => navigation.goBack()}
               style={styles.backButton}
@@ -233,12 +271,13 @@ export function SearchScreen() {
                 onChangeText={onFromChange}
                 onFocus={onFromFocus}
                 onBlur={onInputBlur}
-                placeholder="From — Pickup location"
+                placeholder="Pickup location"
+                accessibilityLabel="Pickup location"
                 placeholderTextColor={c.textDisabled}
                 style={[styles.textInput, { color: c.text }]}
               />
               {from.length > 0 && (
-                <TouchableOpacity onPress={() => setFrom('')}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear pickup location" onPress={() => setFrom('')}>
                   <Svg width={16} height={16} viewBox="0 0 24 24" fill={c.textSec}>
                     <Path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                   </Svg>
@@ -249,16 +288,23 @@ export function SearchScreen() {
             {/* From suggestions */}
             {activeInput === 'from' && suggestions.length > 0 && (
               <View style={styles.suggestionBox}>
-                {suggestions.map((loc, i) => (
+                {suggestions.map((place, i) => (
                   <TouchableOpacity
-                    key={i}
-                    onPress={() => pickSuggestion(loc)}
+                    key={place.placeId}
+                    onPress={() => pickSuggestion(place)}
+                    accessibilityRole="button"
+                    accessibilityLabel={suggestionLabel(place)}
                     style={[styles.suggestionItem, i < suggestions.length - 1 && styles.suggestionBorder]}
                   >
                     <Svg width={13} height={13} viewBox="0 0 24 24" fill={c.textSec}>
                       <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                     </Svg>
-                    <Text style={[styles.suggestionText, { color: c.text }]}>{loc}</Text>
+                    <View style={styles.flex1}>
+                      <Text style={[styles.suggestionText, { color: c.text }]} numberOfLines={1}>{place.name}</Text>
+                      {place.subtitle ? (
+                        <Text style={{ fontSize: 12, color: c.textSec }} numberOfLines={1}>{place.subtitle}</Text>
+                      ) : null}
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -268,7 +314,7 @@ export function SearchScreen() {
             <View style={styles.dividerRow}>
               <View style={[styles.verticalLine, { backgroundColor: c.border }]} />
               <View style={[styles.horizontalLine, { backgroundColor: c.border }]} />
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Swap pickup and destination"
                 activeOpacity={0.7}
                 onPress={swapLocations}
                 style={[styles.swapButton, { backgroundColor: c.primaryLight }]}
@@ -287,12 +333,13 @@ export function SearchScreen() {
                 onChangeText={onToChange}
                 onFocus={onToFocus}
                 onBlur={onInputBlur}
-                placeholder="To — Destination"
+                placeholder="Destination"
+                accessibilityLabel="Destination"
                 placeholderTextColor={c.textDisabled}
                 style={[styles.textInput, { color: c.text }]}
               />
               {to.length > 0 && (
-                <TouchableOpacity onPress={() => setTo('')}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear destination" onPress={() => setTo('')}>
                   <Svg width={16} height={16} viewBox="0 0 24 24" fill={c.textSec}>
                     <Path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                   </Svg>
@@ -303,16 +350,23 @@ export function SearchScreen() {
             {/* To suggestions */}
             {activeInput === 'to' && suggestions.length > 0 && (
               <View style={styles.suggestionBox}>
-                {suggestions.map((loc, i) => (
+                {suggestions.map((place, i) => (
                   <TouchableOpacity
-                    key={i}
-                    onPress={() => pickSuggestion(loc)}
+                    key={place.placeId}
+                    onPress={() => pickSuggestion(place)}
+                    accessibilityRole="button"
+                    accessibilityLabel={suggestionLabel(place)}
                     style={[styles.suggestionItem, i < suggestions.length - 1 && styles.suggestionBorder]}
                   >
                     <Svg width={13} height={13} viewBox="0 0 24 24" fill={c.textSec}>
                       <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                     </Svg>
-                    <Text style={[styles.suggestionText, { color: c.text }]}>{loc}</Text>
+                    <View style={styles.flex1}>
+                      <Text style={[styles.suggestionText, { color: c.text }]} numberOfLines={1}>{place.name}</Text>
+                      {place.subtitle ? (
+                        <Text style={{ fontSize: 12, color: c.textSec }} numberOfLines={1}>{place.subtitle}</Text>
+                      ) : null}
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -388,7 +442,7 @@ export function SearchScreen() {
             </AnimatedPressable>
 
             {/* Time card */}
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               activeOpacity={0.8}
               onPress={() => setShowTimePicker(true)}
               style={[
@@ -426,7 +480,7 @@ export function SearchScreen() {
               <Text style={[styles.seatsLabel, { color: c.text }]}>Seats needed</Text>
             </View>
             <View style={styles.seatsControls}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fewer seats"
                 activeOpacity={0.7}
                 onPress={() => setSeats(Math.max(1, seats - 1))}
                 style={[styles.seatBtn, { backgroundColor: c.border }]}
@@ -436,7 +490,7 @@ export function SearchScreen() {
                 </Svg>
               </TouchableOpacity>
               <Text style={[styles.seatsCount, { color: c.text }]}>{seats}</Text>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="More seats"
                 activeOpacity={0.7}
                 onPress={() => setSeats(Math.min(4, seats + 1))}
                 style={[styles.seatBtn, { backgroundColor: c.primaryLight }]}
@@ -448,66 +502,13 @@ export function SearchScreen() {
             </View>
           </View>
 
-          {/* Recent Searches — shown when both inputs are empty */}
-          {!from && !to && (
-            <View style={styles.recentSection}>
-              <Text style={[styles.sectionLabel, { color: c.textSec }]}>RECENT SEARCHES</Text>
-              <View style={styles.recentList}>
-                {recentSearches.map((s, i) => (
-                  <AnimatedPressable
-                    key={i}
-                    scaleValue={0.98}
-                    onPress={() => { setFrom(s.from); setTo(s.to); }}
-                    style={[
-                      styles.recentCard,
-                      { backgroundColor: c.surface, borderColor: c.border },
-                    ]}
-                  >
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill={c.textSec}>
-                      <Path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
-                    </Svg>
-                    <View style={styles.flex1}>
-                      <Text style={[styles.recentFrom, { color: c.text }]}>{s.from}</Text>
-                      <Text style={[styles.recentTo, { color: c.textSec }]}>→ {s.to}</Text>
-                    </View>
-                  </AnimatedPressable>
-                ))}
-              </View>
-            </View>
-          )}
         </ScrollView>
 
         {/* ── Search CTA ────────────────────────────────────────────── */}
         <View style={styles.ctaWrap}>
           <AnimatedPressable
             scaleValue={0.97}
-            onPress={async () => {
-              if (!canSearch || searching) return;
-              setSearching(true);
-              try {
-                const scheduledAt = selectedDate ? new Date(selectedDate) : new Date();
-                const [hours, minutes] = time.split(':');
-                scheduledAt.setHours(parseInt(hours), parseInt(minutes), 0);
-
-                // TODO: Integrate with maps service to get real coordinates
-                // For now, use default coordinates for Bangalore
-                const results = await rideService.searchRides({
-                  pickupLat: 12.9716,
-                  pickupLng: 77.5946,
-                  dropoffLat: 12.9352,
-                  dropoffLng: 77.6245,
-                  departureTime: scheduledAt.toISOString(),
-                });
-
-                logger.info('Search successful', { results: results.data.items?.length || 0 });
-                navigation.navigate('RideResults', { rides: results });
-              } catch (error) {
-                logger.error('Search failed', { error });
-                Alert.alert('Search Error', error instanceof Error ? error.message : 'Failed to search rides');
-              } finally {
-                setSearching(false);
-              }
-            }}
+            onPress={runSearch}
             style={styles.ctaPressable}
           >
             <LinearGradient

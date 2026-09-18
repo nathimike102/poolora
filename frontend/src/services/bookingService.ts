@@ -8,7 +8,15 @@
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';
 import { logger } from '../utils/logger';
-import type { ApiResponse, Booking, CreateBookingRequest, PaginatedResponse, PaginatedResult } from '../types/api';
+import type {
+  ApiResponse,
+  Booking,
+  BookingStatus,
+  CreateBookingRequest,
+  CreateBookingResult,
+  PaginatedResponse,
+  PaginatedResult,
+} from '../types/api';
 
 /**
  * Service for all booking-related operations
@@ -20,13 +28,13 @@ export const bookingService = {
    * @param bookingData - Booking creation data
    * @returns Created booking
    */
-  async createBooking(bookingData: CreateBookingRequest): Promise<Booking> {
+  async createBooking(bookingData: CreateBookingRequest): Promise<CreateBookingResult> {
     try {
-      const response = await apiClient.post<ApiResponse<Booking>>(
+      const response = await apiClient.post<ApiResponse<CreateBookingResult>>(
         API_ENDPOINTS.bookings.create,
         bookingData,
       );
-      logger.info('Booking created successfully', { bookingId: response.data.data._id });
+      logger.info('Booking created successfully', { bookingId: response.data.data.booking?._id });
       return response.data.data;
     } catch (error) {
       logger.error('Failed to create booking', { error });
@@ -44,12 +52,14 @@ export const bookingService = {
   async getRiderBookings(
     page: number = 1,
     limit: number = 20,
+    status?: BookingStatus,
   ): Promise<PaginatedResponse<Booking>> {
     try {
       const queryParams = new URLSearchParams({
         page: String(page),
         limit: String(limit),
       });
+      if (status) queryParams.append('status', status);
 
       const response = await apiClient.get<ApiResponse<PaginatedResult<Booking>>>(
         `${API_ENDPOINTS.bookings.riderBookings}?${queryParams.toString()}`,
@@ -73,12 +83,14 @@ export const bookingService = {
   async getDriverBookings(
     page: number = 1,
     limit: number = 20,
+    status?: BookingStatus,
   ): Promise<PaginatedResponse<Booking>> {
     try {
       const queryParams = new URLSearchParams({
         page: String(page),
         limit: String(limit),
       });
+      if (status) queryParams.append('status', status);
 
       const response = await apiClient.get<ApiResponse<PaginatedResult<Booking>>>(
         `${API_ENDPOINTS.bookings.driverBookings}?${queryParams.toString()}`,
@@ -138,11 +150,11 @@ export const bookingService = {
    * @param bookingId - Booking ID to cancel
    * @returns Updated booking
    */
-  async cancelBooking(bookingId: string): Promise<Booking> {
+  async cancelBooking(bookingId: string, reason?: string): Promise<Booking> {
     try {
       const response = await apiClient.post<ApiResponse<Booking>>(
         API_ENDPOINTS.bookings.cancel(bookingId),
-        {},
+        reason ? { reason } : {},
       );
       logger.info('Booking cancelled successfully', { bookingId });
       return response.data.data;

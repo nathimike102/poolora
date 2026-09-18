@@ -27,6 +27,7 @@ import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
+import { Icon } from '../../components/Icon';
 import type { Ride as ApiRide, PaginatedResponse } from '../../types/api';
 
 
@@ -45,10 +46,12 @@ function ToggleSwitch({
   value,
   onChange,
   color,
+  label,
 }: {
   value: boolean;
   onChange: (v: boolean) => void;
   color: string;
+  label: string;
 }) {
   const translateX = useRef(new Animated.Value(value ? 21 : 0)).current;
 
@@ -63,6 +66,9 @@ function ToggleSwitch({
 
   return (
     <TouchableOpacity
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: value }}
       activeOpacity={0.8}
       onPress={() => onChange(!value)}
       style={[
@@ -104,7 +110,7 @@ function AnimatedPressable({
   }, [scale]);
 
   return (
-    <TouchableOpacity activeOpacity={1} onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+    <TouchableOpacity accessibilityRole="button" activeOpacity={1} onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
       <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
     </TouchableOpacity>
   );
@@ -113,17 +119,17 @@ function AnimatedPressable({
 // ─── Sort pill labels ─────────────────────────────────────────────────────────
 
 const SORT_OPTIONS: { key: SortBy; label: string }[] = [
-  { key: 'ai', label: '⚡ Best Match' },
-  { key: 'price', label: '💰 Price ↑' },
-  { key: 'rating', label: '⭐ Rating' },
-  { key: 'time', label: '⏱ Time' },
+  { key: 'ai', label: 'Best match' },
+  { key: 'price', label: 'Lowest price' },
+  { key: 'rating', label: 'Highest rated' },
+  { key: 'time', label: 'Earliest' },
 ];
 
 const RATING_OPTIONS: { label: string; value: RatingFilter }[] = [
   { label: 'Any', value: 0 },
-  { label: '3.5 ⭐', value: 3.5 },
-  { label: '4 ⭐', value: 4 },
-  { label: '4.5 ⭐', value: 4.5 },
+  { label: '3.5+', value: 3.5 },
+  { label: '4+', value: 4 },
+  { label: '4.5+', value: 4.5 },
 ];
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -178,6 +184,8 @@ export function RideResultsScreen() {
     setSortBy(s);
   }, []);
 
+  const searched = route.params?.route;
+
   // Normalize incoming rides for the UI
   const incoming = route.params?.rides as PaginatedResponse<ApiRide> | ApiRide[] | undefined;
 
@@ -188,40 +196,46 @@ export function RideResultsScreen() {
     } else if (incoming && 'data' in incoming && incoming.data) {
       arr = incoming.data.items || [];
     }
-    return arr.map((r: any) => ({
-      id: r._id || r.id || String(r._id || Math.random()),
-      driver: typeof r.driver === 'string' ? r.driver : r.driver?.name || 'Driver',
-      avatar: r.driver?.profilePhotoUrl || r.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop',
-      rating: r.driver?.stats?.avgRatingAsDriver ?? r.rating ?? 0,
-      trips: r.driver?.stats?.totalRidesAsDriver ?? r.trips ?? 0,
-      verified: r.driver?.isVerified ?? r.verified ?? false,
-      vehicle: r.vehicle ? `${r.vehicle.make || ''} ${r.vehicle.model || ''}`.trim() : r.vehicle || '',
-      plate: r.vehicle?.plateNumber || r.plate || '',
-      from: r.pickupLocation?.address || r.from || '',
-      to: r.dropoffLocation?.address || r.to || '',
-      departure: r.scheduledDeparture ? new Date(r.scheduledDeparture).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : r.departure || '',
-      arrival: r.estimatedArrival ? new Date(r.estimatedArrival).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : r.arrival || '',
-      seats: r.availableSeats ?? r.seats ?? 0,
-      price: r.pricePerSeat ?? r.price ?? r.totalPrice ?? 0,
-      aiScore: r.aiScore ?? 75,
-      prefs: r.amenities ?? r.prefs ?? [],
-      surge: r.surge ?? false,
-      womenOnly: r.womenOnly ?? false,
-    }));
+    return (arr as ApiRide[]).map(r => {
+      const stats = r.driver?.stats;
+      const prefs: string[] = [];
+      if (r.hasAC) prefs.push('AC');
+      if (r.preferences && !r.preferences.smokingAllowed) prefs.push('No smoking');
+      if (r.preferences?.petsAllowed) prefs.push('Pets allowed');
+      return {
+        id: r._id,
+        driver: r.driver?.name || 'Driver',
+        avatar: r.driver?.profilePhotoUrl,
+        rating: stats?.avgRatingAsDriver ?? 0,
+        ratingCount: stats?.totalRatingsAsDriver ?? 0,
+        trips: stats?.totalRidesAsDriver ?? 0,
+        vehicle: r.vehicle?.vehicleType ?? '',
+        from: r.pickupLocation?.address || '',
+        to: r.dropoffLocation?.address || '',
+        departureAt: r.scheduledDeparture ?? '',
+        departure: r.scheduledDeparture ? new Date(r.scheduledDeparture).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        arrival: r.estimatedArrival ? new Date(r.estimatedArrival).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        seats: r.availableSeats ?? 0,
+        price: r.pricePerSeat ?? 0,
+        aiScore: typeof r.matchScore === 'number' ? Math.round(r.matchScore) : null,
+        prefs,
+        womenOnly: r.womenOnly ?? false,
+      };
+    });
   }, [incoming]);
 
   // Compute filtered + sorted rides
   const rides = useMemo(() => {
-    let list = normalizedSource.filter((r: any) => {
+    let list = normalizedSource.filter(r => {
       if (activeFilters.womenOnly && !r.womenOnly) return false;
-      if (activeFilters.acOnly && !r.prefs.some((p: string) => p === 'AC')) return false;
+      if (activeFilters.acOnly && !r.prefs.includes('AC')) return false;
       if (activeFilters.minRating > 0 && r.rating < activeFilters.minRating) return false;
       return true;
     });
     if (sortBy === 'ai') list = [...list].sort((a, b) => (b.aiScore ?? 0) - (a.aiScore ?? 0));
     else if (sortBy === 'price') list = [...list].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
     else if (sortBy === 'rating') list = [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    else if (sortBy === 'time') list = [...list].sort((a, b) => (a.departure || '').localeCompare(b.departure || ''));
+    else if (sortBy === 'time') list = [...list].sort((a, b) => a.departureAt.localeCompare(b.departureAt));
     return list;
   }, [sortBy, activeFilters, normalizedSource]);
 
@@ -231,7 +245,7 @@ export function RideResultsScreen() {
       <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <View style={styles.headerTopRow}>
           {/* Back */}
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
             activeOpacity={0.7}
             onPress={() => navigation.goBack()}
             style={[styles.backBtn, { backgroundColor: c.bg, borderColor: c.border }]}
@@ -243,18 +257,20 @@ export function RideResultsScreen() {
 
           {/* Route summary */}
           <View style={styles.flex1}>
-            <View style={styles.routeSummaryRow}>
-              <Text style={[styles.routeName, { color: c.text }]}>Koramangala</Text>
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill={c.textSec}>
-                <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-              </Svg>
-              <Text style={[styles.routeName, { color: c.text }]}>MG Road</Text>
-            </View>
-            <Text style={[styles.routeMeta, { color: c.textSec }]}>Today · 9:00 AM · 1 seat</Text>
+            {searched ? (
+              <>
+                <Text style={[styles.routeName, { color: c.text }]} numberOfLines={1}>{searched.from}</Text>
+                <Text style={[styles.routeMeta, { color: c.textSec }]} numberOfLines={1}>
+                  to {searched.to} · {searched.seats} {searched.seats === 1 ? 'seat' : 'seats'}
+                </Text>
+              </>
+            ) : (
+              <Text style={[styles.routeName, { color: c.text }]}>Available rides</Text>
+            )}
           </View>
 
           {/* Filter button */}
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Filters"
             activeOpacity={0.7}
             onPress={openFilter}
             style={[
@@ -275,7 +291,7 @@ export function RideResultsScreen() {
         {/* Sort pills */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
           {SORT_OPTIONS.map(s => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={s.key}
               activeOpacity={0.7}
               onPress={() => handleSortChange(s.key)}
@@ -303,7 +319,10 @@ export function RideResultsScreen() {
       {/* ── Results count ─────────────────────────────────────────── */}
       <View style={styles.countRow}>
         <Text style={[styles.countText, { color: c.textSec }]}>
-          <Text style={[styles.countBold, { color: c.text }]}>{rides.length} rides</Text> found near you
+          <Text style={[styles.countBold, { color: c.text }]}>
+            {rides.length} {rides.length === 1 ? 'ride' : 'rides'}
+          </Text>{' '}
+          found
         </Text>
         {hasActiveFilters && (
           <View style={[styles.filterActiveBadge, { backgroundColor: c.primaryLight, borderColor: c.primary + '30' }]}>
@@ -321,9 +340,17 @@ export function RideResultsScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🔍</Text>
-            <Text style={[styles.emptyTitle, { color: c.text }]}>No rides match your filters</Text>
-            <TouchableOpacity
+            <Icon name="car-search" size={48} color={c.textSec} />
+            <Text style={[styles.emptyTitle, { color: c.text }]}>
+              {hasActiveFilters ? 'No rides match your filters' : 'No rides found for this route and time'}
+            </Text>
+            {!hasActiveFilters && (
+              <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', marginTop: 6 }}>
+                Try a different time. Rides within 2 hours of your chosen time are shown.
+              </Text>
+            )}
+            {hasActiveFilters && (
+            <TouchableOpacity accessibilityRole="button"
               activeOpacity={0.7}
               onPress={() => {
                 LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -331,8 +358,9 @@ export function RideResultsScreen() {
               }}
               style={[styles.clearBtn, { backgroundColor: c.primaryLight, borderColor: c.primary + '40' }]}
             >
-              <Text style={[styles.clearBtnText, { color: c.primary }]}>Clear Filters</Text>
+              <Text style={[styles.clearBtnText, { color: c.primary }]}>Clear filters</Text>
             </TouchableOpacity>
+            )}
           </View>
         }
         renderItem={({ item: ride }) => (
@@ -344,60 +372,46 @@ export function RideResultsScreen() {
               { backgroundColor: c.surface, borderColor: c.border, ...Shadow.sm },
             ]}
           >
-            {/* Surge banner */}
-            {ride.surge && (
-              <View style={styles.surgeBanner}>
-                <Text style={styles.surgeText}>⚡ SURGE PRICING · 1.3x</Text>
-              </View>
-            )}
-
             <View style={styles.cardContent}>
               {/* Driver info row */}
               <View style={styles.driverRow}>
                 {/* Avatar */}
-                <View>
-                  <Image
-                    source={{ uri: ride.avatar }}
-                    style={styles.avatar}
-                    resizeMode="cover"
-                  />
-                  {ride.verified && (
-                    <View style={[styles.verifiedBadge, { backgroundColor: c.primary }]}>
-                      <Svg width={9} height={9} viewBox="0 0 24 24" fill="white">
-                        <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                      </Svg>
-                    </View>
-                  )}
-                </View>
+                {ride.avatar ? (
+                  <Image source={{ uri: ride.avatar }} style={styles.avatar} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.avatar, { backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: c.primary }}>{ride.driver.charAt(0).toUpperCase()}</Text>
+                  </View>
+                )}
 
                 {/* Name + badges + meta */}
                 <View style={styles.flex1}>
                   <View style={styles.driverNameRow}>
                     <Text style={[styles.driverName, { color: c.text }]}>{ride.driver}</Text>
-                    {ride.verified && (
-                      <View style={[styles.tagBadge, { backgroundColor: c.primaryLight }]}>
-                        <Text style={[styles.tagText, { color: c.primary }]}>✓ Verified</Text>
-                      </View>
-                    )}
                     {ride.womenOnly && (
                       <View style={[styles.tagBadge, { backgroundColor: '#FFF1F2' }]}>
-                        <Text style={[styles.tagText, { color: '#E11D48' }]}>👩 Women Only</Text>
+                        <Text style={[styles.tagText, { color: '#9F1239' }]}>Women only</Text>
                       </View>
                     )}
                   </View>
                   <View style={styles.driverMetaRow}>
-                    <View style={styles.ratingRow}>
-                      <Svg width={13} height={13} viewBox="0 0 24 24" fill="#FFB300">
-                        <Path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                      </Svg>
-                      <Text style={[styles.ratingText, { color: c.text }]}>{ride.rating}</Text>
-                    </View>
-                    <Text style={[styles.metaText, { color: c.textSec }]}>{ride.trips} trips</Text>
+                    {ride.ratingCount > 0 ? (
+                      <View style={styles.ratingRow} accessibilityLabel={`Rated ${ride.rating.toFixed(1)}`}>
+                        <Svg width={13} height={13} viewBox="0 0 24 24" fill="#FFB300">
+                          <Path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                        </Svg>
+                        <Text style={[styles.ratingText, { color: c.text }]}>{ride.rating.toFixed(1)}</Text>
+                      </View>
+                    ) : (
+                      <Text style={[styles.metaText, { color: c.textSec }]}>New driver</Text>
+                    )}
+                    <Text style={[styles.metaText, { color: c.textSec }]}>{ride.trips} {ride.trips === 1 ? 'trip' : 'trips'}</Text>
                     <Text style={[styles.metaText, { color: c.textSec }]}>{ride.vehicle}</Text>
                   </View>
                 </View>
 
-                {/* AI Score */}
+                {/* Match score from the matching engine */}
+                {ride.aiScore !== null && (
                 <View
                   style={[
                     styles.aiBox,
@@ -433,9 +447,10 @@ export function RideResultsScreen() {
                       },
                     ]}
                   >
-                    AI
+                    match
                   </Text>
                 </View>
+                )}
               </View>
 
               {/* Route & timing */}
@@ -471,7 +486,9 @@ export function RideResultsScreen() {
                 </View>
                 <View style={styles.priceCol}>
                   <Text style={[styles.priceText, { color: c.text }]}>₹{ride.price}</Text>
-                  <Text style={[styles.seatsText, { color: c.textSec }]}>{ride.seats} seats left</Text>
+                  <Text style={[styles.seatsText, { color: c.textSec }]}>
+                    per seat · {ride.seats} {ride.seats === 1 ? 'seat' : 'seats'} left
+                  </Text>
                 </View>
               </View>
             </View>
@@ -490,7 +507,7 @@ export function RideResultsScreen() {
         onRequestClose={closeFilter}
       >
         {/* Scrim */}
-        <Pressable style={styles.scrim} onPress={closeFilter}>
+        <Pressable accessibilityRole="button" style={styles.scrim} onPress={closeFilter}>
           <View />
         </Pressable>
 
@@ -509,7 +526,7 @@ export function RideResultsScreen() {
           {/* Title row */}
           <View style={styles.sheetTitleRow}>
             <Text style={styles.sheetTitle}>Filters</Text>
-            <TouchableOpacity activeOpacity={0.7} onPress={closeFilter} style={styles.sheetCloseBtn}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close filters" activeOpacity={0.7} onPress={closeFilter} style={styles.sheetCloseBtn}>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="#6B7280">
                 <Path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
               </Svg>
@@ -522,9 +539,10 @@ export function RideResultsScreen() {
             <View style={styles.filterRow}>
               <View style={styles.flex1}>
                 <Text style={styles.filterLabel}>Women-only rides</Text>
-                <Text style={styles.filterDesc}>Show rides by women drivers only</Text>
+                <Text style={styles.filterDesc}>Rides open only to women passengers</Text>
               </View>
               <ToggleSwitch
+                label="Women-only rides"
                 value={draftFilters.womenOnly}
                 onChange={v => setDraftFilters(d => ({ ...d, womenOnly: v }))}
                 color={c.primary}
@@ -538,6 +556,7 @@ export function RideResultsScreen() {
                 <Text style={styles.filterDesc}>Only show rides with air conditioning</Text>
               </View>
               <ToggleSwitch
+                label="AC rides only"
                 value={draftFilters.acOnly}
                 onChange={v => setDraftFilters(d => ({ ...d, acOnly: v }))}
                 color={c.primary}
@@ -554,7 +573,7 @@ export function RideResultsScreen() {
               </View>
               <View style={styles.ratingBtns}>
                 {RATING_OPTIONS.map(opt => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={opt.value}
                     activeOpacity={0.7}
                     onPress={() => setDraftFilters(d => ({ ...d, minRating: opt.value }))}
@@ -585,7 +604,7 @@ export function RideResultsScreen() {
 
           {/* Action buttons */}
           <View style={styles.sheetActions}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               activeOpacity={0.7}
               onPress={resetFilter}
               style={styles.resetBtn}
@@ -680,7 +699,7 @@ const styles = StyleSheet.create({
   sortPill: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: Radius.full,
+    borderRadius: 8,
     borderWidth: 1,
   },
   sortPillText: {
@@ -705,7 +724,7 @@ const styles = StyleSheet.create({
   filterActiveBadge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: Radius.full,
+    borderRadius: 8,
     borderWidth: 1,
   },
   filterActiveText: {
@@ -775,7 +794,7 @@ const styles = StyleSheet.create({
   tagBadge: {
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: Radius.full,
+    borderRadius: 8,
   },
   tagText: {
     fontSize: 10,
@@ -875,7 +894,7 @@ const styles = StyleSheet.create({
   prefChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: Radius.full,
+    borderRadius: 8,
     borderWidth: 1,
   },
   prefText: {

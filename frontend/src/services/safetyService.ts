@@ -20,17 +20,27 @@ export interface SOSResponse {
   status: string;
   location: { lat: number; lng: number };
   createdAt: string;
+  riskLevel?: 'low' | 'medium' | 'high';
+  monitoringState?: 'active' | 'escalated' | 'resolved';
+  checkInIntervalSeconds?: number;
+  lastCheckInAt?: string;
+  nextCheckInAt?: string;
+  missedCheckIns?: number;
+  escalatedAt?: string;
+  escalationReason?: string;
   triggerLocation?: { type: string; coordinates: [number, number] };
   locationHistory?: Array<{ location: { type: string; coordinates: [number, number] }; timestamp: string }>;
   timeline?: Array<{ event: string; timestamp: string; details?: string }>;
   liveTrackingUrl?: string;
+  /** Contacts whose SMS was accepted by the provider. Empty if none could be reached. */
+  emergencyContactsNotified?: Array<{ name: string; phone: string; notifiedAt: string }>;
 }
 
 export interface IncidentData {
   id: string;
   userId: string;
   userName: string;
-  status: 'triggered' | 'acknowledged' | 'resolved';
+  status: 'triggered' | 'acknowledged' | 'resolved' | 'false_alarm';
   location: { lat: number; lng: number };
   timestamp: Date;
   bookingId: string;
@@ -59,6 +69,40 @@ export const safetyService = {
       return response.data.data.emergency;
     } catch (error) {
       logger.error('Failed to trigger SOS', { error });
+      throw error;
+    }
+  },
+
+  /**
+   * Push the user's current position to an active SOS.
+   */
+  async updateSOSLocation(sosId: string, location: { lat: number; lng: number }): Promise<void> {
+    try {
+      await apiClient.post(API_ENDPOINTS.safety.updateSosLocation(sosId), { location });
+    } catch (error) {
+      logger.error('Failed to update SOS location', { sosId, error });
+      throw error;
+    }
+  },
+
+  /**
+   * Send a user safety check-in for an active SOS session.
+   */
+  async updateSOSCheckIn(
+    sosId: string,
+    status: 'ok' | 'partial_ok' | 'not_ok',
+    notes?: string,
+    location?: { lat: number; lng: number },
+  ): Promise<SOSResponse> {
+    try {
+      const response = await apiClient.post<ApiResponse<{ emergency: SOSResponse }>>(
+        API_ENDPOINTS.safety.checkIn(sosId),
+        { status, notes, location },
+      );
+      logger.info('SOS check-in sent', { sosId, status });
+      return response.data.data.emergency;
+    } catch (error) {
+      logger.error('Failed to send SOS check-in', { sosId, status, error });
       throw error;
     }
   },
@@ -124,6 +168,19 @@ export const safetyService = {
       logger.info('SOS resolved', { incidentId });
     } catch (error) {
       logger.error('Failed to resolve SOS', { incidentId, error });
+      throw error;
+    }
+  },
+
+  /**
+   * Notify police for an incident (admin only)
+   */
+  async notifyPolice(incidentId: string, notes?: string): Promise<void> {
+    try {
+      await apiClient.post(API_ENDPOINTS.safety.notifyPolice(incidentId), { notes });
+      logger.info('Police notified for incident', { incidentId });
+    } catch (error) {
+      logger.error('Failed to notify police', { incidentId, error });
       throw error;
     }
   },

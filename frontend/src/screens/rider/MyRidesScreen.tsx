@@ -8,6 +8,7 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  Alert,
   LayoutAnimation,
   StyleProp,
   ViewStyle,
@@ -29,34 +30,25 @@ import Svg, { Path } from 'react-native-svg';
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../../navigation/types';
+import { Icon } from '../../components/Icon';
 import { Radius, Shadow } from '../../theme';
 
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type RideTab = 'upcoming' | 'past' | 'cancelled';
 
-interface UpcomingRide {
+interface RideItem {
   id: string;
+  rideId: string;
   from: string;
   to: string;
   date: string;
   time: string;
   driver: string;
   price: number;
-  status: 'confirmed' | 'pending';
-  driverAvatar: string;
-}
-
-interface CancelledRide {
-  id: string;
-  from: string;
-  to: string;
-  date: string;
-  time: string;
-  driver: string;
-  price: number;
+  status: Booking['status'];
+  driverAvatar?: string;
   reason: string;
-  driverAvatar: string;
 }
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -78,7 +70,7 @@ const AnimatedPressable = ({
     transform: [{ scale: scale.value }],
   }));
   return (
-    <Pressable
+    <Pressable accessibilityRole="button"
       onPressIn={onIn}
       onPressOut={onOut}
       onPress={onPress}
@@ -91,15 +83,6 @@ const AnimatedPressable = ({
   );
 };
 
-const StarIcon = ({ size = 13 }: { size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Path
-      d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-      fill="#FFB300"
-    />
-  </Svg>
-);
-
 /* ── Route dots (pickup → drop) ─────────────────────────────────── */
 const RouteDots = ({ pickupColor, dropColor, lineColor }: { pickupColor: string; dropColor: string; lineColor: string }) => (
   <View style={styles.routeDots}>
@@ -109,23 +92,14 @@ const RouteDots = ({ pickupColor, dropColor, lineColor }: { pickupColor: string;
   </View>
 );
 
-/* ── Data ────────────────────────────────────────────────────────── */
-const INITIAL_UPCOMING: UpcomingRide[] = [
-  {
-    id: '1', from: 'Koramangala 6th Block', to: 'MG Road',
-    date: 'Today', time: '9:00 AM', driver: 'Rajesh Kumar', price: 180,
-    status: 'confirmed',
-    driverAvatar: 'https://images.unsplash.com/photo-1747373354146-646351cc7e88?w=60&h=60&fit=crop',
-  },
-  {
-    id: '2', from: 'HSR Layout Sector 1', to: 'Whitefield ITPL',
-    date: 'Tomorrow', time: '8:30 AM', driver: 'Anita Sharma', price: 220,
-    status: 'pending',
-    driverAvatar: 'https://images.unsplash.com/photo-1580746453801-37b0bc56f3b4?w=60&h=60&fit=crop',
-  },
-];
-
-// We will use state for past rides instead of a constant.
+function Avatar({ uri, name, size, bg, fg }: { uri?: string; name: string; size: number; bg: string; fg: string }) {
+  if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 3 }} />;
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 3, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: size / 2.2, fontWeight: '700', color: fg }}>{name.charAt(0).toUpperCase()}</Text>
+    </View>
+  );
+}
 
 /* ═══════════════════════════════════════════════════════════════════ */
 export function MyRidesScreen() {
@@ -134,10 +108,11 @@ export function MyRidesScreen() {
   const insets = useSafeAreaInsets();
 
   const [tab, setTab] = useState<RideTab>('upcoming');
-  const [upcoming, setUpcoming] = useState<UpcomingRide[]>([]);
-  const [pastRides, setPastRides] = useState<any[]>([]);
-  const [cancelled, setCancelled] = useState<CancelledRide[]>([]);
+  const [upcoming, setUpcoming] = useState<RideItem[]>([]);
+  const [pastRides, setPastRides] = useState<RideItem[]>([]);
+  const [cancelled, setCancelled] = useState<RideItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -149,26 +124,35 @@ export function MyRidesScreen() {
           if (isActive) {
             const items = res.data?.items || [];
             
-            const formatRide = (b: Booking) => ({
-              id: b._id,
-              from: b.ride?.pickupLocation?.address || 'Pickup Location',
-              to: b.ride?.dropoffLocation?.address || 'Dropoff Location',
-              date: new Date(b.ride?.scheduledDeparture || new Date()).toLocaleDateString(),
-              time: new Date(b.ride?.scheduledDeparture || new Date()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-              driver: b.ride?.driver?.name || 'Driver',
-              price: b.totalPrice,
-              status: b.status,
-              driverAvatar: b.ride?.driver?.profilePhotoUrl || 'https://images.unsplash.com/photo-1747373354146-646351cc7e88?w=60&h=60&fit=crop',
-              reason: b.status === 'cancelled' ? 'Cancelled' : '',
-              rating: b.ride?.driver?.stats?.avgRatingAsDriver || 5
-            });
+            const formatRide = (b: Booking): RideItem => {
+              const ride = b.ride as unknown as { _id?: string; departureTime?: string } | undefined;
+              const departure = ride?.departureTime ? new Date(ride.departureTime) : null;
+              return {
+                id: b._id,
+                rideId: ride?._id ?? '',
+                from: b.pickup?.address || 'Pickup point',
+                to: b.dropoff?.address || 'Drop point',
+                date: departure ? departure.toLocaleDateString([], { day: 'numeric', month: 'short' }) : '',
+                time: departure ? departure.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+                driver: b.driver?.name || 'Driver',
+                price: b.finalFare ?? b.estimatedFare ?? 0,
+                status: b.status,
+                driverAvatar: b.driver?.profilePhotoUrl,
+                reason:
+                  b.status === 'rejected'
+                    ? 'Declined by the driver'
+                    : b.cancellationReason || 'Cancelled',
+              };
+            };
 
-            setUpcoming(items.filter(b => b.status === 'pending' || b.status === 'confirmed').map(formatRide) as any);
+            setUpcoming(items.filter(b => b.status === 'pending' || b.status === 'confirmed').map(formatRide));
             setPastRides(items.filter(b => b.status === 'completed').map(formatRide));
-            setCancelled(items.filter(b => b.status === 'cancelled' || b.status === 'rejected').map(formatRide) as any);
+            setCancelled(items.filter(b => b.status === 'cancelled' || b.status === 'rejected').map(formatRide));
+            setLoadError(false);
           }
         } catch (error) {
           logger.error('Failed to fetch rider bookings', { error });
+          if (isActive) setLoadError(true);
         } finally {
           if (isActive) setLoading(false);
         }
@@ -179,7 +163,7 @@ export function MyRidesScreen() {
   );
 
   /* Cancel flow */
-  const [cancelTarget, setCancelTarget] = useState<UpcomingRide | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<RideItem | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelDone, setCancelDone] = useState(false);
 
@@ -197,7 +181,7 @@ export function MyRidesScreen() {
     transform: [{ scale: doneScale.value }],
   }));
 
-  const openCancel = (ride: UpcomingRide) => {
+  const openCancel = (ride: RideItem) => {
     setCancelTarget(ride);
     setCancelDone(false);
     sheetY.value = 400;
@@ -224,20 +208,7 @@ export function MyRidesScreen() {
       .then(() => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setUpcoming(prev => prev.filter(r => r.id !== cancelTarget.id));
-        setCancelled(prev => [
-          {
-            id: cancelTarget.id,
-            from: cancelTarget.from,
-            to: cancelTarget.to,
-            date: cancelTarget.date,
-            time: cancelTarget.time,
-            driver: cancelTarget.driver,
-            price: cancelTarget.price,
-            reason: 'Cancelled by you',
-            driverAvatar: cancelTarget.driverAvatar,
-          },
-          ...prev,
-        ]);
+        setCancelled(prev => [{ ...cancelTarget, status: 'cancelled', reason: 'Cancelled by you' }, ...prev]);
         setCancelling(false);
         setCancelDone(true);
         doneScale.value = 0;
@@ -250,6 +221,7 @@ export function MyRidesScreen() {
       .catch(error => {
         setCancelling(false);
         logger.error('Failed to cancel booking', { error });
+        Alert.alert('Not cancelled', 'Your booking could not be cancelled. Check your connection and try again.');
       });
   };
 
@@ -269,9 +241,13 @@ export function MyRidesScreen() {
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
-          <Text style={{ fontSize: 52 }}>🎉</Text>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>No upcoming rides</Text>
-          <Text style={{ fontSize: 13, color: c.textSec }}>Book your next carpool below!</Text>
+          <Icon name="car-clock" size={48} color={c.textSec} />
+          <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>
+            {loadError ? 'Your rides could not be loaded' : 'No upcoming rides'}
+          </Text>
+          <Text style={{ fontSize: 13, color: c.textSec }}>
+            {loadError ? 'Check your connection and reopen this tab.' : 'Rides you book will appear here.'}
+          </Text>
         </View>
       }
       renderItem={({ item: r }) => (
@@ -293,7 +269,7 @@ export function MyRidesScreen() {
                   color: r.status === 'confirmed' ? c.success : c.warning,
                 }}
               >
-                {r.status === 'confirmed' ? '● CONFIRMED' : '● AWAITING'}
+                {r.status === 'confirmed' ? 'Confirmed' : 'Waiting for driver'}
               </Text>
             </View>
             <Text style={{ fontSize: 12, color: c.textSec }}>
@@ -316,12 +292,13 @@ export function MyRidesScreen() {
 
             {/* Driver + actions */}
             <View style={styles.driverRow}>
-              <Image source={{ uri: r.driverAvatar }} style={styles.smallAvatar} />
+              <Avatar uri={r.driverAvatar} name={r.driver} size={32} bg={c.primaryLight} fg={c.primary} />
               <Text style={{ fontSize: 13, color: c.textSec }}>{r.driver}</Text>
               <View style={styles.cardActions}>
-                {r.status === 'confirmed' && (
+                {r.status === 'confirmed' && r.rideId !== '' && (
                   <Pressable
-                    onPress={() => navigation.navigate('ActiveRide', { rideId: r.id })}
+                    onPress={() => navigation.navigate('ActiveRide', { rideId: r.rideId, bookingId: r.id })}
+                    accessibilityRole="button"
                     style={[styles.actionBtn, { backgroundColor: c.primaryLight }]}
                   >
                     <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Track</Text>
@@ -363,24 +340,18 @@ export function MyRidesScreen() {
             </View>
           </View>
 
-          {/* Driver + rating */}
           <View style={styles.driverRow}>
-            <Image source={{ uri: r.driverAvatar }} style={styles.tinyAvatar} />
+            <Avatar uri={r.driverAvatar} name={r.driver} size={26} bg={c.primaryLight} fg={c.primary} />
             <Text style={{ fontSize: 13, color: c.textSec }}>{r.driver}</Text>
-            <View style={styles.starsRow}>
-              {Array.from({ length: r.rating }).map((_, j) => (
-                <StarIcon key={j} />
-              ))}
-            </View>
           </View>
 
-          {/* Action btns */}
           <View style={styles.pastActions}>
-            <Pressable style={[styles.pastBtn, { backgroundColor: c.primaryLight }]}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Book Again</Text>
-            </Pressable>
-            <Pressable style={[styles.pastBtn, { backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }]}>
-              <Text style={{ fontSize: 13, color: c.textSec }}>Receipt</Text>
+            <Pressable
+              onPress={() => navigation.navigate('RiderTabs', { screen: 'Search' })}
+              accessibilityRole="button"
+              style={[styles.pastBtn, { backgroundColor: c.primaryLight }]}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Find another ride</Text>
             </Pressable>
           </View>
         </View>
@@ -413,7 +384,7 @@ export function MyRidesScreen() {
           </View>
 
           <View style={[styles.driverRow, { marginBottom: 8 }]}>
-            <Image source={{ uri: r.driverAvatar }} style={styles.tinyAvatar} />
+            <Avatar uri={r.driverAvatar} name={r.driver} size={26} bg={c.primaryLight} fg={c.primary} />
             <Text style={{ fontSize: 13, color: c.textSec }}>{r.driver}</Text>
             <Text style={{ fontSize: 12, color: c.textSec, marginLeft: 'auto' }}>{r.time}</Text>
           </View>
@@ -453,7 +424,7 @@ export function MyRidesScreen() {
           {tabs.map(t => {
             const active = tab === t.id;
             return (
-              <Pressable key={t.id} onPress={() => setTab(t.id)} style={styles.tabItem}>
+              <Pressable accessibilityRole="button" key={t.id} onPress={() => setTab(t.id)} style={styles.tabItem}>
                 <View style={styles.tabInner}>
                   <Text style={{ fontSize: 14, fontWeight: active ? '700' : '500', color: active ? c.primary : c.textSec }}>
                     {t.label}
@@ -491,7 +462,7 @@ export function MyRidesScreen() {
       <Modal visible={!!cancelTarget} transparent animationType="none" onRequestClose={() => !cancelling && closeCancel()}>
         {/* Scrim */}
         <ReAnimated.View style={[styles.scrim, scrimAnimStyle]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => !cancelling && closeCancel()} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" style={StyleSheet.absoluteFill} onPress={() => !cancelling && closeCancel()} />
         </ReAnimated.View>
 
         {/* Sheet */}
@@ -515,9 +486,9 @@ export function MyRidesScreen() {
                   <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill={c.error} />
                 </Svg>
               </ReAnimated.View>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>Ride Cancelled</Text>
-              <Text style={{ fontSize: 13, color: '#6B7280', textAlign: 'center' }}>
-                Your ride has been successfully cancelled. Redirecting to Cancelled rides…
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>Ride cancelled</Text>
+              <Text style={{ fontSize: 13, color: '#4B5563', textAlign: 'center' }}>
+                Your refund has been started.
               </Text>
             </View>
           ) : cancelTarget ? (
@@ -534,9 +505,9 @@ export function MyRidesScreen() {
                       />
                     </Svg>
                   </View>
-                  <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>Cancel Ride?</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>Cancel this ride?</Text>
                 </View>
-                <Pressable
+                <Pressable accessibilityRole="button" accessibilityLabel="Close"
                   onPress={closeCancel}
                   disabled={cancelling}
                   style={[styles.closeBtn, { opacity: cancelling ? 0.4 : 1 }]}
@@ -554,10 +525,7 @@ export function MyRidesScreen() {
                 {/* Ride recap card */}
                 <View style={styles.recapCard}>
                   <View style={styles.recapTop}>
-                    <Image
-                      source={{ uri: cancelTarget.driverAvatar }}
-                      style={styles.recapAvatar}
-                    />
+                    <Avatar uri={cancelTarget.driverAvatar} name={cancelTarget.driver} size={40} bg={c.primaryLight} fg={c.primary} />
                     <View style={styles.flex1}>
                       <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>
                         {cancelTarget.driver}
@@ -591,12 +559,11 @@ export function MyRidesScreen() {
                   </Svg>
                   <View style={styles.flex1}>
                     <Text style={{ fontSize: 13, fontWeight: '700', color: '#92400E', marginBottom: 2 }}>
-                      Cancellation Policy
+                      Refund
                     </Text>
                     <Text style={{ fontSize: 12, color: '#92400E', lineHeight: 18 }}>
-                      {cancelTarget.status === 'confirmed'
-                        ? 'This ride departs soon. A ₹20 cancellation fee may apply.'
-                        : "Free cancellation — this ride hasn't been confirmed yet."}
+                      There is no cancellation fee. The full amount goes back to your wallet or original
+                      payment method.
                     </Text>
                   </View>
                 </View>
@@ -604,12 +571,12 @@ export function MyRidesScreen() {
 
               {/* Action buttons */}
               <View style={styles.sheetActions}>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={closeCancel}
                   disabled={cancelling}
                   style={[styles.keepBtn, { opacity: cancelling ? 0.5 : 1 }]}
                 >
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151' }}>Keep Ride</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151' }}>Keep ride</Text>
                 </Pressable>
                 <AnimatedPressable
                   onPress={confirmCancel}
@@ -684,7 +651,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 10,
   },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   divider: { height: 1 },
   cardBody: { padding: 16, paddingTop: 14 },
 
