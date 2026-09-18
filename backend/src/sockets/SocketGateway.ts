@@ -1,13 +1,13 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import jwt from 'jsonwebtoken';
+import { Types } from 'mongoose';
 import { config } from '../config';
 import { getRedisPub, getRedisSub, getRedisClient } from '../config/redis';
-import { JWTPayload, LocationUpdate, DistanceMilestone } from '../types';
+import { UnifiedAuthService } from '../auth';
+import { LocationUpdate, DistanceMilestone } from '../types';
 import { Message } from '../models/Message';
-import { Booking } from '../models/Booking';
-import { EmergencyRecord } from '../models/EmergencyRecord';
+import { Booking, IBooking } from '../models/Booking';
 import { haversineDistanceKm } from '../utils/helpers';
 import { AuthorizationError, ConflictError, NotFoundError } from '../utils/AppError';
 import { logger } from '../utils/logger';
@@ -17,6 +17,7 @@ import { BookingStatus, UserCapability } from '../types';
 interface AuthenticatedSocket extends Socket {
   userId: string;
   sessionId: string;
+  capabilities: UserCapability[];
 }
 
 interface DriverLocationInput {
@@ -48,6 +49,18 @@ interface DriverLocationResult {
 export class SocketGateway {
   private static instance: SocketGateway | null = null;
   private io!: Server;
+  private readonly auth = new UnifiedAuthService();
+
+  static resetInstanceForTests(): void {
+    if (SocketGateway.instance?.io) {
+      try {
+        SocketGateway.instance.io.close();
+      } catch {
+        // ignore test cleanup errors
+      }
+    }
+    SocketGateway.instance = null;
+  }
 
   static getInstance(httpServer?: HttpServer): SocketGateway {
     if (!SocketGateway.instance) {
@@ -55,6 +68,8 @@ export class SocketGateway {
       if (httpServer) {
         SocketGateway.instance.initialize(httpServer);
       }
+    } else if (httpServer && !SocketGateway.instance.io) {
+      SocketGateway.instance.initialize(httpServer);
     }
     return SocketGateway.instance;
   }
@@ -98,19 +113,14 @@ export class SocketGateway {
           return next(new Error('Authentication required'));
         }
 
-        const payload = jwt.verify(token, config.jwt.accessSecret) as JWTPayload;
+        // Same verification as REST: signature, session, blacklist, and
+        // capabilities loaded from the database rather than trusted from the token.
+        const result = await this.auth.authenticate(token);
 
-        // Verify session in Redis (skip if Redis unavailable)
-        const redis = getRedisClient();
-        if (redis) {
-          const sessionExists = await redis.exists(`session:${payload.userId}:${payload.sessionId}`);
-          if (!sessionExists) {
-            return next(new Error('Session expired'));
-          }
-        }
-
-        (socket as AuthenticatedSocket).userId = payload.userId;
-        (socket as AuthenticatedSocket).sessionId = payload.sessionId;
+        const authSocket = socket as AuthenticatedSocket;
+        authSocket.userId = result.user._id.toString();
+        authSocket.sessionId = result.sessionId || 'firebase';
+        authSocket.capabilities = result.user.capabilities;
 
         next();
       } catch {
@@ -192,9 +202,20 @@ export class SocketGateway {
     /**
      * Join tracking room for a booking.
      */
-    socket.on('tracking:join', (bookingId: string) => {
-      socket.join(`tracking:${bookingId}`);
-      logger.debug('Joined tracking room', { userId: socket.userId, bookingId });
+    socket.on('tracking:join', async (bookingId: string) => {
+      try {
+        // Live driver location is sensitive: only the booking's rider and driver may subscribe.
+        const booking = await this.findParticipantBooking(bookingId, socket.userId);
+        if (!booking) {
+          socket.emit('tracking:error', { message: 'Not authorized to track this booking' });
+          return;
+        }
+        socket.join(`tracking:${bookingId}`);
+        logger.debug('Joined tracking room', { userId: socket.userId, bookingId });
+      } catch (error) {
+        logger.error('Tracking join error', { error: (error as Error).message });
+        socket.emit('tracking:error', { message: 'Failed to join tracking' });
+      }
     });
 
     socket.on('tracking:leave', (bookingId: string) => {
@@ -460,58 +481,31 @@ export class SocketGateway {
      */
     socket.on('chat:messages:read', async (data: { bookingId: string }) => {
       try {
+        const booking = await this.findParticipantBooking(data?.bookingId, socket.userId);
+        if (!booking) return;
+
         await Message.updateMany(
-          { booking: data.bookingId, receiver: socket.userId, isRead: false },
+          { booking: booking._id, receiver: socket.userId, isRead: false },
           { $set: { isRead: true, readAt: new Date() } },
         );
 
         // Notify sender that messages were read
-        const booking = await Booking.findById(data.bookingId);
-        if (booking) {
-          const otherUserId =
-            booking.rider.toString() === socket.userId
-              ? booking.driver.toString()
-              : booking.rider.toString();
-
-          this.io.to(`user:${otherUserId}`).emit('chat:messages:read', {
-            bookingId: data.bookingId,
-            readBy: socket.userId,
-          });
-        }
+        this.io.to(`user:${this.counterpartOf(booking, socket.userId)}`).emit('chat:messages:read', {
+          bookingId: data.bookingId,
+          readBy: socket.userId,
+        });
       } catch (error) {
         logger.error('Chat read error', { error: (error as Error).message });
       }
     });
     // typing indicator
-socket.on('chat:typing:start', async (data: { bookingId: string }) => {
-  const booking = await Booking.findById(data.bookingId);
-  if (!booking) return;
+    socket.on('chat:typing:start', (data: { bookingId: string }) => {
+      this.relayTyping(socket, data?.bookingId, 'chat:typing');
+    });
 
-  const otherUserId =
-    booking.rider.toString() === socket.userId
-      ? booking.driver.toString()
-      : booking.rider.toString();
-
-  this.io.to(`user:${otherUserId}`).emit('chat:typing', {
-    bookingId: data.bookingId,
-    userId: socket.userId,
-  });
-});
-
-socket.on('chat:typing:stop', async (data: { bookingId: string }) => {
-  const booking = await Booking.findById(data.bookingId);
-  if (!booking) return;
-
-  const otherUserId =
-    booking.rider.toString() === socket.userId
-      ? booking.driver.toString()
-      : booking.rider.toString();
-
-  this.io.to(`user:${otherUserId}`).emit('chat:typing:stop', {
-    bookingId: data.bookingId,
-    userId: socket.userId,
-  });
-});
+    socket.on('chat:typing:stop', (data: { bookingId: string }) => {
+      this.relayTyping(socket, data?.bookingId, 'chat:typing:stop');
+    });
   }
 
   // ─── SOS ───────────────────────────────────────────────────────────────────
@@ -557,19 +551,17 @@ socket.on('chat:typing:stop', async (data: { bookingId: string }) => {
     }) => {
       try {
         const { emergencyId, location } = data;
+        if (
+          !Types.ObjectId.isValid(emergencyId) ||
+          !Number.isFinite(location?.lng) || Math.abs(location.lng) > 180 ||
+          !Number.isFinite(location?.lat) || Math.abs(location.lat) > 90
+        ) {
+          return;
+        }
 
-        const record = await EmergencyRecord.findById(emergencyId);
-        if (!record || record.triggeredBy.toString() !== socket.userId) return;
-
-        // Add to location history
-        record.locationHistory.push({
-          location: {
-            type: 'Point',
-            coordinates: [location.lng, location.lat],
-          },
-          timestamp: new Date(),
-        });
-        await record.save();
+        // Shared with REST: verifies the socket user raised this SOS and refreshes monitoring.
+        const { SafetyService } = await import('../services/SafetyService');
+        await new SafetyService().updateSOSLocation(emergencyId, socket.userId, location);
 
         // Broadcast to admin dashboard
         this.io.to('admin:sos').emit('sos:location:updated', {
@@ -594,24 +586,46 @@ socket.on('chat:typing:stop', async (data: { bookingId: string }) => {
      * Only users with ADMIN capability can join.
      */
     socket.on('admin:sos:join', () => {
-      // Verify the user has admin capability before allowing join
-      // We need to look up capabilities from JWT payload
-      // The JWT token was already validated in the auth middleware
-      const token = socket.handshake.auth.token ||
-        socket.handshake.headers.authorization?.replace('Bearer ', '');
-      try {
-        const payload = jwt.verify(token!, config.jwt.accessSecret) as JWTPayload;
-        if (!payload.capabilities?.includes(UserCapability.ADMIN)) {
-          socket.emit('error', { message: 'Admin access required' });
-          logger.warn('Non-admin tried to join SOS monitoring', { userId: socket.userId });
-          return;
-        }
-        socket.join('admin:sos');
-        logger.info('Admin joined SOS monitoring', { userId: socket.userId });
-      } catch {
-        socket.emit('error', { message: 'Authentication failed' });
+      // Capabilities were loaded from the database when the socket authenticated.
+      if (!socket.capabilities?.includes(UserCapability.ADMIN)) {
+        socket.emit('error', { message: 'Admin access required' });
+        logger.warn('Non-admin tried to join SOS monitoring', { userId: socket.userId });
+        return;
       }
+      socket.join('admin:sos');
+      logger.info('Admin joined SOS monitoring', { userId: socket.userId });
     });
+  }
+
+  /**
+   * Returns the booking only if the user is its rider or driver.
+   */
+  private async findParticipantBooking(bookingId: unknown, userId: string): Promise<IBooking | null> {
+    if (typeof bookingId !== 'string' || !Types.ObjectId.isValid(bookingId)) return null;
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return null;
+    const isParticipant =
+      booking.rider.toString() === userId || booking.driver.toString() === userId;
+    return isParticipant ? booking : null;
+  }
+
+  private counterpartOf(booking: IBooking, userId: string): string {
+    return booking.rider.toString() === userId
+      ? booking.driver.toString()
+      : booking.rider.toString();
+  }
+
+  private async relayTyping(socket: AuthenticatedSocket, bookingId: string, event: string): Promise<void> {
+    try {
+      const booking = await this.findParticipantBooking(bookingId, socket.userId);
+      if (!booking) return;
+      this.io.to(`user:${this.counterpartOf(booking, socket.userId)}`).emit(event, {
+        bookingId,
+        userId: socket.userId,
+      });
+    } catch (error) {
+      logger.error('Typing indicator error', { error: (error as Error).message });
+    }
   }
 
   /**

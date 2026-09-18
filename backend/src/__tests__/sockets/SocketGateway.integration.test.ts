@@ -1,409 +1,316 @@
 /**
  * Integration tests for SocketGateway
- * Tests real-time flows:
- * - Real-time location tracking
+ * Runs a real Socket.io server and clients; persistence and auth are mocked.
+ * Covers:
+ * - Real-time location tracking (and who may subscribe to it)
  * - Live chat messaging
  * - SOS emergency handling
- * - Booking state synchronization
+ * - Presence on disconnect
+ * - Authorization
  */
 
-import { Server as HttpServer } from 'http';
+import { AddressInfo } from 'net';
+import { createServer, Server as HttpServer } from 'http';
 import { Socket as ClientSocket, io } from 'socket.io-client';
-import { Server } from 'socket.io';
-import { createServer } from 'http';
 import { Booking } from '../../models/Booking';
-import { EmergencyRecord } from '../../models/EmergencyRecord';
 import { Message } from '../../models/Message';
 import { SocketGateway } from '../../sockets/SocketGateway';
 import { EventBridge } from '../../events';
 import { BookingStatus } from '../../types';
 
+const RIDER_ID = '64b7f0c2a1b2c3d4e5f60001';
+const DRIVER_ID = '64b7f0c2a1b2c3d4e5f60002';
+const ADMIN_ID = '64b7f0c2a1b2c3d4e5f60003';
+const STRANGER_ID = '64b7f0c2a1b2c3d4e5f60004';
+const BOOKING_ID = '64b7f0c2a1b2c3d4e5f6b001';
+const EMERGENCY_ID = '64b7f0c2a1b2c3d4e5f6e001';
+
+const USERS: Record<string, { _id: string; capabilities: string[] }> = {
+  'rider-token': { _id: RIDER_ID, capabilities: ['rider'] },
+  'driver-token': { _id: DRIVER_ID, capabilities: ['driver'] },
+  'admin-token': { _id: ADMIN_ID, capabilities: ['rider', 'admin'] },
+  'stranger-token': { _id: STRANGER_ID, capabilities: ['rider'] },
+};
+
+jest.mock('../../auth', () => ({
+  UnifiedAuthService: jest.fn().mockImplementation(() => ({
+    authenticate: jest.fn(async (token: string) => {
+      const user = USERS[token];
+      if (!user) throw new Error('Invalid token');
+      return { user: { ...user, _id: { toString: () => user._id } }, sessionId: `session-${user._id}` };
+    }),
+  })),
+}));
+jest.mock('../../config/redis', () => ({
+  getRedisClient: () => null,
+  getRedisPub: () => null,
+  getRedisSub: () => null,
+}));
+jest.mock('../../models/Booking');
+jest.mock('../../models/Message');
+jest.mock('../../events', () => ({ EventBridge: { publish: jest.fn() } }));
+jest.mock('../../services/NotificationService', () => ({
+  NotificationService: jest.fn().mockImplementation(() => ({
+    sendPushNotification: jest.fn().mockResolvedValue(undefined),
+    createNotification: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+const mockTriggerSOS = jest.fn();
+const mockUpdateSOSLocation = jest.fn();
+jest.mock('../../services/SafetyService', () => ({
+  SafetyService: jest.fn().mockImplementation(() => ({
+    triggerSOS: mockTriggerSOS,
+    updateSOSLocation: mockUpdateSOSLocation,
+  })),
+}));
+
+const booking = {
+  _id: BOOKING_ID,
+  rider: RIDER_ID,
+  driver: DRIVER_ID,
+  status: BookingStatus.CONFIRMED,
+  pickup: { location: { type: 'Point', coordinates: [77.1, 28.7] } },
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+let url = '';
+const openSockets: ClientSocket[] = [];
+
+function connect(token?: string): Promise<ClientSocket> {
+  const socket = io(url, {
+    auth: token ? { token } : {},
+    transports: ['websocket'],
+    reconnection: false,
+    forceNew: true,
+  });
+  openSockets.push(socket);
+  return new Promise((resolve, reject) => {
+    socket.once('connect', () => resolve(socket));
+    socket.once('connect_error', reject);
+  });
+}
+
+function waitFor<T>(socket: ClientSocket, event: string, timeoutMs = 2000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timed out waiting for "${event}"`)), timeoutMs);
+    socket.once(event, (data: T) => {
+      clearTimeout(timer);
+      resolve(data);
+    });
+  });
+}
+
+function expectNoEvent(socket: ClientSocket, event: string, windowMs = 300): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const handler = () => reject(new Error(`Unexpected "${event}"`));
+    socket.once(event, handler);
+    setTimeout(() => {
+      socket.off(event, handler);
+      resolve();
+    }, windowMs);
+  });
+}
+
+const tick = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// ── Suite ────────────────────────────────────────────────────────────────────
+
 describe('SocketGateway Integration Tests', () => {
   let httpServer: HttpServer;
-  let socketGateway: SocketGateway;
-  let clientSocket: ClientSocket;
-  let riderSocket: ClientSocket;
-  let driverSocket: ClientSocket;
-
-  const TEST_PORT = 3001;
-  const TEST_URL = `http://localhost:${TEST_PORT}`;
-
-  const DRIVER_JWT =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkcml2ZXIxMjMiLCJwaG9uZSI6IisxMjM0NTY3ODkwIiwiY2FwYWJpbGl0aWVzIjpbImRyaXZlciJdLCJkcml2ZXJWZXJpZmllZCI6dHJ1ZSwic2Vzc2lvbklkIjoic2Vzc2lkMSJ9.sig';
-  const RIDER_JWT =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJyaWRlcjEyMyIsInBob25lIjoiKzEyMzQ1Njc4OTEiLCJjYXBhYmlsaXRpZXMiOlsicmlkZXIiXSwiZHJpdmVyVmVyaWZpZWQiOmZhbHNlLCJzZXNzaW9uSWQiOiJzZXNzaWQyIn0.sig';
 
   beforeAll((done) => {
+    SocketGateway.resetInstanceForTests();
     httpServer = createServer();
-    socketGateway = SocketGateway.getInstance(httpServer);
-
-    httpServer.listen(TEST_PORT, () => {
+    SocketGateway.getInstance(httpServer);
+    httpServer.listen(0, () => {
+      url = `http://localhost:${(httpServer.address() as AddressInfo).port}`;
       done();
     });
   });
 
-  afterAll((done) => {
-    if (clientSocket) clientSocket.disconnect();
-    if (riderSocket) riderSocket.disconnect();
-    if (driverSocket) driverSocket.disconnect();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (Booking.findById as jest.Mock).mockImplementation(async (id: string) =>
+      String(id) === BOOKING_ID ? booking : null,
+    );
+    (Booking.find as jest.Mock).mockReturnValue({
+      select: () => ({ lean: async () => [booking] }),
+    });
+  });
 
-    httpServer.close(done);
+  afterEach(() => {
+    while (openSockets.length) openSockets.pop()!.disconnect();
+  });
+
+  afterAll((done) => {
+    SocketGateway.resetInstanceForTests();
+    httpServer.close(() => done());
   });
 
   describe('Real-time Location Tracking', () => {
-    it('should broadcast driver location to rider in real-time', (done) => {
-      const bookingId = 'booking123';
-      const location = { lng: 77.1025, lat: 28.7041 };
+    it('should broadcast driver location to a rider tracking the booking', async () => {
+      const rider = await connect('rider-token');
+      const driver = await connect('driver-token');
+      rider.emit('tracking:join', BOOKING_ID);
+      await tick();
 
-      jest.spyOn(Booking, 'findById').mockResolvedValueOnce({
-        _id: bookingId,
-        driver: 'driver123',
-        rider: 'rider123',
-        status: BookingStatus.CONFIRMED,
-      } as any);
-
-      driverSocket = io(TEST_URL, {
-        auth: { token: DRIVER_JWT },
+      const received = waitFor<{ location: unknown; driverId: string; bookingId: string }>(
+        rider,
+        'driver:location:updated',
+      );
+      driver.emit('driver:location:update', {
+        bookingId: BOOKING_ID,
+        location: { type: 'Point', coordinates: [77.1025, 28.7041] },
+        speed: 45,
+        heading: 120,
+        accuracy: 10,
+        timestamp: Date.now(),
       });
 
-      riderSocket = io(TEST_URL, {
-        auth: { token: RIDER_JWT },
-      });
-
-      riderSocket.on('connect', () => {
-        riderSocket.emit('tracking:join', bookingId);
-
-        riderSocket.on('driver:location:updated', (data) => {
-          expect(data.location).toEqual(location);
-          expect(data.driverId).toBe('driver123');
-          expect(data.bookingId).toBe(bookingId);
-          done();
-        });
-
-        driverSocket.on('connect', () => {
-          driverSocket.emit('driver:location:update', {
-            bookingId,
-            location: { coordinates: [location.lng, location.lat], type: 'Point' },
-            speed: 45,
-            heading: 120,
-            accuracy: 10,
-            timestamp: Date.now(),
-          });
-        });
-      });
+      const data = await received;
+      expect(data.location).toEqual({ lng: 77.1025, lat: 28.7041 });
+      expect(data.driverId).toBe(DRIVER_ID);
+      expect(data.bookingId).toBe(BOOKING_ID);
     });
 
-    it('should track multiple location updates and calculate distance milestones', (done) => {
-      const bookingId = 'booking456';
-      const locations = [
-        { lng: 77.1, lat: 28.7 },
-        { lng: 77.11, lat: 28.71 },
-        { lng: 77.12, lat: 28.72 },
-      ];
+    it('should emit a distance milestone and publish the location event', async () => {
+      const rider = await connect('rider-token');
+      const driver = await connect('driver-token');
 
-      jest.spyOn(EventBridge, 'publish');
-
-      driverSocket = io(TEST_URL, {
-        auth: { token: DRIVER_JWT },
+      const milestone = waitFor<{ message: string }>(rider, 'driver:milestone');
+      driver.emit('driver:location:update', {
+        bookingId: BOOKING_ID,
+        location: { type: 'Point', coordinates: [77.11, 28.71] },
+        speed: 30,
+        timestamp: Date.now(),
       });
 
-      driverSocket.on('connect', () => {
-        let updateCount = 0;
+      expect((await milestone).message).toMatch(/^Driver is /);
+      expect(EventBridge.publish).toHaveBeenCalledWith(
+        'location-events',
+        expect.objectContaining({ eventType: 'driver.location.updated' }),
+      );
+    });
 
-        driverSocket.on('driver:milestone', (data) => {
-          if (data.message.includes('Driver is')) {
-            expect(EventBridge.publish).toHaveBeenCalledWith(
-              'location-events',
-              expect.objectContaining({
-                eventType: 'driver.location.updated',
-              })
-            );
-            done();
-          }
-        });
+    it('should not let a non-participant subscribe to live tracking', async () => {
+      const stranger = await connect('stranger-token');
+      const driver = await connect('driver-token');
 
-        // Send multiple location updates
-        locations.forEach((loc) => {
-          setTimeout(() => {
-            driverSocket.emit('driver:location:update', {
-              bookingId,
-              location: { coordinates: [loc.lng, loc.lat], type: 'Point' },
-              timestamp: Date.now(),
-            });
-          }, updateCount++ * 100);
-        });
+      const refused = waitFor<{ message: string }>(stranger, 'tracking:error');
+      stranger.emit('tracking:join', BOOKING_ID);
+      expect((await refused).message).toBe('Not authorized to track this booking');
+
+      const silence = expectNoEvent(stranger, 'driver:location:updated');
+      driver.emit('driver:location:update', {
+        bookingId: BOOKING_ID,
+        location: { type: 'Point', coordinates: [77.1, 28.7] },
+        timestamp: Date.now(),
       });
+      await silence;
     });
   });
 
   describe('Live Chat Messaging', () => {
-    it('should send and receive messages in real-time', (done) => {
-      const bookingId = 'booking789';
-      const message = 'Where are you located?';
+    it('should send and receive messages in real-time', async () => {
+      (Message.create as jest.Mock).mockResolvedValue({ _id: 'msg1', createdAt: new Date() });
+      const rider = await connect('rider-token');
+      const driver = await connect('driver-token');
 
-      riderSocket = io(TEST_URL, {
-        auth: { token: RIDER_JWT },
-      });
+      const received = waitFor<{ content: string; senderId: string }>(driver, 'chat:message:receive');
+      rider.emit('chat:message:send', { bookingId: BOOKING_ID, content: 'Where are you located?' });
 
-      driverSocket = io(TEST_URL, {
-        auth: { token: DRIVER_JWT },
-      });
-
-      jest.spyOn(Message, 'create').mockResolvedValueOnce({
-        _id: 'msg1',
-        booking: bookingId,
-        sender: 'rider123',
-        text: message,
-        createdAt: new Date(),
-      } as any);
-
-      riderSocket.on('connect', () => {
-        riderSocket.emit('tracking:join', bookingId);
-
-        driverSocket.on('connect', () => {
-          driverSocket.emit('tracking:join', bookingId);
-
-          driverSocket.on('chat:message:receive', (data) => {
-            expect(data.content).toBe(message);
-            expect(data.senderId).toBe('rider123');
-            done();
-          });
-
-          riderSocket.emit('chat:message:send', {
-            bookingId,
-            content: message,
-          });
-        });
-      });
+      const data = await received;
+      expect(data.content).toBe('Where are you located?');
+      expect(data.senderId).toBe(RIDER_ID);
     });
 
-    it('should mark messages as read', (done) => {
-      const bookingId = 'booking101';
+    it('should mark messages as read for a participant only', async () => {
+      const rider = await connect('rider-token');
+      const stranger = await connect('stranger-token');
 
-      jest.spyOn(Message, 'updateMany');
+      stranger.emit('chat:messages:read', { bookingId: BOOKING_ID });
+      await tick();
+      expect(Message.updateMany).not.toHaveBeenCalled();
 
-      riderSocket = io(TEST_URL, {
-        auth: { token: RIDER_JWT },
-      });
-
-      riderSocket.on('connect', () => {
-        riderSocket.emit('tracking:join', bookingId);
-
-        riderSocket.emit('chat:messages:read', { bookingId });
-
-        setTimeout(() => {
-          expect(Message.updateMany).toHaveBeenCalledWith(
-            expect.objectContaining({
-              booking: bookingId,
-              receiver: 'rider123',
-            }),
-            { $set: expect.objectContaining({ isRead: true }) }
-          );
-          done();
-        }, 100);
-      });
+      rider.emit('chat:messages:read', { bookingId: BOOKING_ID });
+      await tick();
+      expect(Message.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ booking: BOOKING_ID, receiver: RIDER_ID }),
+        { $set: expect.objectContaining({ isRead: true }) },
+      );
     });
   });
 
   describe('SOS Emergency Handling', () => {
-    it('should broadcast SOS alert to admin and counterpart', (done) => {
-      const emergencyId = 'emergency123';
-      const bookingId = 'booking202';
+    it('should broadcast an SOS alert to admins monitoring SOS', async () => {
+      mockTriggerSOS.mockResolvedValue({ _id: EMERGENCY_ID, liveTrackingUrl: 'https://example.com/t' });
+      const admin = await connect('admin-token');
+      admin.emit('admin:sos:join');
+      await tick();
 
-      jest.spyOn(EmergencyRecord, 'findById').mockResolvedValueOnce({
-        _id: emergencyId,
-        booking: bookingId,
-        status: 'triggered',
-        location: { lng: 77.1, lat: 28.7 },
-      } as any);
+      const rider = await connect('rider-token');
+      const alert = waitFor<{ emergencyId: string }>(admin, 'sos:alert');
+      rider.emit('sos:trigger', { bookingId: BOOKING_ID, location: { lng: 77.1, lat: 28.7 } });
 
-      jest.spyOn(Booking, 'findById').mockResolvedValueOnce({
-        _id: bookingId,
-        rider: 'rider123',
-        driver: 'driver123',
-      } as any);
-
-      const adminSocket = io(TEST_URL, {
-        auth: {
-          token: 'admin_jwt_token',
-        },
-      });
-
-      riderSocket = io(TEST_URL, {
-        auth: { token: RIDER_JWT },
-      });
-
-      adminSocket.on('connect', () => {
-        adminSocket.emit('join-room', { room: 'admin:sos' });
-
-        riderSocket.on('connect', () => {
-          riderSocket.emit('sos:trigger', {
-            bookingId,
-            location: { lng: 77.1, lat: 28.7 },
-          });
-
-          adminSocket.on('sos:alert', (data: any) => {
-            expect(data.emergencyId).toBe(emergencyId);
-            adminSocket.disconnect();
-            riderSocket.disconnect();
-            done();
-          });
-        });
-      });
+      expect((await alert).emergencyId).toBe(EMERGENCY_ID);
+      expect(mockTriggerSOS).toHaveBeenCalledWith(RIDER_ID, expect.objectContaining({ bookingId: BOOKING_ID }));
     });
 
-    it('should track SOS location updates', (done) => {
-      const emergencyId = 'emergency456';
-      const locations = [
-        { lng: 77.1, lat: 28.7 },
-        { lng: 77.105, lat: 28.705 },
-      ];
+    it('should relay SOS location updates through the ownership-checked service', async () => {
+      mockUpdateSOSLocation.mockResolvedValue(undefined);
+      const admin = await connect('admin-token');
+      admin.emit('admin:sos:join');
+      await tick();
 
-      jest.spyOn(EmergencyRecord, 'findById').mockResolvedValue({
-        _id: emergencyId,
-        status: 'triggered',
-        triggeredBy: 'rider123',
-        locationHistory: [],
-        save: jest.fn().mockResolvedValue(true),
-      } as any);
+      const rider = await connect('rider-token');
+      const update = waitFor<{ location: unknown }>(admin, 'sos:location:updated');
+      rider.emit('sos:location:update', { emergencyId: EMERGENCY_ID, location: { lng: 77.105, lat: 28.705 } });
 
-      const adminSocket = io(TEST_URL, {
-        auth: { token: 'admin_jwt_token' },
-      });
+      expect((await update).location).toEqual({ lng: 77.105, lat: 28.705 });
+      expect(mockUpdateSOSLocation).toHaveBeenCalledWith(EMERGENCY_ID, RIDER_ID, { lng: 77.105, lat: 28.705 });
+    });
 
-      adminSocket.on('connect', () => {
-        adminSocket.emit('admin:sos:join');
+    it('should not broadcast SOS location when the service rejects the sender', async () => {
+      mockUpdateSOSLocation.mockRejectedValue(new Error('You do not have access to update this SOS record'));
+      const admin = await connect('admin-token');
+      admin.emit('admin:sos:join');
+      await tick();
 
-        let updateCount = 0;
-
-        adminSocket.on('sos:location:updated', (data) => {
-          updateCount++;
-          if (updateCount === locations.length) {
-            expect(data.location).toEqual(locations[locations.length - 1]);
-            adminSocket.disconnect();
-            done();
-          }
-        });
-
-        riderSocket = io(TEST_URL, {
-          auth: { token: RIDER_JWT },
-        });
-
-        riderSocket.on('connect', () => {
-          locations.forEach((loc, idx) => {
-            setTimeout(() => {
-              riderSocket.emit('sos:location:update', {
-                emergencyId,
-                location: loc,
-              });
-            }, idx * 100);
-          });
-        });
-      });
+      const stranger = await connect('stranger-token');
+      const silence = expectNoEvent(admin, 'sos:location:updated');
+      stranger.emit('sos:location:update', { emergencyId: EMERGENCY_ID, location: { lng: 1, lat: 1 } });
+      await silence;
     });
   });
 
-  describe('Booking State Synchronization', () => {
-    it('should sync booking status changes to all participants', (done) => {
-      const bookingId = 'booking303';
+  describe('Presence', () => {
+    it('should notify the booking counterpart when a user disconnects', async () => {
+      const rider = await connect('rider-token');
+      const driver = await connect('driver-token');
 
-      jest.spyOn(Booking, 'findById').mockResolvedValueOnce({
-        _id: bookingId,
-        rider: 'rider123',
-        driver: 'driver123',
-        status: BookingStatus.CONFIRMED,
-      } as any);
+      const offline = waitFor<{ userId: string }>(rider, 'user:offline');
+      driver.disconnect();
 
-      riderSocket = io(TEST_URL, {
-        auth: { token: RIDER_JWT },
-      });
-
-      driverSocket = io(TEST_URL, {
-        auth: { token: DRIVER_JWT },
-      });
-
-      let syncCount = 0;
-
-      riderSocket.on('booking-status-changed', (data) => {
-        expect(data.status).toBe(BookingStatus.IN_PROGRESS);
-        syncCount++;
-        if (syncCount === 2) done();
-      });
-
-      driverSocket.on('booking-status-changed', (data) => {
-        expect(data.status).toBe(BookingStatus.IN_PROGRESS);
-        syncCount++;
-        if (syncCount === 2) done();
-      });
-
-      riderSocket.on('connect', () => {
-        riderSocket.emit('tracking:join', bookingId);
-
-        driverSocket.on('connect', () => {
-          driverSocket.emit('tracking:join', bookingId);
-
-          // Simulate status change
-          // We'll use the counterparts notification logic
-        });
-      });
-    });
-
-    it('should handle rider and driver disconnection gracefully', (done) => {
-      const bookingId = 'booking404';
-
-      riderSocket = io(TEST_URL, {
-        auth: { token: RIDER_JWT },
-      });
-
-      driverSocket = io(TEST_URL, {
-        auth: { token: DRIVER_JWT },
-      });
-
-      riderSocket.on('connect', () => {
-        riderSocket.emit('tracking:join', bookingId);
-
-        driverSocket.on('connect', () => {
-          driverSocket.emit('tracking:join', bookingId);
-
-          // Wait a moment then disconnect driver
-          setTimeout(() => {
-            riderSocket.on('user:offline', (data) => {
-              expect(data.userId).toBe('driver123');
-              done();
-            });
-
-            driverSocket.disconnect();
-          }, 100);
-        });
-      });
+      expect((await offline).userId).toBe(DRIVER_ID);
     });
   });
 
   describe('Authorization and Security', () => {
-    it('should reject unauthenticated connections', (done) => {
-      const unauthSocket = io(TEST_URL);
-
-      unauthSocket.on('connect_error', (error) => {
-        expect(error.message).toContain('Authentication required');
-        unauthSocket.disconnect();
-        done();
-      });
+    it('should reject unauthenticated connections', async () => {
+      await expect(connect()).rejects.toThrow('Authentication required');
     });
 
-    it('should prevent riders from joining admin-only rooms', (done) => {
-      riderSocket = io(TEST_URL, {
-        auth: { token: RIDER_JWT },
-      });
+    it('should reject invalid tokens', async () => {
+      await expect(connect('forged-token')).rejects.toThrow('Invalid token');
+    });
 
-      riderSocket.on('connect', () => {
-        riderSocket.emit('admin:sos:join');
-
-        riderSocket.on('error', (error) => {
-          expect(error.message).toContain('Admin access required');
-          riderSocket.disconnect();
-          done();
-        });
-      });
+    it('should prevent riders from joining admin-only rooms', async () => {
+      const rider = await connect('rider-token');
+      const refused = waitFor<{ message: string }>(rider, 'error');
+      rider.emit('admin:sos:join');
+      expect((await refused).message).toContain('Admin access required');
     });
   });
 });
