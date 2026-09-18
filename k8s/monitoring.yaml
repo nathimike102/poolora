@@ -82,10 +82,17 @@ spec:
         ports:
         - containerPort: 3000
         env:
+        # Not exposed publicly. Reach it with:
+        #   kubectl -n sanchari port-forward svc/grafana 3000:3000
         - name: GF_SECURITY_ADMIN_PASSWORD
-          value: "sanchari-admin"
-        - name: GF_SERVER_ROOT_URL
-          value: "https://grafana.sanchari.me"
+          valueFrom:
+            secretKeyRef:
+              name: sanchari-secrets
+              key: GRAFANA_ADMIN_PASSWORD
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "false"
         - name: GF_INSTALL_PLUGINS
           value: "grafana-piechart-panel"
         volumeMounts:

@@ -1,3 +1,7 @@
+# Single Redis instance with a password. Sessions, OTPs and rate limits must be
+# read from the same place they were written, so independent unreplicated
+# copies behind one service are not safe. For HA, move to Redis Sentinel or a
+# managed Redis rather than raising replicas here.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -5,7 +9,7 @@ metadata:
   namespace: sanchari
 spec:
   serviceName: redis
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: redis
@@ -22,7 +26,18 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
-        command: ["redis-server", "--appendonly", "yes"]
+        command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$REDIS_PASSWORD\""]
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sanchari-secrets
+              key: REDIS_PASSWORD
+        readinessProbe:
+          exec:
+            command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+          initialDelaySeconds: 5
+          periodSeconds: 10
         resources:
           requests:
             cpu: 100m

@@ -1,3 +1,4 @@
+# Backend: reachable from the ingress controller and Prometheus only.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -12,20 +13,26 @@ spec:
   - Egress
   ingress:
   - from:
-    - podSelector:
-        matchLabels:
-          app: sanchari-frontend
-    ports:
-    - protocol: TCP
-      port: 3000
-  - from:
     - namespaceSelector:
         matchLabels:
-          name: ingress-nginx
+          kubernetes.io/metadata.name: ingress-nginx
+    - podSelector:
+        matchLabels:
+          app: prometheus
     ports:
     - protocol: TCP
-      port: 3000
+      port: 5002
   egress:
+  # Cluster DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
   - to:
     - podSelector:
         matchLabels:
@@ -54,3 +61,105 @@ spec:
     ports:
     - protocol: TCP
       port: 9200
+  - to:
+    - podSelector:
+        matchLabels:
+          app: sanchari-ml
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Third-party HTTPS APIs (Razorpay, Twilio, Google, Firebase, S3, Sentry)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# ML service: internal only, called by the backend.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sanchari-ml-policy
+  namespace: sanchari
+spec:
+  podSelector:
+    matchLabels:
+      app: sanchari-ml
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: sanchari-backend
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 8000
+
+---
+# MongoDB: application pods, replica set peers and the init/backup jobs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mongodb-policy
+  namespace: sanchari
+spec:
+  podSelector:
+    matchLabels:
+      app: mongodb
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: sanchari-backend
+    - podSelector:
+        matchLabels:
+          app: sanchari-ml
+    - podSelector:
+        matchLabels:
+          app: mongodb
+    - podSelector:
+        matchLabels:
+          app: db-init
+    - podSelector:
+        matchLabels:
+          app: mongodb-backup
+    ports:
+    - protocol: TCP
+      port: 27017
+
+---
+# Redis: application pods only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-policy
+  namespace: sanchari
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: sanchari-backend
+    - podSelector:
+        matchLabels:
+          app: sanchari-ml
+    ports:
+    - protocol: TCP
+      port: 6379

@@ -1,38 +1,106 @@
+# Daily MongoDB backup, stored off-cluster in S3.
+#
+# Retention is enforced by an S3 lifecycle rule on the bucket (expire objects
+# under mongodb/ after 30 days), so a compromised cluster can't delete history
+# if the backup credentials are limited to s3:PutObject.
+#
+# Restore:
+#   aws s3 cp s3://$BUCKET/mongodb/<file>.archive.gz .
+#   mongorestore --uri "$MONGO_URI" --gzip --archive=<file>.archive.gz --drop
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: mongodb-backup
   namespace: sanchari
 spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM
+  schedule: "0 2 * * *"
+  timeZone: "Asia/Kolkata"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
   jobTemplate:
     spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 7200
       template:
+        metadata:
+          labels:
+            app: mongodb-backup
         spec:
-          containers:
-          - name: backup
+          restartPolicy: Never
+          initContainers:
+          - name: dump
             image: mongo:7.0
-            command:
-            - /bin/bash
-            - -c
+            command: ["bash", "-c"]
+            args:
             - |
-              mongodump --host mongodb-0.mongodb --db sanchari --out /backup/$(date +%Y%m%d_%H%M%S)
-            volumeMounts:
-            - name: backup-storage
-              mountPath: /backup
+              set -euo pipefail
+              mongodump --uri "$MONGO_URI" --readPreference=secondaryPreferred \
+                --gzip --archive="/work/sanchari-$(date -u +%Y%m%dT%H%M%SZ).archive.gz"
+              ls -l /work
             env:
-            - name: MONGO_INITDB_ROOT_USERNAME
+            - name: MONGO_URI
               valueFrom:
                 secretKeyRef:
-                  name: mongo-secret
-                  key: username
-            - name: MONGO_INITDB_ROOT_PASSWORD
+                  name: sanchari-secrets
+                  key: MONGO_URI
+            volumeMounts:
+            - name: work
+              mountPath: /work
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 1000m
+                memory: 1Gi
+          containers:
+          - name: upload
+            image: amazon/aws-cli:2.17.0
+            command: ["bash", "-c"]
+            args:
+            - |
+              set -euo pipefail
+              file=$(ls /work/*.archive.gz)
+              key="mongodb/$(basename "$file")"
+              aws s3 cp "$file" "s3://$BACKUP_S3_BUCKET/$key" --sse AES256
+              # Fail the job (and alert) if the object did not land
+              aws s3api head-object --bucket "$BACKUP_S3_BUCKET" --key "$key" >/dev/null
+              echo "uploaded s3://$BACKUP_S3_BUCKET/$key"
+            env:
+            - name: BACKUP_S3_BUCKET
               valueFrom:
                 secretKeyRef:
-                  name: mongo-secret
-                  key: password
+                  name: sanchari-secrets
+                  key: BACKUP_S3_BUCKET
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: sanchari-secrets
+                  key: BACKUP_AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sanchari-secrets
+                  key: BACKUP_AWS_SECRET_ACCESS_KEY
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: sanchari-secrets
+                  key: BACKUP_AWS_REGION
+            volumeMounts:
+            - name: work
+              mountPath: /work
+              readOnly: true
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
           volumes:
-          - name: backup-storage
-            persistentVolumeClaim:
-              claimName: shared-storage
-          restartPolicy: OnFailure
+          - name: work
+            emptyDir:
+              sizeLimit: 20Gi

@@ -1,29 +1,25 @@
+# Public entry point for the API only. The marketing site (sanchari.me) is
+# served by Vercel. The ML service and Grafana are internal and have no ingress.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: sanchari-ingress
   namespace: sanchari
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
-    nginx.ingress.kubernetes.io/websocket-services: "sanchari-backend"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header Upgrade $http_upgrade;
-      proxy_set_header Connection "upgrade";
+    # Long timeouts keep Socket.io websocket connections open
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - sanchari.me
-    - www.sanchari.me
-    - ml.sanchari.me
-    - grafana.sanchari.me
-    secretName: sanchari-tls
+    - api.sanchari.me
+    secretName: sanchari-api-tls
   rules:
-  - host: sanchari.me
+  - host: api.sanchari.me
     http:
       paths:
       - path: /
@@ -33,33 +29,3 @@ spec:
             name: sanchari-backend
             port:
               number: 5002
-  - host: www.sanchari.me
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: sanchari-backend
-            port:
-              number: 5002
-  - host: ml.sanchari.me
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: sanchari-ml
-            port:
-              number: 8000
-  - host: grafana.sanchari.me
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: grafana
-            port:
-              number: 3000

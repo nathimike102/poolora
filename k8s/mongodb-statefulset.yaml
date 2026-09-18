@@ -14,25 +14,64 @@ spec:
       labels:
         app: mongodb
     spec:
+      securityContext:
+        fsGroup: 999
+      initContainers:
+      # mongod refuses a keyfile readable by others and runs as uid 999, so copy
+      # the secret into an emptyDir with the ownership and mode it requires.
+      - name: keyfile
+        image: busybox:1.36
+        command: ["sh", "-c", "cp /keyfile-src/keyfile /keyfile/keyfile && chown 999:999 /keyfile/keyfile && chmod 400 /keyfile/keyfile"]
+        volumeMounts:
+        - name: keyfile-src
+          mountPath: /keyfile-src
+          readOnly: true
+        - name: keyfile
+          mountPath: /keyfile
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
       containers:
       - name: mongodb
         image: mongo:7.0
+        # Only member 0 creates the root user. Other members must start empty or
+        # rs.initiate rejects them; they receive the user through replication.
+        command: ["bash", "-c"]
+        args:
+        - |
+          if [ "${HOSTNAME##*-}" != "0" ]; then
+            unset MONGO_INITDB_ROOT_USERNAME MONGO_INITDB_ROOT_PASSWORD
+          fi
+          exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /keyfile/keyfile
         ports:
         - containerPort: 27017
         volumeMounts:
         - name: data
           mountPath: /data/db
+        - name: keyfile
+          mountPath: /keyfile
+          readOnly: true
         env:
         - name: MONGO_INITDB_ROOT_USERNAME
           valueFrom:
             secretKeyRef:
-              name: mongo-secret
-              key: username
+              name: sanchari-secrets
+              key: MONGO_USER
         - name: MONGO_INITDB_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: mongo-secret
-              key: password
+              name: sanchari-secrets
+              key: MONGO_PASS
+        readinessProbe:
+          exec:
+            command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
         resources:
           requests:
             cpu: 250m
@@ -40,6 +79,16 @@ spec:
           limits:
             cpu: 500m
             memory: 1Gi
+      volumes:
+      - name: keyfile-src
+        secret:
+          secretName: sanchari-secrets
+          items:
+          - key: MONGO_REPLICA_KEY
+            path: keyfile
+      - name: keyfile
+        emptyDir:
+          medium: Memory
   volumeClaimTemplates:
   - metadata:
       name: data

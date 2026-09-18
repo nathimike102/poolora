@@ -51,6 +51,11 @@ spec:
             secretKeyRef:
               name: sanchari-secrets
               key: GOOGLE_MAPS_API_KEY
+        - name: ML_SERVICE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sanchari-secrets
+              key: ML_SERVICE_API_KEY
         - name: KAFKA_BROKERS
           value: "kafka-0.kafka-headless:9092"
         - name: LOG_LEVEL

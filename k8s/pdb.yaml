@@ -28,7 +28,8 @@ metadata:
   name: redis-pdb
   namespace: sanchari
 spec:
-  minAvailable: 2
+  # Single instance: allow voluntary evictions so node drains are not blocked.
+  maxUnavailable: 1
   selector:
     matchLabels:
       app: redis

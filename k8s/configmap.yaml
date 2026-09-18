@@ -6,8 +6,8 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "5002"
-  APP_BASE_URL: "https://sanchari.me"
-  MONGODB_URI: "mongodb://mongodb-0.mongodb:27017/mobility?replicaSet=rs0&retryWrites=true&w=majority"
+  # Public API origin. Used for links sent to people, e.g. SOS live tracking.
+  APP_BASE_URL: "https://api.sanchari.me"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
   KAFKA_BROKERS: "kafka-0.kafka-headless:9092"
