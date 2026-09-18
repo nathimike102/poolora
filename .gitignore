@@ -110,3 +110,10 @@ yarn-error.log*
 
 # Ruby (Gems, Bundler)
 Gemfile.lock
+
+# Local tool caches
+.tokensave/
+
+# Python bytecode
+__pycache__/
+*.pyc
