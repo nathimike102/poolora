@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ParcelPoolingService } from '../services/ParcelPoolingService';
 import { AuthenticatedRequest } from '../types';
-import { sendSuccess, sendError } from '../utils/helpers';
-import { logger } from '../utils/logger';
+import { sendSuccess } from '../utils/helpers';
 
 const parcelService = new ParcelPoolingService();
 
@@ -18,13 +17,13 @@ export class ParcelPoolingController {
   ): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { parcel, razorpayOrder } = await parcelService.createParcelRequest(
+      const { parcel, razorpayOrder, deliveryOtp } = await parcelService.createParcelRequest(
         user.userId,
         req.body,
       );
       sendSuccess(
         res,
-        { parcel, razorpayOrder },
+        { parcel, razorpayOrder, deliveryOtp },
         201,
         (req as any).requestId,
       );
@@ -64,7 +63,8 @@ export class ParcelPoolingController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const parcel = await parcelService.pickupParcel(String(req.params.id));
+      const user = (req as AuthenticatedRequest).user;
+      const parcel = await parcelService.pickupParcel(String(req.params.id), user.userId);
       sendSuccess(res, { parcel }, 200, (req as any).requestId);
     } catch (error) {
       next(error);
@@ -81,8 +81,9 @@ export class ParcelPoolingController {
     next: NextFunction,
   ): Promise<void> {
     try {
+      const user = (req as AuthenticatedRequest).user;
       const { proof } = req.body;
-      const parcel = await parcelService.completeDelivery(String(req.params.id), proof);
+      const parcel = await parcelService.completeDelivery(String(req.params.id), user.userId, proof);
       sendSuccess(res, { parcel }, 200, (req as any).requestId);
     } catch (error) {
       next(error);
@@ -99,8 +100,10 @@ export class ParcelPoolingController {
     next: NextFunction,
   ): Promise<void> {
     try {
+      const user = (req as AuthenticatedRequest).user;
       const parcel = await parcelService.getParcelByTracking(
         String(req.params.trackingNumber),
+        { userId: user.userId, capabilities: user.capabilities },
       );
       sendSuccess(res, { parcel }, 200, (req as any).requestId);
     } catch (error) {
@@ -119,13 +122,17 @@ export class ParcelPoolingController {
   ): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { role = 'sender', skip = 0, limit = 20 } = req.query;
+      const { role, skip, limit } = req.query as unknown as {
+        role: 'sender' | 'driver' | 'receiver';
+        skip: number;
+        limit: number;
+      };
 
       const { parcels, total } = await parcelService.listUserParcels(
         user.userId,
-        role as 'sender' | 'driver' | 'receiver',
-        Number(skip),
-        Number(limit),
+        role,
+        skip,
+        limit,
       );
 
       sendSuccess(

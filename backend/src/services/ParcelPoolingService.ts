@@ -1,23 +1,28 @@
+import crypto from 'crypto';
 import { Types } from 'mongoose';
 import Razorpay from 'razorpay';
 import { ParcelPooling, IParcelPooling } from '../models/ParcelPooling';
 import { Ride } from '../models/Ride';
-import { User } from '../models/User';
-import { Notification } from '../models/Notification';
 import { config } from '../config';
-import { BookingStatus, RideStatus } from '../types';
+import { BookingStatus, UserCapability } from '../types';
 import {
   AppError,
   NotFoundError,
   ConflictError,
   AuthorizationError,
 } from '../utils/AppError';
-import { toGeoPoint, haversineDistanceKm, generateTrackingNumber } from '../utils/helpers';
+import { toGeoPoint, haversineDistanceKm, generateTrackingNumber, generateOTP } from '../utils/helpers';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
 import { NotificationService } from './NotificationService';
 
 const notificationService = new NotificationService();
+
+const MAX_DELIVERY_OTP_ATTEMPTS = 5;
+
+function hashOtp(otp: string): string {
+  return crypto.createHash('sha256').update(otp).digest('hex');
+}
 
 function getRazorpayClient(): Razorpay {
   if (!config.razorpay.keyId) {
@@ -59,7 +64,7 @@ export class ParcelPoolingService {
       specialInstructions?: string;
       receiverId?: string;
     },
-  ): Promise<{ parcel: IParcelPooling; razorpayOrder: any }> {
+  ): Promise<{ parcel: IParcelPooling; razorpayOrder: any; deliveryOtp: string }> {
     const ride = await Ride.findById(data.rideId);
     if (!ride) throw new NotFoundError('Ride');
 
@@ -102,6 +107,9 @@ export class ParcelPoolingService {
     });
 
     const trackingNumber = generateTrackingNumber();
+    // Shown once to the sender, who shares it with the recipient. The driver
+    // must enter it to complete delivery.
+    const deliveryOtp = generateOTP();
 
     const parcel = await ParcelPooling.create({
       ride: data.rideId,
@@ -131,6 +139,7 @@ export class ParcelPoolingService {
       specialInstructions: data.specialInstructions,
       trackingNumber,
       razorpayOrderId: razorpayOrder.id,
+      deliveryOtpHash: hashOtp(deliveryOtp),
     });
 
     logger.info('Parcel request created', {
@@ -148,7 +157,7 @@ export class ParcelPoolingService {
       },
     });
 
-    return { parcel, razorpayOrder };
+    return { parcel, razorpayOrder, deliveryOtp };
   }
 
   /**
@@ -192,9 +201,13 @@ export class ParcelPoolingService {
   /**
    * Mark parcel as picked up
    */
-  async pickupParcel(parcelId: string): Promise<IParcelPooling> {
+  async pickupParcel(parcelId: string, driverId: string): Promise<IParcelPooling> {
     const parcel = await ParcelPooling.findById(parcelId);
     if (!parcel) throw new NotFoundError('Parcel');
+
+    if (parcel.driver.toString() !== driverId) {
+      throw new AuthorizationError('Only the assigned driver can pick up this parcel');
+    }
 
     if (parcel.status !== BookingStatus.CONFIRMED) {
       throw new ConflictError('Parcel must be confirmed before pickup');
@@ -235,21 +248,46 @@ export class ParcelPoolingService {
    */
   async completeDelivery(
     parcelId: string,
+    driverId: string,
     proof: {
       signature: string;
       photo?: string;
-      otp?: string;
+      otp: string;
     },
   ): Promise<IParcelPooling> {
-    const parcel = await ParcelPooling.findById(parcelId);
+    const parcel = await ParcelPooling.findById(parcelId).select('+deliveryOtpHash +deliveryOtpAttempts');
     if (!parcel) throw new NotFoundError('Parcel');
 
-    if (parcel.status !== BookingStatus.CONFIRMED) {
-      throw new ConflictError('Parcel must be in transit');
+    if (parcel.driver.toString() !== driverId) {
+      throw new AuthorizationError('Only the assigned driver can complete this delivery');
+    }
+
+    if (parcel.status !== BookingStatus.CONFIRMED || !parcel.actualPickupTime) {
+      throw new ConflictError('Parcel must be picked up before delivery');
+    }
+
+    if (!parcel.deliveryOtpHash) {
+      throw new AppError('This parcel has no delivery code', 409, 'DELIVERY_OTP_MISSING');
+    }
+
+    if ((parcel.deliveryOtpAttempts ?? 0) >= MAX_DELIVERY_OTP_ATTEMPTS) {
+      throw new AppError(
+        'Too many incorrect delivery codes. Contact support to complete this delivery.',
+        429,
+        'DELIVERY_OTP_LOCKED',
+      );
+    }
+
+    const expected = Buffer.from(parcel.deliveryOtpHash, 'hex');
+    const provided = Buffer.from(hashOtp(proof.otp), 'hex');
+    if (!crypto.timingSafeEqual(expected, provided)) {
+      await ParcelPooling.updateOne({ _id: parcel._id }, { $inc: { deliveryOtpAttempts: 1 } });
+      throw new AppError('Incorrect delivery code', 400, 'INVALID_DELIVERY_OTP');
     }
 
     parcel.actualDeliveryTime = new Date();
-    parcel.proof = proof;
+    parcel.proof = { signature: proof.signature, photo: proof.photo };
+    parcel.deliveryOtpHash = undefined;
     parcel.status = BookingStatus.COMPLETED;
     parcel.finalCost = parcel.estimatedCost;
     parcel.driverEarnings = parcel.estimatedCost * 0.7; // 70% to driver
@@ -286,16 +324,27 @@ export class ParcelPoolingService {
   /**
    * Get parcel by tracking number
    */
-  async getParcelByTracking(trackingNumber: string): Promise<IParcelPooling> {
-    const parcel = await ParcelPooling.findOne({
-      trackingNumber,
-    })
-      .populate('sender', 'name phone profilePicture')
-      .populate('driver', 'name phone profilePicture vehicle')
-      .populate('receiver', 'name phone profilePicture');
+  async getParcelByTracking(
+    trackingNumber: string,
+    viewer: { userId: string; capabilities: UserCapability[] },
+  ): Promise<IParcelPooling> {
+    const parcel = await ParcelPooling.findOne({ trackingNumber });
 
-    if (!parcel) throw new NotFoundError('Parcel');
-    return parcel;
+    // Contact details are only for the people involved in the delivery. Anyone
+    // else gets the same response as an unknown tracking number.
+    const participants = [parcel?.sender, parcel?.driver, parcel?.receiver]
+      .filter(Boolean)
+      .map(String);
+    const canView =
+      parcel &&
+      (participants.includes(viewer.userId) || viewer.capabilities.includes(UserCapability.ADMIN));
+    if (!parcel || !canView) throw new NotFoundError('Parcel');
+
+    return parcel.populate([
+      { path: 'sender', select: 'name phone profilePicture' },
+      { path: 'driver', select: 'name phone profilePicture vehicle' },
+      { path: 'receiver', select: 'name phone profilePicture' },
+    ]);
   }
 
   /**

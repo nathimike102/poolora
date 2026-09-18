@@ -46,8 +46,10 @@ export interface IParcelPooling extends Document {
   proof?: {
     signature: string;
     photo?: string;
-    otp?: string;
   };
+  /** SHA-256 of the delivery code the sender shares with the recipient. Never returned by queries. */
+  deliveryOtpHash?: string;
+  deliveryOtpAttempts: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -114,8 +116,9 @@ const ParcelPoolingSchema = new Schema<IParcelPooling>(
     proof: {
       signature: String,
       photo: String,
-      otp: String,
     },
+    deliveryOtpHash: { type: String, select: false },
+    deliveryOtpAttempts: { type: Number, default: 0, select: false },
   },
   {
     timestamps: true,
