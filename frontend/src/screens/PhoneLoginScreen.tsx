@@ -98,7 +98,6 @@ export function PhoneLoginScreen() {
           </Text>
           <View style={styles.phoneRow}>
             <View style={styles.prefixRow}>
-              <Text style={styles.flagEmoji}>🇮🇳</Text>
               <Text style={[styles.dialCode, { color: c.text }]}>+91</Text>
               <View style={[styles.divider, { backgroundColor: c.border }]} />
             </View>

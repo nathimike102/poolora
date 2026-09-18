@@ -268,6 +268,7 @@ export async function signInWithGoogle(): Promise<FirebaseAuthTypes.UserCredenti
     return userCredential;
   } catch (error) {
     const { code, message } = getErrorDetails(error);
+    logger.error('Google sign-in failed', { code, message });
     // User cancelled the sign-in flow
     if (code === 'SIGN_IN_CANCELLED' || code === '12501') {
       throw new Error('Sign-in was cancelled.');
@@ -559,4 +560,32 @@ export function getCurrentUserFromState(): User | null {
  */
 export function isAuthenticated(): boolean {
   return !!currentAccessToken && !!currentUser;
+}
+
+/**
+ * Development-only login helper.
+ * Stores fake tokens and a fake user so the app can operate without real auth.
+ */
+export async function devLogin(role: 'rider' | 'driver' = 'rider'): Promise<void> {
+  const fakeUser: User = {
+    _id: 'dev-user',
+    id: 'dev-user',
+    name: 'Developer',
+    phone: '+10000000000',
+    capabilities: [role],
+    isVerified: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const accessToken = 'dev-access-token';
+  const refreshToken = 'dev-refresh-token';
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+
+  await tokenStorage.saveTokens({ accessToken, refreshToken, expiresAt });
+  await tokenStorage.saveUserId(fakeUser._id);
+
+  setAuthorizationHeader(accessToken);
+  setLocalAuthState(accessToken, fakeUser);
 }

@@ -32,25 +32,25 @@ const SLIDES = [
     image: 'https://images.unsplash.com/photo-1769555692190-acf73d7bc46c?w=600&q=80',
     title: 'Share Your Ride',
     subtitle:
-      'Connect with verified co-passengers going your way. Save money, reduce traffic.',
-    accent: '#7C3AED',
-    badge: '🚗 CARPOOL',
+      'Find drivers already travelling your route and share the cost of the trip.',
+    accent: '#0B7A75',
+    badge: 'CARPOOL',
   },
   {
     image: 'https://images.unsplash.com/photo-1758315427147-39bd97b36316?w=600&q=80',
     title: 'Schedule in Advance',
     subtitle:
-      'Plan rides days ahead. AI matches you with the perfect carpool buddy.',
-    accent: '#10B981',
-    badge: '📅 SCHEDULE',
+      'Book a seat ahead of time. Rides are matched on your route and departure time.',
+    accent: '#047857',
+    badge: 'SCHEDULE',
   },
   {
     image: 'https://images.unsplash.com/photo-1771848194068-169d817a1d6f?w=600&q=80',
-    title: 'Ship Parcels Too',
+    title: 'Safety Built In',
     subtitle:
-      'Send packages with trusted drivers heading in the same direction.',
-    accent: '#F59E0B',
-    badge: '📦 PARCELS',
+      'Drivers are verified before they can offer rides, and SOS alerts your emergency contacts with your location.',
+    accent: '#B45309',
+    badge: 'SAFETY',
   },
 ] as const;
 
@@ -189,7 +189,7 @@ export function OnboardingScreen() {
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       {/* Skip button */}
       <View style={styles.skipRow}>
-        <TouchableOpacity onPress={skip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity accessibilityRole="button" onPress={skip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={[styles.skipLabel, { color: c.textSec }]}>Skip</Text>
         </TouchableOpacity>
       </View>

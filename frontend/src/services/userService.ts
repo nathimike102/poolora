@@ -28,6 +28,20 @@ export const userService = {
   },
 
   /**
+   * Update the signed-in user's name and email
+   */
+  async updateMyProfile(update: { name?: string; email?: string | null }): Promise<User> {
+    try {
+      const response = await apiClient.patch<ApiResponse<{ user: User }>>(API_ENDPOINTS.users.me, update);
+      logger.info('User profile updated');
+      return response.data.data.user;
+    } catch (error) {
+      logger.error('Failed to update user profile', { error });
+      throw error;
+    }
+  },
+
+  /**
    * Get user profile by ID
    */
   async getUserProfile(userId: string): Promise<User> {

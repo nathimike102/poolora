@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Linking,
   View,
   Text,
   StyleSheet,
@@ -10,7 +11,6 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { userService } from '../../services/userService';
-import { walletService } from '../../services/walletService';
 import type { User } from '../../types/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -19,6 +19,9 @@ import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImageWithFallback } from '../../components/ImageWithFallback';
 import type { RootStackParamList } from '../../navigation/types';
+import { Icon, type IconName } from '../../components/Icon';
+import { COMPANY } from '../../config/company';
+import Constants from 'expo-constants';
 import { Shadow } from '../../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -40,7 +43,7 @@ function MenuItem({
   c: ReturnType<typeof useApp>['c'];
 }): React.ReactElement {
   return (
-    <Pressable onPress={onPress} style={st.menuItem}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={st.menuItem}>
       <View style={[st.menuIcon, { backgroundColor: iconBg }]}>
         <Svg width={20} height={20} viewBox="0 0 24 24">
           <Path d={iconPath} fill={iconColor} />
@@ -55,19 +58,23 @@ function MenuItem({
 }
 
 /* ── Help options ────────────────────────────────────────── */
-const HELP_ITEMS = [
-  { emoji: '💬', title: 'Live Chat Support', sub: 'Chat with us · Avg reply in 2 min' },
-  { emoji: '📞', title: 'Call Support', sub: '1800-123-POOL · Available 24/7' },
-  { emoji: '📧', title: 'Email Us', sub: 'support@sanchari.in' },
-  { emoji: '📖', title: 'FAQs & Help Center', sub: 'Browse common questions' },
-  { emoji: '🐛', title: 'Report a Bug', sub: 'Help us improve the app' },
+const HELP_ITEMS: { icon: IconName; title: string; sub: string; url: string }[] = [
+  { icon: 'email-outline', title: 'Email support', sub: COMPANY.supportEmail, url: `mailto:${COMPANY.supportEmail}` },
+  { icon: 'phone-outline', title: 'Call support', sub: COMPANY.supportPhoneDisplay, url: `tel:${COMPANY.supportPhone}` },
+  { icon: 'help-circle-outline', title: 'Frequently asked questions', sub: 'On the Sanchari website', url: COMPANY.faqUrl },
+  {
+    icon: 'bug-outline',
+    title: 'Report a problem',
+    sub: 'Tell us what went wrong',
+    url: `mailto:${COMPANY.supportEmail}?subject=${encodeURIComponent('Problem report: Sanchari app')}`,
+  },
+  { icon: 'shield-lock-outline', title: 'Privacy policy', sub: 'How we handle your data', url: COMPANY.privacyUrl },
+  { icon: 'file-document-outline', title: 'Terms of service', sub: 'The rules for using Sanchari', url: COMPANY.termsUrl },
 ];
 
 /* ── Menu icon paths ─────────────────────────────────────── */
 const ICON_BOOKINGS =
   'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z';
-const ICON_PAYMENT =
-  'M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z';
 const ICON_EMERGENCY =
   'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l5 2.18V11c0 3.5-2.33 6.79-5 7.93-2.67-1.14-5-4.43-5-7.93V7.18L12 5zm-1 3v4h2V8h-2zm0 6v2h2v-2h-2z';
 const ICON_HELP =
@@ -84,21 +91,14 @@ export function ProfileScreen(): React.ReactElement {
   const isDriver = role === 'driver';
 
   const [userProfile, setUserProfile] = useState<User | null>(null);
-  const [totalEarned, setTotalEarned] = useState(0);
 
   useFocusEffect(
     React.useCallback(() => {
       let isActive = true;
       const fetchData = async () => {
         try {
-          const [profile, wallet] = await Promise.all([
-            userService.getMyProfile().catch(() => null),
-            walletService.getBalance().catch(() => null)
-          ]);
-          if (isActive) {
-            if (profile) setUserProfile(profile);
-            if (wallet) setTotalEarned(wallet.totalEarnings || wallet.balance || 0);
-          }
+          const profile = await userService.getMyProfile().catch(() => null);
+          if (isActive && profile) setUserProfile(profile);
         } catch (error) {
           console.error(error);
         }
@@ -108,15 +108,21 @@ export function ProfileScreen(): React.ReactElement {
     }, [])
   );
 
-  const ridesGiven = userProfile?.stats?.totalRidesAsDriver || 0;
-  const ridesTaken = userProfile?.stats?.totalRidesAsRider || 0;
-  const ratingDriver = userProfile?.stats?.avgRatingAsDriver || 5.0;
-  const ratingRider = userProfile?.stats?.avgRatingAsRider || 5.0;
-  
+  const stats = userProfile?.stats;
+  const rideCount = (isDriver ? stats?.totalRidesAsDriver : stats?.totalRidesAsRider) ?? 0;
+  const ratingCount = (isDriver ? stats?.totalRatingsAsDriver : stats?.totalRatingsAsRider) ?? 0;
+  const rating = (isDriver ? stats?.avgRatingAsDriver : stats?.avgRatingAsRider) ?? 0;
+  const displayName = userProfile?.name ?? '';
+
   const STATS = [
-    { label: isDriver ? 'Rides Given' : 'Rides Taken', value: isDriver ? ridesGiven.toString() : ridesTaken.toString() },
-    { label: isDriver ? 'Earned Total' : 'Saved Total', value: `₹${totalEarned.toLocaleString()}` },
-    { label: 'CO₂ Saved', value: '142 kg' },
+    { label: isDriver ? 'Rides driven' : 'Rides taken', value: String(rideCount) },
+    { label: ratingCount > 0 ? `Rating (${ratingCount})` : 'Rating', value: ratingCount > 0 ? rating.toFixed(1) : 'None yet' },
+    {
+      label: 'Member since',
+      value: userProfile?.createdAt
+        ? new Date(userProfile.createdAt).toLocaleDateString([], { month: 'short', year: 'numeric' })
+        : ' ',
+    },
   ];
 
   return (
@@ -126,7 +132,12 @@ export function ProfileScreen(): React.ReactElement {
         <LinearGradient colors={[c.primary, c.primaryDark]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={st.header}>
           <View style={st.headerTop}>
             <Text style={{ fontSize: 22, fontWeight: '800', color: 'white' }}>Profile</Text>
-            <Pressable onPress={() => navigation.navigate('Settings' as any)} style={st.settingsBtn}>
+            <Pressable
+              onPress={() => navigation.navigate('Settings')}
+              style={st.settingsBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+            >
               <Svg width={20} height={20} viewBox="0 0 24 24">
                 <Path d={ICON_SETTINGS} fill="white" />
               </Svg>
@@ -135,54 +146,37 @@ export function ProfileScreen(): React.ReactElement {
 
           {/* Profile row */}
           <View style={st.profileRow}>
-            <View>
+            {userProfile?.profilePhotoUrl ? (
               <ImageWithFallback
-                src={
-                  userProfile?.profilePhotoUrl || 
-                  (isDriver
-                    ? 'https://images.unsplash.com/photo-1747373354146-646351cc7e88?w=100&h=100&fit=crop'
-                    : 'https://images.unsplash.com/photo-1580746453801-37b0bc56f3b4?w=100&h=100&fit=crop')
-                }
-                alt="Profile"
+                src={userProfile.profilePhotoUrl}
+                alt={displayName}
                 width={72}
                 height={72}
                 borderRadius={20}
                 style={{ borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)' }}
               />
-              <View style={st.editBadge}>
-                <Svg width={12} height={12} viewBox="0 0 24 24">
-                  <Path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill={c.primary} />
-                </Svg>
+            ) : (
+              <View style={st.avatarFallback}>
+                <Text style={{ fontSize: 28, fontWeight: '700', color: 'white' }}>{displayName.charAt(0).toUpperCase()}</Text>
               </View>
-            </View>
+            )}
             <View style={{ flex: 1 }}>
               <View style={st.nameRow}>
                 <Text style={{ fontSize: 20, fontWeight: '800', color: 'white' }}>
-                  {userProfile?.name || (isDriver ? 'Rajesh Kumar' : 'Priya Sharma')}
+                  {displayName}
                 </Text>
                 {userProfile?.isVerified && (
                   <View style={[st.verifiedBadge, { backgroundColor: c.success }]}>
                     <Svg width={10} height={10} viewBox="0 0 24 24">
                       <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="white" />
                     </Svg>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: 'white' }}>VERIFIED</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: 'white' }}>Verified</Text>
                   </View>
                 )}
               </View>
               <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>
-                {userProfile?.phone || '+91 98765 43210'} · {isDriver ? 'Driver' : 'Rider'}
+                {userProfile?.phone ? `${userProfile.phone} · ` : ''}{isDriver ? 'Driver' : 'Rider'}
               </Text>
-              <View style={st.ratingRow}>
-                <Svg width={13} height={13} viewBox="0 0 24 24">
-                  <Path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="#FFB300" />
-                </Svg>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.9)' }}>
-                  {isDriver ? ratingDriver : ratingRider}
-                </Text>
-                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
-                  {isDriver ? `${ridesGiven} rides driven` : `${ridesTaken} rides taken`}
-                </Text>
-              </View>
             </View>
           </View>
         </LinearGradient>
@@ -208,39 +202,41 @@ export function ProfileScreen(): React.ReactElement {
         {/* ── Menu items ──────────────────────────────────────── */}
         <View style={st.menuSection}>
           <View style={[st.menuCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <MenuItem c={c} iconBg="#EEF2FF" iconColor="#4F46E5" iconPath={ICON_BOOKINGS} label="My Bookings" onPress={() => navigation.navigate('MyRides' as any)} />
+            {!isDriver && (
+              <>
+                <MenuItem c={c} iconBg="#E8EEF9" iconColor="#2B6CC4" iconPath={ICON_BOOKINGS} label="My bookings" onPress={() => navigation.navigate('RiderTabs', { screen: 'MyRides' })} />
+                <View style={[st.divider, { backgroundColor: c.border }]} />
+              </>
+            )}
+            <MenuItem c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={ICON_EMERGENCY} label="Emergency contacts" onPress={() => navigation.navigate('EmergencyContacts')} />
             <View style={[st.divider, { backgroundColor: c.border }]} />
-            <MenuItem c={c} iconBg="#ECFDF5" iconColor="#10B981" iconPath={ICON_PAYMENT} label="Payment Methods" onPress={() => navigation.navigate('Payment' as any)} />
-            <View style={[st.divider, { backgroundColor: c.border }]} />
-            <MenuItem c={c} iconBg="#FEF2F2" iconColor="#EF4444" iconPath={ICON_EMERGENCY} label="Emergency Contacts" onPress={() => navigation.navigate('EmergencyContacts' as any)} />
-            <View style={[st.divider, { backgroundColor: c.border }]} />
-            <MenuItem c={c} iconBg="#F3F4F6" iconColor="#6B7280" iconPath={ICON_HELP} label="Help & Support" onPress={() => setShowHelp(true)} />
+            <MenuItem c={c} iconBg="#F3F4F6" iconColor="#4B5563" iconPath={ICON_HELP} label="Help and legal" onPress={() => setShowHelp(true)} />
           </View>
         </View>
 
         {/* ── Log Out ─────────────────────────────────────────── */}
         <View style={st.logoutWrap}>
-          <Pressable onPress={() => logout()} style={st.logoutBtn}>
+          <Pressable onPress={() => logout()} style={st.logoutBtn} accessibilityRole="button">
             <Svg width={20} height={20} viewBox="0 0 24 24">
               <Path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" fill="#E11D48" />
             </Svg>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#E11D48' }}>Log Out</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#E11D48' }}>Log out</Text>
           </Pressable>
         </View>
 
         <Text style={{ fontSize: 12, color: c.textSec, textAlign: 'center', paddingBottom: 16 }}>
-          Sanchari v1.0.0 · Made with ❤️ in India
+          Sanchari version {Constants.expoConfig?.version ?? ''}
         </Text>
       </ScrollView>
 
       {/* ── Help & Support modal ──────────────────────────────── */}
       <Modal visible={showHelp} transparent animationType="slide" onRequestClose={() => setShowHelp(false)}>
-        <Pressable style={st.overlay} onPress={() => setShowHelp(false)} />
+        <Pressable accessibilityRole="button" style={st.overlay} onPress={() => setShowHelp(false)} />
         <View style={st.sheet}>
           <View style={st.sheetHandle} />
           <View style={st.sheetTitleRow}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>Help & Support</Text>
-            <Pressable onPress={() => setShowHelp(false)} style={st.closeBtn}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }} accessibilityRole="header">Help and legal</Text>
+            <Pressable onPress={() => setShowHelp(false)} style={st.closeBtn} accessibilityRole="button" accessibilityLabel="Close">
               <Svg width={14} height={14} viewBox="0 0 24 24">
                 <Path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="#6B7280" />
               </Svg>
@@ -248,11 +244,16 @@ export function ProfileScreen(): React.ReactElement {
           </View>
           <View style={st.sheetBody}>
             {HELP_ITEMS.map(item => (
-              <Pressable key={item.title} style={st.helpRow}>
-                <Text style={{ fontSize: 22 }}>{item.emoji}</Text>
+              <Pressable
+                key={item.title}
+                style={st.helpRow}
+                accessibilityRole="link"
+                onPress={() => Linking.openURL(item.url)}
+              >
+                <Icon name={item.icon} size={22} color="#4B5563" />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>{item.title}</Text>
-                  <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{item.sub}</Text>
+                  <Text style={{ fontSize: 12, color: '#4B5563', marginTop: 2 }}>{item.sub}</Text>
                 </View>
                 <Svg width={16} height={16} viewBox="0 0 24 24">
                   <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="#9CA3AF" />
@@ -273,6 +274,14 @@ const st = StyleSheet.create({
 
   /* Header */
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24 },
+  avatarFallback: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   settingsBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
 
@@ -294,7 +303,7 @@ const st = StyleSheet.create({
     shadowRadius: 3,
   },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2, paddingHorizontal: 8, borderRadius: 20 },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2, paddingHorizontal: 8, borderRadius: 8 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
 
   /* Stats */

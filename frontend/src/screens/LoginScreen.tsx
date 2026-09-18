@@ -93,7 +93,7 @@ export function LoginScreen() {
       {/* ── Login Options ─────────────────────────────────────────────── */}
       <View style={styles.body}>
         {/* Continue with Google */}
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[
             styles.googleButton,
             {
@@ -141,7 +141,7 @@ export function LoginScreen() {
         </View>
 
         {/* Continue with Phone */}
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[
             styles.optionButton,
             {
@@ -162,7 +162,7 @@ export function LoginScreen() {
         </TouchableOpacity>
 
         {/* Continue with Email */}
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[
             styles.optionButton,
             {

@@ -214,7 +214,7 @@ export function ProfileSetupScreen() {
 
         {/* ── Profile Photo ──────────────────────────────────────────── */}
         <View style={styles.avatarSection}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add profile photo"
             onPress={handlePickPhoto}
             activeOpacity={0.7}
             style={[
@@ -333,7 +333,7 @@ export function ProfileSetupScreen() {
         </View>
 
         {/* ── Date of Birth ──────────────────────────────────────────── */}
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           onPress={() => setShowDatePicker(true)}
           activeOpacity={0.7}
           style={[

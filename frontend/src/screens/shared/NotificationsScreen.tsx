@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useApp } from '../../context/AppContext';
+import { Icon, type IconName } from '../../components/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
@@ -26,7 +27,7 @@ const TYPE_COLORS: Record<string, string> = {
   info: '#E8F0FE',
   star: '#FFF8E1',
   promo: '#FFF3EE',
-  reminder: '#F3E5F5',
+  reminder: '#FFF4E5',
   error: '#FFEBEE',
 };
 
@@ -41,18 +42,18 @@ export function NotificationsScreen() {
   const unreadCount = useMemo(() => items.filter((n) => !n.isRead).length, [items]);
 
   const iconFor = useCallback((type: string) => {
-    const map: Record<string, string> = {
-      ride_request: '🚗',
-      ride_confirmed: '✅',
-      ride_cancelled: '❌',
-      ride_started: '🟢',
-      ride_completed: '🏁',
-      new_message: '💬',
-      rating_received: '⭐',
-      payment_received: '💰',
-      system: '🔔',
+    const map: Record<string, IconName> = {
+      ride_request: 'car',
+      ride_confirmed: 'check-circle-outline',
+      ride_cancelled: 'close-circle-outline',
+      ride_started: 'car-arrow-right',
+      ride_completed: 'flag-checkered',
+      new_message: 'message-text-outline',
+      rating_received: 'star-outline',
+      payment_received: 'cash',
+      system: 'bell-outline',
     };
-    return map[type] || '🔔';
+    return map[type] ?? 'bell-outline';
   }, []);
 
   const colorTypeFor = useCallback((type: string) => {
@@ -107,7 +108,7 @@ export function NotificationsScreen() {
       <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
         <Text style={[s.headerTitle, { color: c.text }]}>Notifications</Text>
-        <Pressable onPress={onMarkAllRead} disabled={unreadCount === 0}>
+        <Pressable accessibilityRole="button" onPress={onMarkAllRead} disabled={unreadCount === 0}>
           <Text style={{ fontSize: 13, color: unreadCount ? c.primary : c.textSec, fontWeight: '600' }}>
             Mark all read
           </Text>
@@ -129,7 +130,7 @@ export function NotificationsScreen() {
           const typeKey = colorTypeFor(notif.type);
           const bg = TYPE_COLORS[typeKey] ?? TYPE_COLORS.info;
           return (
-            <Pressable
+            <Pressable accessibilityRole="button"
               key={notif._id}
               onPress={() => !notif.isRead && onMarkRead(notif._id)}
               style={[
@@ -142,7 +143,7 @@ export function NotificationsScreen() {
             >
               {/* Icon */}
               <View style={[s.iconBox, { backgroundColor: bg }]}>
-                <Text style={{ fontSize: 22 }}>{iconFor(notif.type)}</Text>
+                <Icon name={iconFor(notif.type)} size={22} color={c.text} />
               </View>
 
               {/* Content */}

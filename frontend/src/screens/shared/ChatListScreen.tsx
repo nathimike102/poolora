@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -24,12 +24,22 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 // Conversations will be derived from active/recent bookings
 
+interface Conversation {
+  id: string;
+  name: string;
+  avatar?: string;
+  time: string;
+  ride: string;
+  status: Booking['status'];
+}
+
 export function ChatListScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
   const { c, role } = useApp();
   const insets = useSafeAreaInsets();
   
-  const [conversations, setConversations] = React.useState<any[]>([]);
+  const [conversations, setConversations] = React.useState<Conversation[]>([]);
+  const [query, setQuery] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [totalUnread, setTotalUnread] = React.useState(0);
 
@@ -48,27 +58,25 @@ export function ChatListScreen(): React.ReactElement {
             setTotalUnread(unreadRes);
             
             if (bookingsRes.data?.items) {
-              const activeBookings = bookingsRes.data.items.filter((b: Booking) => b.status === 'pending' || b.status === 'confirmed' || b.status === 'completed' || b.status === 'rejected' || b.status === 'cancelled');
-              
-              const mapped = activeBookings.map((b: Booking) => {
-                const otherPartyName = role === 'driver' ? b.rider?.name : b.ride?.driver?.name;
-                const otherPartyAvatar = role === 'driver' ? b.rider?.profilePhotoUrl : b.ride?.driver?.profilePhotoUrl;
+              // Chat opens once a booking is confirmed
+              const chatBookings = bookingsRes.data.items.filter((b: Booking) => b.status === 'confirmed' || b.status === 'completed');
+
+              const mapped: Conversation[] = chatBookings.map((b: Booking) => {
+                const otherParty = role === 'driver' ? b.rider : b.driver;
                 return {
                   id: b._id,
-                  name: otherPartyName || (role === 'driver' ? 'Rider' : 'Driver'),
-                  avatar: otherPartyAvatar || 'https://images.unsplash.com/photo-1747373354146-646351cc7e88?w=60&h=60&fit=crop',
-                  lastMessage: 'Tap to view messages',
-                  time: new Date(b.createdAt).toLocaleDateString(),
-                  unread: 0,
-                  ride: `${b.pickupLocation?.address || 'Pickup'} → ${b.dropoffLocation?.address || 'Dropoff'}`,
-                  online: false
+                  name: otherParty?.name || (role === 'driver' ? 'Rider' : 'Driver'),
+                  avatar: otherParty?.profilePhotoUrl,
+                  time: new Date(b.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short' }),
+                  ride: `${b.pickup?.address || 'Pickup'} to ${b.dropoff?.address || 'drop'}`,
+                  status: b.status,
                 };
               });
               setConversations(mapped);
             }
           }
-        } catch (error) {
-          console.error(error);
+        } catch {
+          if (isActive) setConversations([]);
         } finally {
           if (isActive) setLoading(false);
         }
@@ -78,6 +86,12 @@ export function ChatListScreen(): React.ReactElement {
       return () => { isActive = false; };
     }, [role])
   );
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return conversations;
+    return conversations.filter(cv => cv.name.toLowerCase().includes(q) || cv.ride.toLowerCase().includes(q));
+  }, [conversations, query]);
 
   return (
     <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
@@ -101,8 +115,11 @@ export function ChatListScreen(): React.ReactElement {
             />
           </Svg>
           <TextInput
-            placeholder="Search messages..."
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search by name or place"
             placeholderTextColor={c.textSec}
+            accessibilityLabel="Search conversations"
             style={[s.searchInput, { color: c.text }]}
           />
         </View>
@@ -114,7 +131,7 @@ export function ChatListScreen(): React.ReactElement {
         </View>
       ) : (
         <FlatList
-          data={conversations}
+          data={filtered}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 16 }}
@@ -127,37 +144,29 @@ export function ChatListScreen(): React.ReactElement {
               />
             </Svg>
             <Text style={{ fontSize: 12, color: '#7A5200', flex: 1 }}>
-              Chats are linked to your ride and expire <Text style={{ fontWeight: '700' }}>30 days</Text> after ride completion.
+              Chats open once a booking is confirmed. Messages are deleted <Text style={{ fontWeight: '700' }}>90 days</Text> after they are sent.
             </Text>
           </View>
         }
-        ListFooterComponent={
-          <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center', paddingTop: 20 }}>
-            All your ride-linked chats appear here
+        ListEmptyComponent={
+          <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', paddingTop: 24, paddingHorizontal: 24 }}>
+            {query ? 'No conversations match your search.' : 'You have no chats yet. They appear here when a booking is confirmed.'}
           </Text>
         }
         renderItem={({ item: convo }) => (
           <Pressable
             onPress={() => navigation.navigate('Chat', { chatId: convo.id, recipientName: convo.name })}
-            style={[
-              s.convoRow,
-              {
-                backgroundColor: convo.unread > 0 ? c.primary + '06' : 'transparent',
-                borderBottomColor: c.border,
-              },
-            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Chat with ${convo.name}, ${convo.ride}`}
+            style={[s.convoRow, { borderBottomColor: c.border }]}
           >
-            {/* Avatar */}
-            <View>
-              <ImageWithFallback
-                src={convo.avatar}
-                alt={convo.name}
-                width={52}
-                height={52}
-                borderRadius={16}
-              />
-              {convo.online && <View style={s.onlineDot} />}
-            </View>
+            {convo.avatar ? (
+              <ImageWithFallback src={convo.avatar} alt={convo.name} width={52} height={52} borderRadius={16} />
+            ) : (
+              <View style={[s.avatarFallback, { backgroundColor: c.primaryLight }]}>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: c.primary }}>{convo.name.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
 
             {/* Content */}
             <View style={s.flex1}>
@@ -166,26 +175,11 @@ export function ChatListScreen(): React.ReactElement {
                 <Text style={{ fontSize: 12, color: c.textSec }}>{convo.time}</Text>
               </View>
               <Text style={{ fontSize: 12, color: c.textSec, marginBottom: 3 }} numberOfLines={1}>
-                🚗 {convo.ride}
+                {convo.ride}
               </Text>
-              <View style={s.msgRow}>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontSize: 13,
-                    color: convo.unread > 0 ? c.text : c.textSec,
-                    fontWeight: convo.unread > 0 ? '600' : '400',
-                    flex: 1,
-                  }}
-                >
-                  {convo.lastMessage}
-                </Text>
-                {convo.unread > 0 && (
-                  <View style={[s.unreadBadge, { backgroundColor: c.primary }]}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: 'white' }}>{convo.unread}</Text>
-                  </View>
-                )}
-              </View>
+              <Text style={{ fontSize: 13, color: c.textSec }}>
+                {convo.status === 'completed' ? 'Ride completed' : 'Ride confirmed'}
+              </Text>
             </View>
           </Pressable>
         )}
@@ -198,13 +192,14 @@ export function ChatListScreen(): React.ReactElement {
 
 /* ═══════════════════════════════════════════════════════════════ */
 const s = StyleSheet.create({
+  avatarFallback: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   root: { flex: 1 },
   flex1: { flex: 1 },
 
   /* Header */
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderBottomWidth: 1 },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  newBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 20 },
+  newBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8 },
 
   /* Search */
   searchBar: {

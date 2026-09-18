@@ -136,7 +136,7 @@ export function EmailLoginScreen() {
         </View>
 
         {/* Forgot Password */}
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           onPress={handleForgotPassword}
           style={styles.forgotRow}
         >
@@ -166,7 +166,7 @@ export function EmailLoginScreen() {
         </View>
 
         {/* Create Account */}
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[
             styles.signupButton,
             { borderColor: c.border, backgroundColor: c.surface },

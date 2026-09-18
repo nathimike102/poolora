@@ -19,30 +19,30 @@ import Svg, { Path } from 'react-native-svg';
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
-import { ImageWithFallback } from '../../components/ImageWithFallback';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const INITIAL_MESSAGES = [
-  { id: '1', from: 'driver', text: "Hi! I'm on my way to the pickup point.", time: '8:55 AM' },
-  { id: '2', from: 'me', text: "Great! I'll be waiting near the main gate.", time: '8:56 AM' },
-  { id: '3', from: 'driver', text: "I'll be there in 5 minutes. Look for white Swift Dzire - KA05AB1234", time: '8:57 AM' },
-  { id: '4', from: 'me', text: "Got it! I can see you on the map 👍", time: '8:58 AM' },
-  { id: '5', from: 'driver', text: "I'll be at the pickup point in 5 minutes!", time: '9:02 AM' },
-];
+interface ChatBubble {
+  id: string;
+  from: 'me' | 'them';
+  text: string;
+  time: string;
+  isRead: boolean;
+}
 
 const QUICK_REPLIES = ['On my way!', 'Be there in 2 min', 'Running late', 'At pickup point', 'Thanks!'];
 
 export function ChatScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
-  const { c, role, user } = useApp();
+  const { c, user } = useApp();
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>();
   const chatId = route.params?.chatId;
-  const recipientName = route.params?.recipientName || 'Driver';
+  const recipientName = route.params?.recipientName || 'Chat';
 
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatBubble[]>([]);
+  const [sendError, setSendError] = useState('');
   const [input, setInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
 
@@ -56,30 +56,31 @@ export function ChatScreen(): React.ReactElement {
           await chatService.markBookingAsRead(chatId).catch(() => {});
           const res = await chatService.getMessages(chatId);
           if (isActive && res.data?.items) {
-            const msgs = res.data.items.map((m: Message) => ({
-              id: m._id,
-              from: m.sender._id === user?.id ? 'me' : 'them',
-              text: m.content,
-              time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            }));
-            // Sort ascending
-            msgs.reverse();
+            // The API returns the page oldest first
+            const msgs: ChatBubble[] = res.data.items.map((m: Message) => {
+              const senderId = String((m.sender as unknown as { _id?: string })?._id ?? m.sender);
+              return {
+                id: m._id,
+                from: senderId === user?.id ? 'me' : 'them',
+                text: m.content,
+                time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                isRead: Boolean((m as unknown as { isRead?: boolean }).isRead),
+              };
+            });
             setMessages(msgs);
           }
-        } catch (error) {
-          console.error(error);
+        } catch {
+          // Keep showing the last messages; the next poll retries
         }
       };
-      
+
       fetchMessages();
-      
-      // Setup simple polling for demo purposes
       const interval = setInterval(fetchMessages, 5000);
       return () => {
         isActive = false;
         clearInterval(interval);
       };
-    }, [chatId])
+    }, [chatId, user?.id])
   );
 
   useEffect(() => {
@@ -92,7 +93,8 @@ export function ChatScreen(): React.ReactElement {
     setInput('');
     
     // Optimistic UI
-    const tempId = Date.now().toString();
+    const tempId = `pending-${Date.now()}`;
+    setSendError('');
     setMessages(prev => [
       ...prev,
       {
@@ -100,16 +102,16 @@ export function ChatScreen(): React.ReactElement {
         from: 'me',
         text: msgText,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isRead: false,
       },
     ]);
 
     try {
       await chatService.sendMessage(chatId, msgText);
-      // Wait for next poll to sync real ID or we could replace it here, but polling is running
-    } catch (error) {
-      console.error(error);
-      // Rollback optimistic
+    } catch {
       setMessages(prev => prev.filter(m => m.id !== tempId));
+      setInput(msgText);
+      setSendError('Message not sent. Check your connection and try again.');
     }
   };
 
@@ -123,37 +125,21 @@ export function ChatScreen(): React.ReactElement {
       <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
 
-        {/* Avatar */}
-        <View>
-          <ImageWithFallback
-            src="https://images.unsplash.com/photo-1747373354146-646351cc7e88?w=60&h=60&fit=crop"
-            alt="Driver"
-            width={40}
-            height={40}
-            borderRadius={12}
-          />
-          <View style={s.onlineDot} />
+        <View style={[s.avatar, { backgroundColor: c.primaryLight }]}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: c.primary }}>{recipientName.charAt(0).toUpperCase()}</Text>
         </View>
 
         <View style={s.flex1}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{recipientName}</Text>
-          <Text style={{ fontSize: 12, color: c.textSec }}>Active Chat</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }} accessibilityRole="header">{recipientName}</Text>
+          <Text style={{ fontSize: 12, color: c.textSec }}>Chat for this booking</Text>
         </View>
-
-        {/* Call */}
-        <Pressable style={[s.headerBtn, { backgroundColor: c.successLight }]}>
-          <Svg width={18} height={18} viewBox="0 0 24 24">
-            <Path
-              d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
-              fill={c.success}
-            />
-          </Svg>
-        </Pressable>
 
         {/* SOS */}
         <Pressable
-          onPress={() => navigation.navigate('SOS' as any)}
+          onPress={() => navigation.navigate('SOS')}
           style={[s.headerBtn, { backgroundColor: c.errorLight }]}
+          accessibilityRole="button"
+          accessibilityLabel="SOS emergency"
         >
           <Svg width={18} height={18} viewBox="0 0 24 24">
             <Path
@@ -162,13 +148,6 @@ export function ChatScreen(): React.ReactElement {
             />
           </Svg>
         </Pressable>
-      </View>
-
-      {/* Masked call notice */}
-      <View style={[s.notice, { backgroundColor: c.primaryLight, borderBottomColor: c.border }]}>
-        <Text style={{ fontSize: 11, color: c.primary, textAlign: 'center' }}>
-          🔒 Your phone number is masked. Call is routed through Sanchari.
-        </Text>
       </View>
 
       {/* ── Messages ────────────────────────────────────────── */}
@@ -180,30 +159,19 @@ export function ChatScreen(): React.ReactElement {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
       >
-        {/* Date divider */}
-        <View style={s.dateDivider}>
-          <View style={[s.dividerLine, { backgroundColor: c.border }]} />
-          <Text style={{ fontSize: 12, color: c.textSec, marginHorizontal: 12 }}>Today</Text>
-          <View style={[s.dividerLine, { backgroundColor: c.border }]} />
-        </View>
+        {messages.length === 0 && (
+          <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', marginTop: 24 }}>
+            No messages yet. Messages are kept for 90 days.
+          </Text>
+        )}
 
-        {messages.map((msg: any) => {
+        {messages.map(msg => {
           const isMe = msg.from === 'me';
           return (
             <View
               key={msg.id}
               style={[s.msgRow, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}
             >
-              {!isMe && (
-                <ImageWithFallback
-                  src="https://images.unsplash.com/photo-1747373354146-646351cc7e88?w=60&h=60&fit=crop"
-                  alt="Driver"
-                  width={30}
-                  height={30}
-                  borderRadius={10}
-                  style={{ marginRight: 8 }}
-                />
-              )}
               <View style={{ maxWidth: '75%' }}>
                 <View
                   style={[
@@ -226,13 +194,19 @@ export function ChatScreen(): React.ReactElement {
                   }}
                 >
                   {msg.time}
-                  {isMe && ' ✓✓'}
+                  {isMe && (msg.id.startsWith('pending-') ? ' · Sending' : msg.isRead ? ' · Read' : ' · Sent')}
                 </Text>
               </View>
             </View>
           );
         })}
       </ScrollView>
+
+      {sendError ? (
+        <Text style={{ fontSize: 13, color: c.error, textAlign: 'center', paddingHorizontal: 16 }} accessibilityLiveRegion="polite">
+          {sendError}
+        </Text>
+      ) : null}
 
       {/* ── Quick replies ───────────────────────────────────── */}
       <ScrollView
@@ -247,7 +221,8 @@ export function ChatScreen(): React.ReactElement {
             onPress={() => send(qr)}
             style={[s.quickChip, { backgroundColor: c.surface, borderColor: c.border }]}
             hitSlop={4}
-            android_ripple={{ color: 'rgba(255,255,255,0.08)', borderless: false }}
+            accessibilityRole="button"
+            accessibilityLabel={`Send: ${qr}`}
           >
             <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>{qr}</Text>
           </Pressable>
@@ -258,21 +233,13 @@ export function ChatScreen(): React.ReactElement {
       <View style={[s.inputBar, { backgroundColor: c.surface,
       borderTopColor: c.border,
       paddingBottom: insets.bottom + 6 }]}>
-        {/* Location */}
-        <Pressable style={[s.inputBtn, { backgroundColor: c.primaryLight }]}>
-          <Svg width={18} height={18} viewBox="0 0 24 24">
-            <Path
-              d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
-              fill={c.primary}
-            />
-          </Svg>
-        </Pressable>
-
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder="Type a message..."
+          placeholder="Type a message"
           placeholderTextColor={c.textSec}
+          accessibilityLabel="Message"
+          maxLength={2000}
           onSubmitEditing={() => send(input)}
           returnKeyType="send"
           style={[s.textInput, { backgroundColor: c.bg, borderColor: c.border, color: c.text }]}
@@ -281,6 +248,9 @@ export function ChatScreen(): React.ReactElement {
         {/* Send */}
         <Pressable
           onPress={() => send(input)}
+          disabled={!input.trim()}
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
           style={[s.inputBtn, { backgroundColor: input.trim() ? c.primary : c.border }]}
         >
           <Svg width={18} height={18} viewBox="0 0 24 24">
@@ -296,6 +266,8 @@ export function ChatScreen(): React.ReactElement {
 const s = StyleSheet.create({
   root: { flex: 1 },
   flex1: { flex: 1 },
+
+  avatar: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 
   /* Header */
   header: {
@@ -353,7 +325,7 @@ const s = StyleSheet.create({
     minHeight: 30,
     paddingVertical: 4,
     paddingHorizontal: 12,
-    borderRadius: 20,
+    borderRadius: 8,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
