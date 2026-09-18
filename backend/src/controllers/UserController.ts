@@ -12,8 +12,35 @@ export class UserController {
     try {
       const { userId } = (req as AuthenticatedRequest).user;
       const user = await User.findById(userId).select(
-        'name phone email profilePhotoUrl capabilities gender stats',
+        'name phone email profilePhotoUrl capabilities gender stats kyc.status kyc.rejectionReason vehicles createdAt',
       );
+      if (!user) throw new NotFoundError('User');
+      sendSuccess(res, { user }, 200, (req as any).requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PATCH /users/me
+   * Update the signed-in user's name and email. The phone number is verified
+   * by OTP and cannot be changed here.
+   */
+  static async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { name, email } = req.body as { name?: string; email?: string | null };
+      const update: Record<string, unknown> = {};
+      const unset: Record<string, ''> = {};
+      if (name !== undefined) update.name = name;
+      if (email) update.email = email;
+      else if (email === null || email === '') unset.email = '';
+
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { ...(Object.keys(update).length ? { $set: update } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+        { new: true, runValidators: true },
+      ).select('name phone email profilePhotoUrl capabilities gender stats kyc.status kyc.rejectionReason createdAt');
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, (req as any).requestId);
     } catch (error) {
@@ -40,21 +67,6 @@ export class UserController {
       );
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, (req as any).requestId);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * POST /api/v1/users/kyc/submit
-   */
-  static async submitKYC(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { userId } = (req as AuthenticatedRequest).user;
-      const { KYCService } = await import('../services/KYCService');
-      const kycService = new KYCService();
-      const result = await kycService.submitKYC(userId, req.body);
-      sendSuccess(res, result, 200, (req as any).requestId);
     } catch (error) {
       next(error);
     }

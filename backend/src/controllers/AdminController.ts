@@ -6,6 +6,55 @@ import { Payment } from '../models/Payment';
 import { BookingStatus, RideStatus } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import { logger } from '../utils/logger';
+import { NotFoundError } from '../utils/AppError';
+
+/**
+ * GET /admin/kyc/:userId/documents
+ * Temporary links to a driver's submitted KYC documents for review.
+ */
+export async function getKycDocuments(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = await User.findById(String(req.params.userId)).select('name kyc vehicles');
+    if (!user) throw new NotFoundError('User');
+    const { presignKycDownload } = await import('../services/UploadService');
+    const vehicle = user.vehicles[user.vehicles.length - 1];
+    const sign = (url?: string) => (url?.startsWith('s3://') ? presignKycDownload(url) : Promise.resolve(null));
+    const [licence, registration, insurance, ...photos] = await Promise.all([
+      sign(user.kyc.drivingLicenseUrl),
+      sign(vehicle?.registrationDocUrl),
+      sign(vehicle?.insuranceDocUrl),
+      ...(vehicle?.photos ?? []).map(sign),
+    ]);
+    sendSuccess(
+      res,
+      {
+        name: user.name,
+        status: user.kyc.status,
+        licenseNumber: user.kyc.licenseNumber,
+        vehicle: vehicle && {
+          make: vehicle.make,
+          model: vehicle.model,
+          year: vehicle.year,
+          color: vehicle.color,
+          plateNumber: vehicle.plateNumber,
+          vehicleType: vehicle.vehicleType,
+        },
+        documents: { licence, registration, insurance, photos },
+      },
+      200,
+      (req as any).requestId,
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+/** Admin lists are capped so a single request can't pull an entire collection. */
+function parsePagination(query: Request['query']): { page: number; limit: number } {
+  const page = Math.max(parseInt(String(query.page ?? '1'), 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(String(query.limit ?? '20'), 10) || 20, 1), 100);
+  return { page, limit };
+}
 
 export class AdminController {
   /**
@@ -72,19 +121,20 @@ export class AdminController {
    */
   static async getRides(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { status, page = 1, limit = 20 } = req.query;
+      const { status } = req.query;
+      const { page, limit } = parsePagination(req.query);
 
       const query: Record<string, any> = {};
       if (status) {
         query.status = status;
       }
 
-      const skip = (Number(page) - 1) * Number(limit);
+      const skip = (page - 1) * limit;
       const [rides, total] = await Promise.all([
         Ride.find(query)
           .sort({ createdAt: -1 })
           .skip(skip)
-          .limit(Number(limit))
+          .limit(limit)
           .populate('driver', 'name phone profilePicture')
           .lean(),
         Ride.countDocuments(query),
@@ -92,7 +142,7 @@ export class AdminController {
 
       sendSuccess(
         res,
-        { rides, pagination: { page: Number(page), limit: Number(limit), total } },
+        { rides, pagination: { page, limit, total } },
         200,
         (req as any).requestId,
       );
@@ -107,30 +157,32 @@ export class AdminController {
    */
   static async getUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { role, kycStatus, page = 1, limit = 20 } = req.query;
+      const { role, kycStatus } = req.query;
+      const { page, limit } = parsePagination(req.query);
 
       const query: Record<string, any> = {};
-      if (role) {
+      if (typeof role === 'string') {
         query.capabilities = role;
       }
-      if (kycStatus) {
-        query.kycStatus = kycStatus;
+      if (typeof kycStatus === 'string') {
+        query['kyc.status'] = kycStatus;
       }
 
-      const skip = (Number(page) - 1) * Number(limit);
+      const skip = (page - 1) * limit;
       const [users, total] = await Promise.all([
         User.find(query)
-          .select('-password -fcmTokens')
+          // Only what the admin lists need; documents are fetched separately with signed links
+          .select('name phone email capabilities gender kyc.status kyc.submittedAt stats isSuspended createdAt')
           .sort({ createdAt: -1 })
           .skip(skip)
-          .limit(Number(limit))
+          .limit(limit)
           .lean(),
         User.countDocuments(query),
       ]);
 
       sendSuccess(
         res,
-        { users, pagination: { page: Number(page), limit: Number(limit), total } },
+        { users, pagination: { page, limit, total } },
         200,
         (req as any).requestId,
       );
@@ -145,19 +197,20 @@ export class AdminController {
    */
   static async getPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { status, page = 1, limit = 20 } = req.query;
+      const { status } = req.query;
+      const { page, limit } = parsePagination(req.query);
 
       const query: Record<string, any> = {};
       if (status) {
         query.status = status;
       }
 
-      const skip = (Number(page) - 1) * Number(limit);
+      const skip = (page - 1) * limit;
       const [payments, total] = await Promise.all([
         Payment.find(query)
           .sort({ createdAt: -1 })
           .skip(skip)
-          .limit(Number(limit))
+          .limit(limit)
           .populate('booking', 'rider driver')
           .lean(),
         Payment.countDocuments(query),
@@ -165,7 +218,7 @@ export class AdminController {
 
       sendSuccess(
         res,
-        { payments, pagination: { page: Number(page), limit: Number(limit), total } },
+        { payments, pagination: { page, limit, total } },
         200,
         (req as any).requestId,
       );

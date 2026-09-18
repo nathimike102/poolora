@@ -1,5 +1,7 @@
 import { Router } from 'express';
-import { AdminController } from '../controllers/AdminController';
+import { AdminController, getKycDocuments } from '../controllers/AdminController';
+import { validate } from '../middlewares/validation.middleware';
+import { kycReviewParamsSchema } from '../validators';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requireAdmin } from '../middlewares/capability.middleware';
 
@@ -39,5 +41,11 @@ router.get('/payments', AdminController.getPayments);
  * Get demand clusters
  */
 router.get('/demand-heatmap', AdminController.getDemandHeatmap);
+
+/**
+ * GET /admin/kyc/:userId/documents
+ * Temporary links to review a driver's KYC documents
+ */
+router.get('/kyc/:userId/documents', validate(kycReviewParamsSchema), getKycDocuments);
 
 export default router;
