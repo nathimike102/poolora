@@ -8,4 +8,9 @@ declare module '@env' {
   export const EAS_PROJECT_ID: string;
   export const DEV_AUTH_BYPASS: string;
   export const SENTRY_DSN: string;
+  export const FIREBASE_DATABASE_URL: string;
+  export const REACT_NATIVE_API_BASE_URL: string;
+  export const REACT_NATIVE_API_TIMEOUT: string;
+  export const DEBUG_API_CALLS: string;
+  export const LOG_LEVEL: string;
 }

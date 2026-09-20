@@ -88,10 +88,10 @@ server by `api/contact.ts`.
 | `SMTP_SECURE` | no | `true` only for port `465`; otherwise `false` (default). |
 | `SMTP_USER` | yes | SMTP username (often the full email address or an SES/API key). |
 | `SMTP_PASS` | yes | SMTP password or app-specific password. |
-| `CONTACT_FROM_EMAIL` | yes | "From" address for the **waitlist** form (`contact@sanchari.me`). |
-| `CONTACT_TO_EMAIL` | yes | Recipient for waitlist submissions (`contact@sanchari.me`). |
-| `INVESTORS_FROM_EMAIL` | yes | "From" address for the **investor** form (`investors@sanchari.me`). |
-| `INVESTORS_TO_EMAIL` | yes | Recipient for investor submissions (`investors@sanchari.me`). |
+| `CONTACT_FROM_EMAIL` | yes | "From" address for the **waitlist** form. Must be an address you can authenticate; see "Sending mail without a custom domain" in `docs/SECRETS.md`. |
+| `CONTACT_TO_EMAIL` | yes | Recipient for waitlist submissions. |
+| `INVESTORS_FROM_EMAIL` | yes | "From" address for the **investor** form. Same constraint as `CONTACT_FROM_EMAIL`. |
+| `INVESTORS_TO_EMAIL` | yes | Recipient for investor submissions. |
 | `SUPPORT_EMAIL` | no | Public support address; reserved for a future support form. The address shown on the site comes from `src/config/company.ts`. |
 
 The waitlist form routes through the `CONTACT_*` addresses and the investor
@@ -106,11 +106,11 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
-CONTACT_FROM_EMAIL=contact@sanchari.me
-CONTACT_TO_EMAIL=contact@sanchari.me
-INVESTORS_FROM_EMAIL=investors@sanchari.me
-INVESTORS_TO_EMAIL=investors@sanchari.me
-SUPPORT_EMAIL=support@sanchari.me
+CONTACT_FROM_EMAIL=
+CONTACT_TO_EMAIL=
+INVESTORS_FROM_EMAIL=
+INVESTORS_TO_EMAIL=
+SUPPORT_EMAIL=
 ```
 
 ---
@@ -139,7 +139,7 @@ Edit the values under **Settings → Environment Variables**, then **redeploy**
 (Deployments → ⋯ → Redeploy) so the function picks up the new values.
 
 ### 5. Adding a custom domain
-1. **Settings → Domains → Add** and enter your domain (e.g. `sanchari.me`).
+1. **Settings → Domains → Add** and enter the domain you own.
 2. Update DNS at your registrar as instructed by Vercel.
 3. Update `domain` and `url` in `src/config/site.ts` so canonical/OG tags match,
    then push to rebuild.

@@ -14,7 +14,7 @@ import { COMPANY } from './company';
  */
 export interface SiteConfig {
   name: string;
-  /** Bare domain, e.g. "sanchari.me". */
+  /** Bare domain, e.g. "sanchari.vercel.app". */
   domain: string;
   /** Canonical absolute URL, no trailing slash. */
   url: string;
@@ -37,7 +37,7 @@ export interface SiteConfig {
 
 export const siteConfig: SiteConfig = {
   name: COMPANY.name,
-  domain: 'sanchari.me',
+  domain: 'sanchari.vercel.app',
   url: COMPANY.website,
   themeColor: '#0B7A75',
   seo: {

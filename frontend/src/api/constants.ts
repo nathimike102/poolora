@@ -4,21 +4,41 @@
  * API endpoints and configuration constants
  */
 
+import { env } from '../config/env';
+
 
 // ─── API Base URL Configuration ────────────────────────────────────────────
-// The API is served from api.sanchari.me (sanchari.me is the marketing site).
-// Set REACT_NATIVE_API_BASE_URL in `.env` to point at a local or staging API.
-const DEFAULT_BASE_URL = 'https://api.sanchari.me';
+// Values come from `config/env`, which reads them through the '@env' module
+// that react-native-dotenv inlines at build time. `process.env` is NOT
+// populated in the React Native runtime under this Babel setup, so reading it
+// here would silently yield undefined in every build.
+//
+// There is deliberately no production default: the API host is supplied at
+// build time so a hostname is never baked into a shipped binary, where it
+// could not be changed without a new release. Development falls back to a
+// local backend; a release build with the host unset throws here rather than
+// failing later as an opaque network error.
+const DEV_BASE_URL = 'http://localhost:5002';
+
+function resolveBaseUrl(): string {
+  const fromEnv = env.REACT_NATIVE_API_BASE_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/+$/, '');
+  if (__DEV__) return DEV_BASE_URL;
+  throw new Error(
+    'REACT_NATIVE_API_BASE_URL is not set. Release builds must be built with ' +
+      'the API host in the environment; see frontend/.env.example.',
+  );
+}
 
 export const API_CONFIG = {
-  baseUrl: process.env.REACT_NATIVE_API_BASE_URL || DEFAULT_BASE_URL,
-  timeout: parseInt(process.env.REACT_NATIVE_API_TIMEOUT || '30000', 10),
+  baseUrl: resolveBaseUrl(),
+  timeout: parseInt(env.REACT_NATIVE_API_TIMEOUT || '30000', 10),
   retryAttempts: 3,
   retryDelay: 1000,
   retryableStatusCodes: [408, 429, 500, 502, 503, 504],
   tokenRefreshThreshold: 5 * 60 * 1000, // Refresh token if expires in < 5 min
-  debugApiCalls: process.env.DEBUG_API_CALLS === 'true',
-  logLevel: (process.env.LOG_LEVEL || 'info') as 'debug' | 'info' | 'warn' | 'error',
+  debugApiCalls: env.DEBUG_API_CALLS === 'true',
+  logLevel: (env.LOG_LEVEL || 'info') as 'debug' | 'info' | 'warn' | 'error',
 } as const;
 
 // ─── API Endpoints ─────────────────────────────────────────────────────────

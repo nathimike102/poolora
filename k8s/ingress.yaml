@@ -1,4 +1,4 @@
-# Public entry point for the API only. The marketing site (sanchari.me) is
+# Public entry point for the API only. The marketing site is
 # served by Vercel. The ML service and Grafana are internal and have no ingress.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -16,10 +16,10 @@ spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - api.sanchari.me
+    - API_HOST_PLACEHOLDER
     secretName: sanchari-api-tls
   rules:
-  - host: api.sanchari.me
+  - host: API_HOST_PLACEHOLDER
     http:
       paths:
       - path: /

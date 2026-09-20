@@ -19,6 +19,7 @@ import {
   Pressable,
 } from 'react-native';
 import { reportError } from '../config/errorTracking';
+import { COMPANY } from '../config/company';
 
 interface Props {
   children: ReactNode;
@@ -54,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <View testID="error-boundary-fallback" style={styles.container}>
           <Text style={styles.title} accessibilityRole="header">Something went wrong</Text>
           <Text style={styles.message}>
-            The app hit an unexpected problem. Try again, and if it keeps happening contact support@sanchari.me.
+            The app hit an unexpected problem. Try again, and if it keeps happening contact {COMPANY.supportEmail}.
           </Text>
           <Pressable style={styles.button} onPress={this.handleRestart} accessibilityRole="button">
             <Text style={styles.buttonText}>Try again</Text>

@@ -7,7 +7,8 @@ data:
   NODE_ENV: "production"
   PORT: "5002"
   # Public API origin. Used for links sent to people, e.g. SOS live tracking.
-  APP_BASE_URL: "https://api.sanchari.me"
+  # Set to the API's public origin before applying. Must not be left as-is.
+  APP_BASE_URL: "https://API_HOST_PLACEHOLDER"
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
   KAFKA_BROKERS: "kafka-0.kafka-headless:9092"
@@ -15,7 +16,8 @@ data:
   ELASTICSEARCH_URL: "http://elasticsearch:9200"
   AUTH_PROVIDER: "hybrid"
   PLATFORM_FEE_RATE: "0.15"
-  CORS_ORIGIN: "https://sanchari.me,https://www.sanchari.me"
+  # Comma-separated. The marketing site is served by Vercel.
+  CORS_ORIGIN: "https://sanchari.vercel.app"
   ML_SERVICE_URL: "http://sanchari-ml:8000"
 
 ---

@@ -18,12 +18,12 @@ export const config = {
   port: parseInt(optional('PORT', '5001'), 10),
   isProduction: process.env.NODE_ENV === 'production',
   app: {
-    baseUrl: optional(
-      'APP_BASE_URL',
+    // No production default: APP_BASE_URL must be set explicitly in
+    // production so a stale hostname can never be served by accident.
+    baseUrl:
       process.env.NODE_ENV === 'production'
-        ? 'https://sanchari.me'
-        : `http://localhost:${optional('PORT', '5001')}`,
-    ),
+        ? required('APP_BASE_URL')
+        : optional('APP_BASE_URL', `http://localhost:${optional('PORT', '5001')}`),
   },
 
   mongo: {

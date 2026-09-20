@@ -43,7 +43,7 @@ openssl rand -base64 756 | tr -d '\n'
 |---|---|---|
 | `NODE_ENV` | yes | `production`, `development` or `test` |
 | `PORT` | no | Defaults to `5002` |
-| `APP_BASE_URL` | yes | Public API origin, e.g. `https://api.sanchari.me`. Used in SOS tracking links sent by SMS |
+| `APP_BASE_URL` | yes | Public API origin. **Required in production, no default.** Used in the SOS tracking links sent by SMS, so it must be reachable from a phone |
 | `MONGO_URI` | yes | Self-hosted: build it from `MONGO_USER` and `MONGO_PASS`. Atlas: cloud.mongodb.com, Database, Connect, Drivers |
 | `MONGO_USER`, `MONGO_PASS` | Docker/K8s | Generate the password (above) |
 | `MONGO_REPLICA_KEY` | K8s only | Generate (above) |
@@ -56,7 +56,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `FIREBASE_DATABASE_URL` | yes | Firebase console, Realtime Database. Region-specific, e.g. `https://<project-id>-default-rtdb.asia-southeast1.firebasedatabase.app` |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` or `FIREBASE_SERVICE_ACCOUNT_JSON` | yes | Firebase console, Project settings, Service accounts, **Generate new private key**. Save the downloaded JSON to the path, or paste it into the JSON variable |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | yes | dashboard.razorpay.com, Account & Settings, API Keys. `rzp_test_` keys for testing, `rzp_live_` after KYC approval |
-| `RAZORPAY_WEBHOOK_SECRET` | yes | Razorpay dashboard, Webhooks, Add webhook. URL: `https://api.sanchari.me/payments/webhook`. Events: `payment.authorized`, `payment.captured`. You choose the secret there; copy the same value here |
+| `RAZORPAY_WEBHOOK_SECRET` | yes | Razorpay dashboard, Webhooks, Add webhook. URL: `<APP_BASE_URL>/payments/webhook`. Events: `payment.authorized`, `payment.captured`. You choose the secret there; copy the same value here |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | yes | AWS console, IAM, create a user with access limited to the uploads bucket (`s3:PutObject`, `s3:GetObject`), then Security credentials, Create access key |
 | `AWS_REGION` | no | Default `ap-south-1` (Mumbai) |
 | `AWS_S3_BUCKET` | yes | Create a private bucket (block all public access) in S3 |
@@ -118,7 +118,7 @@ Set these in Vercel, under Project, Settings, Environment Variables. Use
 | `CONTACT_FROM_EMAIL`, `CONTACT_TO_EMAIL` | yes | Waitlist form sender and recipient |
 | `INVESTORS_FROM_EMAIL`, `INVESTORS_TO_EMAIL` | yes | Investor form sender and recipient |
 | `SUPPORT_EMAIL` | no | Reserved for a future support form |
-| `TURNSTILE_SECRET_KEY` | recommended | dash.cloudflare.com, Turnstile, Add widget for `sanchari.me`, **Secret key** |
+| `TURNSTILE_SECRET_KEY` | recommended | dash.cloudflare.com, Turnstile, Add widget for the site's Vercel hostname, **Secret key** |
 | `VITE_TURNSTILE_SITE_KEY` | recommended | The same widget's **Site key**. Build-time and public. Without it the forms fall back to the honeypot and rate limit |
 
 Analytics: set `analytics.googleAnalyticsId` in `web-landing/src/config/site.ts`.
@@ -139,13 +139,30 @@ It is public and only loads after a visitor accepts the consent banner.
 | `EC2_SSH_KEY` | The private key for a deploy-only key pair. Put its public key in the server's `~/.ssh/authorized_keys` |
 | `GITHUB_TOKEN` | Provided automatically. Used to push images to ghcr.io |
 
-## Email authentication for sanchari.me (DNS, not env)
+## Sending mail without a custom domain
 
-Add these at your DNS host before sending mail from the domain:
+The project has no domain of its own: the site is served from a
+`*.vercel.app` hostname. That has a consequence for the contact and waitlist
+forms, because SPF, DKIM and DMARC are DNS records on a domain **you**
+control, and nobody can add records to `vercel.app`.
 
-- **SPF:** a TXT record on `sanchari.me` that includes your mail provider, e.g. `v=spf1 include:zoho.in ~all`.
+So the `CONTACT_FROM_EMAIL` / `INVESTORS_FROM_EMAIL` envelope cannot be an
+address at the site's own hostname. Pick one of:
+
+1. **A provider-hosted sending domain.** Services such as Resend, Postmark or
+   SendGrid let you send from a subdomain they own and authenticate. Fastest
+   path, and deliverability is their problem rather than yours.
+2. **Send through an existing mailbox.** Point the SMTP credentials at a
+   Gmail/Zoho account and use that same address as the From. Fine for low
+   volume; the From address is visibly a personal mailbox.
+3. **Register a domain.** Then the SPF/DKIM/DMARC setup below applies, and the
+   site can move off `*.vercel.app` at the same time.
+
+If you take option 3, add these at the DNS host before sending mail:
+
+- **SPF:** a TXT record on the apex that includes your mail provider, e.g. `v=spf1 include:zoho.in ~all`.
 - **DKIM:** the TXT record your mail provider generates.
-- **DMARC:** a TXT record on `_dmarc.sanchari.me`. Start with `v=DMARC1; p=none; rua=mailto:contact@sanchari.me`, then move to `p=quarantine` once the reports come back clean.
+- **DMARC:** a TXT record on `_dmarc.<domain>`. Start with `v=DMARC1; p=none; rua=mailto:<your address>`, then move to `p=quarantine` once the reports come back clean.
 
 ## Key rotation history
 

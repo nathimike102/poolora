@@ -1,6 +1,10 @@
-import type { Config } from 'jest';
+// Typed via ts-jest rather than `import type { Config } from 'jest'`.
+// In this npm workspace the `jest` package is hoisted to the repo root while
+// `@types/jest` stays in backend/node_modules, so resolving 'jest' from here
+// finds the global-only @types/jest first and fails with TS2306.
+import type { JestConfigWithTsJest } from 'ts-jest';
 
-const config: Config = {
+const config: JestConfigWithTsJest = {
     preset: 'ts-jest',
     testEnvironment: 'node',
     rootDir: '.',

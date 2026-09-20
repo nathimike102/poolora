@@ -80,7 +80,7 @@ echo "════════════════════════�
 echo "  Deployment complete"
 echo "═══════════════════════════════════════════════════"
 echo ""
-echo "  API:         https://api.sanchari.me"
+echo "  API:         \$(kubectl -n sanchari get ingress -o jsonpath='{.items[0].spec.rules[0].host}')"
 echo "  Grafana:     kubectl -n sanchari port-forward svc/grafana 3000:3000"
 echo ""
 echo "  Check status: kubectl -n sanchari get pods"

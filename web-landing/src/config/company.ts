@@ -53,14 +53,33 @@ export interface CompanyConfig {
   copyright: string;
 }
 
+/**
+ * Public site origin. Vercel serves the project at <project>.vercel.app, so
+ * this tracks the Vercel project name. Change it here only.
+ */
+const SITE_ORIGIN = "https://sanchari.vercel.app";
+
+/**
+ * Single public inbox for the whole site and app.
+ *
+ * TODO(sanchari): replace with the real address before launch. The `.invalid`
+ * TLD is reserved by RFC 2606 and can never resolve, so a forgotten
+ * placeholder fails loudly instead of silently dropping mail.
+ *
+ * The support / contact / investors fields below are kept separate so the
+ * legal pages can keep addressing them by purpose, and so they can be split
+ * onto different inboxes later without touching any page.
+ */
+const PUBLIC_EMAIL = "hello@sanchari.invalid";
+
 export const COMPANY: CompanyConfig = {
   name: "Sanchari",
   tagline: "Share the ride, split the cost",
-  website: "https://sanchari.me",
+  website: SITE_ORIGIN,
   emails: {
-    support: "support@sanchari.me",
-    contact: "contact@sanchari.me",
-    investors: "investors@sanchari.me",
+    support: PUBLIC_EMAIL,
+    contact: PUBLIC_EMAIL,
+    investors: PUBLIC_EMAIL,
   },
   phone: "+91 9848377713",
   address: "Surampalem, Andhra Pradesh, India",
