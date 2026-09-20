@@ -61,8 +61,20 @@ export class AuthService {
   }
 
   /**
+   * How long to wait before the next code may be tried, after `failures`
+   * wrong ones. Doubles each time, capped, so brute force becomes impractical
+   * while a real person who mistyped is only held up for a few seconds.
+   */
+  private backoffSeconds(failures: number): number {
+    if (failures <= 0) return 0;
+    const delay = config.otp.backoffBaseSeconds * 2 ** (failures - 1);
+    return Math.min(delay, config.otp.backoffMaxSeconds);
+  }
+
+  /**
    * Send OTP to phone number. Stores OTP in Redis with TTL.
-   * Enforces max 3 failed attempts → 24h suspension.
+   * A new code clears the per-code attempt count but not the recent-failure
+   * count, so requesting another code cannot be used to escape the delay.
    */
   async sendOtp(phone: string): Promise<{ message: string }> {
     const redis = getRedisClient();
@@ -71,15 +83,6 @@ export class AuthService {
       // Redis unavailable — persist OTP challenge in MongoDB.
       const now = new Date();
       const existingChallenge = await OtpChallenge.findOne({ phone });
-      const suspendedUntil = existingChallenge?.suspendedUntil;
-      if (suspendedUntil && suspendedUntil.getTime() > now.getTime()) {
-        const remainingHours = Math.ceil((suspendedUntil.getTime() - now.getTime()) / (3600 * 1000));
-        throw new AppError(
-          `Account temporarily suspended. Try again in ${remainingHours} hours.`,
-          429,
-          'ACCOUNT_SUSPENDED',
-        );
-      }
 
       const otp = generateOTP();
       const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
@@ -92,7 +95,8 @@ export class AuthService {
             otpHash,
             expiresAt,
             attempts: 0,
-            suspendedUntil: null,
+            failures: existingChallenge?.failures ?? 0,
+            retryAfter: existingChallenge?.retryAfter ?? null,
           },
         },
         { upsert: true, new: true },
@@ -119,24 +123,14 @@ export class AuthService {
       return { message: 'OTP sent successfully' };
     }
 
-    // Check if user is suspended
-    const suspendedKey = `otp:suspended:${phone}`;
-    const isSuspended = await redis.exists(suspendedKey);
-    if (isSuspended) {
-      const ttl = await redis.ttl(suspendedKey);
-      throw new AppError(
-        `Account temporarily suspended. Try again in ${Math.ceil(ttl / 3600)} hours.`,
-        429,
-        'ACCOUNT_SUSPENDED',
-      );
-    }
-
     // Generate and store OTP (hashed for security)
     const otp = generateOTP();
     const otpKey = `otp:${phone}`;
     const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
 
     await redis.setex(otpKey, config.otp.expirySeconds, otpHash);
+    // A fresh code gets a fresh set of tries; the failure count stands.
+    await redis.del(`otp:attempts:${phone}`);
 
     if (this.isTwilioConfigured()) {
       try {
@@ -180,10 +174,15 @@ export class AuthService {
     const redis = getRedisClient();
 
     if (redis) {
-      // Check suspension
-      const suspendedKey = `otp:suspended:${phone}`;
-      if (await redis.exists(suspendedKey)) {
-        throw new AppError('Account temporarily suspended', 429, 'ACCOUNT_SUSPENDED');
+      // Still waiting out an earlier wrong code?
+      const retryKey = `otp:retry:${phone}`;
+      const retryTtl = await redis.ttl(retryKey);
+      if (retryTtl > 0) {
+        throw new AppError(
+          `Too many wrong codes. Try again in ${retryTtl} seconds.`,
+          429,
+          'OTP_RETRY_LATER',
+        );
       }
 
       // Retrieve stored OTP hash
@@ -194,8 +193,8 @@ export class AuthService {
         throw new AuthenticationError('OTP expired or not requested');
       }
 
-      // Track failed attempts
       const attemptsKey = `otp:attempts:${phone}`;
+      const failuresKey = `otp:failures:${phone}`;
 
       // Compare hashes using timing-safe equality
       const providedHash = crypto.createHash('sha256').update(otp).digest('hex');
@@ -207,23 +206,30 @@ export class AuthService {
         const attempts = await redis.incr(attemptsKey);
         await redis.expire(attemptsKey, config.otp.expirySeconds);
 
-        if (attempts >= config.otp.maxAttempts) {
-          await redis.setex(suspendedKey, config.otp.suspensionHours * 3600, '1');
+        const failures = await redis.incr(failuresKey);
+        await redis.expire(failuresKey, config.otp.failureWindowSeconds);
+
+        const wait = this.backoffSeconds(failures);
+        if (wait > 0) await redis.setex(retryKey, wait, '1');
+
+        if (attempts >= config.otp.maxAttemptsPerCode) {
+          // Throw the code away, but leave the account usable: the next step
+          // is to request a new code, not to wait out a suspension.
           await redis.del(otpKey, attemptsKey);
           throw new AppError(
-            'Maximum OTP attempts exceeded. Account suspended for 24 hours.',
+            `Too many wrong codes. Request a new one in ${wait} seconds.`,
             429,
-            'ACCOUNT_SUSPENDED',
+            'OTP_RETRY_LATER',
           );
         }
 
         throw new AuthenticationError(
-          `Invalid OTP. ${config.otp.maxAttempts - attempts} attempts remaining.`,
+          `Invalid OTP. ${config.otp.maxAttemptsPerCode - attempts} attempts remaining before a new code is needed.`,
         );
       }
 
-      // OTP valid — clean up
-      await redis.del(otpKey, attemptsKey);
+      // OTP valid — clean up, including the failure history.
+      await redis.del(otpKey, attemptsKey, failuresKey, retryKey);
     } else {
       // Redis unavailable — verify with MongoDB OTP fallback store.
       const challenge = await OtpChallenge.findOne({ phone });
@@ -232,8 +238,13 @@ export class AuthService {
       }
 
       const now = new Date();
-      if (challenge.suspendedUntil && challenge.suspendedUntil.getTime() > now.getTime()) {
-        throw new AppError('Account temporarily suspended', 429, 'ACCOUNT_SUSPENDED');
+      if (challenge.retryAfter && challenge.retryAfter.getTime() > now.getTime()) {
+        const waitSeconds = Math.ceil((challenge.retryAfter.getTime() - now.getTime()) / 1000);
+        throw new AppError(
+          `Too many wrong codes. Try again in ${waitSeconds} seconds.`,
+          429,
+          'OTP_RETRY_LATER',
+        );
       }
 
       if (challenge.expiresAt.getTime() <= now.getTime()) {
@@ -250,36 +261,42 @@ export class AuthService {
 
       if (!otpMatch) {
         const nextAttempts = (challenge.attempts ?? 0) + 1;
-
-        if (nextAttempts >= config.otp.maxAttempts) {
-          const suspensionUntil = new Date(
-            now.getTime() + (config.otp.suspensionHours * 3600 * 1000),
-          );
-          await OtpChallenge.findOneAndUpdate(
-            { phone },
-            {
-              $set: {
-                attempts: nextAttempts,
-                suspendedUntil: suspensionUntil,
-                // Keep document alive through suspension period.
-                expiresAt: suspensionUntil,
-              },
-            },
-          );
-          throw new AppError(
-            'Maximum OTP attempts exceeded. Account suspended for 24 hours.',
-            429,
-            'ACCOUNT_SUSPENDED',
-          );
-        }
+        const nextFailures = (challenge.failures ?? 0) + 1;
+        const wait = this.backoffSeconds(nextFailures);
+        const retryAfter = new Date(now.getTime() + wait * 1000);
+        const outOfTries = nextAttempts >= config.otp.maxAttemptsPerCode;
 
         await OtpChallenge.findOneAndUpdate(
           { phone },
-          { $set: { attempts: nextAttempts } },
+          {
+            $set: {
+              attempts: nextAttempts,
+              failures: nextFailures,
+              retryAfter,
+              // The document has to outlive the wait, so the failure count and
+              // the wait itself cannot be shed by simply asking for a new code.
+              expiresAt: new Date(
+                Math.max(
+                  challenge.expiresAt.getTime(),
+                  now.getTime() + config.otp.failureWindowSeconds * 1000,
+                ),
+              ),
+              // Out of tries: drop the code itself, never the account.
+              ...(outOfTries ? { otpHash: '' } : {}),
+            },
+          },
         );
 
+        if (outOfTries) {
+          throw new AppError(
+            `Too many wrong codes. Request a new one in ${wait} seconds.`,
+            429,
+            'OTP_RETRY_LATER',
+          );
+        }
+
         throw new AuthenticationError(
-          `Invalid OTP. ${config.otp.maxAttempts - nextAttempts} attempts remaining.`,
+          `Invalid OTP. ${config.otp.maxAttemptsPerCode - nextAttempts} attempts remaining before a new code is needed.`,
         );
       }
 

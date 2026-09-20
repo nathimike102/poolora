@@ -19,14 +19,15 @@ describe('Config — Platform Fee Rate', () => {
 });
 
 describe('Config — OTP Settings', () => {
-  it('should have maxAttempts set to 3', () => {
+  it('should allow a handful of tries per code', () => {
     const { config } = require('../../config');
-    expect(config.otp.maxAttempts).toBe(3);
+    expect(config.otp.maxAttemptsPerCode).toBe(5);
   });
 
-  it('should have suspensionHours set to 24', () => {
+  it('should cap the wait so a mistyped code never locks someone out for long', () => {
     const { config } = require('../../config');
-    expect(config.otp.suspensionHours).toBe(24);
+    expect(config.otp.backoffBaseSeconds).toBeGreaterThan(0);
+    expect(config.otp.backoffMaxSeconds).toBeLessThanOrEqual(900);
   });
 
   it('should have expirySeconds set to 300', () => {

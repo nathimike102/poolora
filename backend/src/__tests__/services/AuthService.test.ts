@@ -76,9 +76,6 @@ describe('AuthService — OTP Security', () => {
 
   describe('sendOtp', () => {
     it('should store a SHA-256 hashed OTP in Redis, not the plaintext OTP', async () => {
-      // Not suspended
-      mockRedis.exists.mockResolvedValueOnce(0);
-
       await authService.sendOtp(testPhone);
 
       // setex should have been called with the hashed OTP
@@ -119,8 +116,8 @@ describe('AuthService — OTP Security', () => {
       const rawOtp = '123456';
       const otpHash = crypto.createHash('sha256').update(rawOtp).digest('hex');
 
-      // Not suspended, stored hash exists
-      mockRedis.exists.mockResolvedValueOnce(0);
+      // No wait outstanding, stored hash exists
+      mockRedis.ttl.mockResolvedValueOnce(-2);
       mockRedis.get.mockResolvedValueOnce(otpHash);
       mockRedis.del.mockResolvedValue(1);
 
@@ -145,16 +142,25 @@ describe('AuthService — OTP Security', () => {
       const wrongOtp = '654321';
       const otpHash = crypto.createHash('sha256').update(correctOtp).digest('hex');
 
-      mockRedis.exists.mockResolvedValueOnce(0);
+      mockRedis.ttl.mockResolvedValueOnce(-2);
       mockRedis.get.mockResolvedValueOnce(otpHash);
-      mockRedis.incr.mockResolvedValueOnce(1);
+      mockRedis.incr.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
       mockRedis.expire.mockResolvedValue(true);
+      mockRedis.setex.mockResolvedValue('OK');
 
       await expect(authService.verifyOtp(testPhone, wrongOtp, undefined)).rejects.toThrow('Invalid OTP');
+
+      // A wrong code sets a wait, and never an account suspension.
+      expect(mockRedis.setex).toHaveBeenCalledWith(`otp:retry:${testPhone}`, 5, '1');
+      expect(mockRedis.setex).not.toHaveBeenCalledWith(
+        expect.stringContaining('suspended'),
+        expect.anything(),
+        expect.anything(),
+      );
     });
 
     it('should reject when OTP has expired (not in Redis)', async () => {
-      mockRedis.exists.mockResolvedValueOnce(0);
+      mockRedis.ttl.mockResolvedValueOnce(-2);
       mockRedis.get.mockResolvedValueOnce(null); // OTP expired
 
       await expect(authService.verifyOtp(testPhone, '123456', undefined)).rejects.toThrow(
@@ -162,27 +168,35 @@ describe('AuthService — OTP Security', () => {
       );
     });
 
-    it('should suspend account after max failed attempts', async () => {
+    it('should discard the code, but not the account, after too many wrong tries', async () => {
       const correctOtp = '123456';
       const otpHash = crypto.createHash('sha256').update(correctOtp).digest('hex');
 
-      mockRedis.exists.mockResolvedValueOnce(0);
+      mockRedis.ttl.mockResolvedValueOnce(-2);
       mockRedis.get.mockResolvedValueOnce(otpHash);
-      mockRedis.incr.mockResolvedValueOnce(3); // 3rd attempt = max
+      // 5th wrong try against this code, 5th recent failure overall.
+      mockRedis.incr.mockResolvedValueOnce(5).mockResolvedValueOnce(5);
       mockRedis.expire.mockResolvedValue(true);
       mockRedis.setex.mockResolvedValue('OK');
       mockRedis.del.mockResolvedValue(1);
 
       await expect(authService.verifyOtp(testPhone, '000000', undefined)).rejects.toThrow(
-        'Maximum OTP attempts exceeded',
+        'Too many wrong codes',
       );
 
-      // Verify suspension key was set
-      expect(mockRedis.setex).toHaveBeenCalledWith(
-        `otp:suspended:${testPhone}`,
-        expect.any(Number),
-        '1',
+      // The code is dropped and a wait applies, but nothing suspends the phone.
+      expect(mockRedis.del).toHaveBeenCalledWith(`otp:${testPhone}`, `otp:attempts:${testPhone}`);
+      expect(mockRedis.setex).toHaveBeenCalledWith(`otp:retry:${testPhone}`, 80, '1');
+    });
+
+    it('should refuse while a wait from an earlier wrong code is still running', async () => {
+      mockRedis.ttl.mockResolvedValueOnce(42);
+
+      await expect(authService.verifyOtp(testPhone, '123456', undefined)).rejects.toThrow(
+        'Try again in 42 seconds',
       );
+      // It never even looks the code up.
+      expect(mockRedis.get).not.toHaveBeenCalled();
     });
   });
 });

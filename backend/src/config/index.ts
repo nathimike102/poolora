@@ -120,9 +120,19 @@ export const config = {
   },
 
   otp: {
-    maxAttempts: 3,
-    suspensionHours: 24,
     expirySeconds: 300,
+    /**
+     * A wrong code makes the next attempt wait longer, doubling each time and
+     * capped at backoffMaxSeconds. We deliberately do not suspend the account:
+     * anyone who knows a phone number could otherwise lock its owner out by
+     * entering wrong codes.
+     */
+    backoffBaseSeconds: 5,
+    backoffMaxSeconds: 900,
+    /** Wrong codes before the code is thrown away and a new one is needed. */
+    maxAttemptsPerCode: 5,
+    /** How long recent failures keep counting towards the delay. */
+    failureWindowSeconds: 3600,
   },
 
   wallet: {

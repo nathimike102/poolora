@@ -4,8 +4,12 @@ export interface IOtpChallenge extends Document {
   phone: string;
   otpHash: string;
   expiresAt: Date;
+  /** Wrong codes entered against the code currently on issue. */
   attempts: number;
-  suspendedUntil?: Date;
+  /** Wrong codes in the recent past, which set how long the next wait is. */
+  failures: number;
+  /** Nothing is accepted before this moment. Not an account lock. */
+  retryAfter?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,7 +36,11 @@ const OtpChallengeSchema = new Schema<IOtpChallenge>(
       type: Number,
       default: 0,
     },
-    suspendedUntil: {
+    failures: {
+      type: Number,
+      default: 0,
+    },
+    retryAfter: {
       type: Date,
     },
   },
@@ -41,6 +49,6 @@ const OtpChallengeSchema = new Schema<IOtpChallenge>(
   },
 );
 
-OtpChallengeSchema.index({ phone: 1, suspendedUntil: 1 });
+OtpChallengeSchema.index({ phone: 1, retryAfter: 1 });
 
 export const OtpChallenge = mongoose.model<IOtpChallenge>('OtpChallenge', OtpChallengeSchema);
