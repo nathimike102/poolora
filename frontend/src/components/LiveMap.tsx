@@ -155,7 +155,7 @@ export function LiveMap({
         <MapView
           testID="live-map-view"
           ref={mapRef}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           initialRegion={region}
           showsUserLocation
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   loader: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
   },

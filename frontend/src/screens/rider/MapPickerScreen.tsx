@@ -94,7 +94,7 @@ export function MapPickerScreen() {
     <View style={styles.root}>
       <MapView
         ref={mapRef}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={INITIAL_REGION}
         onRegionChangeComplete={lookup}
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: Typography.bold },
   headerSub: { fontSize: 12, marginTop: 2 },
   pinWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 48,

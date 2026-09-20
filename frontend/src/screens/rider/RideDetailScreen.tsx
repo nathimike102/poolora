@@ -191,7 +191,7 @@ export function RideDetailScreen() {
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       {/* ── Map ─────────────────────────────────────────────────── */}
       <View style={[styles.mapWrap, { height: mapExpanded ? 250 : 180 }]}>
-        <LiveMap showRoute origin={origin} destination={destination} style={StyleSheet.absoluteFillObject} />
+        <LiveMap showRoute origin={origin} destination={destination} style={StyleSheet.absoluteFill} />
 
         {/* Header overlay */}
         <View style={styles.mapOverlay}>
@@ -387,7 +387,7 @@ export function RideDetailScreen() {
       )}
       {loading && (
         <View
-          style={[StyleSheet.absoluteFillObject, styles.centered, { backgroundColor: c.bg }]}
+          style={[StyleSheet.absoluteFill, styles.centered, { backgroundColor: c.bg }]}
           accessibilityLabel="Loading ride"
         >
           <ActivityIndicator size="large" color={c.primary} />

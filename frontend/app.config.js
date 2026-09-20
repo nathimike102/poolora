@@ -41,6 +41,10 @@ module.exports = {
     plugins: [
       '@react-native-firebase/app',
       '@react-native-firebase/auth',
+      '@react-native-community/datetimepicker',
+      '@sentry/react-native',
+      'expo-splash-screen',
+      'expo-status-bar',
       [
         'expo-location',
         {

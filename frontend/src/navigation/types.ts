@@ -10,7 +10,7 @@
  * - Tab navigators are nested inside the root stack as "RiderTabs" / "DriverTabs"
  */
 
-import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import type { ConfirmationResult } from '@react-native-firebase/auth';
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { Ride, PaginatedResponse } from '../types/api';
 
@@ -42,7 +42,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Login: undefined;
   PhoneLogin: undefined;
-  OTP: { phone: string; confirmation: FirebaseAuthTypes.ConfirmationResult };
+  OTP: { phone: string; confirmation: ConfirmationResult };
   EmailLogin: undefined;
   EmailSignup: undefined;
   ProfileSetup: undefined;

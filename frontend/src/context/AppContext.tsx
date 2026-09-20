@@ -27,7 +27,7 @@ import {
 } from "../services/authService";
 import { env } from "../config/env";
 import { PolicyModal } from "../components/PolicyModal";
-import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
+import type { User as FirebaseUser } from "@react-native-firebase/auth";
 import { logger } from "../utils/logger";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ interface AppContextValue extends AppState {
   c: AppColors;
   activeTab: ActiveTab;
   /** The raw Firebase user (null if not signed in) */
-  firebaseUser: FirebaseAuthTypes.User | null;
+  firebaseUser: FirebaseUser | null;
   /** Whether Firebase auth state is still loading */
   authLoading: boolean;
   setRole: (role: UserRole) => void;
@@ -94,7 +94,7 @@ export function AppProvider({ children }: AppProviderProps) {
 
   // Firebase auth state
   const [firebaseUser, setFirebaseUser] =
-    useState<FirebaseAuthTypes.User | null>(null);
+    useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   // ── Restore persisted state on mount ─────────────────────────────────────

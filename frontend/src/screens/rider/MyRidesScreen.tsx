@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
 
   /* ── Modal ── */
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.5)',
     zIndex: 40,
   },

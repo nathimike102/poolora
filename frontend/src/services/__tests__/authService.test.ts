@@ -16,8 +16,19 @@ jest.mock('../../utils/tokenStorage', () => ({
 
 jest.mock('../../utils/jwt', () => ({ getJwtExpiresAtMs: jest.fn().mockReturnValue(undefined) }));
 
-// Mock firebase auth default export
-jest.mock('@react-native-firebase/auth', () => jest.fn(() => ({ signOut: jest.fn() })));
+// Firebase's modular auth API: the service calls signOut(getAuth()).
+jest.mock('@react-native-firebase/auth', () => ({
+  getAuth: jest.fn(() => ({ currentUser: null })),
+  signOut: jest.fn().mockResolvedValue(undefined),
+  onAuthStateChanged: jest.fn(),
+  signInWithPhoneNumber: jest.fn(),
+  signInWithEmailAndPassword: jest.fn(),
+  createUserWithEmailAndPassword: jest.fn(),
+  sendPasswordResetEmail: jest.fn(),
+  signInWithCredential: jest.fn(),
+  updateProfile: jest.fn(),
+  GoogleAuthProvider: { credential: jest.fn() },
+}));
 
 import { apiClient, setAuthorizationHeader, clearAuthorizationHeader } from '../../api/axios';
 import { tokenStorage } from '../../utils/tokenStorage';

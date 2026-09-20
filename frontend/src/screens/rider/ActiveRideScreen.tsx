@@ -218,7 +218,7 @@ export function ActiveRideScreen() {
           origin={origin}
           destination={destination}
           driverLocation={driverLocation}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         />
         <View style={styles.mapOverlay}>
           <Pressable

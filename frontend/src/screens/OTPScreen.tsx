@@ -26,7 +26,7 @@ import { BackButton } from '../components/BackButton';
 import { GradientButton } from '../components/GradientButton';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
 import { sendOtp, confirmOtp, verifyOtpWithBackend } from '../services/authService';
-import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import type { ConfirmationResult } from '@react-native-firebase/auth';
 import type { RootStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'OTP'>;
@@ -49,7 +49,7 @@ export function OTPScreen() {
   const insets = useSafeAreaInsets();
 
   const phone = route.params?.phone ?? '98765 43210';
-  const [confirmation, setConfirmation] = useState<FirebaseAuthTypes.ConfirmationResult | null>(
+  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(
     route.params?.confirmation ?? null,
   );
 

@@ -6,7 +6,21 @@
  * - Backend API integration (token management, user session)
  */
 
-import auth, { FirebaseAuthTypes, GoogleAuthProvider } from '@react-native-firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  GoogleAuthProvider,
+  onAuthStateChanged as onFirebaseAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+  signInWithPhoneNumber,
+  signOut as firebaseSignOut,
+  updateProfile,
+  type ConfirmationResult,
+  type User as FirebaseUser,
+  type UserCredential,
+} from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { GOOGLE_WEB_CLIENT_ID } from '@env';
 import { apiClient, setAuthorizationHeader, clearAuthorizationHeader } from '../api/axios';
@@ -78,9 +92,9 @@ function clearLocalAuthState(): void {
  */
 export async function sendOtp(
   phoneNumber: string,
-): Promise<FirebaseAuthTypes.ConfirmationResult> {
+): Promise<ConfirmationResult> {
   try {
-    const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
+    const confirmation = await signInWithPhoneNumber(getAuth(), phoneNumber);
     return confirmation;
   } catch (error) {
     // Re-throw with a user-friendly message
@@ -112,9 +126,9 @@ export const sendOTP = sendOtp;
  * @throws Error with user-friendly message on failure
  */
 export async function confirmOtp(
-  confirmation: FirebaseAuthTypes.ConfirmationResult,
+  confirmation: ConfirmationResult,
   code: string,
-): Promise<FirebaseAuthTypes.UserCredential> {
+): Promise<UserCredential> {
   try {
     const userCredential = await confirmation.confirm(code);
     if (!userCredential) {
@@ -141,7 +155,7 @@ export const confirmOTP = confirmOtp;
  * Sign out the current user.
  */
 export async function signOut(): Promise<void> {
-  await auth().signOut();
+  await firebaseSignOut(getAuth());
 }
 
 /**
@@ -149,16 +163,16 @@ export async function signOut(): Promise<void> {
  * Returns an unsubscribe function.
  */
 export function onAuthStateChanged(
-  callback: (user: FirebaseAuthTypes.User | null) => void,
+  callback: (user: FirebaseUser | null) => void,
 ): () => void {
-  return auth().onAuthStateChanged(callback);
+  return onFirebaseAuthStateChanged(getAuth(), callback);
 }
 
 /**
  * Get the currently signed-in user (or null).
  */
-export function getCurrentUser(): FirebaseAuthTypes.User | null {
-  return auth().currentUser;
+export function getCurrentUser(): FirebaseUser | null {
+  return getAuth().currentUser;
 }
 
 /**
@@ -167,9 +181,9 @@ export function getCurrentUser(): FirebaseAuthTypes.User | null {
 export async function signInWithEmail(
   email: string,
   password: string,
-): Promise<FirebaseAuthTypes.UserCredential> {
+): Promise<UserCredential> {
   try {
-    return await auth().signInWithEmailAndPassword(email, password);
+    return await signInWithEmailAndPassword(getAuth(), email, password);
   } catch (error) {
     const { code, message } = getErrorDetails(error);
     switch (code) {
@@ -198,10 +212,10 @@ export async function signUpWithEmail(
   email: string,
   password: string,
   displayName: string,
-): Promise<FirebaseAuthTypes.UserCredential> {
+): Promise<UserCredential> {
   try {
-    const userCredential = await auth().createUserWithEmailAndPassword(email, password);
-    await userCredential.user.updateProfile({ displayName });
+    const userCredential = await createUserWithEmailAndPassword(getAuth(), email, password);
+    await updateProfile(userCredential.user, { displayName });
     return userCredential;
   } catch (error) {
     const { code, message } = getErrorDetails(error);
@@ -225,7 +239,7 @@ export async function signUpWithEmail(
  */
 export async function sendPasswordReset(email: string): Promise<void> {
   try {
-    await auth().sendPasswordResetEmail(email);
+    await sendPasswordResetEmail(getAuth(), email);
   } catch (error) {
     const { code, message } = getErrorDetails(error);
     switch (code) {
@@ -246,7 +260,7 @@ export async function sendPasswordReset(email: string): Promise<void> {
  * @returns UserCredential on success
  * @throws Error with user-friendly message on failure
  */
-export async function signInWithGoogle(): Promise<FirebaseAuthTypes.UserCredential> {
+export async function signInWithGoogle(): Promise<UserCredential> {
   try {
     // Check Play Services availability
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -264,7 +278,7 @@ export async function signInWithGoogle(): Promise<FirebaseAuthTypes.UserCredenti
     const googleCredential = GoogleAuthProvider.credential(idToken);
 
     // Sign in to Firebase with the credential
-    const userCredential = await auth().signInWithCredential(googleCredential);
+    const userCredential = await signInWithCredential(getAuth(), googleCredential);
     return userCredential;
   } catch (error) {
     const { code, message } = getErrorDetails(error);
@@ -454,7 +468,7 @@ export async function logoutAll(): Promise<void> {
     clearLocalAuthState();
 
     // Sign out from Firebase
-    await auth().signOut();
+    await firebaseSignOut(getAuth());
 
     logger.info('User logged out successfully');
   } catch (error) {
