@@ -1,4 +1,5 @@
 import { Request } from 'express';
+import type { Types } from 'mongoose';
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
@@ -110,6 +111,8 @@ export interface GeoPoint {
 // ─── Sub-documents ───────────────────────────────────────────────────────────
 
 export interface IVehicle {
+  /** Assigned by Mongoose when the vehicle is pushed onto a user. */
+  _id?: Types.ObjectId;
   make: string;
   model: string;
   year: number;

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ChatService } from '../services/ChatService';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess, sendPaginated } from '../utils/helpers';
+import { queryInt } from '../utils/request';
 
 const chatService = new ChatService();
 
@@ -14,7 +15,7 @@ export class ChatController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const message = await chatService.sendMessage(user.userId, req.body);
-      sendSuccess(res, { message }, 201, (req as any).requestId);
+      sendSuccess(res, { message }, 201, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -27,14 +28,15 @@ export class ChatController {
   static async getMessages(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { page = '1', limit = '50' } = req.query as any;
+      const page = queryInt(req, 'page', 1);
+      const limit = queryInt(req, 'limit', 50);
       const result = await chatService.getMessages(
         user.userId,
         String(req.params.bookingId),
-        parseInt(page),
-        parseInt(limit),
+        page,
+        limit,
       );
-      sendPaginated(res, result, (req as any).requestId);
+      sendPaginated(res, result, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -48,7 +50,7 @@ export class ChatController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const count = await chatService.markAsRead(user.userId, String(req.params.bookingId));
-      sendSuccess(res, { markedRead: count }, 200, (req as any).requestId);
+      sendSuccess(res, { markedRead: count }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -62,7 +64,7 @@ export class ChatController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const count = await chatService.getUnreadCount(user.userId);
-      sendSuccess(res, { unreadCount: count }, 200, (req as any).requestId);
+      sendSuccess(res, { unreadCount: count }, 200, req.requestId);
     } catch (error) {
       next(error);
     }

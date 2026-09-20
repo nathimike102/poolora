@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { PaymentService } from '../services/PaymentService';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
+import { queryInt, queryString } from '../utils/request';
 
 const paymentService = new PaymentService();
 
@@ -19,7 +20,7 @@ export class PaymentWebhookController {
     }
 
     // Raw body is needed for HMAC verification
-    const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+    const rawBody = req.rawBody || JSON.stringify(req.body);
     const isValid = paymentService.validateWebhookSignature(rawBody, signature);
     if (!isValid) {
       logger.warn('Invalid Razorpay webhook signature received');
@@ -43,13 +44,18 @@ export class PaymentWebhookController {
    */
   static async getPaymentHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const user = (req as any).user;
-      const { role = 'rider', page = '1', limit = '20' } = req.query as any;
+      const user = req.user;
+      if (!user) {
+        return next(new AppError('Authentication required', 401, 'UNAUTHENTICATED'));
+      }
+      const role = queryString(req, 'role', 'rider') === 'driver' ? 'driver' : 'rider';
+      const page = queryInt(req, 'page', 1);
+      const limit = queryInt(req, 'limit', 20);
       const result = await paymentService.getUserPayments(
         user.userId,
         role,
-        parseInt(page),
-        parseInt(limit),
+        page,
+        limit,
       );
 
       res.status(200).json({
@@ -57,7 +63,7 @@ export class PaymentWebhookController {
         code: 200,
         data: result,
         timestamp: new Date().toISOString(),
-        requestId: (req as any).requestId,
+        requestId: req.requestId,
       });
     } catch (error) {
       next(error);

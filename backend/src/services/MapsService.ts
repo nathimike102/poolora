@@ -4,6 +4,28 @@ import { config } from '../config';
 import { getRedisClient } from '../config/redis';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
+import { errorMessage } from '../utils/errors';
+import type {
+  AddressComponentV1,
+  AddressValidationResponse,
+  AutocompleteResponse,
+  DirectionsResponse,
+  DistanceMatrixResponse,
+  GeocodeResponse,
+  GeolocationResponse,
+  NearbySearchResponse,
+  PlacesV1Response,
+  RoutesApiResponse,
+  ComputedRoute,
+  DirectionsLeg,
+  DirectionsStep,
+  DistanceMatrixRow,
+  DriverDistance,
+  GeolocationRequestBody,
+  PlaceLegacy,
+  PlacePrediction,
+  PlaceV1,
+} from '../types/googleMaps';
 
 const GOOGLE_MAPS_BASE = 'https://maps.googleapis.com/maps/api';
 
@@ -24,11 +46,11 @@ function getApiKey(): string {
  * responses are cached, the API key is excluded from the cache key, and TTLs
  * stay well inside Google's temporary-caching allowance.
  */
-async function cachedMapsGet(
+async function cachedMapsGet<T>(
   url: string,
   params: Record<string, string>,
   ttlSeconds: number,
-): Promise<{ data: any }> {
+): Promise<{ data: T }> {
   const redis = getRedisClient();
   const cacheKey = `maps:${crypto
     .createHash('sha1')
@@ -48,7 +70,7 @@ async function cachedMapsGet(
 
   if (redis && (response.data?.status === 'OK' || response.data?.status === 'ZERO_RESULTS')) {
     redis.setex(cacheKey, ttlSeconds, JSON.stringify(response.data)).catch((error: Error) => {
-      logger.warn('Maps cache write failed', { error: error.message });
+      logger.warn('Maps cache write failed', { error: errorMessage(error) });
     });
   }
   return response;
@@ -133,7 +155,7 @@ export interface TrafficAwareRouteResult {
   staticDurationMins: number;
   polyline: string;
   description: string;
-  travelAdvisory: any;
+  travelAdvisory: ComputedRoute['travelAdvisory'];
 }
 
 export interface GeolocationResult {
@@ -235,7 +257,7 @@ export interface AddressValidationResult {
  */
 export async function autocomplete(input: string): Promise<AutocompleteResult[]> {
   try {
-    const response = await cachedMapsGet(
+    const response = await cachedMapsGet<AutocompleteResponse>(
       `${GOOGLE_MAPS_BASE}/place/autocomplete/json`,
       { input: input.trim().toLowerCase(), components: 'country:in' },
       CACHE_TTL.autocomplete,
@@ -250,15 +272,15 @@ export async function autocomplete(input: string): Promise<AutocompleteResult[]>
       );
     }
 
-    return (data.predictions ?? []).slice(0, 5).map((p: any) => ({
+    return (data.predictions ?? []).slice(0, 5).map((p: PlacePrediction) => ({
       description: p.description,
       placeId: p.place_id,
       mainText: p.structured_formatting?.main_text ?? p.description,
       secondaryText: p.structured_formatting?.secondary_text ?? '',
     }));
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Autocomplete request failed', { error: error.message });
+    logger.error('Autocomplete request failed', { error: errorMessage(error) });
     throw new AppError('Autocomplete service unavailable', 502, 'AUTOCOMPLETE_ERROR');
   }
 }
@@ -268,7 +290,7 @@ export async function autocomplete(input: string): Promise<AutocompleteResult[]>
  */
 export async function geocodeAddress(address: string): Promise<GeocodeResult> {
   try {
-    const response = await cachedMapsGet(
+    const response = await cachedMapsGet<GeocodeResponse>(
       `${GOOGLE_MAPS_BASE}/geocode/json`,
       { address },
       CACHE_TTL.geocode,
@@ -284,15 +306,21 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
     }
 
     const result = data.results[0];
+    const location = result.geometry?.location;
+    if (!location || result.formatted_address === undefined || result.place_id === undefined) {
+      // Google answered OK but left out what a coordinate is for.
+      throw new AppError('Geocoding returned an incomplete result', 502, 'GEOCODING_FAILED');
+    }
+
     return {
       formattedAddress: result.formatted_address,
-      lat: result.geometry.location.lat,
-      lng: result.geometry.location.lng,
+      lat: location.lat,
+      lng: location.lng,
       placeId: result.place_id,
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Geocoding request failed', { error: error.message, address });
+    logger.error('Geocoding request failed', { error: errorMessage(error), address });
     throw new AppError('Geocoding service unavailable', 502, 'GEOCODING_ERROR');
   }
 }
@@ -302,7 +330,7 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
  */
 export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult> {
   try {
-    const response = await cachedMapsGet(
+    const response = await cachedMapsGet<GeocodeResponse>(
       `${GOOGLE_MAPS_BASE}/geocode/json`,
       { latlng: `${lat},${lng}` },
       CACHE_TTL.geocode,
@@ -319,13 +347,17 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
 
     const result = data.results[0];
     return {
-      formattedAddress: result.formatted_address,
-      placeId: result.place_id,
-      addressComponents: result.address_components,
+      formattedAddress: result.formatted_address ?? '',
+      placeId: result.place_id ?? '',
+      addressComponents: (result.address_components ?? []).map(component => ({
+        long_name: component.long_name ?? '',
+        short_name: component.short_name ?? '',
+        types: component.types ?? [],
+      })),
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Reverse geocoding request failed', { error: error.message, lat, lng });
+    logger.error('Reverse geocoding request failed', { error: errorMessage(error), lat, lng });
     throw new AppError('Reverse geocoding service unavailable', 502, 'REVERSE_GEOCODING_ERROR');
   }
 }
@@ -339,7 +371,7 @@ export async function getRoute(
   destination: { lat: number; lng: number },
 ): Promise<RouteResult> {
   try {
-    const response = await cachedMapsGet(
+    const response = await cachedMapsGet<DirectionsResponse>(
       `${GOOGLE_MAPS_BASE}/directions/json`,
       {
         origin: `${origin.lat},${origin.lng}`,
@@ -364,13 +396,13 @@ export async function getRoute(
     return {
       distanceKm: Math.round((leg.distance.value / 1000) * 100) / 100,
       durationMins: Math.round(leg.duration.value / 60),
-      polyline: route.overview_polyline.points,
+      polyline: route.overview_polyline?.points ?? '',
       startAddress: leg.start_address,
       endAddress: leg.end_address,
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Directions request failed', { error: error.message, origin, destination });
+    logger.error('Directions request failed', { error: errorMessage(error), origin, destination });
     throw new AppError('Directions service unavailable', 502, 'DIRECTIONS_ERROR');
   }
 }
@@ -383,7 +415,7 @@ export async function calculateDistance(
   destination: { lat: number; lng: number },
 ): Promise<DistanceResult> {
   try {
-    const response = await cachedMapsGet(
+    const response = await cachedMapsGet<DistanceMatrixResponse>(
       `${GOOGLE_MAPS_BASE}/distancematrix/json`,
       {
         origins: `${origin.lat},${origin.lng}`,
@@ -411,15 +443,19 @@ export async function calculateDistance(
       );
     }
 
+    if (!element.distance || !element.duration) {
+      throw new AppError('Distance Matrix returned no distance', 502, 'DISTANCE_MATRIX_FAILED');
+    }
+
     return {
       distanceKm: Math.round((element.distance.value / 1000) * 100) / 100,
       durationMins: Math.round(element.duration.value / 60),
-      originAddress: data.origin_addresses[0],
-      destinationAddress: data.destination_addresses[0],
+      originAddress: data.origin_addresses?.[0] ?? '',
+      destinationAddress: data.destination_addresses?.[0] ?? '',
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Distance Matrix request failed', { error: error.message, origin, destination });
+    logger.error('Distance Matrix request failed', { error: errorMessage(error), origin, destination });
     throw new AppError('Distance Matrix service unavailable', 502, 'DISTANCE_MATRIX_ERROR');
   }
 }
@@ -449,7 +485,7 @@ export async function getDirections(
       params.waypoints = waypoints.map((wp) => `${wp.lat},${wp.lng}`).join('|');
     }
 
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/directions/json`, { params });
+    const response = await axios.get<DirectionsResponse>(`${GOOGLE_MAPS_BASE}/directions/json`, { params });
 
     const data = response.data;
     if (data.status !== 'OK' || !data.routes?.length) {
@@ -464,14 +500,14 @@ export async function getDirections(
     const leg = route.legs[0];
 
     // Extract turn-by-turn steps
-    const steps = (leg.steps ?? []).map((step: any) => ({
+    const steps = (leg.steps ?? []).map((step: DirectionsStep) => ({
       instruction: step.html_instructions?.replace(/<[^>]*>/g, '') || '',
       distanceKm: Math.round((step.distance.value / 1000) * 100) / 100,
       durationMins: Math.round(step.duration.value / 60),
     }));
 
     // Extract waypoint coordinates along the route
-    const waypointCoords = (route.legs ?? []).map((l: any) => ({
+    const waypointCoords = (route.legs ?? []).map((l: DirectionsLeg) => ({
       lat: l.start_location.lat,
       lng: l.start_location.lng,
     }));
@@ -479,15 +515,15 @@ export async function getDirections(
     return {
       distanceKm: Math.round((leg.distance.value / 1000) * 100) / 100,
       durationMins: Math.round(leg.duration.value / 60),
-      polyline: route.overview_polyline.points,
+      polyline: route.overview_polyline?.points ?? '',
       startAddress: leg.start_address,
       endAddress: leg.end_address,
       steps,
       waypoints: waypointCoords,
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Directions (Pickup → Drop) request failed', { error: error.message, pickup, drop });
+    logger.error('Directions (Pickup → Drop) request failed', { error: errorMessage(error), pickup, drop });
     throw new AppError('Directions service unavailable', 502, 'DIRECTIONS_ERROR');
   }
 }
@@ -510,7 +546,7 @@ export async function findNearestDriver(
     // Build pipe-separated origins from driver locations
     const origins = drivers.map((d) => `${d.lat},${d.lng}`).join('|');
 
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/distancematrix/json`, {
+    const response = await axios.get<DistanceMatrixResponse>(`${GOOGLE_MAPS_BASE}/distancematrix/json`, {
       params: {
         origins,
         destinations: `${pickup.lat},${pickup.lng}`,
@@ -530,35 +566,35 @@ export async function findNearestDriver(
     }
 
     // Parse each driver's distance/duration to the pickup point
-    const rows = data.rows.map((row: any, index: number) => {
+    const rows: DriverDistance[] = (data.rows ?? []).map((row: DistanceMatrixRow, index: number) => {
       const element = row.elements[0];
+      const routable =
+        element?.status === 'OK' && element.distance !== undefined && element.duration !== undefined;
+
+      // A driver Google cannot route to sorts last rather than breaking the call.
       return {
         driverLat: drivers[index].lat,
         driverLng: drivers[index].lng,
-        distanceKm:
-          element.status === 'OK'
-            ? Math.round((element.distance.value / 1000) * 100) / 100
-            : Infinity,
-        durationMins:
-          element.status === 'OK' ? Math.round(element.duration.value / 60) : Infinity,
+        distanceKm: routable ? Math.round((element.distance!.value / 1000) * 100) / 100 : Infinity,
+        durationMins: routable ? Math.round(element.duration!.value / 60) : Infinity,
       };
     });
 
     // Find the closest driver by distance
     const nearestDriver =
       rows.reduce(
-        (best: any, row: any, idx: number) =>
+        (best: DriverDistance & { index: number }, row: DriverDistance, idx: number) =>
           row.distanceKm < best.distanceKm ? { ...row, index: idx } : best,
-        { distanceKm: Infinity, index: -1 },
+        { driverLat: 0, driverLng: 0, distanceKm: Infinity, durationMins: Infinity, index: -1 },
       );
 
     return {
       rows,
       nearestDriver: nearestDriver.index >= 0 ? nearestDriver : null,
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Find Nearest Driver request failed', { error: error.message, drivers, pickup });
+    logger.error('Find Nearest Driver request failed', { error: errorMessage(error), drivers, pickup });
     throw new AppError('Distance Matrix service unavailable', 502, 'DISTANCE_MATRIX_ERROR');
   }
 }
@@ -590,7 +626,7 @@ export async function getTrafficAwareRoute(
       extraComputations: ['TRAFFIC_ON_POLYLINE'],
     };
 
-    const response = await axios.post(ROUTES_API_URL, body, {
+    const response = await axios.post<RoutesApiResponse>(ROUTES_API_URL, body, {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': getApiKey(),
@@ -605,19 +641,19 @@ export async function getTrafficAwareRoute(
     }
 
     // Parse each route alternative
-    return routes.map((route: any) => ({
-      distanceKm: Math.round((route.distanceMeters / 1000) * 100) / 100,
+    return routes.map((route: ComputedRoute) => ({
+      distanceKm: Math.round(((route.distanceMeters ?? 0) / 1000) * 100) / 100,
       durationMins: Math.round(parseInt(route.duration?.replace('s', '') || '0', 10) / 60),
       staticDurationMins: Math.round(
         parseInt(route.staticDuration?.replace('s', '') || '0', 10) / 60,
       ),
       polyline: route.polyline?.encodedPolyline || '',
       description: route.description || '',
-      travelAdvisory: route.travelAdvisory || null,
+      travelAdvisory: route.travelAdvisory,
     }));
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Routes API request failed', { error: error.message, origin, destination });
+    logger.error('Routes API request failed', { error: errorMessage(error), origin, destination });
     throw new AppError('Routes service unavailable', 502, 'ROUTES_ERROR');
   }
 }
@@ -641,7 +677,7 @@ export async function detectGeolocation(
   try {
     const GEOLOCATION_URL = `https://www.googleapis.com/geolocation/v1/geolocate?key=${getApiKey()}`;
 
-    const body: Record<string, any> = {
+    const body: GeolocationRequestBody = {
       considerIp: true,
     };
 
@@ -655,7 +691,7 @@ export async function detectGeolocation(
       body.cellTowers = cellTowers;
     }
 
-    const response = await axios.post(GEOLOCATION_URL, body, {
+    const response = await axios.post<GeolocationResponse>(GEOLOCATION_URL, body, {
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -664,14 +700,19 @@ export async function detectGeolocation(
       throw new AppError('Geolocation failed: no location returned', 400, 'GEOLOCATION_FAILED');
     }
 
+    const { lat, lng } = data.location;
+    if (lat === undefined || lng === undefined) {
+      throw new AppError('Geolocation failed: no location returned', 400, 'GEOLOCATION_FAILED');
+    }
+
     return {
-      lat: data.location.lat,
-      lng: data.location.lng,
-      accuracy: data.accuracy || 0,
+      lat,
+      lng,
+      accuracy: data.accuracy ?? 0,
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Geolocation request failed', { error: error.message });
+    logger.error('Geolocation request failed', { error: errorMessage(error) });
     throw new AppError('Geolocation service unavailable', 502, 'GEOLOCATION_ERROR');
   }
 }
@@ -696,7 +737,7 @@ export async function optimizeRoute(
     // Build pipe-separated waypoints with optimize flag
     const waypointStr = `optimize:true|${waypoints.map((wp) => `${wp.lat},${wp.lng}`).join('|')}`;
 
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/directions/json`, {
+    const response = await axios.get<DirectionsResponse>(`${GOOGLE_MAPS_BASE}/directions/json`, {
       params: {
         origin: `${origin.lat},${origin.lng}`,
         destination: `${destination.lat},${destination.lng}`,
@@ -720,7 +761,7 @@ export async function optimizeRoute(
     const optimizedOrder: number[] = route.waypoint_order || [];
 
     // Parse each leg of the optimized route
-    const legs = (route.legs ?? []).map((leg: any, idx: number) => ({
+    const legs = (route.legs ?? []).map((leg: DirectionsLeg, idx: number) => ({
       legIndex: idx,
       startAddress: leg.start_address,
       endAddress: leg.end_address,
@@ -729,19 +770,19 @@ export async function optimizeRoute(
     }));
 
     // Sum up totals
-    const totalDistanceKm = legs.reduce((sum: number, l: any) => sum + l.distanceKm, 0);
-    const totalDurationMins = legs.reduce((sum: number, l: any) => sum + l.durationMins, 0);
+    const totalDistanceKm = legs.reduce((sum: number, l: { distanceKm: number; durationMins: number }) => sum + l.distanceKm, 0);
+    const totalDurationMins = legs.reduce((sum: number, l: { distanceKm: number; durationMins: number }) => sum + l.durationMins, 0);
 
     return {
       optimizedWaypointOrder: optimizedOrder,
       routes: legs,
       totalDistanceKm: Math.round(totalDistanceKm * 100) / 100,
       totalDurationMins,
-      polyline: route.overview_polyline.points,
+      polyline: route.overview_polyline?.points ?? '',
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Route optimization request failed', { error: error.message, origin, destination });
+    logger.error('Route optimization request failed', { error: errorMessage(error), origin, destination });
     throw new AppError('Route optimization service unavailable', 502, 'ROUTE_OPTIMIZATION_ERROR');
   }
 }
@@ -758,7 +799,7 @@ export async function getNavigationData(
   destination: { lat: number; lng: number },
 ): Promise<NavigationResult> {
   try {
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/directions/json`, {
+    const response = await axios.get<DirectionsResponse>(`${GOOGLE_MAPS_BASE}/directions/json`, {
       params: {
         origin: `${origin.lat},${origin.lng}`,
         destination: `${destination.lat},${destination.lng}`,
@@ -781,7 +822,7 @@ export async function getNavigationData(
     const leg = route.legs[0];
 
     // Extract detailed step-level navigation data
-    const steps: NavigationStep[] = (leg.steps ?? []).map((step: any) => ({
+    const steps: NavigationStep[] = (leg.steps ?? []).map((step: DirectionsStep) => ({
       instruction: step.html_instructions?.replace(/<[^>]*>/g, '') || '',
       distanceKm: Math.round((step.distance.value / 1000) * 100) / 100,
       durationMins: Math.round(step.duration.value / 60),
@@ -801,23 +842,18 @@ export async function getNavigationData(
       steps,
       totalDistanceKm: Math.round((leg.distance.value / 1000) * 100) / 100,
       totalDurationMins: Math.round(leg.duration.value / 60),
-      overviewPolyline: route.overview_polyline.points,
+      overviewPolyline: route.overview_polyline?.points ?? '',
       startAddress: leg.start_address,
       endAddress: leg.end_address,
+      // Google omits bounds on some responses; fall back to the leg endpoints.
       bounds: {
-        northeast: {
-          lat: route.bounds.northeast.lat,
-          lng: route.bounds.northeast.lng,
-        },
-        southwest: {
-          lat: route.bounds.southwest.lat,
-          lng: route.bounds.southwest.lng,
-        },
+        northeast: route.bounds?.northeast ?? leg.end_location,
+        southwest: route.bounds?.southwest ?? leg.start_location,
       },
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Navigation data request failed', { error: error.message, origin, destination });
+    logger.error('Navigation data request failed', { error: errorMessage(error), origin, destination });
     throw new AppError('Navigation service unavailable', 502, 'NAVIGATION_ERROR');
   }
 }
@@ -836,7 +872,7 @@ export async function searchPlacesGrounded(
   try {
     const PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchText';
 
-    const body: Record<string, any> = {
+    const body: Record<string, unknown> = {
       textQuery,
     };
 
@@ -853,7 +889,7 @@ export async function searchPlacesGrounded(
       };
     }
 
-    const response = await axios.post(PLACES_API_URL, body, {
+    const response = await axios.post<PlacesV1Response>(PLACES_API_URL, body, {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': getApiKey(),
@@ -862,7 +898,7 @@ export async function searchPlacesGrounded(
       },
     });
 
-    const places = (response.data.places ?? []).map((place: any) => ({
+    const places = (response.data.places ?? []).map((place: PlaceV1) => ({
       placeId: place.id || '',
       name: place.displayName?.text || '',
       formattedAddress: place.formattedAddress || '',
@@ -877,9 +913,9 @@ export async function searchPlacesGrounded(
       places,
       attributions: ['Powered by Google Maps'],
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Maps Grounding search failed', { error: error.message, textQuery });
+    logger.error('Maps Grounding search failed', { error: errorMessage(error), textQuery });
     throw new AppError('Maps Grounding service unavailable', 502, 'MAPS_GROUNDING_ERROR');
   }
 }
@@ -909,7 +945,7 @@ export async function searchNearbyPlaces(
       params.keyword = keyword;
     }
 
-    const response = await axios.get(`${GOOGLE_MAPS_BASE}/place/nearbysearch/json`, { params });
+    const response = await axios.get<NearbySearchResponse>(`${GOOGLE_MAPS_BASE}/place/nearbysearch/json`, { params });
 
     const data = response.data;
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
@@ -921,7 +957,7 @@ export async function searchNearbyPlaces(
     }
 
     // Parse and standardize place results
-    const places = (data.results ?? []).map((place: any) => ({
+    const places = (data.results ?? []).map((place: PlaceLegacy) => ({
       placeId: place.place_id || '',
       name: place.name || '',
       formattedAddress: place.formatted_address || '',
@@ -938,9 +974,9 @@ export async function searchNearbyPlaces(
       places,
       totalResults: places.length,
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Nearby places search failed', { error: error.message, location, type });
+    logger.error('Nearby places search failed', { error: errorMessage(error), location, type });
     throw new AppError('Nearby places service unavailable', 502, 'NEARBY_SEARCH_ERROR');
   }
 }
@@ -966,7 +1002,7 @@ export async function validateAddress(
       },
     };
 
-    const response = await axios.post(`${ADDRESS_VALIDATION_URL}?key=${getApiKey()}`, body, {
+    const response = await axios.post<AddressValidationResponse>(`${ADDRESS_VALIDATION_URL}?key=${getApiKey()}`, body, {
       headers: { 'Content-Type': 'application/json' },
     });
 
@@ -984,7 +1020,7 @@ export async function validateAddress(
     const addressObj = result.address || {};
 
     // Parse address components with confirmation status
-    const addressComponents = (addressObj.addressComponents ?? []).map((comp: any) => ({
+    const addressComponents = (addressObj.addressComponents ?? []).map((comp: AddressComponentV1) => ({
       componentName: comp.componentName?.text || '',
       componentType: comp.componentType || '',
       confirmed: comp.confirmationLevel === 'CONFIRMED',
@@ -1004,9 +1040,9 @@ export async function validateAddress(
         hasReplacedComponents: verdict.hasReplacedComponents || false,
       },
     };
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error('Address validation request failed', { error: error.message, address });
+    logger.error('Address validation request failed', { error: errorMessage(error), address });
     throw new AppError('Address validation service unavailable', 502, 'ADDRESS_VALIDATION_ERROR');
   }
 }

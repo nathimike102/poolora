@@ -16,7 +16,7 @@ export class AuthController {
     try {
       const { phone } = req.body;
       const result = await authService.sendOtp(phone);
-      sendSuccess(res, result, 200, (req as any).requestId);
+      sendSuccess(res, result, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -39,7 +39,7 @@ export class AuthController {
           isNewUser: result.isNewUser,
         },
         result.isNewUser ? 201 : 200,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);
@@ -54,7 +54,7 @@ export class AuthController {
       const { refreshToken } = req.body;
       const tokens = await authService.refreshAccessToken(refreshToken);
 
-      sendSuccess(res, tokens, 200, (req as any).requestId);
+      sendSuccess(res, tokens, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -68,7 +68,7 @@ export class AuthController {
       const user = (req as AuthenticatedRequest).user;
       await authService.logout(user.userId, user.sessionId);
 
-      sendSuccess(res, { message: 'Logged out successfully' }, 200, (req as any).requestId);
+      sendSuccess(res, { message: 'Logged out successfully' }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -82,7 +82,7 @@ export class AuthController {
       const user = (req as AuthenticatedRequest).user;
       const fullUser = await User.findById(user.userId).select('-otpAttempts -otpLastAttemptAt');
 
-      sendSuccess(res, { user: fullUser }, 200, (req as any).requestId);
+      sendSuccess(res, { user: fullUser }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -95,7 +95,7 @@ export class AuthController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const result = await authService.submitKyc(user.userId, req.body);
-      sendSuccess(res, { user: result }, 200, (req as any).requestId);
+      sendSuccess(res, { user: result }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -107,7 +107,7 @@ export class AuthController {
   static async approveKyc(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await authService.approveKyc(String(req.params.userId));
-      sendSuccess(res, { user: result }, 200, (req as any).requestId);
+      sendSuccess(res, { user: result }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -119,7 +119,7 @@ export class AuthController {
   static async rejectKyc(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await authService.rejectKyc(String(req.params.userId), req.body.reason);
-      sendSuccess(res, { user: result }, 200, (req as any).requestId);
+      sendSuccess(res, { user: result }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -165,7 +165,7 @@ export class AuthController {
           refreshToken: sessionResult.refreshToken,
         },
         200,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);

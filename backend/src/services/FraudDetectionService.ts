@@ -20,7 +20,7 @@ export class FraudDetectionService {
    * Analyze a payment failure for potential fraud.
    * Runs a series of rule-based checks and calls the ML service for deep analysis.
    */
-  async analyzePaymentFailure(userId: string, paymentData: any): Promise<FraudCheckResult> {
+  async analyzePaymentFailure(userId: string, paymentData: Record<string, unknown>): Promise<FraudCheckResult> {
     try {
       logger.info('Starting fraud analysis for payment failure', { userId, orderId: paymentData.orderId });
 
@@ -70,7 +70,12 @@ export class FraudDetectionService {
       } catch (error) {
         logger.error('ML Service fraud-check call failed — falling back to local rules', { error: (error as Error).message });
         // Basic fallback logic
-        mlResult = this.runLocalHeuristics(cancellations30d, bookingsLastHour, avgPayment, paymentData.amount);
+        mlResult = this.runLocalHeuristics(
+          cancellations30d,
+          bookingsLastHour,
+          avgPayment,
+          typeof paymentData.amount === 'number' ? paymentData.amount : 0,
+        );
       }
 
       // 4. Act on the results

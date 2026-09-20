@@ -91,7 +91,7 @@ const BookingSchema = new Schema<IBooking>(
   },
   {
     timestamps: true,
-    toJSON: { transform(_doc, ret) { delete (ret as any).__v; return ret; } },
+    toJSON: { transform(_doc, ret) { delete (ret as Record<string, unknown>).__v; return ret; } },
   },
 );
 

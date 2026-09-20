@@ -72,7 +72,7 @@ const WalletSchema = new Schema<IWallet>(
         toJSON: {
             transform(_doc, ret) {
                  
-                delete (ret as any).__v;
+                delete (ret as Record<string, unknown>).__v;
                 ret.balance = Math.round(ret.balance * 100) / 100;
                 return ret;
             },

@@ -6,7 +6,7 @@ export interface INotification extends Document {
   title: string;
   message: string;
   type: 'chat' | 'ride' | 'system';
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   isRead: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -53,7 +53,7 @@ const NotificationSchema = new Schema<INotification>(
     timestamps: true,
     toJSON: {
       transform(_doc, ret) {
-        delete (ret as any).__v;
+        delete (ret as Record<string, unknown>).__v;
         return ret;
       },
     },

@@ -1,6 +1,7 @@
 import { getKafkaProducer, createKafkaConsumer } from '../config/kafka';
 import { KafkaTopic, KafkaEvent } from '../types';
 import { logger } from '../utils/logger';
+import type { ObjectSchema } from 'joi';
 import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config';
 
@@ -22,7 +23,7 @@ export class EventBridge {
     event: Omit<KafkaEvent, 'timestamp' | 'source' | 'correlationId'>,
   ): void {
     // ─── Schema Validation ───
-    const schema = (eventSchemas as any)[event.eventType];
+    const schema = (eventSchemas as Record<string, ObjectSchema | undefined>)[event.eventType];
     if (schema) {
       const { error } = schema.validate(event.data);
       if (error) {
@@ -60,7 +61,7 @@ export class EventBridge {
    * Alias for publish() to maintain compatibility with legacy code.
    * @deprecated Use EventBridge.publish() instead.
    */
-  static emit(eventType: string, data: any): void {
+  static emit(eventType: string, data: unknown): void {
     // Determine topic based on event type prefix
     let topic: KafkaTopic = 'user-events';
     if (eventType.startsWith('ride.')) topic = 'ride-events';
@@ -203,7 +204,7 @@ export class EventBridge {
             'New Booking Request',
             'A rider has requested to join your ride.',
             'ride',
-            { bookingId: data.bookingId },
+            { bookingId: data.bookingId ?? '' },
           );
         } else if (event.eventType === 'booking.confirmed' && data.riderId) {
           await notificationService.sendPushNotification(
@@ -235,13 +236,13 @@ export class EventBridge {
             'Payment Successful',
             `Payment of ₹${data.amount || 0} has been processed.`,
             'system',
-            { bookingId: data.bookingId, paymentId: data.paymentId },
+            { bookingId: data.bookingId ?? '', paymentId: data.paymentId ?? '' },
           );
         } else if (event.eventType === 'payment.failed' && data.userId) {
           logger.warn('Payment failure detected — starting fraud analysis', {
             userId: data.userId,
             paymentId: data.paymentId,
-            orderId: (data as any).orderId,
+            orderId: (data as { orderId?: string }).orderId,
             amount: data.amount,
           });
 

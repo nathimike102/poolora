@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../types';
 import { Notification } from '../models/Notification';
 import { sendSuccess, sendPaginated, paginate } from '../utils/helpers';
 import { NotFoundError, AuthorizationError } from '../utils/AppError';
+import { queryInt } from '../utils/request';
 
 export class NotificationController {
   /**
@@ -16,10 +17,11 @@ export class NotificationController {
   ): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { page = '1', limit = '20' } = req.query as any;
+      const page = queryInt(req, 'page', 1);
+      const limit = queryInt(req, 'limit', 20);
 
-      const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-      const limitNum = Math.max(parseInt(limit, 10) || 20, 1);
+      const pageNum = Math.max(page || 1, 1);
+      const limitNum = Math.max(limit || 20, 1);
 
       const [notifications, total] = await Promise.all([
         Notification.find({ user: user.userId })
@@ -30,7 +32,7 @@ export class NotificationController {
       ]);
 
       const result = paginate(notifications, total, pageNum, limitNum);
-      sendPaginated(res, result, (req as any).requestId);
+      sendPaginated(res, result, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -53,7 +55,7 @@ export class NotificationController {
         isRead: false,
       });
 
-      sendSuccess(res, { unreadCount }, 200, (req as any).requestId);
+      sendSuccess(res, { unreadCount }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -84,7 +86,7 @@ export class NotificationController {
       notification.isRead = true;
       await notification.save();
 
-      sendSuccess(res, { notification }, 200, (req as any).requestId);
+      sendSuccess(res, { notification }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -111,7 +113,7 @@ export class NotificationController {
         res,
         { markedCount: result.modifiedCount },
         200,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);

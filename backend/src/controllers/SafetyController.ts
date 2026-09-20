@@ -3,6 +3,7 @@ import { SafetyService } from '../services/SafetyService';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import { SOSCheckInStatus } from '../types';
+import { queryInt } from '../utils/request';
 
 const safetyService = new SafetyService();
 
@@ -15,7 +16,7 @@ export class SafetyController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const record = await safetyService.triggerSOS(user.userId, req.body);
-      sendSuccess(res, { emergency: record }, 201, (req as any).requestId);
+      sendSuccess(res, { emergency: record }, 201, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -30,7 +31,7 @@ export class SafetyController {
       const user = (req as AuthenticatedRequest).user;
       const { location } = req.body;
       await safetyService.updateSOSLocation(String(req.params.id), user.userId, location);
-      sendSuccess(res, { message: 'Location updated' }, 200, (req as any).requestId);
+      sendSuccess(res, { message: 'Location updated' }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -45,7 +46,7 @@ export class SafetyController {
       const user = (req as AuthenticatedRequest).user;
       const { type, url } = req.body;
       await safetyService.addEvidence(String(req.params.id), user.userId, type, url);
-      sendSuccess(res, { message: 'Evidence added' }, 200, (req as any).requestId);
+      sendSuccess(res, { message: 'Evidence added' }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -68,7 +69,7 @@ export class SafetyController {
         notes,
         location,
       });
-      sendSuccess(res, { emergency: record }, 200, (req as any).requestId);
+      sendSuccess(res, { emergency: record }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -81,7 +82,7 @@ export class SafetyController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const record = await safetyService.acknowledgeSOS(String(req.params.id), user.userId);
-      sendSuccess(res, { emergency: record }, 200, (req as any).requestId);
+      sendSuccess(res, { emergency: record }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -100,7 +101,7 @@ export class SafetyController {
         notes || '',
         isFalseAlarm || false,
       );
-      sendSuccess(res, { emergency: record }, 200, (req as any).requestId);
+      sendSuccess(res, { emergency: record }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -112,9 +113,10 @@ export class SafetyController {
    */
   static async getActiveIncidents(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = '1', limit = '20' } = req.query as any;
-      const result = await safetyService.getActiveIncidents(parseInt(page), parseInt(limit));
-      sendSuccess(res, result, 200, (req as any).requestId);
+      const page = queryInt(req, 'page', 1);
+      const limit = queryInt(req, 'limit', 20);
+      const result = await safetyService.getActiveIncidents(page, limit);
+      sendSuccess(res, result, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -128,7 +130,7 @@ export class SafetyController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const record = await safetyService.getSOSStatus(String(req.params.id), user.userId);
-      sendSuccess(res, { emergency: record }, 200, (req as any).requestId);
+      sendSuccess(res, { emergency: record }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -142,7 +144,7 @@ export class SafetyController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const contacts = await safetyService.getEmergencyContacts(user.userId);
-      sendSuccess(res, { contacts }, 200, (req as any).requestId);
+      sendSuccess(res, { contacts }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -156,7 +158,7 @@ export class SafetyController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const contacts = await safetyService.updateEmergencyContacts(user.userId, req.body.contacts);
-      sendSuccess(res, { contacts }, 200, (req as any).requestId);
+      sendSuccess(res, { contacts }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -170,7 +172,7 @@ export class SafetyController {
       const user = (req as AuthenticatedRequest).user;
       const { notes } = req.body as { notes?: string };
       const record = await safetyService.notifyPolice(String(req.params.id), user.userId, notes);
-      sendSuccess(res, { emergency: record }, 200, (req as any).requestId);
+      sendSuccess(res, { emergency: record }, 200, req.requestId);
     } catch (error) {
       next(error);
     }

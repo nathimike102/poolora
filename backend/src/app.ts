@@ -100,7 +100,7 @@ app.use(['/payments/webhook', '/api/v1/payments/webhook'], express.raw({ type: '
     req.body = {};
     return next();
   }
-  (req as any).rawBody = req.body;
+  req.rawBody = req.body;
   try {
     req.body = JSON.parse(req.body.toString());
   } catch {
@@ -182,7 +182,7 @@ app.use((_req: Request, res: Response) => {
       message: 'The requested resource was not found',
     },
     timestamp: new Date().toISOString(),
-    requestId: (_req as any).requestId || '',
+    requestId: _req.requestId || '',
   });
 });
 

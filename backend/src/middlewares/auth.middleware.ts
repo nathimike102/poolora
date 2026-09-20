@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { UnifiedAuthService } from '../auth';
 import { AuthenticationError } from '../utils/AppError';
-import { JWTPayload, AuthenticatedRequest } from '../types';
+import { JWTPayload, AuthenticatedRequest, UserCapability } from '../types';
 
 const unifiedAuth = new UnifiedAuthService();
 
@@ -28,7 +28,7 @@ export async function authenticate(
       const payload: JWTPayload = {
         userId: 'dev-user',
         phone: '+10000000000',
-        capabilities: ['rider', 'driver', 'admin'] as any,
+        capabilities: [UserCapability.RIDER, UserCapability.DRIVER, UserCapability.ADMIN],
         driverVerified: true,
         sessionId: 'dev-session',
       };

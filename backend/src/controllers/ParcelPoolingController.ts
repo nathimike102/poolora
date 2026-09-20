@@ -25,7 +25,7 @@ export class ParcelPoolingController {
         res,
         { parcel, razorpayOrder, deliveryOtp },
         201,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);
@@ -47,7 +47,7 @@ export class ParcelPoolingController {
         String(req.params.id),
         user.userId,
       );
-      sendSuccess(res, { parcel }, 200, (req as any).requestId);
+      sendSuccess(res, { parcel }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -65,7 +65,7 @@ export class ParcelPoolingController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const parcel = await parcelService.pickupParcel(String(req.params.id), user.userId);
-      sendSuccess(res, { parcel }, 200, (req as any).requestId);
+      sendSuccess(res, { parcel }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -84,7 +84,7 @@ export class ParcelPoolingController {
       const user = (req as AuthenticatedRequest).user;
       const { proof } = req.body;
       const parcel = await parcelService.completeDelivery(String(req.params.id), user.userId, proof);
-      sendSuccess(res, { parcel }, 200, (req as any).requestId);
+      sendSuccess(res, { parcel }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -105,7 +105,7 @@ export class ParcelPoolingController {
         String(req.params.trackingNumber),
         { userId: user.userId, capabilities: user.capabilities },
       );
-      sendSuccess(res, { parcel }, 200, (req as any).requestId);
+      sendSuccess(res, { parcel }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -139,7 +139,7 @@ export class ParcelPoolingController {
         res,
         { parcels, pagination: { skip, limit, total } },
         200,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);
@@ -163,7 +163,7 @@ export class ParcelPoolingController {
         user.userId,
         reason,
       );
-      sendSuccess(res, { parcel }, 200, (req as any).requestId);
+      sendSuccess(res, { parcel }, 200, req.requestId);
     } catch (error) {
       next(error);
     }

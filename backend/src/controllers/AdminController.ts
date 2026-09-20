@@ -6,7 +6,8 @@ import { Payment } from '../models/Payment';
 import { BookingStatus, RideStatus } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import { logger } from '../utils/logger';
-import { NotFoundError } from '../utils/AppError';
+import { AppError, NotFoundError } from '../utils/AppError';
+import { queryFloat, queryInt } from '../utils/request';
 
 /**
  * GET /admin/kyc/:userId/documents
@@ -42,7 +43,7 @@ export async function getKycDocuments(req: Request, res: Response, next: NextFun
         documents: { licence, registration, insurance, photos },
       },
       200,
-      (req as any).requestId,
+      req.requestId,
     );
   } catch (error) {
     next(error);
@@ -109,7 +110,7 @@ export class AdminController {
       };
 
       logger.info('System metrics generated');
-      sendSuccess(res, { metrics }, 200, (req as any).requestId);
+      sendSuccess(res, { metrics }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -124,7 +125,7 @@ export class AdminController {
       const { status } = req.query;
       const { page, limit } = parsePagination(req.query);
 
-      const query: Record<string, any> = {};
+      const query: Record<string, unknown> = {};
       if (status) {
         query.status = status;
       }
@@ -144,7 +145,7 @@ export class AdminController {
         res,
         { rides, pagination: { page, limit, total } },
         200,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);
@@ -160,7 +161,7 @@ export class AdminController {
       const { role, kycStatus } = req.query;
       const { page, limit } = parsePagination(req.query);
 
-      const query: Record<string, any> = {};
+      const query: Record<string, unknown> = {};
       if (typeof role === 'string') {
         query.capabilities = role;
       }
@@ -184,7 +185,7 @@ export class AdminController {
         res,
         { users, pagination: { page, limit, total } },
         200,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);
@@ -200,7 +201,7 @@ export class AdminController {
       const { status } = req.query;
       const { page, limit } = parsePagination(req.query);
 
-      const query: Record<string, any> = {};
+      const query: Record<string, unknown> = {};
       if (status) {
         query.status = status;
       }
@@ -220,7 +221,7 @@ export class AdminController {
         res,
         { payments, pagination: { page, limit, total } },
         200,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);
@@ -233,20 +234,18 @@ export class AdminController {
    */
   static async getDemandHeatmap(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { lat, lng, radiusKm = '10' } = req.query as any;
-      if (!lat || !lng) {
-        throw new Error('Latitude and longitude are required');
+      const lat = queryFloat(req, 'lat');
+      const lng = queryFloat(req, 'lng');
+      const radiusKm = queryInt(req, 'radiusKm', 10);
+      if (lat === undefined || lng === undefined) {
+        throw new AppError('Latitude and longitude are required', 400);
       }
 
       const { AnalyticsService } = await import('../services/AnalyticsService');
       const analyticsService = new AnalyticsService();
-      const clusters = await analyticsService.getRideClusters(
-        parseFloat(lat),
-        parseFloat(lng),
-        parseFloat(radiusKm),
-      );
+      const clusters = await analyticsService.getRideClusters(lat, lng, radiusKm);
 
-      sendSuccess(res, { clusters }, 200, (req as any).requestId);
+      sendSuccess(res, { clusters }, 200, req.requestId);
     } catch (error) {
       next(error);
     }

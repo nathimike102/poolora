@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { RideService } from '../services/RideService';
-import { AuthenticatedRequest, RideSearchParams } from '../types';
+import { AuthenticatedRequest, RideSearchParams, RideStatus, RideType, VehicleType } from '../types';
 import { sendSuccess, sendPaginated } from '../utils/helpers';
 import { AppError } from '../utils/AppError';
 import { SocketGateway } from '../sockets/SocketGateway';
 import { AnalyticsService } from '../services/AnalyticsService';
+import { queryEnum, queryFloat, queryInt, queryString } from '../utils/request';
 
 const rideService = new RideService();
 const analyticsService = new AnalyticsService();
@@ -18,7 +19,7 @@ export class RideController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const ride = await rideService.createRide(user.userId, req.body);
-      sendSuccess(res, { ride }, 201, (req as any).requestId);
+      sendSuccess(res, { ride }, 201, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -32,26 +33,26 @@ export class RideController {
   static async searchRides(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const query = req.query as any;
-
+      // Coordinates and the departure time are required; the route validator
+      // rejects the request before this point if any of them is missing.
       const params: RideSearchParams = {
-        pickupLng: parseFloat(query.pickupLng),
-        pickupLat: parseFloat(query.pickupLat),
-        dropoffLng: parseFloat(query.dropoffLng),
-        dropoffLat: parseFloat(query.dropoffLat),
-        departureTime: new Date(query.departureTime),
-        radiusKm: query.radiusKm ? parseFloat(query.radiusKm) : undefined,
-        timeDeviationMins: query.timeDeviationMins ? parseInt(query.timeDeviationMins) : undefined,
-        maxPrice: query.maxPrice ? parseFloat(query.maxPrice) : undefined,
-        womenOnly: query.womenOnly === 'true' ? true : undefined,
-        hasAC: query.hasAC === 'true' ? true : undefined,
-        vehicleType: query.vehicleType || undefined,
-        minRating: query.minRating ? parseFloat(query.minRating) : undefined,
-        rideType: query.rideType || undefined,
+        pickupLng: queryFloat(req, 'pickupLng') ?? Number.NaN,
+        pickupLat: queryFloat(req, 'pickupLat') ?? Number.NaN,
+        dropoffLng: queryFloat(req, 'dropoffLng') ?? Number.NaN,
+        dropoffLat: queryFloat(req, 'dropoffLat') ?? Number.NaN,
+        departureTime: new Date(queryString(req, 'departureTime', '')),
+        radiusKm: queryFloat(req, 'radiusKm'),
+        timeDeviationMins: queryFloat(req, 'timeDeviationMins'),
+        maxPrice: queryFloat(req, 'maxPrice'),
+        womenOnly: queryString(req, 'womenOnly') === 'true' ? true : undefined,
+        hasAC: queryString(req, 'hasAC') === 'true' ? true : undefined,
+        vehicleType: queryEnum(req, 'vehicleType', VehicleType),
+        minRating: queryFloat(req, 'minRating'),
+        rideType: queryEnum(req, 'rideType', RideType),
       };
 
-      const page = parseInt(query.page) || 1;
-      const limit = parseInt(query.limit) || 20;
+      const page = queryInt(req, 'page', 1);
+      const limit = queryInt(req, 'limit', 20);
 
       const result = await rideService.searchRides(user.userId, params, page, limit);
 
@@ -66,7 +67,7 @@ export class RideController {
           totalPages: Math.ceil(result.total / limit),
         },
         200,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);
@@ -80,14 +81,16 @@ export class RideController {
   static async getMyRides(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { status, page = '1', limit = '20' } = req.query as any;
+      const status = queryEnum(req, 'status', RideStatus);
+      const page = queryInt(req, 'page', 1);
+      const limit = queryInt(req, 'limit', 20);
       const result = await rideService.getDriverRides(
         user.userId,
         status,
-        parseInt(page),
-        parseInt(limit),
+        page,
+        limit,
       );
-      sendPaginated(res, result, (req as any).requestId);
+      sendPaginated(res, result, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -101,7 +104,7 @@ export class RideController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const rides = await rideService.getUpcomingRides(user.userId);
-      sendSuccess(res, { rides }, 200, (req as any).requestId);
+      sendSuccess(res, { rides }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -114,7 +117,7 @@ export class RideController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const ride = await rideService.getRideById(String(req.params.id), user.userId);
-      sendSuccess(res, { ride }, 200, (req as any).requestId);
+      sendSuccess(res, { ride }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -128,7 +131,7 @@ export class RideController {
       const user = (req as AuthenticatedRequest).user;
       const reason = req.body?.reason ?? '';
       const ride = await rideService.cancelRide(String(req.params.id), user.userId, reason);
-      sendSuccess(res, { ride }, 200, (req as any).requestId);
+      sendSuccess(res, { ride }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -141,7 +144,7 @@ export class RideController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const ride = await rideService.completeRide(String(req.params.id), user.userId);
-      sendSuccess(res, { ride }, 200, (req as any).requestId);
+      sendSuccess(res, { ride }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -178,7 +181,7 @@ export class RideController {
         timestamp,
       });
 
-      sendSuccess(res, { tracking }, 200, (req as any).requestId);
+      sendSuccess(res, { tracking }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -190,20 +193,19 @@ export class RideController {
    */
   static async getDemandPrediction(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { lat, lng } = req.query as any;
-      if (!lat || !lng) {
+      const latNum = queryFloat(req, 'lat');
+      const lngNum = queryFloat(req, 'lng');
+      if (latNum === undefined || lngNum === undefined) {
         throw new AppError('Latitude and longitude are required', 400);
       }
 
-      const latNum = parseFloat(lat);
-      const lngNum = parseFloat(lng);
-      if (!Number.isFinite(latNum) || Math.abs(latNum) > 90 || !Number.isFinite(lngNum) || Math.abs(lngNum) > 180) {
+      if (Math.abs(latNum) > 90 || Math.abs(lngNum) > 180) {
         throw new AppError('Latitude and longitude are invalid', 400);
       }
 
       // Uses real ride history for the area rather than a placeholder count
       const prediction = await analyticsService.getDemandPrediction(latNum, lngNum);
-      sendSuccess(res, prediction, 200, (req as any).requestId);
+      sendSuccess(res, prediction, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -217,7 +219,7 @@ export class RideController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const result = await rideService.getOptimizedRoute(String(req.params.id), user.userId);
-      sendSuccess(res, result, 200, (req as any).requestId);
+      sendSuccess(res, result, 200, req.requestId);
     } catch (error) {
       next(error);
     }

@@ -58,7 +58,7 @@ async function hitRedis(key: string, windowMs: number): Promise<{ count: number;
 
 function createRateLimiter(tier: RateLimitConfig, keyPrefix: string) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
-    const identifier = (req as any).user?.userId || req.ip || 'unknown';
+    const identifier = req.user?.userId || req.ip || 'unknown';
     const key = `ratelimit:${keyPrefix}:${identifier}`;
 
     const hit = (await hitRedis(key, tier.windowMs)) ?? hitLocal(key, tier.windowMs);

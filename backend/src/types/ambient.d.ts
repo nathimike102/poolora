@@ -1,17 +1,8 @@
-declare module 'socket.io-client' {
-  export type Socket = any;
-  export function io(...args: any[]): any;
-}
-
-declare module 'twilio' {
-  const twilio: any;
-  export default twilio;
-  export type Twilio = any;
-}
+/**
+ * Modules without usable published types.
+ *
+ * socket.io-client and twilio both ship their own types, so they are no longer
+ * declared here. What remains is a transitive dependency that has none.
+ */
 
 declare module 'xmlhttprequest-ssl';
-
-// Allow tests to use loose any for socket event payloads
-interface NodeJSGlobal {
-  fetch?: any;
-}

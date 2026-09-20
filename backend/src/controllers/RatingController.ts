@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import { RatingService } from '../services/RatingService';
+import { queryInt } from '../utils/request';
 
 const ratingService = new RatingService();
 
@@ -15,7 +16,7 @@ export class RatingController {
       const user = (req as AuthenticatedRequest).user;
       const rating = await ratingService.createRating(user.userId, req.body);
 
-      sendSuccess(res, { rating }, 201, (req as any).requestId);
+      sendSuccess(res, { rating }, 201, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -27,18 +28,19 @@ export class RatingController {
    */
   static async getUserRatings(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = '1', limit = '20' } = req.query as any;
+      const page = queryInt(req, 'page', 1);
+      const limit = queryInt(req, 'limit', 20);
       const { ratings, total } = await ratingService.getUserRatings(
         req.params.userId as string,
-        parseInt(page as string),
-        parseInt(limit as string)
+        page,
+        limit
       );
 
       sendSuccess(
         res,
-        { ratings, total, page: parseInt(page), limit: parseInt(limit) },
+        { ratings, total, page: page, limit: limit },
         200,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);

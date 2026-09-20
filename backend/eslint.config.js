@@ -19,13 +19,20 @@ export default [
     },
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      // Warn rather than fail: ~190 pre-existing `any`s predate this rule being
-      // enforced. Type them file by file, then set this back to 'error'.
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       'no-console': [
         'warn',
         { allow: ['warn', 'error'] }
       ]
     }
-  }
+  },
+  {
+    // Test doubles stand in for types we do not control (a Mongoose query
+    // chain, a Razorpay client). Demanding a full type for each mock makes the
+    // tests harder to read without making them safer.
+    files: ['src/__tests__/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
 ];

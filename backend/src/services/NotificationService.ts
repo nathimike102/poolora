@@ -14,7 +14,7 @@ import { config } from '../config';
  */
 export class NotificationService {
   private fcmInitialized: boolean = false;
-  private twilioClient: any = null;
+  private twilioClient: ReturnType<typeof twilio> | null = null;
 
   constructor() {
     this.initializeFCM();
@@ -83,7 +83,7 @@ export class NotificationService {
     title: string,
     message: string,
     type: 'chat' | 'ride' | 'system' = 'system',
-    data?: Record<string, any>,
+    data?: Record<string, string>,
   ): Promise<void> {
     try {
       const notification = await Notification.create({

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { Types } from 'mongoose';
 import Razorpay from 'razorpay';
+import type { Orders } from 'razorpay/dist/types/orders';
 import { ParcelPooling, IParcelPooling } from '../models/ParcelPooling';
 import { Ride } from '../models/Ride';
 import { config } from '../config';
@@ -64,7 +65,7 @@ export class ParcelPoolingService {
       specialInstructions?: string;
       receiverId?: string;
     },
-  ): Promise<{ parcel: IParcelPooling; razorpayOrder: any; deliveryOtp: string }> {
+  ): Promise<{ parcel: IParcelPooling; razorpayOrder: Orders.RazorpayOrder; deliveryOtp: string }> {
     const ride = await Ride.findById(data.rideId);
     if (!ride) throw new NotFoundError('Ride');
 

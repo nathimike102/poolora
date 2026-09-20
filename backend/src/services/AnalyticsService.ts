@@ -3,12 +3,27 @@ import { mlClient } from '../utils/mlClient';
 import { logger } from '../utils/logger';
 import { AppError } from '../utils/AppError';
 
+/** What the ML service returns for a demand forecast. */
+export interface DemandPrediction {
+  predicted_rides: number;
+  confidence: number;
+  surge_multiplier?: number;
+  [key: string]: unknown;
+}
+
+/** Hot spots, one entry per area, most rides first. */
+export type RideClusters = Array<{
+  location: { lat: number; lng: number };
+  density: number;
+  avgPrice: number;
+}>;
+
 export class AnalyticsService {
   /**
    * Get demand prediction for a specific area.
    * Calls the AI microservice.
    */
-  async getDemandPrediction(lat: number, lng: number): Promise<any> {
+  async getDemandPrediction(lat: number, lng: number): Promise<DemandPrediction> {
     try {
       const response = await mlClient.post('/api/predict-demand', {
         lat,
@@ -18,7 +33,7 @@ export class AnalyticsService {
         historical_rides: await this.getHistoricalRideCount(lat, lng),
       });
 
-      return response.data;
+      return response.data as DemandPrediction;
     } catch (error) {
       logger.error('Demand prediction failed', { error: (error as Error).message });
       throw new AppError('Analytics service unavailable', 503);
@@ -29,7 +44,7 @@ export class AnalyticsService {
    * Perform geospatial clustering of active rides.
    * Useful for identifying high-demand "heat" zones.
    */
-  async getRideClusters(lat: number, lng: number, radiusKm: number = 10): Promise<any> {
+  async getRideClusters(lat: number, lng: number, radiusKm: number = 10): Promise<RideClusters> {
     // Simple implementation using MongoDB geospatial aggregation
     const clusters = await Ride.aggregate([
       {

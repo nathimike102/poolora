@@ -635,7 +635,7 @@ export class SocketGateway {
   private async notifyCounterparts(
     userId: string,
     event: string,
-    payload: Record<string, any>,
+    payload: Record<string, unknown>,
   ): Promise<void> {
     try {
       // Find active bookings where this user is either rider or driver

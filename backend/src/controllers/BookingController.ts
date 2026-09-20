@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { config } from '../config';
 import { BookingService } from '../services/BookingService';
-import { AuthenticatedRequest } from '../types';
+import { AuthenticatedRequest, BookingStatus } from '../types';
 import { sendSuccess, sendPaginated } from '../utils/helpers';
+import { queryEnum, queryInt } from '../utils/request';
 
 const bookingService = new BookingService();
 
@@ -25,7 +26,7 @@ export class BookingController {
           razorpayKeyId: result.razorpayOrder ? config.razorpay.keyId : undefined,
         },
         201,
-        (req as any).requestId,
+        req.requestId,
       );
     } catch (error) {
       next(error);
@@ -40,7 +41,7 @@ export class BookingController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const booking = await bookingService.confirmBooking(String(req.params.id), user.userId);
-      sendSuccess(res, { booking }, 200, (req as any).requestId);
+      sendSuccess(res, { booking }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -54,7 +55,7 @@ export class BookingController {
       const user = (req as AuthenticatedRequest).user;
       const reason = req.body?.reason ?? '';
       const booking = await bookingService.rejectBooking(String(req.params.id), user.userId, reason);
-      sendSuccess(res, { booking }, 200, (req as any).requestId);
+      sendSuccess(res, { booking }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -68,7 +69,7 @@ export class BookingController {
       const user = (req as AuthenticatedRequest).user;
       const reason = req.body?.reason ?? '';
       const booking = await bookingService.cancelBooking(String(req.params.id), user.userId, reason);
-      sendSuccess(res, { booking }, 200, (req as any).requestId);
+      sendSuccess(res, { booking }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -81,7 +82,7 @@ export class BookingController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const booking = await bookingService.completeBooking(String(req.params.id), user.userId);
-      sendSuccess(res, { booking }, 200, (req as any).requestId);
+      sendSuccess(res, { booking }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -93,15 +94,17 @@ export class BookingController {
   static async getRiderBookings(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { status, page = '1', limit = '20' } = req.query as any;
+      const status = queryEnum(req, 'status', BookingStatus);
+      const page = queryInt(req, 'page', 1);
+      const limit = queryInt(req, 'limit', 20);
       const result = await bookingService.getUserBookings(
         user.userId,
         'rider',
         status,
-        parseInt(page),
-        parseInt(limit),
+        page,
+        limit,
       );
-      sendPaginated(res, result, (req as any).requestId);
+      sendPaginated(res, result, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -113,15 +116,17 @@ export class BookingController {
   static async getDriverBookings(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { status, page = '1', limit = '20' } = req.query as any;
+      const status = queryEnum(req, 'status', BookingStatus);
+      const page = queryInt(req, 'page', 1);
+      const limit = queryInt(req, 'limit', 20);
       const result = await bookingService.getUserBookings(
         user.userId,
         'driver',
         status,
-        parseInt(page),
-        parseInt(limit),
+        page,
+        limit,
       );
-      sendPaginated(res, result, (req as any).requestId);
+      sendPaginated(res, result, req.requestId);
     } catch (error) {
       next(error);
     }

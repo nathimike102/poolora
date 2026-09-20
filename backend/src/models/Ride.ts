@@ -154,7 +154,7 @@ const RideSchema = new Schema<IRide>(
     timestamps: true,
     toJSON: {
       transform(_doc, ret) {
-        delete (ret as any).__v;
+        delete (ret as Record<string, unknown>).__v;
         return ret;
       },
     },

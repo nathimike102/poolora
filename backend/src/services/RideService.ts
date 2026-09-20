@@ -1,7 +1,8 @@
-import { Types } from 'mongoose';
+import { Types, type FilterQuery, type PipelineStage } from 'mongoose';
 import { Ride, IRide } from '../models/Ride';
+import type { Document } from 'mongoose';
 import { User } from '../models/User';
-import { Booking } from '../models/Booking';
+import { Booking, type IBooking } from '../models/Booking';
 import { config } from '../config';
 import {
   RideStatus,
@@ -23,7 +24,12 @@ import { getRoute } from './MapsService';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
 
-export type SearchResultRide = Omit<IRide, 'driver'> & {
+/**
+ * A search hit as it goes out over the API: a plain object from the
+ * aggregation, not a Mongoose document, with the driver reduced to the public
+ * fields and the match score attached.
+ */
+export type SearchResultRide = Omit<RidePlainObject, 'driver'> & {
   driver: {
     _id: string;
     name: string;
@@ -31,6 +37,29 @@ export type SearchResultRide = Omit<IRide, 'driver'> & {
     stats: { avgRatingAsDriver: number; totalRatingsAsDriver: number; totalRidesAsDriver: number };
   };
   matchScore?: number;
+};
+
+/** The ride's own fields, without the Mongoose document machinery. */
+type RidePlainObject = Omit<IRide, keyof Document>;
+
+
+/** What the ML service returns for a multi-stop route, or our fallback order. */
+export interface OptimizedRouteResult {
+  optimizedOrder: string[];
+  totalDistanceKm: number;
+  segments: Array<{ from: string; to: string; distanceKm: number; durationMins: number }>;
+  /** Set when the ML service was unreachable and the naive order is returned. */
+  fallback?: boolean;
+}
+
+/** A booking with its ride, and that ride's driver, already populated. */
+type PopulatedRideBooking = Omit<IBooking, 'ride'> & {
+  ride:
+    | (Pick<IRide, 'pickup' | 'dropoff' | 'departureTime' | 'pricePerSeat'> & {
+        _id: Types.ObjectId;
+        driver?: { name?: string; phone?: string; profilePhotoUrl?: string } | null;
+      })
+    | null;
 };
 
 export class RideService {
@@ -51,8 +80,8 @@ export class RideService {
       totalSeats: number;
       pricePerSeat: number;
       recurring: string;
-      preferences: any;
-      parcelInfo?: any;
+      preferences: IRide['preferences'];
+      parcelInfo?: IRide['parcelInfo'];
     },
   ): Promise<IRide> {
     // Verify driver exists and is approved
@@ -78,7 +107,7 @@ export class RideService {
 
     // Validate vehicle belongs to driver
     const vehicle = driver.vehicles.find(
-      (v) => (v as any)._id?.toString() === data.vehicleId,
+      (v) => v._id?.toString() === data.vehicleId,
     );
     if (!vehicle) {
       throw new NotFoundError('Vehicle');
@@ -120,7 +149,7 @@ export class RideService {
       rideType: data.rideType,
       status: RideStatus.SCHEDULED,
       vehicle: {
-        vehicleId: (vehicle as any)._id,
+        vehicleId: vehicle._id,
         vehicleType: vehicle.vehicleType,
         hasAC: vehicle.hasAC,
         plateNumber: vehicle.plateNumber,
@@ -178,7 +207,7 @@ export class RideService {
     const timeMax = new Date(departureDate.getTime() + timeDeviation * 60 * 1000);
 
     // Build filter — SELF-RIDE EXCLUSION with $ne
-    const filter: any = {
+    const filter: FilterQuery<IRide> = {
       status: { $in: [RideStatus.SCHEDULED, RideStatus.ACTIVE] },
       driver: { $ne: new Types.ObjectId(authenticatedUserId) },
       availableSeats: { $gte: 1 },
@@ -211,7 +240,7 @@ export class RideService {
     }
 
     // Geospatial query using $geoNear via aggregation
-    const pipeline: any[] = [
+    const pipeline: PipelineStage[] = [
       {
         $geoNear: {
           near: {
@@ -240,20 +269,20 @@ export class RideService {
 
     // Minimum rating filter (post-query since it requires driver lookup)
     // Fetch drivers once for both filtering and scoring
-    const driverIds = rides.map((r: any) => r.driver);
+    const driverIds = rides.map((r) => r.driver);
     const drivers = await User.find({ _id: { $in: driverIds } });
     const driverMap = new Map(drivers.map((d) => [d._id.toString(), d]));
 
     // Minimum rating filter
     let enrichedRides = rides;
     if (params.minRating) {
-      enrichedRides = rides.filter((r: any) => {
+      enrichedRides = rides.filter((r) => {
         const driver = driverMap.get(r.driver.toString());
         return driver && (driver.stats.avgRatingAsDriver || 0) >= params.minRating!;
       });
     }
 
-    const candidates = enrichedRides.map((ride: any) => ({
+    const candidates = enrichedRides.map((ride) => ({
       ride,
       driver: driverMap.get(ride.driver.toString())!,
     })).filter((c) => c.driver);
@@ -306,7 +335,7 @@ export class RideService {
     page: number,
     limit: number,
   ) {
-    const filter: any = { driver: driverId };
+    const filter: FilterQuery<IRide> = { driver: driverId };
     if (status) filter.status = status;
 
     const [rides, total] = await Promise.all([
@@ -389,11 +418,15 @@ export class RideService {
       })
       .sort({ createdAt: -1 })
       .limit(50)
-      .lean();
+      .lean<PopulatedRideBooking[]>();
 
-    return bookings
-      .filter((b: any) => b.ride != null)
-      .map((b: any) => ({
+    const withRide = bookings.filter(
+      (b): b is PopulatedRideBooking & { ride: NonNullable<PopulatedRideBooking['ride']> } =>
+        b.ride != null,
+    );
+
+    return withRide
+      .map((b) => ({
         id: b.ride._id,
         pickup: b.ride.pickup,
         dropoff: b.ride.dropoff,
@@ -434,7 +467,7 @@ export class RideService {
    * Get an AI-optimized pickup/dropoff sequence for a multi-passenger ride.
    * Employs VRP/TSP algorithms via the ML service.
    */
-  async getOptimizedRoute(rideId: string, driverId: string): Promise<any> {
+  async getOptimizedRoute(rideId: string, driverId: string): Promise<OptimizedRouteResult> {
     const ride = await Ride.findById(rideId);
     if (!ride) throw new NotFoundError('Ride');
     if (ride.driver.toString() !== driverId) {
@@ -481,7 +514,7 @@ export class RideService {
         waypoints,
       });
 
-      return response.data;
+      return response.data as OptimizedRouteResult;
     } catch (error) {
       logger.error('Route optimization failed', { error: (error as Error).message });
       // Fallback to naive order if ML service is down

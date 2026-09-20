@@ -4,6 +4,13 @@ import { AppError, ValidationError } from '../utils/AppError';
 import { ApiResponse } from '../types';
 import { logger } from '../utils/logger';
 import { config } from '../config';
+import { Error } from 'mongoose';
+
+/** The duplicate-key shape the MongoDB driver puts on an error. */
+interface DuplicateKeyError {
+  code?: number;
+  keyPattern?: Record<string, unknown>;
+}
 
 /**
  * Global error handler — last middleware in the chain.
@@ -16,13 +23,13 @@ export function globalErrorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  const requestId = (req as any).requestId || '';
+  const requestId = req.requestId || '';
 
   // Mongoose validation error
   if (err.name === 'ValidationError' && !(err instanceof AppError)) {
-    const mongooseErr = err as any;
-    const details = Object.values(mongooseErr.errors || {}).map(
-      (e: any) => e.message,
+    const mongooseErr = err as Error.ValidationError;
+    const details = Object.values(mongooseErr.errors ?? {}).map(
+      (validationError) => validationError.message,
     );
     const response: ApiResponse = {
       status: 'error',
@@ -40,8 +47,10 @@ export function globalErrorHandler(
   }
 
   // Mongoose duplicate key error
-  if ((err as any).code === 11000) {
-    const keyPattern = (err as any).keyPattern || {};
+  // 11000 is Mongo's duplicate-key error; the driver puts it on the error object.
+  const duplicateKeyError = err as DuplicateKeyError;
+  if (duplicateKeyError.code === 11000) {
+    const keyPattern = duplicateKeyError.keyPattern ?? {};
     const field = Object.keys(keyPattern)[0] || 'field';
     const response: ApiResponse = {
       status: 'error',

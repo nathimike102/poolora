@@ -7,6 +7,9 @@ import { PaymentStatus, BookingStatus } from '../types';
 
 import { logger } from '../utils/logger';
 import { EventBridge } from '../events';
+import type { FilterQuery } from 'mongoose';
+import type { IPayment } from '../models/Payment';
+import { PaymentMethod } from '../types';
 
 interface RazorpayWebhookPayload {
   event: string;
@@ -38,7 +41,12 @@ export class PaymentService {
   /**
    * Validate Razorpay webhook HMAC signature.
    */
-  validateWebhookSignature(body: string, signature: string): boolean {
+  /**
+   * Verifies the HMAC over the exact bytes Razorpay sent. Takes the raw Buffer
+   * where we have it: re-serialising the parsed body can change byte order or
+   * spacing and would fail a signature that is in fact valid.
+   */
+  validateWebhookSignature(body: string | Buffer, signature: string): boolean {
     const expectedSignature = crypto
       .createHmac('sha256', config.razorpay.webhookSecret)
       .update(body)
@@ -107,7 +115,7 @@ export class PaymentService {
       amount,
       currency: paymentEntity.currency,
       status: PaymentStatus.AUTHORIZED,
-      method: paymentEntity.method as any,
+      method: paymentEntity.method as PaymentMethod,
       razorpayOrderId: orderId,
       razorpayPaymentId: paymentEntity.id,
       driverPayout,
@@ -246,7 +254,7 @@ export class PaymentService {
     page: number,
     limit: number,
   ) {
-    const filter: any = { [role]: userId };
+    const filter: FilterQuery<IPayment> = { [role]: userId };
 
     const [payments, total] = await Promise.all([
       Payment.find(filter)

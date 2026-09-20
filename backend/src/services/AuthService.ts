@@ -81,7 +81,6 @@ export class AuthService {
 
     if (!redis) {
       // Redis unavailable — persist OTP challenge in MongoDB.
-      const now = new Date();
       const existingChallenge = await OtpChallenge.findOne({ phone });
 
       const otp = generateOTP();

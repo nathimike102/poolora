@@ -15,7 +15,7 @@ export class UserController {
         'name phone email profilePhotoUrl capabilities gender stats kyc.status kyc.rejectionReason vehicles createdAt',
       );
       if (!user) throw new NotFoundError('User');
-      sendSuccess(res, { user }, 200, (req as any).requestId);
+      sendSuccess(res, { user }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -42,7 +42,7 @@ export class UserController {
         { new: true, runValidators: true },
       ).select('name phone email profilePhotoUrl capabilities gender stats kyc.status kyc.rejectionReason createdAt');
       if (!user) throw new NotFoundError('User');
-      sendSuccess(res, { user }, 200, (req as any).requestId);
+      sendSuccess(res, { user }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -53,7 +53,7 @@ export class UserController {
    * Placeholder — returns empty array until saved-routes feature is built.
    */
   static async getSavedRoutes(req: Request, res: Response, _next: NextFunction): Promise<void> {
-    sendSuccess(res, { routes: [] }, 200, (req as any).requestId);
+    sendSuccess(res, { routes: [] }, 200, req.requestId);
   }
 
   /**
@@ -66,7 +66,7 @@ export class UserController {
         'name profilePhotoUrl capabilities gender stats createdAt',
       );
       if (!user) throw new NotFoundError('User');
-      sendSuccess(res, { user }, 200, (req as any).requestId);
+      sendSuccess(res, { user }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -80,7 +80,7 @@ export class UserController {
       const { userId } = (req as AuthenticatedRequest).user;
       const user = await User.findById(userId).select('kyc');
       if (!user) throw new NotFoundError('User');
-      sendSuccess(res, { kyc: user.kyc }, 200, (req as any).requestId);
+      sendSuccess(res, { kyc: user.kyc }, 200, req.requestId);
     } catch (error) {
       next(error);
     }

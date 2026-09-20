@@ -6,6 +6,7 @@ import { UserCapability } from '../../types';
 import { AuthenticationError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import { EventBridge } from '../../events';
+import { errorCode } from '../../utils/errors';
 
 /**
  * Verifies Firebase ID tokens and synchronizes the user into the local database.
@@ -22,8 +23,8 @@ export class FirebaseAuthStrategy implements AuthStrategy {
 
     try {
       decoded = await getFirebaseAuth().verifyIdToken(token, true /* checkRevoked */);
-    } catch (err: any) {
-      const code = err.code ?? '';
+    } catch (err) {
+      const code = errorCode(err) ?? '';
       if (code === 'auth/id-token-expired') {
         throw new AuthenticationError('Firebase token has expired');
       }

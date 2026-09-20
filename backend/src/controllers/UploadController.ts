@@ -13,7 +13,7 @@ export class UploadController {
       const { userId } = (req as AuthenticatedRequest).user;
       const { purpose, contentType } = req.body as { purpose: KycDocumentPurpose; contentType: string };
       const upload = await presignKycUpload(userId, purpose, contentType);
-      sendSuccess(res, upload, 200, (req as any).requestId);
+      sendSuccess(res, upload, 200, req.requestId);
     } catch (error) {
       next(error);
     }

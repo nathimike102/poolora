@@ -17,6 +17,8 @@ import { MatchingEngineClient } from './MatchingEngineClient';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
 import { WalletService } from './WalletService';
+import type { FilterQuery } from 'mongoose';
+import type { Orders } from 'razorpay/dist/types/orders';
 
 const walletService = new WalletService();
 
@@ -50,7 +52,7 @@ export class BookingService {
       /** If true, pay from wallet balance instead of Razorpay */
       useWallet?: boolean;
     },
-  ): Promise<{ booking: IBooking; razorpayOrder: any; paidViaWallet?: boolean }> {
+  ): Promise<{ booking: IBooking; razorpayOrder: Orders.RazorpayOrder | null; paidViaWallet?: boolean }> {
     const ride = await Ride.findById(data.rideId);
     if (!ride) throw new NotFoundError('Ride');
 
@@ -129,7 +131,7 @@ export class BookingService {
     );
 
     // ── Payment: wallet or Razorpay ──────────────────────────────────────────
-    let razorpayOrder: any = null;
+    let razorpayOrder: Orders.RazorpayOrder | null = null;
     let paidViaWallet = false;
 
     if (data.useWallet) {
@@ -303,8 +305,13 @@ export class BookingService {
       return;
     }
 
+    if (!payment.razorpayPaymentId) {
+      logger.error('Cannot refund: payment has no Razorpay payment id', { bookingId: booking._id });
+      return;
+    }
+
     try {
-      await (getRazorpayClient().payments as any).refund(payment.razorpayPaymentId, {
+      await getRazorpayClient().payments.refund(payment.razorpayPaymentId, {
         amount: Math.round(amount * 100), // paise
         notes: { bookingId: booking._id.toString(), reason, cancelledBy: actorId },
       });
@@ -375,7 +382,7 @@ export class BookingService {
     booking.status = BookingStatus.CANCELLED;
     booking.cancelledBy = Types.ObjectId.isValid(cancelledBy)
       ? new Types.ObjectId(cancelledBy)
-      : (cancelledBy as any);
+      : undefined;
     booking.cancellationReason = reason;
     booking.cancelledAt = new Date();
     await booking.save();
@@ -486,7 +493,7 @@ export class BookingService {
     page: number,
     limit: number,
   ) {
-    const filter: any = { [role]: userId };
+    const filter: FilterQuery<IBooking> = { [role]: userId };
     if (status) filter.status = status;
 
     const [bookings, total] = await Promise.all([
