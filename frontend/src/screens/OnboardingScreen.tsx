@@ -7,7 +7,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Animated,
   Dimensions,
@@ -18,6 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientButton } from '../components/GradientButton';
+import { Icon, type IconName } from '../components/Icon';
 import { Typography, Spacing, Radius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -26,10 +26,15 @@ type NavProp = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
 const { width: SCREEN_W } = Dimensions.get('window');
 const IMAGE_HEIGHT = 340;
 
-// Slide data — same as web version
+/**
+ * Each slide is drawn from the app's own icon set on a tinted panel, rather
+ * than a photograph: it needs no network on first launch and raises no
+ * question about who owns the picture.
+ */
 const SLIDES = [
   {
-    image: 'https://images.unsplash.com/photo-1769555692190-acf73d7bc46c?w=600&q=80',
+    icon: 'car-multiple' as IconName,
+    tint: '#E6F2F1',
     title: 'Share Your Ride',
     subtitle:
       'Find drivers already travelling your route and share the cost of the trip.',
@@ -37,7 +42,8 @@ const SLIDES = [
     badge: 'CARPOOL',
   },
   {
-    image: 'https://images.unsplash.com/photo-1758315427147-39bd97b36316?w=600&q=80',
+    icon: 'calendar-clock' as IconName,
+    tint: '#E3F2EB',
     title: 'Schedule in Advance',
     subtitle:
       'Book a seat ahead of time. Rides are matched on your route and departure time.',
@@ -45,7 +51,8 @@ const SLIDES = [
     badge: 'SCHEDULE',
   },
   {
-    image: 'https://images.unsplash.com/photo-1771848194068-169d817a1d6f?w=600&q=80',
+    icon: 'shield-check' as IconName,
+    tint: '#FBF0DF',
     title: 'Safety Built In',
     subtitle:
       'Drivers are verified before they can offer rides, and SOS alerts your emergency contacts with your location.',
@@ -194,14 +201,12 @@ export function OnboardingScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Image area */}
+      {/* Illustration */}
       <View style={styles.imageContainer}>
         <Animated.View style={{ transform: [{ translateX: slideX }], flex: 1 }}>
-          <Image
-            source={{ uri: slide.image }}
-            style={styles.image}
-            resizeMode="cover"
-          />
+          <View style={[styles.illustration, { backgroundColor: slide.tint }]}>
+            <Icon name={slide.icon} size={132} color={slide.accent} />
+          </View>
         </Animated.View>
 
         {/* Gradient overlay */}
@@ -281,15 +286,17 @@ const styles = StyleSheet.create({
     fontWeight: Typography.medium,
   },
 
-  // Image container
+  // Illustration panel
   imageContainer: {
     height: IMAGE_HEIGHT,
     overflow: 'hidden', // Same as CSS overflow: hidden
     position: 'relative',
   },
-  image: {
+  illustration: {
     width: SCREEN_W,
     height: IMAGE_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Gradient overlay — bottom 96dp fades to bg colour
