@@ -53,6 +53,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `JWT_ACCESS_EXPIRY`, `JWT_REFRESH_EXPIRY` | no | Default `15m` and `7d` |
 | `AUTH_PROVIDER` | no | `hybrid` (recommended), `firebase` or `custom` |
 | `FIREBASE_PROJECT_ID` | yes | Firebase console, Project settings, General |
+| `FIREBASE_DATABASE_URL` | yes | Firebase console, Realtime Database. Region-specific, e.g. `https://<project-id>-default-rtdb.asia-southeast1.firebasedatabase.app` |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` or `FIREBASE_SERVICE_ACCOUNT_JSON` | yes | Firebase console, Project settings, Service accounts, **Generate new private key**. Save the downloaded JSON to the path, or paste it into the JSON variable |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | yes | dashboard.razorpay.com, Account & Settings, API Keys. `rzp_test_` keys for testing, `rzp_live_` after KYC approval |
 | `RAZORPAY_WEBHOOK_SECRET` | yes | Razorpay dashboard, Webhooks, Add webhook. URL: `https://api.sanchari.me/payments/webhook`. Events: `payment.authorized`, `payment.captured`. You choose the secret there; copy the same value here |
@@ -75,7 +76,6 @@ openssl rand -base64 756 | tr -d '\n'
 | `GRAFANA_ADMIN_PASSWORD` | Docker/K8s | Generate (above) |
 | `DEV_AUTH_BYPASS` | never in prod | Local development only. Ignored unless `NODE_ENV=development` |
 | `DNS_SERVERS` | no | Only if your resolver cannot look up `mongodb+srv` records |
-| `FCM_SERVER_KEY` | **not used** | Legacy key. The backend sends push through the service account instead. Safe to leave empty |
 
 ### Kubernetes-only secrets
 
@@ -95,6 +95,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `GOOGLE_MAPS_API_KEY` | yes | Google Cloud, a **separate** key with Maps SDK for Android and Maps SDK for iOS enabled. Restrict it to package `com.sanchari.app` with your signing certificate SHA-1, and to the iOS bundle id |
 | `EAS_PROJECT_ID` | for EAS builds | expo.dev, your project, Project ID. Or run `eas init` |
 | `SENTRY_DSN` | no | sentry.io, a React Native project, Client Keys |
+| `FIREBASE_DATABASE_URL` | yes | Firebase console, Realtime Database. Region-specific instance URL |
 | `GOOGLE_WEB_CLIENT_ID` | for Google sign-in | Google Cloud, Credentials, OAuth client ID of type Web application (the one Firebase creates) |
 | `FIREBASE_*` | usually no | Read from `google-services.json`. Only set these to override it |
 | `DEBUG_API_CALLS`, `LOG_LEVEL`, `DEV_AUTH_BYPASS` | no | Development switches |
@@ -146,8 +147,42 @@ Add these at your DNS host before sending mail from the domain:
 - **DKIM:** the TXT record your mail provider generates.
 - **DMARC:** a TXT record on `_dmarc.sanchari.me`. Start with `v=DMARC1; p=none; rua=mailto:contact@sanchari.me`, then move to `p=quarantine` once the reports come back clean.
 
-## Keys that must be rotated
+## Key rotation history
 
-Google API keys were once committed in `frontend/.env.example` and are still in
-git history. Delete those keys in Google Cloud and create new, restricted ones.
-Removing them from the file does not remove them from history.
+### 2026-09-20 — Firebase project rebuilt after a key leak
+
+Three Google API keys belonging to the old Firebase project `one-piece-ecc0b`
+were committed to git and flagged by GitHub secret scanning:
+
+| Key | Committed in |
+| --- | --- |
+| Firebase Android API key | `frontend/google-services.json`, `frontend/.env.example` |
+| Google Maps API key | `frontend/.env.example` |
+| Firebase iOS API key | `frontend/GoogleService-Info.plist` |
+
+Actions taken:
+
+- Git history was rewritten with `git-filter-repo` to redact all three keys from
+  every commit. The working tree and all 57 commits are clean.
+- The Firebase project was rebuilt from scratch as `sanchari-e145e`. The old
+  project and its keys are abandoned.
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` and `ML_SERVICE_API_KEY` were
+  regenerated, even though they were never committed. Rotating the JWT secrets
+  invalidates every existing access and refresh token.
+- `FCM_SERVER_KEY` was removed entirely. It was unused, and the legacy FCM
+  server-key API is retired; push goes through the service account.
+
+A rewrite does not undo the exposure. Old commit SHAs stay reachable on GitHub
+until GitHub garbage-collects them, so assume the old keys were scraped and
+never re-enable them.
+
+### Preventing a repeat
+
+- `frontend/google-services.json` and `frontend/GoogleService-Info.plist` are
+  gitignored. Never commit them, even though they ship inside the app binary.
+- Restrict every client API key in Google Cloud, Credentials: the Android key to
+  package `com.sanchari.app` plus your signing SHA-1, the iOS key to the bundle
+  id, and the Maps key to the Maps SDK it actually needs. An unrestricted client
+  key is billable by anyone who finds it.
+- Turn on Firebase App Check so a leaked client key cannot by itself drive
+  traffic against Realtime Database or Auth.

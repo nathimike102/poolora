@@ -35,6 +35,9 @@ export function initializeFirebase(): void {
       firebaseApp = initializeApp({
         credential: cert(parsed as ServiceAccount),
         projectId: config.firebase.projectId,
+        ...(config.firebase.databaseUrl
+          ? { databaseURL: config.firebase.databaseUrl }
+          : {}),
       });
 
     } else if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
@@ -42,12 +45,18 @@ export function initializeFirebase(): void {
       firebaseApp = initializeApp({
         credential: cert(serviceAccount),
         projectId: config.firebase.projectId,
+        ...(config.firebase.databaseUrl
+          ? { databaseURL: config.firebase.databaseUrl }
+          : {}),
       });
 
     } else {
       // In development, initialize with project ID only (limited functionality)
       firebaseApp = initializeApp({
         projectId: config.firebase.projectId,
+        ...(config.firebase.databaseUrl
+          ? { databaseURL: config.firebase.databaseUrl }
+          : {}),
       });
     }
 
