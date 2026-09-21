@@ -53,7 +53,7 @@ export const siteConfig: SiteConfig = {
       'smart mobility',
       'shared rides',
     ],
-    ogImage: '',
+    ogImage: `${COMPANY.website}/og-image.jpg`,
     locale: 'en_IN',
     twitterHandle: '',
   },

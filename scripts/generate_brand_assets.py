@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""Render every Poolora logo and app icon from branding/poolora-mark.svg.
+"""Render every Poolora logo and app icon from branding/poolora-icon.png.
 
 Usage (from the repo root):
-    pip install cairosvg pillow
+    pip install pillow
     python3 scripts/generate_brand_assets.py
 
-The master SVG has two groups: `tile` (the gradient rounded square) and
-`car` (everything drawn on top). Variants are built by editing the SVG
-text, so there is only one drawing to maintain.
+branding/poolora-icon.png is the master: a full-bleed, square 1024px
+image with no rounded corners. It is a cleaned copy of
+branding/source/poolora-icon-original.png (dark backdrop trimmed, corners
+filled, watermark removed). Replace the master to rebrand, then rerun.
 """
 
-import io
-import re
 from pathlib import Path
 
-import cairosvg
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
-MASTER = (ROOT / "branding" / "poolora-mark.svg").read_text()
+MASTER = Image.open(ROOT / "branding" / "poolora-icon.png").convert("RGBA")
+
+# Corner radius of the rounded tile, as a share of its width (iOS uses ~22%).
+CORNER = 0.225
 
 # Android densities: launcher icon size and splash logo canvas size, in px.
 ANDROID_DENSITIES = {
@@ -32,50 +33,102 @@ ANDROID_DENSITIES = {
 INK = "#1A1446"
 
 
-def render(svg: str, size: int) -> Image.Image:
-    png = cairosvg.svg2png(bytestring=svg.encode(), output_width=size, output_height=size)
-    return Image.open(io.BytesIO(png)).convert("RGBA")
+def resized(img: Image.Image, size: int) -> Image.Image:
+    out = img.resize((size, size), Image.LANCZOS)
+    if size <= 96:
+        # Downscaling a photo softens it; restore some edge contrast.
+        out = out.filter(ImageFilter.UnsharpMask(radius=1, percent=60, threshold=2))
+    return out
 
 
-def square_tile(svg: str) -> str:
-    """Full-bleed square: for iOS/app stores, which apply their own mask."""
-    return svg.replace('rx="56" fill="url(#bg)"', 'fill="url(#bg)"')
+def rounded_mask(size: int, radius: float, feather: float = 0) -> Image.Image:
+    # Draw at 4x and downsample for smooth, anti-aliased corners.
+    big = size * 4
+    mask = Image.new("L", (big, big), 0)
+    inset = feather * 4
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (inset, inset, big - 1 - inset, big - 1 - inset), radius=radius * 4, fill=255
+    )
+    mask = mask.resize((size, size), Image.LANCZOS)
+    if feather:
+        mask = mask.filter(ImageFilter.GaussianBlur(feather / 2))
+    return mask
 
 
-def without_car(svg: str) -> str:
-    return re.sub(r'<g id="car">.*?</g>\s*(?=</svg>)', "", svg, flags=re.S)
+def tile(size: int) -> Image.Image:
+    """The icon as a rounded tile on transparency."""
+    img = resized(MASTER, size)
+    img.putalpha(rounded_mask(size, size * CORNER))
+    return img
 
 
-def car_only(svg: str, scale: float) -> str:
-    """Transparent background, car group scaled about the centre."""
-    svg = re.sub(r'<g id="tile">.*?</g>', "", svg, flags=re.S)
-    offset = 128 * (1 - scale)
-    return svg.replace(
-        '<g id="car">',
-        f'<g id="car" transform="translate({offset:.2f} {offset:.2f}) scale({scale})">',
+def full_bleed(size: int) -> Image.Image:
+    """Opaque square: iOS and the app stores apply their own mask."""
+    return resized(MASTER, size).convert("RGB")
+
+
+def backdrop(size: int) -> Image.Image:
+    """The master's colours, heavily blurred: a seamless background layer."""
+    return MASTER.resize((size, size), Image.LANCZOS).filter(
+        ImageFilter.GaussianBlur(size / 14)
     )
 
 
-def on_canvas(mark: Image.Image, canvas: int) -> Image.Image:
-    out = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
-    out.paste(mark, ((canvas - mark.width) // 2, (canvas - mark.height) // 2), mark)
+def floating(size: int, scale: float) -> Image.Image:
+    """The master shrunk onto transparency with feathered edges."""
+    inner = int(size * scale)
+    art = resized(MASTER, inner)
+    art.putalpha(rounded_mask(inner, inner * CORNER, feather=inner * 0.06))
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.alpha_composite(art, ((size - inner) // 2, (size - inner) // 2))
     return out
 
 
 def round_icon(size: int) -> Image.Image:
-    """Circular launcher icon; the car is shrunk so the circle doesn't clip it."""
-    img = render(square_tile(without_car(MASTER)), size)
-    car = render(car_only(MASTER, 0.84), size)
-    img.alpha_composite(car)
-    return circle_crop(img)
+    """Circular launcher icon; the art is inset so the circle keeps the wheels."""
+    img = backdrop(size)
+    img.alpha_composite(floating(size, 0.86))
+    mask = Image.new("L", (size * 4, size * 4), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size * 4 - 1, size * 4 - 1), fill=255)
+    img.putalpha(mask.resize((size, size), Image.LANCZOS))
+    return img
 
 
-def circle_crop(img: Image.Image) -> Image.Image:
-    mask = Image.new("L", img.size, 0)
-    ImageDraw.Draw(mask).ellipse((0, 0, img.width - 1, img.height - 1), fill=255)
-    out = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    out.paste(img, (0, 0), mask)
+def on_canvas(mark: Image.Image, canvas: int) -> Image.Image:
+    out = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+    out.alpha_composite(mark, ((canvas - mark.width) // 2, (canvas - mark.height) // 2))
     return out
+
+
+def lockup() -> Image.Image:
+    """Tile with the Poolora wordmark beside it, for docs and the README."""
+    mark = tile(360)
+    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    font = ImageFont.truetype(font_path, 190) if Path(font_path).exists() else ImageFont.load_default()
+    text = "Poolora"
+    width = ImageDraw.Draw(Image.new("RGB", (1, 1))).textlength(text, font=font)
+    img = Image.new("RGBA", (360 + 60 + int(width) + 40, 400), (0, 0, 0, 0))
+    img.alpha_composite(mark, (20, 20))
+    ImageDraw.Draw(img).text((440, 200), text, font=font, fill=INK, anchor="lm")
+    return img
+
+
+def og_image() -> Image.Image:
+    """1200x630 link preview: tile and wordmark on the master's blurred colours."""
+    w, h = 1200, 630
+    bg = MASTER.resize((w, w), Image.LANCZOS).crop((0, (w - h) // 2, w, (w + h) // 2))
+    bg = bg.filter(ImageFilter.GaussianBlur(60))
+    shade = Image.new("RGBA", (w, h), (10, 8, 30, 110))
+    bg.alpha_composite(shade)
+    bg.alpha_composite(tile(450), (90, 90))
+    draw = ImageDraw.Draw(bg)
+    bold = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    regular = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    if Path(bold).exists():
+        draw.text((600, 270), "Poolora", font=ImageFont.truetype(bold, 118), fill="white", anchor="ls")
+        draw.text((604, 340), "Share the ride,", font=ImageFont.truetype(regular, 44), fill="white", anchor="ls")
+        draw.text((604, 396), "split the cost.", font=ImageFont.truetype(regular, 44), fill="white", anchor="ls")
+    return bg.convert("RGB")
 
 
 def save(img: Image.Image, rel: str, **kwargs) -> None:
@@ -85,51 +138,36 @@ def save(img: Image.Image, rel: str, **kwargs) -> None:
     print(f"  {rel} ({img.width}x{img.height})")
 
 
-def lockup() -> Image.Image:
-    """Mark with the Poolora wordmark beside it, for docs and the README."""
-    mark = render(MASTER, 360)
-    font_path = next(
-        (p for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",) if Path(p).exists()),
-        None,
-    )
-    font = ImageFont.truetype(font_path, 190) if font_path else ImageFont.load_default()
-    text = "Poolora"
-    width = ImageDraw.Draw(Image.new("RGB", (1, 1))).textlength(text, font=font)
-    img = Image.new("RGBA", (360 + 60 + int(width) + 40, 400), (0, 0, 0, 0))
-    img.paste(mark, (20, 20), mark)
-    ImageDraw.Draw(img).text((440, 200), text, font=font, fill=INK, anchor="lm")
-    return img
-
-
 def main() -> None:
-    print("Rendering from branding/poolora-mark.svg")
+    print("Rendering from branding/poolora-icon.png")
 
     # Brand files
-    save(render(MASTER, 1024), "branding/poolora-mark.png")
-    save(lockup(), "branding/poolora-lockup.png")
+    save(tile(1024), "branding/poolora-mark.png", optimize=True)
+    save(lockup(), "branding/poolora-lockup.png", optimize=True)
 
     # Expo app (frontend)
-    save(render(square_tile(MASTER), 1024).convert("RGB"), "frontend/assets/icon.png")
-    save(render(car_only(MASTER, 0.62), 1024), "frontend/assets/adaptive-icon.png")
-    save(render(square_tile(without_car(MASTER)), 1024).convert("RGB"),
-         "frontend/assets/adaptive-icon-background.png")
-    save(on_canvas(render(MASTER, 400), 1024), "frontend/assets/splash-icon.png")
+    save(full_bleed(1024), "frontend/assets/icon.png", optimize=True)
+    save(floating(1024, 0.70), "frontend/assets/adaptive-icon.png", optimize=True)
+    save(backdrop(1024).convert("RGB"), "frontend/assets/adaptive-icon-background.png", optimize=True)
+    save(on_canvas(tile(560), 1024), "frontend/assets/splash-icon.png", optimize=True)
+    # Shown at up to 150pt in the app; 320px covers 2x screens
+    save(tile(320), "frontend/assets/logo-mark.png", optimize=True)
 
     # Prebuilt Android project
+    res = "android/app/src/main/res"
     for density, (icon, splash) in ANDROID_DENSITIES.items():
-        res = "android/app/src/main/res"
-        save(render(MASTER, icon), f"{res}/mipmap-{density}/ic_launcher.webp", lossless=True)
-        save(round_icon(icon), f"{res}/mipmap-{density}/ic_launcher_round.webp", lossless=True)
-        save(on_canvas(render(MASTER, splash * 5 // 12), splash),
-             f"{res}/drawable-{density}/splashscreen_logo.png")
+        save(tile(icon), f"{res}/mipmap-{density}/ic_launcher.webp", quality=92, method=6)
+        save(round_icon(icon), f"{res}/mipmap-{density}/ic_launcher_round.webp", quality=92, method=6)
+        save(on_canvas(tile(splash * 5 // 12), splash),
+             f"{res}/drawable-{density}/splashscreen_logo.png", optimize=True)
 
     # Marketing site (web-landing)
-    save(render(MASTER, 160), "web-landing/src/assets/poolora-logo.webp", lossless=True)
-    save(render(square_tile(MASTER), 180).convert("RGB"), "web-landing/public/apple-touch-icon.png")
-    save(render(MASTER, 32), "web-landing/public/favicon-32.png")
-    favicon = render(MASTER, 256)
-    favicon.save(ROOT / "web-landing/public/favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
+    save(tile(160), "web-landing/src/assets/poolora-logo.webp", quality=90, method=6)
+    save(full_bleed(180), "web-landing/public/apple-touch-icon.png", optimize=True)
+    save(tile(32), "web-landing/public/favicon-32.png", optimize=True)
+    tile(256).save(ROOT / "web-landing/public/favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
     print("  web-landing/public/favicon.ico (16, 32, 48)")
+    save(og_image(), "web-landing/public/og-image.jpg", quality=88)
 
 
 if __name__ == "__main__":
