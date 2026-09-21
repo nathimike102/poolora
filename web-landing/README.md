@@ -1,6 +1,6 @@
-# Sanchari — Landing Page
+# Poolora — Landing Page
 
-Marketing and waitlist site for **Sanchari**, a safety-first smart mobility
+Marketing and waitlist site for **Poolora**, a safety-first smart mobility
 platform for India (ride pooling, parcel pooling, trip pooling, women safety,
 and verification).
 

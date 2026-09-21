@@ -255,7 +255,7 @@ export function BookingScreen(): React.ReactElement {
             { id: 'razorpay' as const, label: 'UPI, card or net banking', sub: 'Secure checkout by Razorpay', icon: 'credit-card-outline' as const, enabled: true },
             {
               id: 'wallet' as const,
-              label: 'Sanchari wallet',
+              label: 'Poolora wallet',
               sub: walletBalance === null
                 ? 'Balance unavailable'
                 : `Balance ₹${walletBalance.toLocaleString('en-IN')}${walletCovers ? '' : ' · not enough for this booking'}`,

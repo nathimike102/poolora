@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: sanchari-quota
-  namespace: sanchari
+  name: poolora-quota
+  namespace: poolora
 spec:
   hard:
     requests.cpu: "4"

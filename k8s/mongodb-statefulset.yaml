@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mongodb
-  namespace: sanchari
+  namespace: poolora
 spec:
   serviceName: mongodb
   replicas: 3
@@ -59,12 +59,12 @@ spec:
         - name: MONGO_INITDB_ROOT_USERNAME
           valueFrom:
             secretKeyRef:
-              name: sanchari-secrets
+              name: poolora-secrets
               key: MONGO_USER
         - name: MONGO_INITDB_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: sanchari-secrets
+              name: poolora-secrets
               key: MONGO_PASS
         readinessProbe:
           exec:
@@ -82,7 +82,7 @@ spec:
       volumes:
       - name: keyfile-src
         secret:
-          secretName: sanchari-secrets
+          secretName: poolora-secrets
           items:
           - key: MONGO_REPLICA_KEY
             path: keyfile

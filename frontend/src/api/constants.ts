@@ -206,8 +206,8 @@ export const ERROR_MESSAGES = {
 
 // ─── Token Storage Keys ────────────────────────────────────────────────────
 export const TOKEN_STORAGE_KEYS = {
-  accessToken: '@sanchari_access_token',
-  refreshToken: '@sanchari_refresh_token',
-  tokenExpiry: '@sanchari_token_expiry',
-  userId: '@sanchari_user_id',
+  accessToken: '@poolora_access_token',
+  refreshToken: '@poolora_refresh_token',
+  tokenExpiry: '@poolora_token_expiry',
+  userId: '@poolora_user_id',
 } as const;

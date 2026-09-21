@@ -5,7 +5,7 @@ import {
   SafetyShieldIcon,
   SmartSavingsIcon,
   CalendarScheduleIcon,
-} from '../../components/icons/SanchariIcons';
+} from '../../components/icons/PooloraIcons';
 import { Container } from '../../components/layout/Container';
 
 const howItWorks = [

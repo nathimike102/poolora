@@ -8,7 +8,7 @@ jest.mock('@aws-sdk/s3-presigned-post', () => ({
 }));
 jest.mock('@aws-sdk/s3-request-presigner', () => ({ getSignedUrl: jest.fn().mockResolvedValue('https://signed') }));
 jest.mock('../../config', () => ({
-  config: { aws: { accessKeyId: 'AKIA', secretAccessKey: 'secret', region: 'ap-south-1', s3Bucket: 'sanchari-kyc' } },
+  config: { aws: { accessKeyId: 'AKIA', secretAccessKey: 'secret', region: 'ap-south-1', s3Bucket: 'poolora-kyc' } },
 }));
 
 import { presignKycUpload, presignKycDownload, kycPrefix } from '../../services/UploadService';
@@ -38,8 +38,8 @@ describe('UploadService', () => {
   });
 
   it('only signs downloads for KYC documents', async () => {
-    await expect(presignKycDownload('s3://sanchari-kyc/kyc/user1/licence/a.jpg')).resolves.toBe('https://signed');
-    await expect(presignKycDownload('s3://sanchari-kyc/other/secret.txt')).rejects.toThrow('Not a KYC document');
+    await expect(presignKycDownload('s3://poolora-kyc/kyc/user1/licence/a.jpg')).resolves.toBe('https://signed');
+    await expect(presignKycDownload('s3://poolora-kyc/other/secret.txt')).rejects.toThrow('Not a KYC document');
     await expect(presignKycDownload('https://evil.example/doc.jpg')).rejects.toThrow('Not a KYC document');
   });
 });

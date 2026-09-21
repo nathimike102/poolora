@@ -75,7 +75,7 @@ export const PAGES: PageMeta[] = [
     path: '/terms',
     title: `Terms of service | ${COMPANY.name}`,
     description:
-      'The rules for using Sanchari: who may sign up, what drivers and riders agree to, how payments and cancellations work, and how disputes are handled.',
+      'The rules for using Poolora: who may sign up, what drivers and riders agree to, how payments and cancellations work, and how disputes are handled.',
     updated: '2026-09-18',
     priority: 0.3,
   },

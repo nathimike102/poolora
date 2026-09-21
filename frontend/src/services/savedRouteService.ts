@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { IconName } from '../components/Icon';
 
-const STORAGE_KEY = '@sanchari_saved_routes';
+const STORAGE_KEY = '@poolora_saved_routes';
 
 /** Routes saved on this device for quick searching. */
 export interface SavedRoute {

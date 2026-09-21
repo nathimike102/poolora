@@ -1,11 +1,11 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# Sanchari Platform — Kubernetes Deployment Script
+# Poolora Platform — Kubernetes Deployment Script
 # ═══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
 echo "═══════════════════════════════════════════════════"
-echo "  Sanchari Platform — K8s Deployment"
+echo "  Poolora Platform — K8s Deployment"
 echo "═══════════════════════════════════════════════════"
 
 # Namespace
@@ -45,8 +45,8 @@ kubectl apply -f k8s/services.yaml
 
 # Wait for stateful services
 echo "→ Waiting for stateful services to be ready..."
-kubectl -n sanchari rollout status statefulset/mongodb --timeout=120s 2>/dev/null || true
-kubectl -n sanchari rollout status statefulset/redis --timeout=60s 2>/dev/null || true
+kubectl -n poolora rollout status statefulset/mongodb --timeout=120s 2>/dev/null || true
+kubectl -n poolora rollout status statefulset/redis --timeout=60s 2>/dev/null || true
 
 # Application Deployments
 echo "→ Deploying Backend..."
@@ -80,8 +80,8 @@ echo "════════════════════════�
 echo "  Deployment complete"
 echo "═══════════════════════════════════════════════════"
 echo ""
-echo "  API:         \$(kubectl -n sanchari get ingress -o jsonpath='{.items[0].spec.rules[0].host}')"
-echo "  Grafana:     kubectl -n sanchari port-forward svc/grafana 3000:3000"
+echo "  API:         \$(kubectl -n poolora get ingress -o jsonpath='{.items[0].spec.rules[0].host}')"
+echo "  Grafana:     kubectl -n poolora port-forward svc/grafana 3000:3000"
 echo ""
-echo "  Check status: kubectl -n sanchari get pods"
+echo "  Check status: kubectl -n poolora get pods"
 echo "═══════════════════════════════════════════════════"

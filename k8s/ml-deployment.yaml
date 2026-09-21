@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sanchari-ml
-  namespace: sanchari
+  name: poolora-ml
+  namespace: poolora
   labels:
-    app: sanchari-ml
+    app: poolora-ml
 spec:
   replicas: 2
   strategy:
@@ -14,11 +14,11 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: sanchari-ml
+      app: poolora-ml
   template:
     metadata:
       labels:
-        app: sanchari-ml
+        app: poolora-ml
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: ml-engine
-        image: ghcr.io/makineedi05/sanchari-ml:latest
+        image: ghcr.io/nathimike102/poolora-ml:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -35,7 +35,7 @@ spec:
         - name: MONGODB_URI
           valueFrom:
             secretKeyRef:
-              name: sanchari-secrets
+              name: poolora-secrets
               key: MONGO_URI
         - name: REDIS_HOST
           value: "redis"
@@ -44,17 +44,17 @@ spec:
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: sanchari-secrets
+              name: poolora-secrets
               key: REDIS_PASSWORD
         - name: GOOGLE_MAPS_API_KEY
           valueFrom:
             secretKeyRef:
-              name: sanchari-secrets
+              name: poolora-secrets
               key: GOOGLE_MAPS_API_KEY
         - name: ML_SERVICE_API_KEY
           valueFrom:
             secretKeyRef:
-              name: sanchari-secrets
+              name: poolora-secrets
               key: ML_SERVICE_API_KEY
         - name: KAFKA_BROKERS
           value: "kafka-0.kafka-headless:9092"
@@ -91,20 +91,20 @@ spec:
                 - key: app
                   operator: In
                   values:
-                  - sanchari-ml
+                  - poolora-ml
               topologyKey: kubernetes.io/hostname
 
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: sanchari-ml-hpa
-  namespace: sanchari
+  name: poolora-ml-hpa
+  namespace: poolora
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: sanchari-ml
+    name: poolora-ml
   minReplicas: 2
   maxReplicas: 6
   metrics:

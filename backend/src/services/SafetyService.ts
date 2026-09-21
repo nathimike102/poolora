@@ -234,7 +234,7 @@ export class SafetyService {
           const body = new URLSearchParams({
             To: contact.phone,
             From: config.twilio.phoneNumber,
-            Body: `Sanchari SOS: ${user.name} has raised an emergency alert during a ride. See their live location: ${liveTrackingUrl} If you think they are in danger, call 112.`,
+            Body: `Poolora SOS: ${user.name} has raised an emergency alert during a ride. See their live location: ${liveTrackingUrl} If you think they are in danger, call 112.`,
           });
           await axios.post(
             `https://api.twilio.com/2010-04-01/Accounts/${config.twilio.accountSid}/Messages.json`,

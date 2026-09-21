@@ -10,12 +10,12 @@
 
 module.exports = {
   expo: {
-    name: 'Sanchari',
+    name: 'Poolora',
     slug: 'one-piece',
     version: '1.0.0',
     icon: './assets/splash.png',
     android: {
-      package: 'com.sanchari.app',
+      package: 'com.poolora.app',
       adaptiveIcon: {
         foregroundImage: './assets/splash.png',
         backgroundColor: '#ffffff',
@@ -32,10 +32,10 @@ module.exports = {
       searchPaths: ['./node_modules'],
     },
     ios: {
-      bundleIdentifier: 'com.sanchari.app',
+      bundleIdentifier: 'com.poolora.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
-          'Sanchari needs your location to show your position on the map and find rides near you.',
+          'Poolora needs your location to show your position on the map and find rides near you.',
       },
     },
     plugins: [
@@ -49,14 +49,14 @@ module.exports = {
         'expo-location',
         {
           locationWhenInUsePermission:
-            'Sanchari needs your location to show your position on the map and find rides near you.',
+            'Poolora needs your location to show your position on the map and find rides near you.',
         },
       ],
       [
         'expo-image-picker',
         {
-          photosPermission: 'Sanchari uses your photos so you can add driver verification documents and a profile picture.',
-          cameraPermission: 'Sanchari uses the camera so you can photograph driver verification documents.',
+          photosPermission: 'Poolora uses your photos so you can add driver verification documents and a profile picture.',
+          cameraPermission: 'Poolora uses the camera so you can photograph driver verification documents.',
         },
       ],
       '@react-native-google-signin/google-signin',

@@ -20,7 +20,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { useApp } from "../context/AppContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { SanchariLogo } from "../components/SanchariLogo";
+import { PooloraLogo } from "../components/PooloraLogo";
 import { Typography, Spacing, Radius, Shadow } from "../theme";
 import {
   firebaseLoginWithBackend,
@@ -81,9 +81,9 @@ export function LoginScreen() {
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <SanchariLogo size={64} backgroundColor={c.primary} />
+        <PooloraLogo size={64} backgroundColor={c.primary} />
         <Text style={[styles.headline, { color: c.text }]}>
-          Welcome to Sanchari
+          Welcome to Poolora
         </Text>
         <Text style={[styles.subheading, { color: c.textSec }]}>
           Choose how you want to continue

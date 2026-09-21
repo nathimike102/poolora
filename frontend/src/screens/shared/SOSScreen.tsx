@@ -133,7 +133,7 @@ export function SOSScreen() {
       setEmergency(record);
       setPhase('active');
     } catch {
-      setFailure('The alert could not reach Sanchari. Check your connection and call 112 now.');
+      setFailure('The alert could not reach Poolora. Check your connection and call 112 now.');
       setPhase('failed');
     }
   }, [activeBookingId]);
@@ -218,7 +218,7 @@ export function SOSScreen() {
               </ReAnimated.View>
               <Text style={s.activeTitle} accessibilityLiveRegion="assertive">SOS alert active</Text>
               <Text style={s.activeSub}>
-                The Sanchari safety team has been alerted and can see your location.
+                The Poolora safety team has been alerted and can see your location.
               </Text>
 
               <View style={s.sharingCard}>

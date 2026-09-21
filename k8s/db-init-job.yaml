@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: db-init
-  namespace: sanchari
+  namespace: poolora
 spec:
   backoffLimit: 10
   template:
@@ -43,12 +43,12 @@ spec:
         - name: MONGO_USER
           valueFrom:
             secretKeyRef:
-              name: sanchari-secrets
+              name: poolora-secrets
               key: MONGO_USER
         - name: MONGO_PASS
           valueFrom:
             secretKeyRef:
-              name: sanchari-secrets
+              name: poolora-secrets
               key: MONGO_PASS
         resources:
           requests:

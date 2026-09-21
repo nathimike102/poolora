@@ -164,7 +164,7 @@ export const config = {
   },
 
   services: {
-    mlServiceUrl: optional('ML_SERVICE_URL', 'http://sanchari-ml:8000'),
+    mlServiceUrl: optional('ML_SERVICE_URL', 'http://poolora-ml:8000'),
     mlServiceApiKey: process.env.ML_SERVICE_API_KEY || '',
   },
 } as const;

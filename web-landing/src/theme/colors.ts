@@ -7,7 +7,7 @@
  * stops, and canvas/JS color calculations.
  */
 export const colors = {
-  /** Primary brand teal, taken from the Sanchari logo. */
+  /** Primary brand teal, taken from the Poolora logo. */
   brand: '#0B7A75',
   /** Hover / pressed state for the brand teal. */
   brandDark: '#08605C',

@@ -3,14 +3,14 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'sanchari-backend'
+  - job_name: 'poolora-backend'
     metrics_path: /metrics
     static_configs:
       - targets: ['app:5002']
         labels:
           service: backend
 
-  - job_name: 'sanchari-ml'
+  - job_name: 'poolora-ml'
     metrics_path: /metrics
     static_configs:
       - targets: ['ml-engine:8000']

@@ -1,7 +1,7 @@
 /**
- * components/SanchariLogo.tsx
+ * components/PooloraLogo.tsx
  *
- * Reusable Sanchari brand mark rendered with react-native-svg.
+ * Reusable Poolora brand mark rendered with react-native-svg.
  */
 
 import React from "react";
@@ -14,7 +14,7 @@ import Svg, {
   Stop,
 } from "react-native-svg";
 
-interface SanchariLogoProps {
+interface PooloraLogoProps {
   /** Container box size */
   size?: number;
   /** Container background color */
@@ -29,20 +29,20 @@ interface SanchariLogoProps {
   subtitle?: string;
 }
 
-export function SanchariLogo({
+export function PooloraLogo({
   size = 44,
   backgroundColor = "transparent",
   borderRadius,
   showWordmark = false,
-  wordmark = "Sanchari",
+  wordmark = "Poolora",
   subtitle = "Smart Scheduled Carpooling",
-}: SanchariLogoProps) {
+}: PooloraLogoProps) {
   const svgSize = size;
   const br = borderRadius ?? size * 0.32; // Default proportional radius
 
   return (
     <View
-      testID="sanchari-logo"
+      testID="poolora-logo"
       style={[
         styles.wrapper,
         showWordmark ? styles.lockup : styles.container,

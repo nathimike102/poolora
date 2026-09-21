@@ -110,7 +110,7 @@ export const FEATURES: FeaturesConfig = {
       id: 'safety-sos',
       iconName: 'SOSIcon',
       title: 'SOS during a ride',
-      desc: 'Hold the SOS button to alert the Sanchari safety team and text your emergency contacts a link to your live location.',
+      desc: 'Hold the SOS button to alert the Poolora safety team and text your emergency contacts a link to your live location.',
     },
     {
       id: 'safety-tracking',

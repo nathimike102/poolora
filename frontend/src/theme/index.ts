@@ -33,7 +33,7 @@
  * --background: #ffffff        -> LightColors.bg (grey50 for app screens)
  * --foreground: oklch(0.145)   -> LightColors.text = '#111827'
  * --card: #ffffff              -> LightColors.surface = '#FFFFFF'
- * --primary: #030213           -> shadcn default; overridden to '#0B7A75' (Sanchari teal, from the logo)
+ * --primary: #030213           -> shadcn default; overridden to '#0B7A75' (Poolora teal, from the logo)
  * --secondary: oklch(0.95...)  -> LightColors.surfaceVariant = '#F3F4F6'
  * --muted: #ececf0             -> LightColors.muted = '#ECECF0'
  * --muted-foreground: #717182  -> LightColors.mutedFg = '#717182'

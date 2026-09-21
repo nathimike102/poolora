@@ -1,9 +1,9 @@
-# Sanchari ML Engine — README
+# Poolora ML Engine — README
 # ═══════════════════════════════════════════════════
 
 ## Overview
 
-The **Sanchari ML Engine** is a Python/FastAPI microservice that powers the AI features of the Sanchari mobility platform:
+The **Poolora ML Engine** is a Python/FastAPI microservice that powers the AI features of the Poolora mobility platform:
 
 | Endpoint | Purpose |
 |---|---|
@@ -25,8 +25,8 @@ uvicorn app.main:app --reload --port 8000
 ## Docker
 
 ```bash
-docker build -t sanchari-ml .
-docker run -p 8000:8000 sanchari-ml
+docker build -t poolora-ml .
+docker run -p 8000:8000 poolora-ml
 ```
 
 ## Architecture

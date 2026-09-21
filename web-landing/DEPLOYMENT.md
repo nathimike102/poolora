@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Sanchari is a static **Vite + React** single-page app with a single **Vercel
+Poolora is a static **Vite + React** single-page app with a single **Vercel
 serverless function** (`api/contact.ts`) that relays form submissions over SMTP.
 There is no database.
 
@@ -30,7 +30,7 @@ its URL in the config; the icon appears automatically with no UI changes:
 
 ```ts
 social: {
-  linkedin: "https://www.linkedin.com/company/sanchari",
+  linkedin: "https://www.linkedin.com/company/poolora",
   x: "",            // still empty -> icon hidden
   instagram: "",
   facebook: "",

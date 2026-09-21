@@ -8,7 +8,7 @@
  * identify people are gated separately in `consent.ts`.
  */
 
-const STORAGE_KEY = 'sanchari.attribution';
+const STORAGE_KEY = 'poolora.attribution';
 
 const UTM_KEYS = [
   'utm_source',

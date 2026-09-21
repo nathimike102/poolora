@@ -58,7 +58,7 @@ export function PaymentScreen() {
         order_id: params.orderId,
         amount: Math.round(params.amount * 100),
         currency: 'INR',
-        name: 'Sanchari',
+        name: 'Poolora',
         description: params.summary,
         prefill: { name: user?.name, contact: user?.phone },
         theme: { color: c.primary },
@@ -141,7 +141,7 @@ export function PaymentScreen() {
         )}
 
         <Text style={{ fontSize: Typography.base, color: c.textSec, lineHeight: 19 }}>
-          You'll pay securely with Razorpay using UPI, card or net banking. Sanchari never sees your card
+          You'll pay securely with Razorpay using UPI, card or net banking. Poolora never sees your card
           details.
         </Text>
       </View>

@@ -1,4 +1,4 @@
-# Sanchari — Smart AI-Powered Mobility & Pooling Ecosystem
+# Poolora — Smart AI-Powered Mobility & Pooling Ecosystem
 
 > **"Share Seats. Save Costs. Travel Smarter."**
 
@@ -6,7 +6,7 @@ A production-grade, full-stack AI-powered mobility platform encompassing Car-Poo
 
 Built with **React Native (Expo)**, **Node.js / Express**, **MongoDB**, **Redis**, **Kafka**, **Elasticsearch**, **Docker**, and **Socket.IO**.
 
-**GitHub:** [MAKINEEDI05/Sanchari](https://github.com/MAKINEEDI05/Sanchari)
+**GitHub:** [nathimike102/poolora](https://github.com/nathimike102/poolora)
 
 ---
 
@@ -38,9 +38,9 @@ Built with **React Native (Expo)**, **Node.js / Express**, **MongoDB**, **Redis*
 
 ## 🎯 Project Overview
 
-Sanchari is a scalable AI-powered ride-pooling and mobility platform designed to solve modern urban commuting challenges through intelligent shared transportation.
+Poolora is a scalable AI-powered ride-pooling and mobility platform designed to solve modern urban commuting challenges through intelligent shared transportation.
 
-Unlike traditional ride-hailing apps focused on instant point-to-point rides, Sanchari is built around **scheduled car-pooling**, **trip-pooling**, and **parcel-pooling** to maximise vehicle utilisation, reduce fuel consumption, and lower transportation costs.
+Unlike traditional ride-hailing apps focused on instant point-to-point rides, Poolora is built around **scheduled car-pooling**, **trip-pooling**, and **parcel-pooling** to maximise vehicle utilisation, reduce fuel consumption, and lower transportation costs.
 
 ### Core Mobility Services
 
@@ -71,7 +71,7 @@ Urban commuters — especially students, office workers, and daily travellers �
 
 ## 💡 Proposed Solution
 
-Sanchari is a cloud-native AI-powered mobility platform built to address these challenges:
+Poolora is a cloud-native AI-powered mobility platform built to address these challenges:
 
 - ✅ **Intelligent Ride Matching** — ML-based algorithms matching passengers & drivers with 95%+ compatibility
 - ✅ **Real-Time Communication** — WebSocket-based live tracking, chat, and notifications
@@ -351,7 +351,7 @@ Kafka Event Bus (Pub/Sub)
 ## 📁 Project Structure
 
 ```
-sanchari/
+poolora/
 ├── backend/                          # Node.js/Express backend
 │   ├── src/
 │   │   ├── app.ts                    # Express app configuration
@@ -514,8 +514,8 @@ docker compose down -v
 
 ```bash
 cd backend
-docker build -t sanchari-backend .
-docker run -p 127.0.0.1:5002:5002 --env-file .env sanchari-backend
+docker build -t poolora-backend .
+docker run -p 127.0.0.1:5002:5002 --env-file .env poolora-backend
 ```
 
 ### Dockerfile details
@@ -560,7 +560,7 @@ CMD ["node", "--max-old-space-size=400", "dist/server.js"]
 
 **Networks:**
 
-- `sanchari-network` — Internal Docker network (bridge mode) for service-to-service communication
+- `poolora-network` — Internal Docker network (bridge mode) for service-to-service communication
 
 **Resource Limits per Container:**
 
@@ -572,7 +572,7 @@ CMD ["node", "--max-old-space-size=400", "dist/server.js"]
 
 ## 🤖 ML Algorithms & Optimisation
 
-Sanchari leverages multiple ML and optimization algorithms to power its matching and routing engine.
+Poolora leverages multiple ML and optimization algorithms to power its matching and routing engine.
 
 ### 1. **Ride Matching Engine**
 
@@ -892,7 +892,7 @@ EC2_SSH_KEY    → Private SSH key content
 
 ### Kubernetes Deployment
 
-For production-scale deployments across multiple nodes, Sanchari can be deployed on Kubernetes.
+For production-scale deployments across multiple nodes, Poolora can be deployed on Kubernetes.
 
 #### Prerequisites
 
@@ -926,8 +926,8 @@ Ingress (NGINX)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sanchari-backend
-  namespace: sanchari
+  name: poolora-backend
+  namespace: poolora
 spec:
   replicas: 5
   strategy:
@@ -937,15 +937,15 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: sanchari-backend
+      app: poolora-backend
   template:
     metadata:
       labels:
-        app: sanchari-backend
+        app: poolora-backend
     spec:
       containers:
         - name: backend
-          image: your-registry/sanchari-backend:latest
+          image: your-registry/poolora-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5002
@@ -990,7 +990,7 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - sanchari-backend
+                        - poolora-backend
                 topologyKey: kubernetes.io/hostname
 ```
 
@@ -1001,7 +1001,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mongodb
-  namespace: sanchari
+  namespace: poolora
 spec:
   serviceName: mongodb
   replicas: 3
@@ -1053,14 +1053,14 @@ spec:
 
 ```bash
 # 1. Create namespace
-kubectl create namespace sanchari
+kubectl create namespace poolora
 
 # 2. Create secrets
 kubectl create secret generic mongo-secret \
   --from-literal=username=admin \
   --from-literal=password=<strong-password> \
   --from-literal=uri=mongodb://admin:password@mongodb-0.mongodb:27017,mongodb-1.mongodb:27017,mongodb-2.mongodb:27017 \
-  -n sanchari
+  -n poolora
 
 # 3. Apply manifests
 kubectl apply -f k8s/mongodb-statefulset.yaml
@@ -1071,13 +1071,13 @@ kubectl apply -f k8s/backend-deployment.yaml
 kubectl apply -f k8s/ingress.yaml
 
 # 4. Check rollout status
-kubectl rollout status deployment/sanchari-backend -n sanchari
+kubectl rollout status deployment/poolora-backend -n poolora
 
 # 5. View logs
-kubectl logs -f deployment/sanchari-backend -n sanchari
+kubectl logs -f deployment/poolora-backend -n poolora
 
 # 6. Port-forward for testing
-kubectl port-forward service/sanchari-backend 5002:5002 -n sanchari
+kubectl port-forward service/poolora-backend 5002:5002 -n poolora
 ```
 
 #### Auto-Scaling
@@ -1088,13 +1088,13 @@ kubectl port-forward service/sanchari-backend 5002:5002 -n sanchari
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: sanchari-backend-hpa
-  namespace: sanchari
+  name: poolora-backend-hpa
+  namespace: poolora
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: sanchari-backend
+    name: poolora-backend
   minReplicas: 3
   maxReplicas: 20
   metrics:
@@ -1131,9 +1131,9 @@ spec:
 
 ```yaml
 scrape_configs:
-  - job_name: "sanchari-backend"
+  - job_name: "poolora-backend"
     static_configs:
-      - targets: ["sanchari-backend:5002"]
+      - targets: ["poolora-backend:5002"]
     metrics_path: "/metrics"
 ```
 
@@ -1151,7 +1151,7 @@ scrape_configs:
 
 ## 🌍 Environmental & Social Impact
 
-### How Sanchari Helps
+### How Poolora Helps
 
 - ♻️ **Reduces duplicate vehicle trips** — 30–40% fewer vehicles on roads
 - 📊 **Improves seat occupancy** — Targets 80%+ average utilisation
@@ -1202,4 +1202,4 @@ ISC License — see individual `package.json` files for details.
 
 ---
 
-**TEAM SANCHARI** — Built with ❤️ for sustainable urban mobility
+**TEAM POOLORA** — Built with ❤️ for sustainable urban mobility

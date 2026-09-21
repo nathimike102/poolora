@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: sanchari
+  namespace: poolora
   labels:
     app: prometheus
 spec:
@@ -50,7 +50,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: prometheus-data
-  namespace: sanchari
+  namespace: poolora
 spec:
   accessModes:
   - ReadWriteOnce
@@ -63,7 +63,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: sanchari
+  namespace: poolora
   labels:
     app: grafana
 spec:
@@ -83,11 +83,11 @@ spec:
         - containerPort: 3000
         env:
         # Not exposed publicly. Reach it with:
-        #   kubectl -n sanchari port-forward svc/grafana 3000:3000
+        #   kubectl -n poolora port-forward svc/grafana 3000:3000
         - name: GF_SECURITY_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: sanchari-secrets
+              name: poolora-secrets
               key: GRAFANA_ADMIN_PASSWORD
         - name: GF_USERS_ALLOW_SIGN_UP
           value: "false"
@@ -115,7 +115,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: grafana-data
-  namespace: sanchari
+  namespace: poolora
 spec:
   accessModes:
   - ReadWriteOnce

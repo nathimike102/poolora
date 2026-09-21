@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# ─── Sanchari ML Engine ──────────────────────────────────────────────────────
+# ─── Poolora ML Engine ──────────────────────────────────────────────────────
 FROM python:3.12-slim AS builder
 
 WORKDIR /app

@@ -151,7 +151,7 @@ app.use(globalRateLimit);
 app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'success',
-    data: { service: 'sanchari-api', health: '/health' },
+    data: { service: 'poolora-api', health: '/health' },
   });
 });
 

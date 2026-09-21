@@ -1,8 +1,8 @@
 
 /**
- * Premium custom icon library for Sanchari
+ * Premium custom icon library for Poolora
  * Design style: Stripe, Linear, Notion, Mercury, Revolut, Ramp, Airbnb
- * Using Sanchari brand colors: Indigo (#0B7A75), Cyan (#06B6D4), Rose/Pink for safety
+ * Using Poolora brand colors: Indigo (#0B7A75), Cyan (#06B6D4), Rose/Pink for safety
  */
 
 /* ─── Trust & Verification Icons ─── */

@@ -1,4 +1,4 @@
-package com.nathi_mike.sancharimonorepo
+package com.poolora.app
 
 import android.app.Application
 import android.content.res.Configuration

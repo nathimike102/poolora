@@ -102,8 +102,8 @@ export function AppProvider({ children }: AppProviderProps) {
     (async () => {
       try {
         const [savedRole, savedTheme] = await AsyncStorage.multiGet([
-          "@sanchari_role",
-          "@sanchari_dark_mode",
+          "@poolora_role",
+          "@poolora_dark_mode",
         ]);
 
         if (savedRole[1] === "rider" || savedRole[1] === "driver") {
@@ -123,9 +123,9 @@ export function AppProvider({ children }: AppProviderProps) {
   const setRole = useCallback((newRole: UserRole) => {
     setRoleState(newRole);
     if (newRole) {
-      AsyncStorage.setItem("@sanchari_role", newRole).catch(() => {});
+      AsyncStorage.setItem("@poolora_role", newRole).catch(() => {});
     } else {
-      AsyncStorage.removeItem("@sanchari_role").catch(() => {});
+      AsyncStorage.removeItem("@poolora_role").catch(() => {});
     }
   }, []);
 
@@ -208,7 +208,7 @@ export function AppProvider({ children }: AppProviderProps) {
   useEffect(() => {
     (async () => {
       try {
-        const accepted = await AsyncStorage.getItem('@sanchari_policy_accepted');
+        const accepted = await AsyncStorage.getItem('@poolora_policy_accepted');
         if (!accepted) setPolicyVisible(true);
       } catch {
         setPolicyVisible(true);
@@ -227,13 +227,13 @@ export function AppProvider({ children }: AppProviderProps) {
     setUser(null);
     setRoleState(null);
     setActiveTab("home");
-    AsyncStorage.removeItem("@sanchari_role").catch(() => {});
+    AsyncStorage.removeItem("@poolora_role").catch(() => {});
   }, []);
 
   const toggleDarkMode = useCallback(() => {
     setIsDarkMode((prev) => {
       const next = !prev;
-      AsyncStorage.setItem("@sanchari_dark_mode", String(next)).catch(() => {});
+      AsyncStorage.setItem("@poolora_dark_mode", String(next)).catch(() => {});
       return next;
     });
   }, []);
@@ -241,7 +241,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const switchRole = useCallback(() => {
     setRoleState((prev) => {
       const next: UserRole = prev === "rider" ? "driver" : "rider";
-      AsyncStorage.setItem("@sanchari_role", next).catch(() => {});
+      AsyncStorage.setItem("@poolora_role", next).catch(() => {});
       return next;
     });
     setActiveTab("home");

@@ -54,7 +54,7 @@ export function Hero() {
             <p
               className="text-lg sm:text-xl text-gray-500 leading-relaxed mb-10 max-w-xl"
             >
-              Sanchari is a carpooling app for scheduled journeys in India. Drivers publish trips they are already
+              Poolora is a carpooling app for scheduled journeys in India. Drivers publish trips they are already
               making, riders book a seat on the route and time that fits, and every driver's licence and vehicle
               documents are checked before they can carry anyone.
             </p>

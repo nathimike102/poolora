@@ -1,5 +1,5 @@
 {
-  "name": "sanchari-monorepo",
+  "name": "poolora-monorepo",
   "private": true,
   "workspaces": [
     "backend",

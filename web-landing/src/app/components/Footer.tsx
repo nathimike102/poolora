@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router';
 import { Twitter, Linkedin, Instagram, Facebook, Youtube, Github, Mail, MapPin, ArrowUpRight } from 'lucide-react';
-import logoDark from '../../assets/sanchari-logo.webp';
+import logoDark from '../../assets/poolora-logo.webp';
 import { ImageWithFallback } from './common/ImageWithFallback';
 import { COMPANY } from '../../config/company';
 import { NAVIGATION } from '../../config/navigation';

@@ -5,13 +5,13 @@
  * web-landing/src/config/company.ts, which is the source of truth.
  */
 /** Public site origin. Mirrors SITE_ORIGIN in web-landing/src/config/company.ts. */
-const SITE_ORIGIN = 'https://sanchari.vercel.app';
+const SITE_ORIGIN = 'https://poolora.vercel.app';
 
 /** Mirrors PUBLIC_EMAIL in web-landing/src/config/company.ts. See the note there. */
-const PUBLIC_EMAIL = 'hello@sanchari.invalid';
+const PUBLIC_EMAIL = 'hello@poolora.invalid';
 
 export const COMPANY = {
-  name: 'Sanchari',
+  name: 'Poolora',
   website: SITE_ORIGIN,
   supportEmail: PUBLIC_EMAIL,
   supportPhone: '+919848377713',

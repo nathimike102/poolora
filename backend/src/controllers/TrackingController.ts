@@ -90,7 +90,7 @@ export class TrackingController {
       if (isActive) {
         status = `<p class="alert">${name} raised an SOS alert. It is still active.</p>`;
         if (tracking.status === SOSStatus.ACKNOWLEDGED) {
-          status += '<p>The Sanchari safety team has seen this alert.</p>';
+          status += '<p>The Poolora safety team has seen this alert.</p>';
         }
       } else {
         const closedAt = tracking.resolvedAt ? ` at ${escapeHtml(formatTime(tracking.resolvedAt))}` : '';
@@ -117,7 +117,7 @@ export class TrackingController {
       res.status(200).type('html').send(
         page(
           isActive ? `SOS alert from ${tracking.firstName}` : 'SOS alert closed',
-          `<h1>Sanchari SOS alert</h1>${status}${location}${footer}`,
+          `<h1>Poolora SOS alert</h1>${status}${location}${footer}`,
           isActive ? 30 : undefined,
         ),
       );

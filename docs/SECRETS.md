@@ -65,7 +65,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `TWILIO_PHONE_NUMBER` | if SMS on | Twilio console, Phone Numbers, buy a number that can send SMS to India (DLT registration is required for Indian traffic) |
 | `GOOGLE_MAPS_API_KEY` | yes | console.cloud.google.com, APIs & Services, Credentials, Create API key. Enable Places, Geocoding and Directions. Restrict it to those APIs and to the server's IP. **Use a different key from the app's** |
 | `ML_SERVICE_API_KEY` | yes | Generate (above). Same value on the ML service |
-| `ML_SERVICE_URL` | no | ML service address. Default `http://sanchari-ml:8000` |
+| `ML_SERVICE_URL` | no | ML service address. Default `http://poolora-ml:8000` |
 | `KAFKA_BROKERS`, `KAFKA_CLIENT_ID` | no | Your Kafka brokers, comma-separated |
 | `ELASTICSEARCH_URL` | no | Default `http://localhost:9200` |
 | `CORS_ORIGIN` | yes | Comma-separated list of allowed origins. Never `*` in production |
@@ -81,9 +81,9 @@ openssl rand -base64 756 | tr -d '\n'
 
 | Secret | How to create it |
 |---|---|
-| `sanchari-secrets` | Fill in `k8s/secret.yaml`, or better, create it without committing values: `kubectl create secret generic sanchari-secrets -n sanchari --from-env-file=backend/.env` |
-| `firebase-service-account` | `kubectl create secret generic firebase-service-account -n sanchari --from-file=firebase-service-account.json` |
-| `sanchari-api-tls` | Issued by cert-manager from the ingress annotation, or `kubectl create secret tls sanchari-api-tls --cert=... --key=...` |
+| `poolora-secrets` | Fill in `k8s/secret.yaml`, or better, create it without committing values: `kubectl create secret generic poolora-secrets -n poolora --from-env-file=backend/.env` |
+| `firebase-service-account` | `kubectl create secret generic firebase-service-account -n poolora --from-file=firebase-service-account.json` |
+| `poolora-api-tls` | Issued by cert-manager from the ingress annotation, or `kubectl create secret tls poolora-api-tls --cert=... --key=...` |
 | `BACKUP_S3_BUCKET`, `BACKUP_AWS_ACCESS_KEY_ID`, `BACKUP_AWS_SECRET_ACCESS_KEY`, `BACKUP_AWS_REGION` | A separate bucket and IAM user for the daily database backup job. Give that user write access to that bucket only |
 
 ## Mobile app (`frontend/.env`, `frontend/google-services.json`)
@@ -92,14 +92,14 @@ openssl rand -base64 756 | tr -d '\n'
 |---|---|---|
 | `REACT_NATIVE_API_BASE_URL` | yes | Backend URL. `http://<your LAN IP>:5002` for a physical device in development |
 | `REACT_NATIVE_API_TIMEOUT` | no | Milliseconds, default `30000` |
-| `GOOGLE_MAPS_API_KEY` | yes | Google Cloud, a **separate** key with Maps SDK for Android and Maps SDK for iOS enabled. Restrict it to package `com.sanchari.app` with your signing certificate SHA-1, and to the iOS bundle id |
+| `GOOGLE_MAPS_API_KEY` | yes | Google Cloud, a **separate** key with Maps SDK for Android and Maps SDK for iOS enabled. Restrict it to package `com.poolora.app` with your signing certificate SHA-1, and to the iOS bundle id |
 | `EAS_PROJECT_ID` | for EAS builds | expo.dev, your project, Project ID. Or run `eas init` |
 | `SENTRY_DSN` | no | sentry.io, a React Native project, Client Keys |
 | `FIREBASE_DATABASE_URL` | yes | Firebase console, Realtime Database. Region-specific instance URL |
 | `GOOGLE_WEB_CLIENT_ID` | for Google sign-in | Google Cloud, Credentials, OAuth client ID of type Web application (the one Firebase creates) |
 | `FIREBASE_*` | usually no | Read from `google-services.json`. Only set these to override it |
 | `DEBUG_API_CALLS`, `LOG_LEVEL`, `DEV_AUTH_BYPASS` | no | Development switches |
-| `google-services.json` | yes (Android) | Firebase console, Project settings, Your apps, the Android app (`com.sanchari.app`), **google-services.json**. Put it in `frontend/` |
+| `google-services.json` | yes (Android) | Firebase console, Project settings, Your apps, the Android app (`com.poolora.app`), **google-services.json**. Put it in `frontend/` |
 | `GoogleService-Info.plist` | for iOS | The same place, for the iOS app. Not yet referenced in `app.config.js`; add it when you set up iOS |
 
 Getting the SHA-1: `cd frontend/android && ./gradlew signingReport` for local
@@ -181,7 +181,7 @@ Actions taken:
 
 - Git history was rewritten with `git-filter-repo` to redact all three keys from
   every commit. The working tree and all 57 commits are clean.
-- The Firebase project was rebuilt from scratch as `sanchari-e145e`. The old
+- The Firebase project was rebuilt from scratch as `poolora-e145e`. The old
   project and its keys are abandoned.
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` and `ML_SERVICE_API_KEY` were
   regenerated, even though they were never committed. Rotating the JWT secrets
@@ -198,7 +198,7 @@ never re-enable them.
 - `frontend/google-services.json` and `frontend/GoogleService-Info.plist` are
   gitignored. Never commit them, even though they ship inside the app binary.
 - Restrict every client API key in Google Cloud, Credentials: the Android key to
-  package `com.sanchari.app` plus your signing SHA-1, the iOS key to the bundle
+  package `com.poolora.app` plus your signing SHA-1, the iOS key to the bundle
   id, and the Maps key to the Maps SDK it actually needs. An unrestricted client
   key is billable by anyone who finds it.
 - Turn on Firebase App Check so a leaked client key cannot by itself drive

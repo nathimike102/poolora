@@ -20,7 +20,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'What this policy covers',
-          text: 'This website and the Sanchari mobile app. The app has not launched publicly, so at the moment the only personal data most people give us is what they type into the waitlist or investor form on this site.',
+          text: 'This website and the Poolora mobile app. The app has not launched publicly, so at the moment the only personal data most people give us is what they type into the waitlist or investor form on this site.',
         },
       ],
     },

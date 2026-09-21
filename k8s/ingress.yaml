@@ -3,8 +3,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: sanchari-ingress
-  namespace: sanchari
+  name: poolora-ingress
+  namespace: poolora
   annotations:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
@@ -17,7 +17,7 @@ spec:
   tls:
   - hosts:
     - API_HOST_PLACEHOLDER
-    secretName: sanchari-api-tls
+    secretName: poolora-api-tls
   rules:
   - host: API_HOST_PLACEHOLDER
     http:
@@ -26,6 +26,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: sanchari-backend
+            name: poolora-backend
             port:
               number: 5002

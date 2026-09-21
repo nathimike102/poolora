@@ -2,12 +2,12 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: sanchari-backend-policy
-  namespace: sanchari
+  name: poolora-backend-policy
+  namespace: poolora
 spec:
   podSelector:
     matchLabels:
-      app: sanchari-backend
+      app: poolora-backend
   policyTypes:
   - Ingress
   - Egress
@@ -64,7 +64,7 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: sanchari-ml
+          app: poolora-ml
     ports:
     - protocol: TCP
       port: 8000
@@ -85,19 +85,19 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: sanchari-ml-policy
-  namespace: sanchari
+  name: poolora-ml-policy
+  namespace: poolora
 spec:
   podSelector:
     matchLabels:
-      app: sanchari-ml
+      app: poolora-ml
   policyTypes:
   - Ingress
   ingress:
   - from:
     - podSelector:
         matchLabels:
-          app: sanchari-backend
+          app: poolora-backend
     - podSelector:
         matchLabels:
           app: prometheus
@@ -111,7 +111,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: mongodb-policy
-  namespace: sanchari
+  namespace: poolora
 spec:
   podSelector:
     matchLabels:
@@ -122,10 +122,10 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: sanchari-backend
+          app: poolora-backend
     - podSelector:
         matchLabels:
-          app: sanchari-ml
+          app: poolora-ml
     - podSelector:
         matchLabels:
           app: mongodb
@@ -145,7 +145,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: redis-policy
-  namespace: sanchari
+  namespace: poolora
 spec:
   podSelector:
     matchLabels:
@@ -156,10 +156,10 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: sanchari-backend
+          app: poolora-backend
     - podSelector:
         matchLabels:
-          app: sanchari-ml
+          app: poolora-ml
     ports:
     - protocol: TCP
       port: 6379

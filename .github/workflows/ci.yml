@@ -8,8 +8,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/sanchari-backend
-  ML_IMAGE: ghcr.io/${{ github.repository_owner }}/sanchari-ml
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/poolora-backend
+  ML_IMAGE: ghcr.io/${{ github.repository_owner }}/poolora-ml
 
 jobs:
   # ─── Backend: Lint, Test, Build ──────────────────────────────────────────
@@ -216,7 +216,7 @@ jobs:
           script: |
             set -e
             echo "Starting deployment..."
-            cd /home/ubuntu/Sanchari
+            cd /home/ubuntu/Poolora
 
             # Pull latest code
             git pull origin main

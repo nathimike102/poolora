@@ -1,7 +1,7 @@
 /**
  * services/placesService.ts
  *
- * Place suggestions and geocoding through the Sanchari backend, which keeps the
+ * Place suggestions and geocoding through the Poolora backend, which keeps the
  * Google Maps key server-side and caches responses.
  */
 

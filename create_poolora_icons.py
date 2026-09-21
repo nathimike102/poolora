@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Sanchari app icons for Android in multiple densities."""
+"""Generate Poolora app icons for Android in multiple densities."""
 
 import os
 from pathlib import Path
@@ -15,13 +15,13 @@ DENSITIES = {
     'xxxhdpi': 768,
 }
 
-# Sanchari brand colors
+# Poolora brand colors
 PRIMARY_COLOR = '#1F4D7B'  # Dark blue
 ACCENT_COLOR = '#FF9500'   # Orange
 TEXT_COLOR = '#FFFFFF'     # White
 
-def create_sanchari_icon(size):
-    """Create a Sanchari app icon at specified size."""
+def create_poolora_icon(size):
+    """Create a Poolora app icon at specified size."""
     # Create image with brand color background
     img = Image.new('RGB', (size, size), PRIMARY_COLOR)
     draw = ImageDraw.Draw(img)
@@ -82,7 +82,7 @@ def main():
         print(f"Generating {density} icon ({size}x{size})...")
         
         # Create icon
-        icon = create_sanchari_icon(size)
+        icon = create_poolora_icon(size)
         
         # Create mipmap directory if needed
         mipmap_dir = base_dir / f'mipmap-{density}'
@@ -109,7 +109,7 @@ def main():
         # Save foreground variant
         icon.save(mipmap_dir / 'ic_launcher_foreground.webp', 'WebP', quality=95)
     
-    print("\n✓ Sanchari icons generated successfully!")
+    print("\n✓ Poolora icons generated successfully!")
     print(f"Icons saved to: {base_dir}")
 
 if __name__ == '__main__':

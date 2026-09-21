@@ -6,7 +6,7 @@ import {
   RouteMonitoringIcon,
   LiveTrackingIcon,
   EmergencySafetyIcon,
-} from './icons/SanchariIcons';
+} from './icons/PooloraIcons';
 import { FEATURES } from '../../config/features';
 import { Container } from './layout/Container';
 

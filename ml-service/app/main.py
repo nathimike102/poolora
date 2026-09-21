@@ -1,5 +1,5 @@
 """
-Sanchari ML Engine — AI-Powered Optimization Microservice
+Poolora ML Engine — AI-Powered Optimization Microservice
 
 Provides:
   - Smart Ride Matching (5-Factor Weighted Score)
@@ -26,17 +26,17 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-logger = logging.getLogger("sanchari-ml")
+logger = logging.getLogger("poolora-ml")
 
 # ─── App ──────────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="Sanchari ML Engine",
+    title="Poolora ML Engine",
     description="AI-Powered Ride Matching, Demand Prediction, Fraud Detection & Route Optimization",
     version="1.0.0",
 )
 
 # ─── Internal authentication ─────────────────────────────────────────────────
-# This service is only called by the Sanchari backend. /api/* requires the
+# This service is only called by the Poolora backend. /api/* requires the
 # shared key in X-Internal-Api-Key; health and metrics stay open for probes.
 INTERNAL_API_KEY = os.environ.get("ML_SERVICE_API_KEY", "")
 if not INTERNAL_API_KEY:
@@ -588,7 +588,7 @@ async def optimize_route(request: RouteOptRequest):
 async def health():
     return {
         "status": "ok",
-        "service": "sanchari-ml",
+        "service": "poolora-ml",
         "version": "1.0.0",
         "timestamp": datetime.utcnow().isoformat(),
     }
@@ -599,18 +599,18 @@ async def metrics():
     """Prometheus-compatible metrics endpoint."""
     lines = []
     for endpoint, count in request_count.items():
-        lines.append(f'sanchari_ml_requests_total{{endpoint="{endpoint}"}} {count}')
+        lines.append(f'poolora_ml_requests_total{{endpoint="{endpoint}"}} {count}')
     for endpoint, latencies in request_latency.items():
         if latencies:
             avg = sum(latencies[-100:]) / len(latencies[-100:])
-            lines.append(f'sanchari_ml_request_duration_seconds{{endpoint="{endpoint}"}} {avg:.4f}')
+            lines.append(f'poolora_ml_request_duration_seconds{{endpoint="{endpoint}"}} {avg:.4f}')
     return "\n".join(lines)
 
 
 @app.get("/")
 async def root():
     return {
-        "service": "Sanchari ML Engine",
+        "service": "Poolora ML Engine",
         "version": "1.0.0",
         "endpoints": [
             "POST /api/match — Smart ride matching",

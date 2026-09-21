@@ -17,7 +17,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useApp } from "../context/AppContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedDot } from "../components/AnimatedDot";
-import { SanchariLogo } from "../components/SanchariLogo";
+import { PooloraLogo } from "../components/PooloraLogo";
 import { Typography, Spacing } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 
@@ -74,12 +74,12 @@ export function SplashScreen() {
 
       {/* ── Logo + Wordmark ─────────────────────────────────────────────────── */}
       <Animated.View style={[styles.logoContainer, logoAnimStyle]}>
-        <SanchariLogo
+        <PooloraLogo
           size={150}
           backgroundColor="rgba(255,255,255,0.10)"
           borderRadius={36}
           showWordmark
-          wordmark="Sanchari"
+          wordmark="Poolora"
           subtitle="Smart Scheduled Carpooling"
         />
       </Animated.View>

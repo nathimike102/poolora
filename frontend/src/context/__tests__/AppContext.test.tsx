@@ -4,7 +4,7 @@ import { Text } from 'react-native';
 
 // Mock AsyncStorage and auth service used by AppProvider
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  multiGet: jest.fn().mockResolvedValue([["@sanchari_role", null], ["@sanchari_dark_mode", null]]),
+  multiGet: jest.fn().mockResolvedValue([["@poolora_role", null], ["@poolora_dark_mode", null]]),
   getItem: jest.fn(),
   setItem: jest.fn().mockResolvedValue(undefined),
   removeItem: jest.fn().mockResolvedValue(undefined),

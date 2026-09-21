@@ -57,12 +57,12 @@ export interface CompanyConfig {
  * Public site origin. Vercel serves the project at <project>.vercel.app, so
  * this tracks the Vercel project name. Change it here only.
  */
-const SITE_ORIGIN = "https://sanchari.vercel.app";
+const SITE_ORIGIN = "https://poolora.vercel.app";
 
 /**
  * Single public inbox for the whole site and app.
  *
- * TODO(sanchari): replace with the real address before launch. The `.invalid`
+ * TODO(poolora): replace with the real address before launch. The `.invalid`
  * TLD is reserved by RFC 2606 and can never resolve, so a forgotten
  * placeholder fails loudly instead of silently dropping mail.
  *
@@ -70,10 +70,10 @@ const SITE_ORIGIN = "https://sanchari.vercel.app";
  * legal pages can keep addressing them by purpose, and so they can be split
  * onto different inboxes later without touching any page.
  */
-const PUBLIC_EMAIL = "hello@sanchari.invalid";
+const PUBLIC_EMAIL = "hello@poolora.invalid";
 
 export const COMPANY: CompanyConfig = {
-  name: "Sanchari",
+  name: "Poolora",
   tagline: "Share the ride, split the cost",
   website: SITE_ORIGIN,
   emails: {
@@ -100,6 +100,6 @@ export const COMPANY: CompanyConfig = {
   },
   appStore: "#",
   playStore: "#",
-  description: "Sanchari is a carpooling app for India, in development. Drivers offer empty seats on journeys they are already making, riders book a seat at the price the driver sets, and safety tools are part of every ride.",
-  copyright: `© ${new Date().getFullYear()} Sanchari. All rights reserved.`,
+  description: "Poolora is a carpooling app for India, in development. Drivers offer empty seats on journeys they are already making, riders book a seat at the price the driver sets, and safety tools are part of every ride.",
+  copyright: `© ${new Date().getFullYear()} Poolora. All rights reserved.`,
 };

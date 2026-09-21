@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sanchari-backend
-  namespace: sanchari
+  name: poolora-backend
+  namespace: poolora
   labels:
-    app: sanchari-backend
+    app: poolora-backend
 spec:
   replicas: 3
   strategy:
@@ -14,11 +14,11 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: sanchari-backend
+      app: poolora-backend
   template:
     metadata:
       labels:
-        app: sanchari-backend
+        app: poolora-backend
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "5002"
@@ -26,19 +26,19 @@ spec:
     spec:
       containers:
       - name: backend
-        image: ghcr.io/makineedi05/sanchari-backend:latest
+        image: ghcr.io/nathimike102/poolora-backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5002
           name: http
         envFrom:
         - configMapRef:
-            name: sanchari-config
+            name: poolora-config
         - secretRef:
-            name: sanchari-secrets
+            name: poolora-secrets
         env:
         - name: ML_SERVICE_URL
-          value: "http://sanchari-ml:8000"
+          value: "http://poolora-ml:8000"
         resources:
           requests:
             cpu: 250m
@@ -88,6 +88,6 @@ spec:
                 - key: app
                   operator: In
                   values:
-                  - sanchari-backend
+                  - poolora-backend
               topologyKey: kubernetes.io/hostname
       terminationGracePeriodSeconds: 30

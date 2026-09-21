@@ -3,7 +3,7 @@ import { Modal, View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'r
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COMPANY } from '../config/company';
 
-const STORAGE_KEY = '@sanchari_policy_accepted';
+const STORAGE_KEY = '@poolora_policy_accepted';
 
 interface Props {
   visible: boolean;
@@ -34,7 +34,7 @@ export function PolicyModal({ visible, onAccept }: Props) {
           <ScrollView>
             <Text style={styles.title} accessibilityRole="header">Before you continue</Text>
             <Text style={styles.body}>
-              Sanchari uses your phone number, location during rides and the details you share with drivers and
+              Poolora uses your phone number, location during rides and the details you share with drivers and
               riders to arrange trips and keep them safe. Please read how we handle this before you continue.
             </Text>
             <Pressable onPress={() => Linking.openURL(COMPANY.termsUrl)} accessibilityRole="link" style={styles.link}>

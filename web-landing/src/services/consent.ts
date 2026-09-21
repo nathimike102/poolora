@@ -9,7 +9,7 @@
 
 import { siteConfig } from '../config/site';
 
-const STORAGE_KEY = 'sanchari.consent';
+const STORAGE_KEY = 'poolora.consent';
 
 export type ConsentChoice = 'granted' | 'denied';
 

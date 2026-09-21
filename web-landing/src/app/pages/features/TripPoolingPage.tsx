@@ -4,7 +4,7 @@ import {
   TripPoolingIcon,
   UserGroupIcon,
   SafetyShieldIcon,
-} from '../../components/icons/SanchariIcons';
+} from '../../components/icons/PooloraIcons';
 import { Container } from '../../components/layout/Container';
 
 const steps = [

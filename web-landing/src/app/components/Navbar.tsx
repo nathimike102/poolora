@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Menu, X, ArrowRight } from 'lucide-react';
-import logoImg from '../../assets/sanchari-logo.webp';
+import logoImg from '../../assets/poolora-logo.webp';
 import { ImageWithFallback } from './common/ImageWithFallback';
 import { COMPANY } from '../../config/company';
 import { NAVIGATION } from '../../config/navigation';

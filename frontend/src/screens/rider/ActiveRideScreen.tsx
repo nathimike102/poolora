@@ -169,7 +169,7 @@ export function ActiveRideScreen() {
     const plate = ride.vehicle?.plateNumber ? ` (${ride.vehicle.plateNumber})` : '';
     Share.share({
       message:
-        `I'm on a Sanchari ride with ${ride.driver?.name ?? 'my driver'}${plate} ` +
+        `I'm on a Poolora ride with ${ride.driver?.name ?? 'my driver'}${plate} ` +
         `from ${ride.pickupLocation.address} to ${ride.dropoffLocation.address}, ` +
         `leaving at ${formatTime(ride.scheduledDeparture)}.`,
     });

@@ -61,15 +61,15 @@ function MenuItem({
 const HELP_ITEMS: { icon: IconName; title: string; sub: string; url: string }[] = [
   { icon: 'email-outline', title: 'Email support', sub: COMPANY.supportEmail, url: `mailto:${COMPANY.supportEmail}` },
   { icon: 'phone-outline', title: 'Call support', sub: COMPANY.supportPhoneDisplay, url: `tel:${COMPANY.supportPhone}` },
-  { icon: 'help-circle-outline', title: 'Frequently asked questions', sub: 'On the Sanchari website', url: COMPANY.faqUrl },
+  { icon: 'help-circle-outline', title: 'Frequently asked questions', sub: 'On the Poolora website', url: COMPANY.faqUrl },
   {
     icon: 'bug-outline',
     title: 'Report a problem',
     sub: 'Tell us what went wrong',
-    url: `mailto:${COMPANY.supportEmail}?subject=${encodeURIComponent('Problem report: Sanchari app')}`,
+    url: `mailto:${COMPANY.supportEmail}?subject=${encodeURIComponent('Problem report: Poolora app')}`,
   },
   { icon: 'shield-lock-outline', title: 'Privacy policy', sub: 'How we handle your data', url: COMPANY.privacyUrl },
-  { icon: 'file-document-outline', title: 'Terms of service', sub: 'The rules for using Sanchari', url: COMPANY.termsUrl },
+  { icon: 'file-document-outline', title: 'Terms of service', sub: 'The rules for using Poolora', url: COMPANY.termsUrl },
 ];
 
 /* ── Menu icon paths ─────────────────────────────────────── */
@@ -225,7 +225,7 @@ export function ProfileScreen(): React.ReactElement {
         </View>
 
         <Text style={{ fontSize: 12, color: c.textSec, textAlign: 'center', paddingBottom: 16 }}>
-          Sanchari version {Constants.expoConfig?.version ?? ''}
+          Poolora version {Constants.expoConfig?.version ?? ''}
         </Text>
       </ScrollView>
 

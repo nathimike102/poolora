@@ -1,7 +1,7 @@
 /**
  * screens/driver/KYCScreen.tsx
  *
- * Driver verification. Collects exactly what the Sanchari team reviews:
+ * Driver verification. Collects exactly what the Poolora team reviews:
  * driving licence, vehicle details, registration certificate, insurance and a
  * vehicle photo. Documents are reviewed by a person; nothing is auto-approved.
  */
@@ -171,7 +171,7 @@ export function KYCScreen() {
           <Text style={[styles.statusBody, { color: c.textSec }]}>
             {approved
               ? 'You can offer rides now.'
-              : 'A member of the Sanchari team checks every submission. We will notify you when it has been reviewed.'}
+              : 'A member of the Poolora team checks every submission. We will notify you when it has been reviewed.'}
           </Text>
         </View>
       </View>
