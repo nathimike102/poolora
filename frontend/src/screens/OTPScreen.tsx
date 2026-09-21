@@ -25,36 +25,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../components/BackButton';
 import { GradientButton } from '../components/GradientButton';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
-import { sendOtp, confirmOtp, verifyOtpWithBackend } from '../services/authService';
-import type { ConfirmationResult } from '@react-native-firebase/auth';
+import { sendOtpToBackend, verifyOtpWithBackend } from '../services/authService';
+import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'OTP'>;
 type RouteType = RouteProp<RootStackParamList, 'OTP'>;
 
 const OTP_LENGTH = 6;
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return fallback;
-}
+const RESEND_SECONDS = 30;
 
 export function OTPScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteType>();
-  const { c } = useApp();
+  const { c, setUser, setRole } = useApp();
   const insets = useSafeAreaInsets();
 
-  const phone = route.params?.phone ?? '98765 43210';
-  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(
-    route.params?.confirmation ?? null,
-  );
+  const phone = route.params?.phone ?? '';
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
-  const [timer, setTimer] = useState(30);
+  const [timer, setTimer] = useState(RESEND_SECONDS);
+  const [resendCount, setResendCount] = useState(0);
   const [canResend, setCanResend] = useState(false);
   const [error, setError] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -68,8 +59,10 @@ export function OTPScreen() {
   // Error message fade animation
   const errorOpacity = useRef(new Animated.Value(0)).current;
 
-  // ── Timer countdown ────────────────────────────────────────────────────────
+  // ── Timer countdown (restarts after each resend) ───────────────────────────
   useEffect(() => {
+    setTimer(RESEND_SECONDS);
+    setCanResend(false);
     const interval = setInterval(() => {
       setTimer(t => {
         if (t <= 1) {
@@ -81,7 +74,7 @@ export function OTPScreen() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [resendCount]);
 
   // ── Error fade in/out ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -139,38 +132,59 @@ export function OTPScreen() {
     [otp],
   );
 
-  // ── Verification — Firebase OTP confirm → Backend JWT ────────────────────
+  // ── Verification — the backend checks the code and issues JWTs ────────────
   const handleVerifyOtp = useCallback(
     async (code: string) => {
-      if (!confirmation) {
-        Alert.alert('Error', 'No verification session found. Please go back and resend OTP.');
-        return;
-      }
       setVerifying(true);
       try {
-        // Step 1: Confirm OTP with Firebase
-        await confirmOtp(confirmation, code);
+        const result = await verifyOtpWithBackend(`+91${phone}`, code);
 
-        // Step 2: Verify with backend and get JWT tokens
-        const fullNumber = `+91${phone}`;
-        await verifyOtpWithBackend(fullNumber, code);
+        // New phone: collect a name, then profile setup verifies with this code
+        if ('needsProfile' in result) {
+          navigation.navigate('ProfileSetup', { phone: `+91${phone}`, otp: code });
+          return;
+        }
 
-        // On success, navigate to profile setup for new users.
-        // If user already exists, appContext will detect via onAuthStateChanged
-        navigation.navigate('ProfileSetup');
+        const { user, isNewUser } = result;
+        if (isNewUser || !user.name) {
+          navigation.navigate('ProfileSetup');
+          return;
+        }
+
+        // Returning user: go straight into the app.
+        setUser({
+          id: user._id ?? user.id ?? '',
+          name: user.name,
+          phone: user.phone,
+          avatarUrl: user.profilePhotoUrl,
+          isVerified: user.isVerified,
+        });
+        setRole(user.capabilities?.includes('driver') ? 'driver' : 'rider');
       } catch (error) {
         setError(true);
         triggerShakeAnimation();
         setOtp(Array(OTP_LENGTH).fill(''));
         inputs.current[0]?.focus();
-        // Show user-friendly error from authService
-        Alert.alert('Verification Failed', getErrorMessage(error, 'Incorrect OTP. Please try again.'));
+        Alert.alert('Verification Failed', errorHandler.process(error).message);
       } finally {
         setVerifying(false);
       }
     },
-    [confirmation, navigation, triggerShakeAnimation, phone],
+    [navigation, triggerShakeAnimation, phone, setUser, setRole],
   );
+
+  const handleResend = useCallback(async () => {
+    if (!canResend) return;
+    try {
+      await sendOtpToBackend(`+91${phone}`);
+      setError(false);
+      setOtp(Array(OTP_LENGTH).fill(''));
+      inputs.current[0]?.focus();
+      setResendCount(n => n + 1);
+    } catch (error) {
+      Alert.alert('Could not resend code', errorHandler.process(error).message);
+    }
+  }, [canResend, phone]);
 
   return (
     <KeyboardAvoidingView
@@ -197,7 +211,7 @@ export function OTPScreen() {
         </View>
 
         <Text style={[styles.title, { color: c.text }]}>Enter verification code</Text>
-        <Text style={[styles.subtitle, { color: c.textSec }]}>We sent a 6-digit code to {phone}</Text>
+        <Text style={[styles.subtitle, { color: c.textSec }]}>We sent a 6-digit code to +91 {phone}</Text>
 
         <View style={styles.otpRow}>
           {otp.map((value, idx) => (
@@ -228,7 +242,14 @@ export function OTPScreen() {
 
         <View style={styles.resendRow}>
           <Text style={[styles.resendPrompt, { color: c.textSec }]}>Didn’t receive a code?</Text>
-          <Text style={[styles.resendLink, { color: c.primary }]}>Resend {canResend ? '' : `in ${timer}s`}</Text>
+          <Text
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canResend }}
+            onPress={handleResend}
+            style={[styles.resendLink, { color: canResend ? c.primary : c.textSec }]}
+          >
+            {' '}Resend{canResend ? '' : ` in ${timer}s`}
+          </Text>
         </View>
 
         <GradientButton

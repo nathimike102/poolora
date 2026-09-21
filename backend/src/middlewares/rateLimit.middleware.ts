@@ -56,6 +56,14 @@ async function hitRedis(key: string, windowMs: number): Promise<{ count: number;
   }
 }
 
+/** "45 seconds", "1 minute", "44 minutes", "2 hours": a wait people can read at a glance. */
+export function describeWait(seconds: number): string {
+  const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'}`;
+  if (seconds < 60) return plural(Math.max(1, seconds), 'second');
+  if (seconds < 3600) return plural(Math.ceil(seconds / 60), 'minute');
+  return plural(Math.ceil(seconds / 3600), 'hour');
+}
+
 function createRateLimiter(tier: RateLimitConfig, keyPrefix: string) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     const identifier = req.user?.userId || req.ip || 'unknown';
@@ -64,7 +72,7 @@ function createRateLimiter(tier: RateLimitConfig, keyPrefix: string) {
     const hit = (await hitRedis(key, tier.windowMs)) ?? hitLocal(key, tier.windowMs);
 
     if (hit.count > tier.max) {
-      next(new RateLimitError(`Rate limit exceeded. Try again in ${hit.ttlSeconds} seconds.`));
+      next(new RateLimitError(`Too many requests. Try again in ${describeWait(hit.ttlSeconds)}.`));
       return;
     }
     next();

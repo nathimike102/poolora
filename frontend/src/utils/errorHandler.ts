@@ -31,6 +31,27 @@ export interface ProcessedError {
   details?: unknown;
 }
 
+/**
+ * The error API calls reject with (see setupErrorTransformInterceptor): a
+ * real Error, so `error instanceof Error` and `error.message` work in screens,
+ * carrying the status code and the backend's message.
+ */
+export class ApiError extends Error implements ProcessedError {
+  code: number;
+  isRetryable: boolean;
+  originalError?: unknown;
+  details?: unknown;
+
+  constructor(processed: ProcessedError) {
+    super(processed.message);
+    this.name = 'ApiError';
+    this.code = processed.code;
+    this.isRetryable = processed.isRetryable;
+    this.originalError = processed.originalError;
+    this.details = processed.details;
+  }
+}
+
 // ─── Error Handler ────────────────────────────────────────────────────────
 
 class ErrorHandler {
@@ -39,6 +60,10 @@ class ErrorHandler {
    */
   process(error: unknown): ProcessedError {
     logger.debug('Processing error', { error });
+
+    if (error instanceof ApiError) {
+      return error;
+    }
 
     if (axios.isAxiosError(error)) {
       return this.handleAxiosError(error);

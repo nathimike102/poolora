@@ -15,11 +15,27 @@ describe('safetyService', () => {
     expect(res._id).toBe('s1');
   });
 
-  test('getActiveIncidents returns records array', async () => {
-    const recs = [{ id: 'i1', userId: 'u1', userName: 'U', status: 'triggered', location: { lat: 0, lng: 0 }, timestamp: new Date(), bookingId: 'b1' }];
+  test('getActiveIncidents maps backend emergency records', async () => {
+    // Shape returned by GET /safety/sos/active
+    const recs = [{
+      _id: 'e1',
+      status: 'triggered',
+      triggeredBy: { _id: 'u1', name: 'Fatima Khan', phone: '+919876500050' },
+      booking: { _id: 'b1' },
+      triggerLocation: { type: 'Point', coordinates: [72.8474, 19.1871] },
+      createdAt: '2026-09-21T09:21:35.986Z',
+    }];
     (apiClient.get as jest.Mock).mockResolvedValue({ data: { data: { records: recs, total: 1 } } });
-    const out = await safetyService.getActiveIncidents();
-    expect(out.length).toBe(1);
+    const [incident] = await safetyService.getActiveIncidents();
+    expect(incident).toEqual({
+      id: 'e1',
+      userId: 'u1',
+      userName: 'Fatima Khan',
+      status: 'triggered',
+      location: { lat: 19.1871, lng: 72.8474 },
+      timestamp: new Date('2026-09-21T09:21:35.986Z'),
+      bookingId: 'b1',
+    });
   });
 
   test('acknowledgeIncident posts and resolves', async () => {

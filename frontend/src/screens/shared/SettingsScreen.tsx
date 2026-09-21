@@ -231,7 +231,7 @@ export function SettingsScreen() {
       {/* ── Edit Profile Modal ────────────────────────────────── */}
       <Modal visible={showEditProfile} transparent animationType="slide" onRequestClose={() => setShowEditProfile(false)}>
         <Pressable accessibilityRole="button" style={st.overlay} onPress={() => setShowEditProfile(false)} />
-        <View style={[st.sheet, { backgroundColor: c.surface }]}>
+        <View style={[st.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom }]}>
           <View style={[st.sheetHandle, { backgroundColor: c.border }]} />
 
           {/* Title row */}

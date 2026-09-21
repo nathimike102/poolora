@@ -26,6 +26,8 @@ interface PooloraLogoProps {
   wordmark?: string;
   /** Supporting text below the wordmark */
   subtitle?: string;
+  /** "light" for the wordmark on a coloured or dark background */
+  tone?: "dark" | "light";
 }
 
 export function PooloraLogo({
@@ -35,6 +37,7 @@ export function PooloraLogo({
   showWordmark = false,
   wordmark = "Poolora",
   subtitle = "Smart Scheduled Carpooling",
+  tone = "dark",
 }: PooloraLogoProps) {
   const br = borderRadius ?? size * 0.225; // Match the tile's corners
 
@@ -63,8 +66,8 @@ export function PooloraLogo({
 
       {showWordmark ? (
         <View style={styles.wordmarkBlock}>
-          <Text style={styles.wordmark}>{wordmark}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Text style={[styles.wordmark, tone === "light" && styles.wordmarkLight]}>{wordmark}</Text>
+          <Text style={[styles.subtitle, tone === "light" && styles.subtitleLight]}>{subtitle}</Text>
         </View>
       ) : null}
     </View>
@@ -94,6 +97,8 @@ const styles = StyleSheet.create({
     color: INK,
     letterSpacing: -0.4,
   },
+  wordmarkLight: { color: "#FFFFFF" },
+  subtitleLight: { color: "rgba(255,255,255,0.85)" },
   subtitle: {
     fontSize: 12,
     lineHeight: 16,

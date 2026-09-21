@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { Icon } from '../../components/Icon';
 import { BackButton } from '../../components/BackButton';
+import { MapPlaceholder } from '../../components/MapPlaceholder';
+import { MAPS_ENABLED } from '../../config/maps';
 import { reverseGeocodePlace } from '../../services/placesService';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
@@ -28,6 +30,24 @@ const LOOKUP_DEBOUNCE_MS = 500;
 const INITIAL_REGION: Region = { latitude: 12.9716, longitude: 77.5946, latitudeDelta: 0.04, longitudeDelta: 0.04 };
 
 export function MapPickerScreen() {
+  return MAPS_ENABLED ? <MapPickerView /> : <MapPickerUnavailable />;
+}
+
+/** Entry points hide "Select on map" without a Maps key; this covers a stale deep link. */
+function MapPickerUnavailable() {
+  const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.root}>
+      <MapPlaceholder caption="The map isn't available right now. Go back and type the address instead." />
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <BackButton onPress={() => navigation.goBack()} />
+      </View>
+    </View>
+  );
+}
+
+function MapPickerView() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { c } = useApp();
@@ -84,10 +104,8 @@ export function MapPickerScreen() {
 
   const confirm = () => {
     if (!address) return;
-    navigation.navigate('RiderTabs', {
-      screen: 'Search',
-      params: { pickedLocation: address, pickedField: route.params.field },
-    });
+    // Back to the search screen underneath, keeping what the rider already entered
+    navigation.popTo('Search', { pickedLocation: address, pickedField: route.params.field }, { merge: true });
   };
 
   return (

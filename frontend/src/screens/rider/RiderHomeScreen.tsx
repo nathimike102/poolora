@@ -1,616 +1,440 @@
 /**
  * screens/rider/RiderHomeScreen.tsx
+ *
+ * Map-first home: the rider's area on top, and a sheet that scrolls up over it
+ * with the destination search, recent and favourite places, the next booked
+ * ride, and shortcuts to each kind of ride.
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
+  Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
-  Animated,
   Alert,
   ActivityIndicator,
-  StyleProp,
-  ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { Text, IconButton, Button } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '../../context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RoleToggle } from '../../components/RoleToggle';
+import { LiveMap } from '../../components/LiveMap';
+import { Icon, type IconName } from '../../components/Icon';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList, RiderTabParamList } from '../../navigation/types';
 import { getSavedRoutes, deleteSavedRoute, type SavedRoute } from '../../services/savedRouteService';
+import { getPlaceHistory, toggleFavouritePlace, type HistoryPlace } from '../../services/placeHistoryService';
 import { rideService } from '../../services';
+import { useCurrentPlace } from '../../hooks/useCurrentPlace';
+import { VEHICLE_CATEGORIES, type VehicleCategory } from '../../utils/vehicles';
 import { logger } from '../../utils/logger';
 import type { UpcomingBooking } from '../../types/api';
-import { Icon } from '../../components/Icon';
 
 type NavProp = CompositeNavigationProp<
   BottomTabNavigationProp<RiderTabParamList, 'RiderHome'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-// ─── Quick Actions Config ──────────────────────────────────────────────────────
+const MAX_PLACES = 4;
 
-const quickActions = [
-  { icon: 'car' as const, label: 'Find a ride', route: 'Search' as const },
-  { icon: 'car-clock' as const, label: 'My rides', route: 'MyRides' as const },
-  { icon: 'shield-alert' as const, label: 'Safety', route: 'SOS' as const },
-];
-
-// ─── AnimatedPressable ────────────────────────────────────────────────────────
-// Replaces motion.button whileTap={{ scale: N }}
-
-function AnimatedPressable({
-  onPress,
-  scaleValue = 0.95,
-  style,
-  children,
-}: {
-  onPress: () => void;
-  scaleValue?: number;
-  style?: StyleProp<ViewStyle>;
-  children: React.ReactNode;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = useCallback(() => {
-    Animated.spring(scale, {
-      toValue: scaleValue,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 0,
-    }).start();
-  }, [scale, scaleValue]);
-
-  const handlePressOut = useCallback(() => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 4,
-    }).start();
-  }, [scale]);
-
-  return (
-    <TouchableOpacity accessibilityRole="button"
-      activeOpacity={1}
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
-      <Animated.View style={[style, { transform: [{ scale }] }]}>
-        {children}
-      </Animated.View>
-    </TouchableOpacity>
-  );
+function formatDeparture(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
+  if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+  return `${d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
 }
-
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export function RiderHomeScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c, user } = useApp();
+  const { c } = useApp();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const mapHeight = Math.round(height * 0.36);
+  const { place: here, status: hereStatus, refresh: refreshHere } = useCurrentPlace();
 
-  const [greeting] = useState(() => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  });
-
+  const [places, setPlaces] = useState<HistoryPlace[]>([]);
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
-  const [upcomingRides, setUpcomingRides] = useState<UpcomingBooking[]>([]);
-  const [loadingRides, setLoadingRides] = useState(false);
-  const [ridesError, setRidesError] = useState<string | null>(null);
+  const [upcoming, setUpcoming] = useState<UpcomingBooking[] | null>(null);
+  const [upcomingError, setUpcomingError] = useState(false);
+
+  const loadUpcoming = useCallback(async () => {
+    setUpcomingError(false);
+    try {
+      setUpcoming(await rideService.getUpcomingRides());
+    } catch (error) {
+      logger.error('Failed to fetch upcoming rides', { error });
+      setUpcomingError(true);
+      setUpcoming([]);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
+      getPlaceHistory().then(setPlaces).catch(() => {});
       getSavedRoutes().then(setSavedRoutes).catch(() => {});
-    }, []),
+      loadUpcoming();
+    }, [loadUpcoming]),
   );
 
-  // Fetch upcoming rides on focus
-  useFocusEffect(
-    useCallback(() => {
-      const fetchRides = async () => {
-        setLoadingRides(true);
-        setRidesError(null);
-        try {
-          const rides = await rideService.getUpcomingRides();
-          setUpcomingRides(rides);
-        } catch (error) {
-          logger.error('Failed to fetch upcoming rides', { error });
-          setRidesError('Your upcoming rides could not be loaded.');
-          setUpcomingRides([]);
-        } finally {
-          setLoadingRides(false);
-        }
-      };
+  const nextRide = upcoming?.[0];
 
-      fetchRides();
-    }, []),
-  );
+  const pickupLabel =
+    hereStatus === 'ready'
+      ? here?.address ?? 'Current location'
+      : hereStatus === 'loading'
+        ? 'Finding your location…'
+        : hereStatus === 'denied'
+          ? 'Allow location to set your pickup'
+          : "Couldn't find your location";
 
-  const handleDeleteRoute = (route: SavedRoute) => {
-    Alert.alert(
-      'Delete Route',
-      `Remove "${route.name}" from saved routes?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteSavedRoute(route.id);
-            setSavedRoutes(prev => prev.filter(r => r.id !== route.id));
-          },
-        },
-      ],
-    );
+  const toggleFavourite = async (p: HistoryPlace) => {
+    setPlaces(await toggleFavouritePlace(p));
   };
 
+  const deleteRoute = (r: SavedRoute) => {
+    Alert.alert('Remove saved route', `Remove "${r.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteSavedRoute(r.id);
+          setSavedRoutes(prev => prev.filter(x => x.id !== r.id));
+        },
+      },
+    ]);
+  };
+
+  const openCategory = (category: VehicleCategory) => navigation.navigate('Search', { category });
+
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <StatusBar style="light" />
-      {/* Scrollable content */}
+    <View style={[styles.root, { backgroundColor: c.surface }]}>
+      {/* ── Map ──────────────────────────────────────────────── */}
+      <View style={[styles.mapWrap, { height: mapHeight + 40 }]}>
+        <LiveMap />
+      </View>
+
+      {/* ── Sheet (scrolls up over the map) ──────────────────── */}
       <ScrollView
-        style={styles.flex1}
-        contentContainerStyle={styles.scrollContent}
+        style={StyleSheet.absoluteFill}
+        contentContainerStyle={{ paddingTop: mapHeight, paddingBottom: Spacing['2xl'] }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Gradient Header ─────────────────────────────────────────── */}
-        <LinearGradient
-          colors={[c.primary, c.primaryDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
-        >
-          <View style={styles.headerTopRow}>
-            {/* Left: Greeting + Name */}
-            <View>
-              <Text variant="bodyMedium" style={styles.greetingText}>{greeting}</Text>
-              {user?.name ? (
-                <Text variant="headlineSmall" style={styles.nameText}>{user.name}</Text>
-              ) : null}
-            </View>
+        <View style={[styles.sheet, { backgroundColor: c.surface }]}>
+          <View style={[styles.handle, { backgroundColor: c.border }]} />
 
-            {/* Right: Bell */}
-            <View style={styles.headerRight}>
-              {/* Bell Button */}
-              <View style={styles.bellWrap}>
-                <IconButton
-                  icon="bell"
-                  iconColor="white"
-                  size={20}
-                  onPress={() => navigation.navigate('Notifications')}
-                  accessibilityLabel="Notifications"
-                  style={styles.bellButton}
-                />
-              </View>
-            </View>
-          </View>
+          {/* Search */}
+          <Pressable
+            onPress={() => navigation.navigate('Search')}
+            accessibilityRole="search"
+            accessibilityLabel="Where are you going?"
+            style={({ pressed }) => [
+              styles.searchPill,
+              { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.85 : 1 },
+              Shadow.md,
+            ]}
+          >
+            <Icon name="magnify" size={26} color={c.text} />
+            <Text style={[styles.searchText, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              Where are you going?
+            </Text>
+            <Pressable
+              onPress={() => navigation.navigate('Search', { schedule: true })}
+              accessibilityRole="button"
+              accessibilityLabel="Schedule a ride for later"
+              hitSlop={8}
+              style={[styles.laterChip, { backgroundColor: c.primaryLight }]}
+            >
+              <Icon name="calendar-clock" size={16} color={c.primary} />
+              <Text style={[styles.laterText, { color: c.primary }]}>Later</Text>
+            </Pressable>
+          </Pressable>
 
-          {/* Row 2: Role Toggle */}
-          <RoleToggle />
-        </LinearGradient>
-
-        {/* ── Quick Actions ───────────────────────────────────────────── */}
-        <View style={styles.section}>
-          <View style={styles.quickActionsRow}>
-            {quickActions.map((item) => (
-              <AnimatedPressable
-                key={item.label}
-                scaleValue={0.93}
-                onPress={() => navigation.navigate(item.route as never)}
-                style={[styles.quickActionCard, { backgroundColor: c.primaryLight }]}
-              >
-                <Icon name={item.icon} size={28} color={c.primary} />
-                <Text variant="labelSmall" style={[styles.quickActionLabel, { color: c.primaryDark }]}>{item.label}</Text>
-              </AnimatedPressable>
-            ))}
-          </View>
-        </View>
-
-        {/* ── Upcoming Rides ──────────────────────────────────────────── */}
-        <View style={styles.section}>
-          {loadingRides ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={c.primary} />
-              <Text variant="bodySmall" style={[styles.loadingText, { color: c.textSec }]}>Loading rides...</Text>
-            </View>
-          ) : ridesError ? (
-            <View style={[styles.errorContainer, { backgroundColor: c.errorLight, borderColor: c.error }]}>
-              <Text variant="bodyMedium" style={[styles.errorText, { color: c.error }]}>{ridesError}</Text>
-              <Button mode="outlined" compact onPress={() => {
-                setLoadingRides(true);
-                setRidesError(null);
-                rideService.getUpcomingRides()
-                  .then(setUpcomingRides)
-                  .catch(() => setRidesError('Your upcoming rides could not be loaded.'))
-                  .finally(() => setLoadingRides(false));
-              }} style={{ marginTop: Spacing.sm }}>
-                Retry
-              </Button>
-            </View>
-          ) : upcomingRides.length > 0 ? (
-            <>
-              <View style={styles.sectionHeader}>
-                <Text variant="titleMedium" style={[styles.sectionTitle, { color: c.text }]}>Upcoming Rides</Text>
-                <Button mode="text" compact onPress={() => navigation.navigate('MyRides')} labelStyle={{ color: c.primary }}>
-                  See all
-                </Button>
-              </View>
-
-              {/* Horizontal scroll replaces overflow-x-auto */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.ridesScrollContent}
-              >
-                {upcomingRides.map((ride) => (
-                  <AnimatedPressable
-                    key={ride.bookingId}
-                    scaleValue={0.97}
-                    onPress={() => navigation.navigate('ActiveRide', { rideId: ride.rideId, bookingId: ride.bookingId })}
-                    style={[styles.rideCard, { backgroundColor: c.surface, borderColor: c.border, ...Shadow.sm }]}
+          {/* Recent and favourite places */}
+          {places.length > 0 ? (
+            <View style={styles.placeList}>
+              {places.slice(0, MAX_PLACES).map((p, i) => (
+                <View
+                  key={`${p.name}|${p.subtitle}`}
+                  style={[
+                    styles.placeRow,
+                    i < Math.min(places.length, MAX_PLACES) - 1 && [styles.dashed, { borderColor: c.border }],
+                  ]}
+                >
+                  <Pressable
+                    onPress={() => navigation.navigate('Search', { drop: p })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Ride to ${p.name}`}
+                    style={styles.placeMain}
                   >
-                    <View style={styles.rideCardTopRow}>
-                      <View style={[styles.statusBadge, { backgroundColor: ride.status === 'confirmed' ? c.successLight : c.warningLight }]}>
-                        <Text variant="labelSmall" style={[styles.statusText, { color: ride.status === 'confirmed' ? c.successDark : '#8A5A00' }]}>
-                          {ride.status === 'confirmed' ? 'Confirmed' : 'Waiting for driver'}
-                        </Text>
-                      </View>
-                      <Text variant="titleMedium" style={[styles.ridePrice, { color: c.primary }]}>₹{ride.pricePerSeat}</Text>
+                    <Icon name={p.favourite ? 'star-outline' : 'history'} size={22} color={c.textSec} />
+                    <View style={styles.flex1}>
+                      <Text style={[styles.placeName, { color: c.text }]} numberOfLines={1}>{p.name}</Text>
+                      {p.subtitle ? (
+                        <Text style={[styles.placeSub, { color: c.textSec }]} numberOfLines={1}>{p.subtitle}</Text>
+                      ) : null}
                     </View>
-
-                    <View style={styles.routeColumn}>
-                      <View style={styles.routeRow}>
-                        <View style={[styles.routeDotFrom, { backgroundColor: c.primary }]} />
-                        <Text variant="bodyMedium" style={[styles.routeText, { color: c.text }]} numberOfLines={1}>{ride.from}</Text>
-                      </View>
-                      <View style={[styles.routeLine, { backgroundColor: c.border }]} />
-                      <View style={styles.routeRow}>
-                        <View style={[styles.routeDotTo, { backgroundColor: c.error }]} />
-                        <Text variant="bodyMedium" style={[styles.routeText, { color: c.text }]} numberOfLines={1}>{ride.to}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.rideDateRow}>
-                      <Icon name="clock-outline" size={12} color={c.textSec} />
-                      <Text variant="bodySmall" style={[styles.rideDateText, { color: c.textSec }]}>
-                        {new Date(ride.departureTime).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })} with {ride.driverName}
-                      </Text>
-                    </View>
-                  </AnimatedPressable>
-                ))}
-              </ScrollView>
-            </>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Svg width={48} height={48} viewBox="0 0 24 24" fill={c.textSec} opacity={0.5}>
-                <Path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm11 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
-              </Svg>
-              <Text variant="bodyMedium" style={[styles.emptyText, { color: c.textSec }]}>No upcoming rides</Text>
-              <Button mode="contained" onPress={() => navigation.navigate('Search')} style={{ marginTop: Spacing.lg }}>
-                Find a Ride
-              </Button>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => toggleFavourite(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={p.favourite ? `Remove ${p.name} from favourites` : `Add ${p.name} to favourites`}
+                    hitSlop={10}
+                    style={styles.heartBtn}
+                  >
+                    <Icon name={p.favourite ? 'heart' : 'heart-outline'} size={24} color={p.favourite ? c.error : c.textSec} />
+                  </Pressable>
+                </View>
+              ))}
             </View>
+          ) : (
+            <Text style={[styles.hint, { color: c.textSec }]}>
+              Places you search for show up here. Tap the heart to keep one at the top.
+            </Text>
+          )}
+
+          {/* Next ride */}
+          {upcoming === null ? (
+            <ActivityIndicator style={styles.loader} color={c.primary} accessibilityLabel="Loading your rides" />
+          ) : upcomingError ? (
+            <Pressable
+              onPress={loadUpcoming}
+              accessibilityRole="button"
+              style={[styles.nextRide, { backgroundColor: c.errorLight, borderColor: c.errorLight }]}
+            >
+              <Icon name="alert-circle-outline" size={22} color={c.error} />
+              <Text style={[styles.flex1, { color: c.text }]}>Your rides couldn't be loaded. Tap to retry.</Text>
+            </Pressable>
+          ) : nextRide ? (
+            <Pressable
+              onPress={() => navigation.navigate('ActiveRide', { rideId: nextRide.rideId, bookingId: nextRide.bookingId })}
+              accessibilityRole="button"
+              accessibilityLabel={`Your next ride to ${nextRide.to}, ${formatDeparture(nextRide.departureTime)}`}
+              style={[styles.nextRide, { backgroundColor: c.primaryLight, borderColor: c.primaryLight }]}
+            >
+              <View style={[styles.nextIcon, { backgroundColor: c.surface }]}>
+                <Icon name="car-clock" size={22} color={c.primary} />
+              </View>
+              <View style={styles.flex1}>
+                <Text style={[styles.nextLabel, { color: c.primary }]}>
+                  {nextRide.status === 'confirmed' ? 'Seat confirmed' : 'Waiting for the driver'}
+                  {upcoming.length > 1 ? ` · ${upcoming.length - 1} more` : ''}
+                </Text>
+                <Text style={[styles.nextTitle, { color: c.text }]} numberOfLines={1}>To {nextRide.to}</Text>
+                <Text style={[styles.placeSub, { color: c.textSec }]} numberOfLines={1}>
+                  {formatDeparture(nextRide.departureTime)} with {nextRide.driverName}
+                </Text>
+              </View>
+              <Icon name="chevron-right" size={22} color={c.textSec} />
+            </Pressable>
+          ) : null}
+
+          {/* Ride types */}
+          <Text style={[styles.sectionTitle, { color: c.text }]}>Ride with Poolora</Text>
+          <View style={styles.tileRow}>
+            {(Object.keys(VEHICLE_CATEGORIES) as VehicleCategory[]).map(key => (
+              <Tile
+                key={key}
+                icon={VEHICLE_CATEGORIES[key].icon}
+                label={VEHICLE_CATEGORIES[key].label}
+                onPress={() => openCategory(key)}
+              />
+            ))}
+            <Tile icon="shield-check-outline" label="Safety" onPress={() => navigation.navigate('SOS')} />
+          </View>
+
+          {/* Saved routes */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, styles.sectionTitleInline, { color: c.text }]}>Saved routes</Text>
+            <Pressable
+              onPress={() => navigation.navigate('AddSavedRoute')}
+              accessibilityRole="button"
+              accessibilityLabel="Add a saved route"
+              hitSlop={8}
+            >
+              <Text style={[styles.link, { color: c.primary }]}>Add</Text>
+            </Pressable>
+          </View>
+          {savedRoutes.length === 0 ? (
+            <Text style={[styles.hint, styles.hintTight, { color: c.textSec }]}>
+              Save a trip you make often, like home to work, and search it in one tap.
+            </Text>
+          ) : (
+            savedRoutes.map(r => (
+              <View key={r.id} style={[styles.routeRow, { borderColor: c.border }]}>
+                <Pressable
+                  onPress={() => navigation.navigate('Search', { from: r.from, to: r.to })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Search ${r.name}: ${r.from} to ${r.to}`}
+                  style={styles.placeMain}
+                >
+                  <View style={[styles.routeIcon, { backgroundColor: c.surfaceVariant }]}>
+                    <Icon name={r.icon} size={20} color={c.primary} />
+                  </View>
+                  <View style={styles.flex1}>
+                    <Text style={[styles.placeName, { color: c.text }]} numberOfLines={1}>{r.name}</Text>
+                    <Text style={[styles.placeSub, { color: c.textSec }]} numberOfLines={1}>{r.from} → {r.to}</Text>
+                  </View>
+                </Pressable>
+                <Pressable
+                  onPress={() => deleteRoute(r)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove saved route ${r.name}`}
+                  hitSlop={10}
+                  style={styles.heartBtn}
+                >
+                  <Icon name="close" size={20} color={c.textSec} />
+                </Pressable>
+              </View>
+            ))
           )}
         </View>
-
-        {/* ── Saved Routes ────────────────────────────────────────────── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-              <Text variant="titleMedium" style={[styles.sectionTitle, { color: c.text }]}>Saved Routes</Text>
-              <Button mode="text" compact onPress={() => navigation.navigate('AddSavedRoute')} labelStyle={{ color: c.primary }}>
-                + Add
-              </Button>
-          </View>
-
-          <View style={styles.routesColumn}>
-            {savedRoutes.length === 0 && (
-              <Text variant="bodySmall" style={{ color: c.textSec }}>
-                Save routes you travel often to search them in one tap.
-              </Text>
-            )}
-            {savedRoutes.map(route => (
-              <AnimatedPressable
-                key={route.id}
-                scaleValue={0.98}
-                onPress={() => navigation.navigate('Search', { from: route.from, to: route.to })}
-                style={[styles.routeCard, { backgroundColor: c.surface, borderColor: c.border, ...Shadow.sm }]}
-              >
-                <View style={[styles.routeIconWrap, { backgroundColor: c.bg }]}>
-                  <Icon name={route.icon} size={20} color={c.primary} />
-                </View>
-                <View style={styles.flex1}>
-                  <Text variant="bodyMedium" style={[styles.routeCardTitle, { color: c.text }]}>{route.name}</Text>
-                  <Text variant="bodySmall" style={[styles.routeCardSub, { color: c.textSec }]} numberOfLines={1}>
-                    {route.from} to {route.to}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleDeleteRoute(route)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Delete saved route ${route.name}`}
-                  style={styles.deleteBtn}
-                >
-                  <Icon name="delete-outline" size={18} color={c.error} />
-                </TouchableOpacity>
-              </AnimatedPressable>
-            ))}
-          </View>
-        </View>
       </ScrollView>
+
+      {/* ── Floating pickup pill and bell over the map ───────── */}
+      <View style={[styles.topBar, { top: insets.top + Spacing.sm }]} pointerEvents="box-none">
+        <Pressable
+          onPress={() => (hereStatus === 'ready' ? navigation.navigate('Search') : refreshHere(true))}
+          accessibilityRole="button"
+          accessibilityLabel={`Pickup: ${pickupLabel}`}
+          style={[styles.locationPill, { backgroundColor: c.surface }, Shadow.md]}
+        >
+          {hereStatus === 'loading' ? (
+            <ActivityIndicator size="small" color={c.primary} />
+          ) : (
+            <View style={[styles.pickupDot, { borderColor: hereStatus === 'ready' ? c.success : c.warning }]} />
+          )}
+          <Text style={[styles.locationText, { color: c.text }]} numberOfLines={1}>{pickupLabel}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => navigation.navigate('Notifications')}
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
+          style={[styles.roundBtn, { backgroundColor: c.surface }, Shadow.md]}
+        >
+          <Icon name="bell-outline" size={22} color={c.text} />
+        </Pressable>
+      </View>
     </View>
   );
 }
-// ─── Styles ──────────────────────────────────────────────────────────────────
+
+function Tile({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+  const { c } = useApp();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.tile, { opacity: pressed ? 0.7 : 1 }]}
+    >
+      <View style={[styles.tileIcon, { backgroundColor: c.surfaceVariant }]}>
+        <Icon name={icon} size={30} color={c.primary} />
+      </View>
+      <Text style={[styles.tileLabel, { color: c.text }]} numberOfLines={1}>{label}</Text>
+    </Pressable>
+  );
+}
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  flex1: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 16,
-  },
+  root: { flex: 1 },
+  flex1: { flex: 1 },
+  mapWrap: { position: 'absolute', top: 0, left: 0, right: 0 },
 
-  // ── Header ──────────────────────────────────────────────────────
-  header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.lg,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.lg,
-  },
-  greetingText: {
-    color: 'rgba(255,255,255,0.65)',
-  },
-  nameText: {
-    fontWeight: Typography.extrabold,
-    color: 'white',
-    marginTop: 1,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-
-  // ── Bell ───────────────────────────────────────────────────────
-  bellWrap: {
-    position: 'relative',
-  },
-  bellButton: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    margin: 0,
-  },
-  notifDot: {
+  topBar: {
     position: 'absolute',
-    top: 9,
-    right: 9,
-    width: 7,
-    height: 7,
-    borderRadius: Radius.full,
-    borderWidth: 1.5,
-    borderColor: 'rgba(11,122,117,0.8)',
-  },
-
-  // ── Section Layout ─────────────────────────────────────────────
-  section: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.md,
-  },
-  sectionTitle: {
-    fontWeight: Typography.bold,
-  },
-  seeAllText: {
-    fontWeight: Typography.semibold,
-  },
-
-  // ── Quick Actions ──────────────────────────────────────────────
- quickActionsRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-},
-  quickActionWrapper: {
-    flex: 1,
-  },
-  quickActionCard: {
-  flex: 1,
-  height: 85,
-  width:85,
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: Radius.lg,
-},
-  quickActionIcon: {
-    fontSize: 24,
-    lineHeight: 24,
-  },
-  quickActionLabel: {
-    fontSize: 10,
-    fontWeight: Typography.semibold,
-    textAlign: 'center',
-    lineHeight: 12,
-    maxWidth: '100%',
-  },
-
-  // ── Ride Cards (horizontal scroll) ─────────────────────────────
-  ridesScrollContent: {
-    gap: Spacing.md,
-  },
-  rideCard: {
-    width: 220,
-    borderRadius: Radius.xl,
-    padding: Spacing.lg - 2, // 14dp
-    borderWidth: 1,
-  },
-  rideCardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.md,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  statusText: {
-    fontWeight: Typography.bold,
-  },
-  ridePrice: {
-    fontWeight: Typography.bold,
-  },
-  routeColumn: {
-    gap: 0,
-    marginBottom: Spacing.sm,
-  },
-  routeRow: {
+    left: Spacing.lg,
+    right: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  routeDotFrom: {
-    width: 8,
-    height: 8,
+  locationPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minHeight: 48,
+    paddingHorizontal: Spacing.lg,
     borderRadius: Radius.full,
   },
-  routeDotTo: {
-    width: 8,
-    height: 8,
-    borderRadius: 2,
+  pickupDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 4 },
+  locationText: { flex: 1, fontSize: Typography.lg, fontWeight: Typography.medium },
+  roundBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+
+  sheet: {
+    borderTopLeftRadius: Radius['4xl'],
+    borderTopRightRadius: Radius['4xl'],
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
+    minHeight: 600,
   },
-  routeLine: {
-    width: 1,
-    height: 8,
-    marginLeft: 3.5,
+  handle: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, marginBottom: Spacing.lg },
+
+  searchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    minHeight: 64,
+    paddingLeft: Spacing.xl,
+    paddingRight: Spacing.sm,
+    borderRadius: Radius.full,
+    borderWidth: 1,
   },
-  routeText: {
-    fontWeight: Typography.semibold,
-  },
-  rideDateRow: {
+  searchText: { flex: 1, fontSize: Typography['3xl'], fontWeight: Typography.bold },
+  laterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  rideDateText: {},
-
-  // ── Saved Route Cards ──────────────────────────────────────────
-  routesColumn: {
-    gap: 10,
-  },
-  routeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.lg,
-    borderRadius: Radius.lg,
-    padding: Spacing.md + 2, // 14dp
-    borderWidth: 1,
-  },
-  routeIconWrap: {
-    width: 44,
     height: 44,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
   },
-  routeEmoji: {
-    fontSize: 22,
-  },
-  routeCardTitle: {
-    fontWeight: Typography.semibold,
-  },
-  routeCardSub: {
-    marginTop: 2,
-  },
-  deleteBtn: {
-    padding: 6,
-    borderRadius: Radius.sm,
-  },
+  laterText: { fontSize: Typography.md, fontWeight: Typography.bold },
 
-  // ── Parcel Banner ──────────────────────────────────────────────
-  bannerSection: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.md,
-  },
-  bannerWrap: {
-    borderRadius: Radius.xl,
-    overflow: 'hidden',
-  },
-  bannerGradient: {
+  placeList: { marginTop: Spacing.md },
+  placeRow: { flexDirection: 'row', alignItems: 'center', minHeight: 68 },
+  dashed: { borderBottomWidth: 1, borderStyle: 'dashed' },
+  placeMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.md },
+  placeName: { fontSize: Typography['2xl'], fontWeight: Typography.semibold },
+  placeSub: { fontSize: Typography.md, marginTop: 2 },
+  heartBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  hint: { fontSize: Typography.md, lineHeight: 20, marginTop: Spacing.lg },
+  hintTight: { marginTop: 0 },
+  loader: { marginTop: Spacing.xl },
+
+  nextRide: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.lg,
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
     padding: Spacing.lg,
     borderRadius: Radius.xl,
-  },
-  bannerEmoji: {
-    fontSize: 36,
-  },
-  bannerTitle: {
-    fontWeight: Typography.bold,
-    color: 'white',
-  },
-  bannerSub: {
-    color: 'rgba(255,255,255,0.8)',
-  },
-
-  // ── Loading / Error / Empty States ─────────────────────────────
-  loadingContainer: {
-    paddingVertical: Spacing['3xl'],
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.md,
-  },
-  loadingText: {
-    marginTop: Spacing.md,
-  },
-  errorContainer: {
-    padding: Spacing.lg,
-    borderRadius: Radius.lg,
     borderWidth: 1,
-    marginHorizontal: Spacing.lg,
   },
-  errorText: {
-    fontWeight: Typography.semibold,
-  },
-  emptyContainer: {
-    paddingVertical: Spacing['3xl'],
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.lg,
-  },
-  emptyText: {
-    marginTop: Spacing.md,
-  },
+  nextIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  nextLabel: { fontSize: Typography.sm, fontWeight: Typography.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
+  nextTitle: { fontSize: Typography.xl, fontWeight: Typography.bold, marginTop: 2 },
+
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing['2xl'], marginBottom: Spacing.sm },
+  sectionTitle: { fontSize: Typography['3xl'], fontWeight: Typography.bold, marginTop: Spacing['2xl'], marginBottom: Spacing.md },
+  sectionTitleInline: { marginTop: 0, marginBottom: 0 },
+  link: { fontSize: Typography.lg, fontWeight: Typography.bold },
+
+  tileRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  tile: { width: '23%', alignItems: 'center', gap: 6 },
+  tileIcon: { width: '100%', aspectRatio: 1, borderRadius: Radius.xl, alignItems: 'center', justifyContent: 'center' },
+  tileLabel: { fontSize: Typography.base, fontWeight: Typography.semibold },
+
+  routeRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },
+  routeIcon: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
 });

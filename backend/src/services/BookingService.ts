@@ -16,6 +16,7 @@ import { toGeoPoint, haversineDistanceKm, paginate } from '../utils/helpers';
 import { MatchingEngineClient } from './MatchingEngineClient';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
+import { callRazorpay } from '../utils/razorpay';
 import { WalletService } from './WalletService';
 import type { FilterQuery } from 'mongoose';
 import type { Orders } from 'razorpay/dist/types/orders';
@@ -24,7 +25,7 @@ const walletService = new WalletService();
 
 function getRazorpayClient(): Razorpay {
   if (!config.razorpay.keyId) {
-    throw new AppError('Razorpay is not configured. Set RAZORPAY_KEY_ID in .env', 503, 'SERVICE_UNAVAILABLE');
+    throw new AppError('Online payments are unavailable right now. Please pay from your wallet.', 503, 'SERVICE_UNAVAILABLE');
   }
   return new Razorpay({
     key_id: config.razorpay.keyId,
@@ -170,6 +171,7 @@ export class BookingService {
           rideId: data.rideId,
           riderId,
           driverId: ride.driver.toString(),
+          seatsBooked: data.seatsBooked,
           paidViaWallet: true,
         },
       });
@@ -178,16 +180,18 @@ export class BookingService {
     }
 
     // Default: create Razorpay order for pre-authorization
-    razorpayOrder = await getRazorpayClient().orders.create({
-      amount: Math.round(estimatedFare * 100), // Amount in paise
-      currency: 'INR',
-      receipt: `booking_${new Types.ObjectId()}`,
-      notes: {
-        rideId: data.rideId,
-        riderId,
-        driverId: ride.driver.toString(),
-      },
-    });
+    razorpayOrder = await callRazorpay('create booking order', () =>
+      getRazorpayClient().orders.create({
+        amount: Math.round(estimatedFare * 100), // Amount in paise
+        currency: 'INR',
+        receipt: `booking_${new Types.ObjectId()}`,
+        notes: {
+          rideId: data.rideId,
+          riderId,
+          driverId: ride.driver.toString(),
+        },
+      }),
+    );
 
     // Create booking
     const booking = await Booking.create({
@@ -216,6 +220,7 @@ export class BookingService {
         rideId: data.rideId,
         riderId,
         driverId: ride.driver.toString(),
+        seatsBooked: data.seatsBooked,
       },
     });
 
@@ -399,7 +404,7 @@ export class BookingService {
 
     EventBridge.publish('booking-events', {
       eventType: 'booking.cancelled',
-      data: { bookingId: booking._id, cancelledBy, reason },
+      data: { bookingId: booking._id, riderId: booking.rider, cancelledBy, reason },
     });
 
     return booking;

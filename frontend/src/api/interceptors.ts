@@ -8,20 +8,21 @@
  */
 
 import { AxiosError } from 'axios';
-import { apiClient, setAuthorizationHeader, clearAuthorizationHeader } from './axios';
+import { apiClient } from './axios';
 import { API_CONFIG, HTTP_STATUS } from './constants';
-import { tokenStorage } from '../utils/tokenStorage';
-import { errorHandler } from '../utils/errorHandler';
+import { ApiError, errorHandler } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
-import type { ApiResponse, RefreshTokenResponse } from '../types/api';
-import { getJwtExpiresAtMs } from '../utils/jwt';
+import { refreshAccessToken } from '../services/authService';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-interface RetryRequest {
-  config: unknown;
-  count: number;
-  delay: number;
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /** Retries already made for this request (set by the retry interceptor). */
+    retryCount?: number;
+    /** Never retry this request, e.g. search-as-you-type lookups. */
+    noRetry?: boolean;
+  }
 }
 
 // ─── Global State ──────────────────────────────────────────────────────────
@@ -45,6 +46,16 @@ const processQueue = (token: string | null, error?: unknown) => {
 
 // ─── Auth Interceptor ──────────────────────────────────────────────────────
 
+// A 401 from these means bad credentials, not an expired session, so a token
+// refresh would be wrong (and a failed refresh would log the user out).
+const NO_REFRESH_PATHS = [
+  '/auth/send-otp',
+  '/auth/verify-otp',
+  '/auth/firebase-login',
+  '/auth/refresh-token',
+  '/auth/logout',
+];
+
 /**
  * Setup auth interceptor that:
  * 1. Handles 401 errors
@@ -58,8 +69,11 @@ export function setupAuthInterceptor(): void {
     async (error: AxiosError) => {
       const { response, config } = error;
 
-      // Only handle 401 errors
+      // Only handle 401 errors from requests made with a session
       if (response?.status !== HTTP_STATUS.UNAUTHORIZED) {
+        return Promise.reject(error);
+      }
+      if (NO_REFRESH_PATHS.some((path) => config?.url?.includes(path))) {
         return Promise.reject(error);
       }
 
@@ -108,14 +122,12 @@ export function setupAuthInterceptor(): void {
  * Setup retry interceptor that retries failed requests with exponential backoff
  */
 export function setupRetryInterceptor(): void {
-  const retryMap = new WeakMap<object, RetryRequest>();
-
   apiClient.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {
       const { response, config } = error;
 
-      if (!config || !response) {
+      if (!config || !response || config.noRetry) {
         return Promise.reject(error);
       }
 
@@ -137,9 +149,10 @@ export function setupRetryInterceptor(): void {
         return Promise.reject(error);
       }
 
-      // Get retry count from map
-      const retry = retryMap.get(config);
-      const retryCount = retry?.count ?? 0;
+      // Kept on the config itself: apiClient.request() below builds a new
+      // config object, so anything keyed on the old one would reset to zero
+      // and the request would be retried forever.
+      const retryCount = config.retryCount ?? 0;
 
       // Check if we should retry
       if (!API_CONFIG.retryableStatusCodes.some((code) => code === response.status)) {
@@ -168,60 +181,11 @@ export function setupRetryInterceptor(): void {
         delay,
       });
 
-      // Update retry count
-      retryMap.set(config, { config, count: retryCount + 1, delay });
-
       // Wait and retry
       await new Promise((resolve) => setTimeout(resolve, delay));
-      return apiClient.request(config);
+      return apiClient.request({ ...config, retryCount: retryCount + 1 });
     },
   );
-}
-
-// ─── Token Refresh ─────────────────────────────────────────────────────────
-
-/**
- * Attempt to refresh the access token using refresh token
- */
-async function refreshAccessToken(): Promise<string> {
-  try {
-    const refreshToken = await tokenStorage.getRefreshToken();
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    // Temporarily remove auth header to avoid loops
-    clearAuthorizationHeader();
-
-    // Call refresh endpoint
-    const response = await apiClient.post<ApiResponse<RefreshTokenResponse>>('/auth/refresh-token', {
-      refreshToken,
-    });
-
-    const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-    if (accessToken) {
-      // Store new token
-      await tokenStorage.saveTokens({
-        accessToken,
-        refreshToken: newRefreshToken,
-        expiresAt: getJwtExpiresAtMs(accessToken) ?? undefined,
-      });
-
-      // Set new token
-      setAuthorizationHeader(accessToken);
-      logger.info('Token refreshed successfully');
-      return accessToken;
-    }
-
-    throw new Error('No access token in refresh response');
-  } catch (error) {
-    logger.error('Token refresh failed', error);
-    // Clear tokens on refresh failure
-    await tokenStorage.clearTokens();
-    clearAuthorizationHeader();
-    // Redirect to login should be handled by calling code
-    throw error;
-  }
 }
 
 // ─── Error Transformation Interceptor ──────────────────────────────────────
@@ -233,8 +197,7 @@ export function setupErrorTransformInterceptor(): void {
   apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
-      const processedError = errorHandler.process(error);
-      return Promise.reject(processedError);
+      return Promise.reject(new ApiError(errorHandler.process(error)));
     },
   );
 }
@@ -242,8 +205,11 @@ export function setupErrorTransformInterceptor(): void {
 // ─── Initialize All Interceptors ───────────────────────────────────────────
 
 export function setupAllInterceptors(): void {
-  setupErrorTransformInterceptor();
+  // Response interceptors run in the order they are added. Retry and token
+  // refresh need the raw AxiosError (status, config), so the transform that
+  // replaces it with an ApiError must come last.
   setupRetryInterceptor();
   setupAuthInterceptor();
+  setupErrorTransformInterceptor();
   logger.info('All API interceptors initialized');
 }

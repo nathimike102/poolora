@@ -33,7 +33,9 @@ import MapView, {
 import * as Location from 'expo-location';
 
 import { useApp } from '../context/AppContext';
+import { MAPS_ENABLED } from '../config/maps';
 import { Icon } from './Icon';
+import { MapPlaceholder } from './MapPlaceholder';
 
 /* ── Props ─────────────────────────────────────────────────────── */
 interface LiveMapProps {
@@ -72,7 +74,14 @@ const DARK_MAP_STYLE = [
 ];
 
 /* ── Component ───────────────────────────────────────────────────── */
-export function LiveMap({
+export function LiveMap(props: LiveMapProps) {
+  if (!MAPS_ENABLED) {
+    return <MapPlaceholder style={[styles.container, props.style]} />;
+  }
+  return <GoogleLiveMap {...props} />;
+}
+
+function GoogleLiveMap({
   showRoute = false,
   showDriver = false,
   style,

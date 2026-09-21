@@ -62,6 +62,9 @@ type PopulatedRideBooking = Omit<IBooking, 'ride'> & {
     | null;
 };
 
+/** Mean Earth radius, to turn a distance into radians for $centerSphere. */
+const EARTH_RADIUS_METERS = 6_378_100;
+
 export class RideService {
   private matchingEngine = new MatchingEngineClient();
 
@@ -212,6 +215,13 @@ export class RideService {
       driver: { $ne: new Types.ObjectId(authenticatedUserId) },
       availableSeats: { $gte: 1 },
       departureTime: { $gte: timeMin, $lte: timeMax },
+      // The ride must also end near where the rider is going, not just start
+      // near them. $geoWithin is allowed inside $geoNear's query; $near is not.
+      'dropoff.location': {
+        $geoWithin: {
+          $centerSphere: [[params.dropoffLng, params.dropoffLat], radiusMeters / EARTH_RADIUS_METERS],
+        },
+      },
     };
 
     if (params.maxPrice !== undefined) {

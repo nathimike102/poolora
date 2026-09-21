@@ -74,6 +74,27 @@ export function AdminVerificationsScreen() {
       Alert.alert('Add a reason', 'Tell the driver what to fix so they can resubmit.');
       return;
     }
+    if (approve) {
+      if (!review?.documents.licence || !review.documents.registration) {
+        Alert.alert(
+          'Documents missing',
+          'A driver can only be approved once their driving licence and registration certificate are uploaded. Reject with a reason so they can resubmit.',
+        );
+        return;
+      }
+      const confirmed = await new Promise<boolean>(resolve =>
+        Alert.alert(
+          `Approve ${selected.name}?`,
+          'They will be able to offer rides to riders straight away.',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Approve', onPress: () => resolve(true) },
+          ],
+          { cancelable: true, onDismiss: () => resolve(false) },
+        ),
+      );
+      if (!confirmed) return;
+    }
     setActing(true);
     try {
       if (approve) await adminService.approveKyc(selected._id);

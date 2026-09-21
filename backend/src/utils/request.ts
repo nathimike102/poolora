@@ -10,8 +10,12 @@ import type { Request } from 'express';
 export function queryString(req: Request, name: string, fallback: string): string;
 export function queryString(req: Request, name: string): string | undefined;
 export function queryString(req: Request, name: string, fallback?: string): string | undefined {
-  const raw = req.query[name];
+  const raw: unknown = req.query[name];
   if (typeof raw === 'string') return raw;
+  // The validate() middleware replaces req.query with Joi's converted values,
+  // so a validated number, boolean or date arrives as that type, not a string.
+  if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw);
+  if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? fallback : raw.toISOString();
   // A repeated parameter (?status=a&status=b): take the first usable value.
   if (Array.isArray(raw) && typeof raw[0] === 'string') return raw[0];
   return fallback;

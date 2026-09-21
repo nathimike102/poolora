@@ -21,6 +21,18 @@ jest.mock('../../services/authService', () => ({
   logoutAll: jest.fn().mockResolvedValue(undefined),
 }));
 
+// The phone's light/dark setting, changed by the tests below.
+let mockScheme: 'light' | 'dark' = 'light';
+jest.mock('react-native', () => {
+  const actual = jest.requireActual('react-native');
+  return new Proxy(actual, {
+    get: (target, key) => (key === 'useColorScheme' ? () => mockScheme : target[key]),
+  });
+});
+
+// jest.setup.js mocks AppContext for screen tests; this file tests the real one.
+jest.unmock('../AppContext');
+
 import { AppProvider, useApp } from '../AppContext';
 
 function Consumer() {
@@ -40,4 +52,22 @@ test('AppProvider provides defaults', async () => {
   // Expect rendered value to include a role and a boolean dark-mode token
   const asString = String(el.props.children);
   expect(asString).toEqual(expect.stringContaining('|'));
+});
+
+test('dark mode follows the system setting while running', async () => {
+  mockScheme = 'light';
+  const { findByTestId, rerender } = render(
+    <AppProvider>
+      <Consumer />
+    </AppProvider>,
+  );
+  expect(String((await findByTestId('vals')).props.children)).toMatch(/false$/);
+
+  mockScheme = 'dark';
+  rerender(
+    <AppProvider>
+      <Consumer />
+    </AppProvider>,
+  );
+  expect(String((await findByTestId('vals')).props.children)).toMatch(/true$/);
 });

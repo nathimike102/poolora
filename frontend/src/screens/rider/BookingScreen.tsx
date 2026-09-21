@@ -53,7 +53,7 @@ export function BookingScreen(): React.ReactElement {
   const [ride, setRide] = useState<Ride | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [seats, setSeats] = useState(1);
+  const [seats, setSeats] = useState(route.params.seats ?? 1);
   const [method, setMethod] = useState<PayMethod>('razorpay');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -78,6 +78,11 @@ export function BookingScreen(): React.ReactElement {
   }, [load]);
 
   const maxSeats = Math.max(0, Math.min(ride?.availableSeats ?? 0, MAX_SEATS_PER_BOOKING));
+
+  // Seats may have gone since the rider chose them on the results screen
+  useEffect(() => {
+    if (ride && seats > maxSeats && maxSeats > 0) setSeats(maxSeats);
+  }, [ride, seats, maxSeats]);
   const total = (ride?.pricePerSeat ?? 0) * seats;
   const walletCovers = walletBalance !== null && walletBalance >= total;
 
@@ -373,13 +378,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: Spacing.lg,
-    paddingBottom: Spacing['2xl'],
     borderTopWidth: 1,
   },
   errorText: { fontSize: Typography.base, marginBottom: Spacing.sm, textAlign: 'center' },
   primaryBtn: {
-    minHeight: 52,
-    borderRadius: Radius.md,
+    minHeight: 56,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.xl,

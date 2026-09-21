@@ -32,8 +32,10 @@ const GOOGLE_MAPS_BASE = 'https://maps.googleapis.com/maps/api';
 function getApiKey(): string {
   const key = config.maps.googleMapsKey;
   if (!key) {
+    // The fix is operational, so the detail goes to the log, not to users.
+    logger.error('GOOGLE_MAPS_API_KEY is not set; place search and routing are unavailable');
     throw new AppError(
-      'Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY in .env',
+      'Location search is temporarily unavailable. Please try again later.',
       503,
       'MAPS_SERVICE_UNAVAILABLE',
     );

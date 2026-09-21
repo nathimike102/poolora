@@ -6,6 +6,23 @@ import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config';
 
 import { eventSchemas } from '../validators/eventValidators';
+import { Types } from 'mongoose';
+
+/**
+ * Callers pass Mongoose documents' ids (ObjectIds) straight through, but the
+ * event schemas and consumers expect strings. Convert them before validating,
+ * or production drops the event.
+ */
+function normalizeIds(value: unknown): unknown {
+  if (value instanceof Types.ObjectId) return value.toString();
+  if (Array.isArray(value)) return value.map(normalizeIds);
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, normalizeIds(v)]),
+    );
+  }
+  return value;
+}
 
 /**
  * Event bridge for Kafka producer/consumer operations.
@@ -20,8 +37,9 @@ export class EventBridge {
    */
   static publish(
     topic: KafkaTopic,
-    event: Omit<KafkaEvent, 'timestamp' | 'source' | 'correlationId'>,
+    rawEvent: Omit<KafkaEvent, 'timestamp' | 'source' | 'correlationId'>,
   ): void {
+    const event = { ...rawEvent, data: normalizeIds(rawEvent.data) as KafkaEvent['data'] };
     // ─── Schema Validation ───
     const schema = (eventSchemas as Record<string, ObjectSchema | undefined>)[event.eventType];
     if (schema) {

@@ -24,17 +24,24 @@ import Svg, { Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
+import { useRoute, type RouteProp } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientButton } from '../components/GradientButton';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
-import { submitKycToBackend } from '../services/authService';
+import { getCurrentUserFromState, verifyOtpWithBackend } from '../services/authService';
+import { userService } from '../services/userService';
+import { errorHandler } from '../utils/errorHandler';
+import type { User as ApiUser } from '../types/api';
+import type { RootStackParamList } from '../navigation/types';
 import { logger } from '../utils/logger';
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 
 export function ProfileSetupScreen() {
   const { c, setRole, setUser, firebaseUser } = useApp();
+  // Set when a new phone number was just verified and has no account yet
+  const pendingSignup = useRoute<RouteProp<RootStackParamList, 'ProfileSetup'>>().params;
   const insets = useSafeAreaInsets();
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -63,8 +70,17 @@ export function ProfileSetupScreen() {
       if (firebaseUser.photoURL) {
         setPhotoUri(firebaseUser.photoURL);
       }
+      return;
     }
-  }, [firebaseUser]);
+    if (pendingSignup?.phone) {
+      setPhone(pendingSignup.phone);
+      return;
+    }
+    // Phone sign-in goes through the backend, so prefill from its user.
+    const backendUser = getCurrentUserFromState();
+    if (backendUser?.phone) setPhone(backendUser.phone);
+    if (backendUser?.email) setEmail(backendUser.email);
+  }, [firebaseUser, pendingSignup?.phone]);
 
   const isValid =
     firstName.trim().length > 0 &&
@@ -159,20 +175,28 @@ export function ProfileSetupScreen() {
       // Prepare user data
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
       
-      // Submit KYC data to backend
-      await submitKycToBackend({
-        name: fullName,
-        phone,
-        email: email || undefined,
-        dateOfBirth: dob?.toISOString(),
-        profilePhoto: photoUri,
-      });
+      let saved: ApiUser;
+      if (pendingSignup) {
+        // Creates the account and signs in with the code verified on the last screen
+        const result = await verifyOtpWithBackend(
+          pendingSignup.phone,
+          pendingSignup.otp,
+          fullName,
+          email || undefined,
+          dob?.toISOString(),
+        );
+        if ('needsProfile' in result) throw new Error('Your account could not be created. Please try again.');
+        saved = result.user;
+      } else {
+        // Already signed in (Google or email) but the account has no name yet
+        saved = await userService.updateMyProfile({ name: fullName, email: email || undefined });
+      }
 
       logger.info('Profile setup completed');
 
       // Save profile info to context
       setUser({
-        id: firebaseUser?.uid ?? '',
+        id: saved?._id ?? saved?.id ?? getCurrentUserFromState()?._id ?? firebaseUser?.uid ?? '',
         name: fullName,
         phone,
         avatarUrl: photoUri ?? undefined,
@@ -183,14 +207,11 @@ export function ProfileSetupScreen() {
       setRole('rider');
     } catch (error) {
       logger.error('Failed to submit profile', { error });
-      Alert.alert(
-        'Setup Error',
-        error instanceof Error ? error.message : 'Failed to save profile. Please try again.',
-      );
+      Alert.alert("Couldn't save your profile", errorHandler.process(error).message);
     } finally {
       setSubmitting(false);
     }
-  }, [isValid, submitting, firstName, lastName, phone, email, dob, photoUri, firebaseUser, setUser, setRole]);
+  }, [isValid, submitting, firstName, lastName, phone, email, dob, photoUri, firebaseUser, setUser, setRole, pendingSignup]);
 
   // Max date = 13 years ago (minimum age)
   const maxDate = new Date();

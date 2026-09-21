@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User';
 import { Ride } from '../models/Ride';
-import { Booking } from '../models/Booking';
 import { Payment } from '../models/Payment';
-import { BookingStatus, RideStatus } from '../types';
+import { Rating } from '../models/Rating';
+import { RideStatus } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import { logger } from '../utils/logger';
 import { AppError, NotFoundError } from '../utils/AppError';
@@ -89,14 +89,12 @@ export class AdminController {
           { $match: { status: 'captured' } },
           { $group: { _id: null, totalAmount: { $sum: '$amount' } } },
         ]),
-        Booking.aggregate([
-          { $match: { status: BookingStatus.COMPLETED } },
-          { $group: { _id: null, avgScore: { $avg: '$matchScore' } } },
-        ]),
+        // Stars (1-5) across every rating left by riders and drivers
+        Rating.aggregate([{ $group: { _id: null, avgScore: { $avg: '$score' } } }]),
       ]);
 
       const revenue = totalRevenue[0]?.totalAmount || 0;
-      const rating = avgRating[0]?.avgScore || 0;
+      const rating = Math.round((avgRating[0]?.avgScore || 0) * 10) / 10;
 
       const metrics = {
         totalRides,

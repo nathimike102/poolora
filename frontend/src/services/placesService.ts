@@ -30,7 +30,11 @@ export async function fetchPlaceSuggestions(input: string): Promise<PlaceSuggest
 
   const response = await apiClient.get<
     ApiResponse<{ results: Array<{ placeId: string; mainText: string; secondaryText: string }> }>
-  >(API_ENDPOINTS.maps.autocomplete, { params: { input } });
+  >(API_ENDPOINTS.maps.autocomplete, {
+    params: { input },
+    // The next keystroke supersedes this request, so a retry is pointless.
+    noRetry: true,
+  });
 
   return response.data.data.results.map(r => ({
     placeId: r.placeId,

@@ -3,6 +3,13 @@ import { render, waitFor } from '@testing-library/react-native';
 import { LiveMap } from '../LiveMap';
 import * as Location from 'expo-location';
 
+let mockMapsEnabled = true;
+jest.mock('../../config/maps', () => ({
+  get MAPS_ENABLED() {
+    return mockMapsEnabled;
+  },
+}));
+
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(),
   getCurrentPositionAsync: jest.fn(),
@@ -20,8 +27,17 @@ describe('LiveMap', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockMapsEnabled = true;
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
     (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValue(mockCoords);
+  });
+
+  it('shows a placeholder and never mounts the native map without a Maps key', () => {
+    mockMapsEnabled = false;
+    const { getByTestId, queryByTestId } = render(<LiveMap showRoute />);
+    expect(getByTestId('map-placeholder')).toBeTruthy();
+    expect(queryByTestId('live-map-view')).toBeNull();
+    expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
   });
 
   it('renders loader initially', async () => {

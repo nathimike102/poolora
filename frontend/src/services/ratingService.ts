@@ -40,9 +40,16 @@ export const ratingService = {
   /**
    * Get ratings for a user.
    */
-  async getUserRatings(userId: string, page: number = 1, limit: number = 20): Promise<Rating[]> {
+  async getUserRatings(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    /** Only ratings received as a driver (from riders) or as a rider (from drivers) */
+    as?: 'driver' | 'rider',
+  ): Promise<Rating[]> {
     try {
       const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+      if (as) query.set('as', as);
       const response = await apiClient.get<ApiResponse<{ ratings: Rating[] }>>(
         `${API_ENDPOINTS.ratings.byUser(userId)}?${query.toString()}`,
       );

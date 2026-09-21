@@ -7,7 +7,7 @@ import {
   Pressable,
   TextInput,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { bookingService } from '../../services/bookingService';
 import { chatService } from '../../services/chatService';
@@ -18,6 +18,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImageWithFallback } from '../../components/ImageWithFallback';
+import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -37,7 +38,9 @@ export function ChatListScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
   const { c, role } = useApp();
   const insets = useSafeAreaInsets();
-  
+  // Riders open this from their profile; drivers have it as a tab
+  const pushed = useRoute().name === 'Messages';
+
   const [conversations, setConversations] = React.useState<Conversation[]>([]);
   const [query, setQuery] = React.useState('');
   const [loading, setLoading] = React.useState(true);
@@ -98,7 +101,8 @@ export function ChatListScreen(): React.ReactElement {
       {/* ── Header ──────────────────────────────────────────── */}
       <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <View style={s.headerTop}>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: c.text }}>Messages</Text>
+          {pushed && <BackButton onPress={() => navigation.goBack()} />}
+          <Text style={{ flex: 1, fontSize: 22, fontWeight: '800', color: c.text }} accessibilityRole="header">Messages</Text>
           {totalUnread > 0 && (
             <View style={[s.newBadge, { backgroundColor: c.errorLight }]}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: c.error }}>{totalUnread} new</Text>
@@ -198,7 +202,7 @@ const s = StyleSheet.create({
 
   /* Header */
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderBottomWidth: 1 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   newBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8 },
 
   /* Search */

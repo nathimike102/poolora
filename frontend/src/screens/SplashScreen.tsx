@@ -12,6 +12,7 @@ import Animated, {
   withDelay,
 } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { useApp } from "../context/AppContext";
@@ -20,6 +21,7 @@ import { AnimatedDot } from "../components/AnimatedDot";
 import { PooloraLogo } from "../components/PooloraLogo";
 import { Typography, Spacing } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
+import { ONBOARDING_SEEN_KEY } from "./OnboardingScreen";
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, "Splash">;
 
@@ -43,9 +45,10 @@ export function SplashScreen() {
     loaderOpacity.value = withDelay(1200, withTiming(1, { duration: 500 }));
     loaderTranslateY.value = withDelay(1200, withTiming(0, { duration: 500 }));
 
-    // 3. Auto-navigate after 2.8s
-    const timer = setTimeout(() => {
-      navigation.replace("Onboarding");
+    // 3. Auto-navigate after 2.8s; onboarding only until it has been seen once
+    const seen = AsyncStorage.getItem(ONBOARDING_SEEN_KEY).catch(() => null);
+    const timer = setTimeout(async () => {
+      navigation.replace((await seen) ? "Login" : "Onboarding");
     }, 2800);
 
     return () => clearTimeout(timer);
@@ -81,6 +84,7 @@ export function SplashScreen() {
           showWordmark
           wordmark="Poolora"
           subtitle="Smart Scheduled Carpooling"
+          tone="light"
         />
       </Animated.View>
 
@@ -91,7 +95,7 @@ export function SplashScreen() {
           <AnimatedDot delay={0.2} />
           <AnimatedDot delay={0.4} />
         </View>
-        <Text style={styles.platformLabel}>India's #1 Carpooling Platform</Text>
+        <Text style={styles.platformLabel}>Share the ride, split the cost</Text>
       </Animated.View>
     </View>
   );

@@ -28,4 +28,21 @@ describe('tokenStorage', () => {
   test('clearTokens completes', async () => {
     await expect(tokenStorage.clearTokens()).resolves.toBeUndefined();
   });
+
+  test('only passes SecureStore keys it accepts', async () => {
+    const SecureStore = require('expo-secure-store');
+    await tokenStorage.saveTokens({ accessToken: 'a', refreshToken: 'r', expiresAt: 123 });
+    await tokenStorage.saveUserId('u1');
+    await tokenStorage.getTokens();
+    await tokenStorage.clearTokens();
+
+    const keys = [
+      ...SecureStore.setItemAsync.mock.calls,
+      ...SecureStore.getItemAsync.mock.calls,
+      ...SecureStore.deleteItemAsync.mock.calls,
+    ].map(([key]: [string]) => key);
+    expect(keys.length).toBeGreaterThan(0);
+    keys.forEach(key => expect(key).toMatch(/^[A-Za-z0-9._-]+$/));
+    expect(keys).toContain(TOKEN_STORAGE_KEYS.accessToken.replace('@', ''));
+  });
 });

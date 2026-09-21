@@ -27,6 +27,7 @@ import { StyleSheet, Platform, UIManager } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
+import { StatusBar } from 'expo-status-bar';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -51,6 +52,8 @@ function ThemedApp() {
 
   return (
     <PaperProvider theme={paperTheme}>
+      {/* Screens draw light headers edge to edge, so icons follow the theme */}
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
       <ErrorBoundary>
         <AppNavigator />
       </ErrorBoundary>

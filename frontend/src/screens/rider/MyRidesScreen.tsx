@@ -1,107 +1,84 @@
-import React, { useState } from 'react';
+/**
+ * screens/rider/MyRidesScreen.tsx
+ *
+ * The rider's bookings. "Upcoming" shows each booked seat as a card with
+ * Track and Cancel; "History" is a plain list of finished and cancelled trips,
+ * where tapping one starts a new search to the same place.
+ */
+
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   Pressable,
-  Image,
   Modal,
   ActivityIndicator,
   Alert,
   LayoutAnimation,
-  StyleProp,
-  ViewStyle,
 } from 'react-native';
-import ReAnimated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { bookingService } from '../../services/bookingService';
 import { logger } from '../../utils/logger';
 import type { Booking } from '../../types/api';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
-
 import { useApp } from '../../context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RootStackParamList } from '../../navigation/types';
+import type { RootStackParamList, RiderTabParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
-import { Radius, Shadow } from '../../theme';
+import { Typography, Spacing, Radius, Shadow } from '../../theme';
 
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<RiderTabParamList, 'MyRides'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+type RideTab = 'upcoming' | 'history';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
-type RideTab = 'upcoming' | 'past' | 'cancelled';
+/** Deep enough for white text in both themes (the dark theme's error red is too light) */
+const DESTRUCTIVE = '#DC2626';
 
 interface RideItem {
   id: string;
   rideId: string;
   from: string;
   to: string;
-  date: string;
-  time: string;
+  departure: Date | null;
   driver: string;
   price: number;
   status: Booking['status'];
-  driverAvatar?: string;
   reason: string;
 }
 
-/* ── Helpers ────────────────────────────────────────────────────── */
-const AnimatedPressable = ({
-  onPress,
-  style,
-  children,
-  disabled,
-}: {
-  onPress?: () => void;
-  style?: StyleProp<ViewStyle>;
-  children: React.ReactNode;
-  disabled?: boolean;
-}) => {
-  const scale = useSharedValue(1);
-  const onIn = () => { scale.value = withSpring(0.95); };
-  const onOut = () => { scale.value = withSpring(1); };
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-  return (
-    <Pressable accessibilityRole="button"
-      onPressIn={onIn}
-      onPressOut={onOut}
-      onPress={onPress}
-      disabled={disabled}
-    >
-      <ReAnimated.View style={[style, animStyle]}>
-        {children}
-      </ReAnimated.View>
-    </Pressable>
-  );
-};
-
-/* ── Route dots (pickup → drop) ─────────────────────────────────── */
-const RouteDots = ({ pickupColor, dropColor, lineColor }: { pickupColor: string; dropColor: string; lineColor: string }) => (
-  <View style={styles.routeDots}>
-    <View style={[styles.routeDot, { backgroundColor: pickupColor }]} />
-    <View style={[styles.routeLine, { backgroundColor: lineColor }]} />
-    <View style={[styles.routeSquare, { backgroundColor: dropColor }]} />
-  </View>
-);
-
-function Avatar({ uri, name, size, bg, fg }: { uri?: string; name: string; size: number; bg: string; fg: string }) {
-  if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 3 }} />;
-  return (
-    <View style={{ width: size, height: size, borderRadius: size / 3, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: size / 2.2, fontWeight: '700', color: fg }}>{name.charAt(0).toUpperCase()}</Text>
-    </View>
-  );
+/** "Kakinada Beach, Uppada Road, ..." → "Kakinada Beach" */
+function placeName(address: string): string {
+  return address.split(',')[0].trim() || address;
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
+function formatDate(d: Date | null): string {
+  if (!d) return '';
+  const date = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  return `${date} · ${time}`;
+}
+
+function toItem(b: Booking): RideItem {
+  const ride = b.ride as unknown as { _id?: string; departureTime?: string } | undefined;
+  return {
+    id: b._id,
+    rideId: ride?._id ?? '',
+    from: b.pickup?.address || 'Pickup point',
+    to: b.dropoff?.address || 'Drop point',
+    departure: ride?.departureTime ? new Date(ride.departureTime) : null,
+    driver: b.driver?.name || 'Driver',
+    price: b.finalFare ?? b.estimatedFare ?? 0,
+    status: b.status,
+    reason: b.status === 'rejected' ? 'Declined by driver' : b.cancellationReason || 'Cancelled',
+  };
+}
+
 export function MyRidesScreen() {
   const navigation = useNavigation<Nav>();
   const { c } = useApp();
@@ -109,662 +86,315 @@ export function MyRidesScreen() {
 
   const [tab, setTab] = useState<RideTab>('upcoming');
   const [upcoming, setUpcoming] = useState<RideItem[]>([]);
-  const [pastRides, setPastRides] = useState<RideItem[]>([]);
-  const [cancelled, setCancelled] = useState<RideItem[]>([]);
+  const [history, setHistory] = useState<RideItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      let isActive = true;
-      const fetchBookings = async () => {
-        try {
-          setLoading(true);
-          const res = await bookingService.getRiderBookings(1, 50);
-          if (isActive) {
-            const items = res.data?.items || [];
-            
-            const formatRide = (b: Booking): RideItem => {
-              const ride = b.ride as unknown as { _id?: string; departureTime?: string } | undefined;
-              const departure = ride?.departureTime ? new Date(ride.departureTime) : null;
-              return {
-                id: b._id,
-                rideId: ride?._id ?? '',
-                from: b.pickup?.address || 'Pickup point',
-                to: b.dropoff?.address || 'Drop point',
-                date: departure ? departure.toLocaleDateString([], { day: 'numeric', month: 'short' }) : '',
-                time: departure ? departure.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-                driver: b.driver?.name || 'Driver',
-                price: b.finalFare ?? b.estimatedFare ?? 0,
-                status: b.status,
-                driverAvatar: b.driver?.profilePhotoUrl,
-                reason:
-                  b.status === 'rejected'
-                    ? 'Declined by the driver'
-                    : b.cancellationReason || 'Cancelled',
-              };
-            };
+  const load = useCallback(async (isActive: () => boolean = () => true) => {
+    try {
+      setLoading(true);
+      const res = await bookingService.getRiderBookings(1, 50);
+      if (!isActive()) return;
+      const items = (res.data?.items || []).map(toItem);
+      setUpcoming(
+        items
+          .filter(b => b.status === 'pending' || b.status === 'confirmed')
+          .sort((a, b) => (a.departure?.getTime() ?? 0) - (b.departure?.getTime() ?? 0)),
+      );
+      setHistory(
+        items
+          .filter(b => b.status === 'completed' || b.status === 'cancelled' || b.status === 'rejected')
+          .sort((a, b) => (b.departure?.getTime() ?? 0) - (a.departure?.getTime() ?? 0)),
+      );
+      setLoadError(false);
+    } catch (error) {
+      logger.error('Failed to fetch rider bookings', { error });
+      if (isActive()) setLoadError(true);
+    } finally {
+      if (isActive()) setLoading(false);
+    }
+  }, []);
 
-            setUpcoming(items.filter(b => b.status === 'pending' || b.status === 'confirmed').map(formatRide));
-            setPastRides(items.filter(b => b.status === 'completed').map(formatRide));
-            setCancelled(items.filter(b => b.status === 'cancelled' || b.status === 'rejected').map(formatRide));
-            setLoadError(false);
-          }
-        } catch (error) {
-          logger.error('Failed to fetch rider bookings', { error });
-          if (isActive) setLoadError(true);
-        } finally {
-          if (isActive) setLoading(false);
-        }
-      };
-      fetchBookings();
-      return () => { isActive = false; };
-    }, [])
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      load(() => active);
+      return () => { active = false; };
+    }, [load]),
   );
 
-  /* Cancel flow */
+  /* ── Cancel ─────────────────────────────────────────────────── */
   const [cancelTarget, setCancelTarget] = useState<RideItem | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelDone, setCancelDone] = useState(false);
 
-  const sheetY = useSharedValue(400);
-  const scrimOpacity = useSharedValue(0);
-  const doneScale = useSharedValue(0);
-
-  const sheetAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: sheetY.value }],
-  }));
-  const scrimAnimStyle = useAnimatedStyle(() => ({
-    opacity: scrimOpacity.value,
-  }));
-  const doneAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: doneScale.value }],
-  }));
-
-  const openCancel = (ride: RideItem) => {
-    setCancelTarget(ride);
-    setCancelDone(false);
-    sheetY.value = 400;
-    scrimOpacity.value = 0;
-    sheetY.value = withSpring(0, { stiffness: 380, damping: 38 });
-    scrimOpacity.value = withTiming(1, { duration: 250 });
-  };
-
   const closeCancel = () => {
-    sheetY.value = withSpring(400);
-    scrimOpacity.value = withTiming(0, { duration: 200 });
-    setTimeout(() => {
-      setCancelTarget(null);
-      setCancelling(false);
-      setCancelDone(false);
-    }, 300);
+    if (cancelling) return;
+    setCancelTarget(null);
+    setCancelDone(false);
   };
 
-  const confirmCancel = () => {
+  const confirmCancel = async () => {
     if (!cancelTarget) return;
     setCancelling(true);
-    
-    bookingService.cancelBooking(cancelTarget.id)
-      .then(() => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setUpcoming(prev => prev.filter(r => r.id !== cancelTarget.id));
-        setCancelled(prev => [{ ...cancelTarget, status: 'cancelled', reason: 'Cancelled by you' }, ...prev]);
-        setCancelling(false);
-        setCancelDone(true);
-        doneScale.value = 0;
-        doneScale.value = withSpring(1, { damping: 5, stiffness: 100 });
-        setTimeout(() => {
-          closeCancel();
-          setTab('cancelled');
-        }, 1400);
-      })
-      .catch(error => {
-        setCancelling(false);
-        logger.error('Failed to cancel booking', { error });
-        Alert.alert('Not cancelled', 'Your booking could not be cancelled. Check your connection and try again.');
-      });
+    try {
+      await bookingService.cancelBooking(cancelTarget.id);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setUpcoming(prev => prev.filter(r => r.id !== cancelTarget.id));
+      setHistory(prev => [{ ...cancelTarget, status: 'cancelled', reason: 'Cancelled by you' }, ...prev]);
+      setCancelDone(true);
+    } catch (error) {
+      logger.error('Failed to cancel booking', { error });
+      Alert.alert('Not cancelled', 'Your booking could not be cancelled. Check your connection and try again.');
+    } finally {
+      setCancelling(false);
+    }
   };
 
-  const tabs: { id: RideTab; label: string; count: number }[] = [
-    { id: 'upcoming', label: 'Upcoming', count: upcoming.length },
-    { id: 'past', label: 'Completed', count: pastRides.length },
-    { id: 'cancelled', label: 'Cancelled', count: cancelled.length },
-  ];
+  const rebook = (r: RideItem) =>
+    navigation.navigate('Search', { drop: { name: placeName(r.to), subtitle: r.to.split(',').slice(1).join(',').trim() } });
 
-  /* ── Upcoming tab ───────────────────────────────────────────────── */
-  const renderUpcoming = () => (
-    <FlatList
-      data={upcoming}
-      keyExtractor={(item) => item.id}
-      style={styles.flex1}
-      contentContainerStyle={styles.listGap}
-      showsVerticalScrollIndicator={false}
-      ListEmptyComponent={
-        <View style={styles.emptyWrap}>
-          <Icon name="car-clock" size={48} color={c.textSec} />
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>
-            {loadError ? 'Your rides could not be loaded' : 'No upcoming rides'}
-          </Text>
-          <Text style={{ fontSize: 13, color: c.textSec }}>
-            {loadError ? 'Check your connection and reopen this tab.' : 'Rides you book will appear here.'}
-          </Text>
-        </View>
-      }
-      renderItem={({ item: r }) => (
-        <View style={[styles.rideCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-          {/* Status header */}
-          <View style={styles.cardHeader}>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor: r.status === 'confirmed' ? c.successLight : c.warningLight,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: '700',
-                  color: r.status === 'confirmed' ? c.success : c.warning,
-                }}
-              >
-                {r.status === 'confirmed' ? 'Confirmed' : 'Waiting for driver'}
-              </Text>
-            </View>
-            <Text style={{ fontSize: 12, color: c.textSec }}>
-              {r.date} · {r.time}
+  /* ── Rows ───────────────────────────────────────────────────── */
+  const renderUpcoming = ({ item: r }: { item: RideItem }) => {
+    const confirmed = r.status === 'confirmed';
+    return (
+      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }, Shadow.sm]}>
+        <View style={styles.cardTop}>
+          <View style={[styles.status, { backgroundColor: confirmed ? c.successLight : c.warningLight }]}>
+            <Icon name={confirmed ? 'check-circle' : 'clock-outline'} size={14} color={confirmed ? c.successDark : c.text} />
+            <Text style={[styles.statusText, { color: confirmed ? c.successDark : c.text }]}>
+              {confirmed ? 'Seat confirmed' : 'Waiting for driver'}
             </Text>
           </View>
-
-          <View style={[styles.divider, { backgroundColor: c.border }]} />
-
-          <View style={styles.cardBody}>
-            {/* Route */}
-            <View style={styles.routeRow}>
-              <RouteDots pickupColor={c.primary} dropColor={c.error} lineColor={c.border} />
-              <View style={styles.flex1}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{r.from}</Text>
-                <Text style={{ fontSize: 14, color: c.textSec, marginTop: 6 }}>{r.to}</Text>
-              </View>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }}>₹{r.price}</Text>
-            </View>
-
-            {/* Driver + actions */}
-            <View style={styles.driverRow}>
-              <Avatar uri={r.driverAvatar} name={r.driver} size={32} bg={c.primaryLight} fg={c.primary} />
-              <Text style={{ fontSize: 13, color: c.textSec }}>{r.driver}</Text>
-              <View style={styles.cardActions}>
-                {r.status === 'confirmed' && r.rideId !== '' && (
-                  <Pressable
-                    onPress={() => navigation.navigate('ActiveRide', { rideId: r.rideId, bookingId: r.id })}
-                    accessibilityRole="button"
-                    style={[styles.actionBtn, { backgroundColor: c.primaryLight }]}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Track</Text>
-                  </Pressable>
-                )}
-                <AnimatedPressable onPress={() => openCancel(r)}>
-                  <View style={[styles.actionBtn, { backgroundColor: c.errorLight }]}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: c.error }}>Cancel</Text>
-                  </View>
-                </AnimatedPressable>
-              </View>
-            </View>
-          </View>
+          <Text style={[styles.price, { color: c.text }]}>₹{r.price}</Text>
         </View>
-      )}
-    />
-  );
-
-  /* ── Past tab ───────────────────────────────────────────────────── */
-  const renderPast = () => (
-    <FlatList
-      data={pastRides}
-      keyExtractor={(item) => item.id}
-      style={styles.flex1}
-      contentContainerStyle={styles.listGap}
-      showsVerticalScrollIndicator={false}
-      renderItem={({ item: r }) => (
-        <View style={[styles.pastCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-          {/* Route */}
-          <View style={styles.routeRow}>
-            <RouteDots pickupColor={c.primary} dropColor={c.error} lineColor={c.border} />
-            <View style={styles.flex1}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{r.from}</Text>
-              <Text style={{ fontSize: 14, color: c.textSec, marginTop: 6 }}>{r.to}</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>₹{r.price}</Text>
-              <Text style={{ fontSize: 12, color: c.textSec }}>{r.date}</Text>
-            </View>
-          </View>
-
-          <View style={styles.driverRow}>
-            <Avatar uri={r.driverAvatar} name={r.driver} size={26} bg={c.primaryLight} fg={c.primary} />
-            <Text style={{ fontSize: 13, color: c.textSec }}>{r.driver}</Text>
-          </View>
-
-          <View style={styles.pastActions}>
+        <Text style={[styles.cardTitle, { color: c.text }]} numberOfLines={1}>{placeName(r.to)}</Text>
+        <Text style={[styles.meta, { color: c.textSec }]} numberOfLines={1}>From {r.from}</Text>
+        <Text style={[styles.meta, { color: c.textSec }]}>{formatDate(r.departure)} · {r.driver}</Text>
+        <View style={styles.actions}>
+          {confirmed && r.rideId !== '' && (
             <Pressable
-              onPress={() => navigation.navigate('RiderTabs', { screen: 'Search' })}
+              onPress={() => navigation.navigate('ActiveRide', { rideId: r.rideId, bookingId: r.id })}
               accessibilityRole="button"
-              style={[styles.pastBtn, { backgroundColor: c.primaryLight }]}
+              style={[styles.actionBtn, { backgroundColor: c.primary }]}
             >
-              <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Find another ride</Text>
+              <Icon name="map-marker-radius-outline" size={18} color={c.textOnPrimary} />
+              <Text style={[styles.actionText, { color: c.textOnPrimary }]}>Track ride</Text>
             </Pressable>
-          </View>
+          )}
+          <Pressable
+            onPress={() => { setCancelDone(false); setCancelTarget(r); }}
+            accessibilityRole="button"
+            accessibilityLabel={`Cancel ride to ${placeName(r.to)}`}
+            style={[styles.actionBtn, styles.actionOutline, { borderColor: c.border }]}
+          >
+            <Text style={[styles.actionText, { color: c.error }]}>Cancel</Text>
+          </Pressable>
         </View>
-      )}
-    />
-  );
+      </View>
+    );
+  };
 
-  /* ── Cancelled tab ──────────────────────────────────────────────── */
-  const renderCancelled = () => (
-    <FlatList
-      data={cancelled}
-      keyExtractor={(item) => item.id}
-      style={styles.flex1}
-      contentContainerStyle={styles.listGap}
-      showsVerticalScrollIndicator={false}
-      renderItem={({ item: r }) => (
-        <View style={[styles.pastCard, { backgroundColor: c.surface, borderColor: c.border, opacity: 0.85 }]}>
-          <View style={styles.routeRow}>
-            <RouteDots pickupColor={c.textSec} dropColor={c.textSec} lineColor={c.border} />
-            <View style={styles.flex1}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{r.from}</Text>
-              <Text style={{ fontSize: 14, color: c.textSec, marginTop: 6 }}>{r.to}</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.textSec, textDecorationLine: 'line-through' }}>
-                ₹{r.price}
-              </Text>
-              <Text style={{ fontSize: 12, color: c.textSec }}>{r.date}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.driverRow, { marginBottom: 8 }]}>
-            <Avatar uri={r.driverAvatar} name={r.driver} size={26} bg={c.primaryLight} fg={c.primary} />
-            <Text style={{ fontSize: 13, color: c.textSec }}>{r.driver}</Text>
-            <Text style={{ fontSize: 12, color: c.textSec, marginLeft: 'auto' }}>{r.time}</Text>
-          </View>
-
-          <View style={[styles.reasonBanner, { backgroundColor: c.errorLight }]}>
-            <Svg width={14} height={14} viewBox="0 0 24 24">
-              <Path
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                fill={c.error}
-              />
-            </Svg>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: c.error }}>{r.reason}</Text>
-          </View>
+  const renderHistory = ({ item: r, index }: { item: RideItem; index: number }) => {
+    const completed = r.status === 'completed';
+    return (
+      <Pressable
+        onPress={() => rebook(r)}
+        accessibilityRole="button"
+        accessibilityLabel={`${placeName(r.to)}, ${formatDate(r.departure)}, ${completed ? `₹${r.price}, completed` : r.reason}. Book this trip again`}
+        style={({ pressed }) => [
+          styles.historyRow,
+          index < history.length - 1 && { borderBottomColor: c.border, borderBottomWidth: StyleSheet.hairlineWidth },
+          pressed && { backgroundColor: c.surfaceVariant },
+        ]}
+      >
+        <View style={[styles.historyIcon, { backgroundColor: c.surfaceVariant }]}>
+          <Icon name={completed ? 'map-marker-check-outline' : 'map-marker-remove-outline'} size={22} color={completed ? c.primary : c.textSec} />
         </View>
-      )}
-    />
-  );
+        <View style={styles.flex1}>
+          <Text style={[styles.historyTitle, { color: c.text }]} numberOfLines={1}>{placeName(r.to)}</Text>
+          <Text style={[styles.meta, { color: c.textSec }]}>{formatDate(r.departure)}</Text>
+          <Text style={[styles.meta, { color: completed ? c.textSec : c.error }]}>
+            {completed ? `₹${r.price} · Completed` : `₹0 · ${r.reason}`}
+          </Text>
+        </View>
+        <Icon name="chevron-right" size={22} color={c.textSec} />
+      </Pressable>
+    );
+  };
 
-  /* ═══════════════════════════════════════════════════════════════ */
+  const emptyText =
+    tab === 'upcoming'
+      ? { title: 'No upcoming rides', sub: 'Rides you book will appear here.' }
+      : { title: 'No past rides yet', sub: 'Finished and cancelled trips will appear here.' };
+
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <View style={styles.headerTop}>
-          <AnimatedPressable onPress={() => navigation.goBack()}>
-            <View style={[styles.backBtn, { backgroundColor: c.bg, borderColor: c.border }]}>
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="M19 12H5M12 5l-7 7 7 7" stroke={c.text} strokeWidth={2.5} strokeLinecap="round" />
-              </Svg>
-            </View>
-          </AnimatedPressable>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: c.text }}>My Rides</Text>
-        </View>
+    <View style={[styles.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
+      <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">My rides</Text>
 
-        {/* Tabs */}
-        <View style={styles.tabRow}>
-          {tabs.map(t => {
-            const active = tab === t.id;
-            return (
-              <Pressable accessibilityRole="button" key={t.id} onPress={() => setTab(t.id)} style={styles.tabItem}>
-                <View style={styles.tabInner}>
-                  <Text style={{ fontSize: 14, fontWeight: active ? '700' : '500', color: active ? c.primary : c.textSec }}>
-                    {t.label}
-                  </Text>
-                  {t.count > 0 && (
-                    <View style={[styles.countBadge, { backgroundColor: active ? c.primary : c.border }]}>
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: active ? 'white' : c.textSec }}>
-                        {t.count}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                {active && <View style={[styles.tabIndicator, { backgroundColor: c.primary }]} />}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* ── Body ────────────────────────────────────────────────── */}
-      <View style={styles.flex1}>
-        {loading ? (
-          <View style={[styles.flex1, { alignItems: 'center', justifyContent: 'center' }]}>
-            <ActivityIndicator color={c.primary} size="large" />
-          </View>
-        ) : (
-          <>
-            {tab === 'upcoming' && renderUpcoming()}
-            {tab === 'past' && renderPast()}
-            {tab === 'cancelled' && renderCancelled()}
-          </>
-        )}
-      </View>
-
-      <Modal visible={!!cancelTarget} transparent animationType="none" onRequestClose={() => !cancelling && closeCancel()}>
-        {/* Scrim */}
-        <ReAnimated.View style={[styles.scrim, scrimAnimStyle]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" style={StyleSheet.absoluteFill} onPress={() => !cancelling && closeCancel()} />
-        </ReAnimated.View>
-
-        {/* Sheet */}
-        <ReAnimated.View style={[styles.sheet, sheetAnimStyle]}>
-          {/* Drag handle */}
-          <View style={styles.handleRow}>
-            <View style={styles.handle} />
-          </View>
-
-          {cancelDone ? (
-            /* ── Success state ── */
-            <View style={styles.doneWrap}>
-              <ReAnimated.View
-                style={[
-                  styles.doneCircle,
-                  { backgroundColor: c.errorLight },
-                  doneAnimStyle,
-                ]}
-              >
-                <Svg width={32} height={32} viewBox="0 0 24 24">
-                  <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill={c.error} />
-                </Svg>
-              </ReAnimated.View>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>Ride cancelled</Text>
-              <Text style={{ fontSize: 13, color: '#4B5563', textAlign: 'center' }}>
-                Your refund has been started.
+      <View style={[styles.segment, { backgroundColor: c.surfaceVariant }]} accessibilityRole="tablist">
+        {([
+          { id: 'upcoming' as const, label: 'Upcoming', count: upcoming.length },
+          { id: 'history' as const, label: 'History', count: history.length },
+        ]).map(t => {
+          const on = tab === t.id;
+          return (
+            <Pressable
+              key={t.id}
+              onPress={() => setTab(t.id)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              style={[styles.segmentItem, on && [{ backgroundColor: c.surface }, Shadow.sm]]}
+            >
+              <Text style={[styles.segmentText, { color: on ? c.text : c.textSec }]}>
+                {t.label}{t.count > 0 ? ` ${t.count}` : ''}
               </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {loading && upcoming.length + history.length === 0 ? (
+        <ActivityIndicator style={styles.loader} color={c.primary} size="large" accessibilityLabel="Loading your rides" />
+      ) : (
+        <FlatList
+          data={tab === 'upcoming' ? upcoming : history}
+          keyExtractor={item => item.id}
+          renderItem={tab === 'upcoming' ? renderUpcoming : renderHistory}
+          contentContainerStyle={tab === 'upcoming' ? styles.cardList : styles.historyList}
+          showsVerticalScrollIndicator={false}
+          onRefresh={() => load()}
+          refreshing={loading}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Icon name={loadError ? 'wifi-off' : 'car-clock'} size={48} color={c.textSec} />
+              <Text style={[styles.emptyTitle, { color: c.text }]}>
+                {loadError ? "Your rides couldn't be loaded" : emptyText.title}
+              </Text>
+              <Text style={[styles.emptySub, { color: c.textSec }]}>
+                {loadError ? 'Check your connection and pull down to try again.' : emptyText.sub}
+              </Text>
+              {!loadError && tab === 'upcoming' && (
+                <Pressable
+                  onPress={() => navigation.navigate('Search')}
+                  accessibilityRole="button"
+                  style={[styles.emptyBtn, { backgroundColor: c.primary }]}
+                >
+                  <Text style={[styles.emptyBtnText, { color: c.textOnPrimary }]}>Find a ride</Text>
+                </Pressable>
+              )}
+            </View>
+          }
+        />
+      )}
+
+      {/* ── Cancel sheet ────────────────────────────────────────── */}
+      <Modal visible={Boolean(cancelTarget)} transparent animationType="slide" onRequestClose={closeCancel}>
+        <Pressable style={styles.scrim} onPress={closeCancel} accessibilityRole="button" accessibilityLabel="Close" />
+        <View style={[styles.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + Spacing.lg }]}>
+          <View style={[styles.handle, { backgroundColor: c.border }]} />
+          {cancelDone ? (
+            <View style={styles.done} accessibilityLiveRegion="polite">
+              <View style={[styles.doneIcon, { backgroundColor: c.successLight }]}>
+                <Icon name="check" size={36} color={c.successDark} />
+              </View>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>Ride cancelled</Text>
+              <Text style={[styles.sheetText, { color: c.textSec }]}>Your refund has been started.</Text>
+              <Pressable onPress={closeCancel} accessibilityRole="button" style={[styles.sheetBtn, styles.doneBtn, { backgroundColor: c.primary }]}>
+                <Text style={[styles.sheetBtnText, { color: c.textOnPrimary }]}>Done</Text>
+              </Pressable>
             </View>
           ) : cancelTarget ? (
-            /* ── Confirmation state ── */
-            <View>
-              {/* Header */}
-              <View style={styles.sheetHeader}>
-                <View style={styles.sheetTitleRow}>
-                  <View style={[styles.sheetIcon, { backgroundColor: c.errorLight }]}>
-                    <Svg width={18} height={18} viewBox="0 0 24 24">
-                      <Path
-                        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                        fill={c.error}
-                      />
-                    </Svg>
-                  </View>
-                  <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>Cancel this ride?</Text>
-                </View>
-                <Pressable accessibilityRole="button" accessibilityLabel="Close"
-                  onPress={closeCancel}
-                  disabled={cancelling}
-                  style={[styles.closeBtn, { opacity: cancelling ? 0.4 : 1 }]}
-                >
-                  <Svg width={14} height={14} viewBox="0 0 24 24">
-                    <Path
-                      d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                      fill="#6B7280"
-                    />
-                  </Svg>
-                </Pressable>
+            <>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>Cancel this ride?</Text>
+              <View style={[styles.summary, { backgroundColor: c.surfaceVariant }]}>
+                <Text style={[styles.historyTitle, { color: c.text }]} numberOfLines={1}>{placeName(cancelTarget.to)}</Text>
+                <Text style={[styles.meta, { color: c.textSec }]}>
+                  {formatDate(cancelTarget.departure)} · {cancelTarget.driver} · ₹{cancelTarget.price}
+                </Text>
               </View>
-
-              <View style={styles.sheetBody}>
-                {/* Ride recap card */}
-                <View style={styles.recapCard}>
-                  <View style={styles.recapTop}>
-                    <Avatar uri={cancelTarget.driverAvatar} name={cancelTarget.driver} size={40} bg={c.primaryLight} fg={c.primary} />
-                    <View style={styles.flex1}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>
-                        {cancelTarget.driver}
-                      </Text>
-                      <Text style={{ fontSize: 12, color: '#6B7280' }}>
-                        {cancelTarget.date} · {cancelTarget.time}
-                      </Text>
-                    </View>
-                    <Text style={{ fontSize: 17, fontWeight: '800', color: '#111827' }}>
-                      ₹{cancelTarget.price}
-                    </Text>
-                  </View>
-                  <View style={styles.recapDivider} />
-                  <View style={styles.recapRoute}>
-                    <RouteDots pickupColor={c.primary} dropColor={c.error} lineColor="#D1D5DB" />
-                    <View>
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#111827' }}>
-                        {cancelTarget.from}
-                      </Text>
-                      <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 6 }}>
-                        {cancelTarget.to}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Policy warning */}
-                <View style={styles.policyBanner}>
-                  <Svg width={18} height={18} viewBox="0 0 24 24" style={{ flexShrink: 0 } as any}>
-                    <Path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" fill="#F59E0B" />
-                  </Svg>
-                  <View style={styles.flex1}>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#92400E', marginBottom: 2 }}>
-                      Refund
-                    </Text>
-                    <Text style={{ fontSize: 12, color: '#92400E', lineHeight: 18 }}>
-                      There is no cancellation fee. The full amount goes back to your wallet or original
-                      payment method.
-                    </Text>
-                  </View>
-                </View>
+              <View style={[styles.refund, { backgroundColor: c.infoLight }]}>
+                <Icon name="cash-refund" size={20} color={c.info} />
+                <Text style={[styles.sheetText, styles.flex1, { color: c.text, textAlign: 'left' }]}>
+                  There is no cancellation fee. The full amount goes back to your wallet or original payment method.
+                </Text>
               </View>
-
-              {/* Action buttons */}
               <View style={styles.sheetActions}>
-                <Pressable accessibilityRole="button"
+                <Pressable
                   onPress={closeCancel}
                   disabled={cancelling}
-                  style={[styles.keepBtn, { opacity: cancelling ? 0.5 : 1 }]}
+                  accessibilityRole="button"
+                  style={[styles.sheetBtn, styles.flex1, styles.actionOutline, { borderColor: c.border }]}
                 >
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151' }}>Keep ride</Text>
+                  <Text style={[styles.sheetBtnText, { color: c.text }]}>Keep ride</Text>
                 </Pressable>
-                <AnimatedPressable
+                <Pressable
                   onPress={confirmCancel}
                   disabled={cancelling}
-                  style={styles.flex1}
+                  accessibilityRole="button"
+                  accessibilityState={{ busy: cancelling }}
+                  style={[styles.sheetBtn, styles.flex1, { backgroundColor: DESTRUCTIVE }]}
                 >
                   {cancelling ? (
-                    <View style={[styles.cancelConfirmBtn, { backgroundColor: '#FCA5A5' }]}>
-                      <ActivityIndicator size="small" color="white" />
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: 'white', marginLeft: 8 }}>
-                        Cancelling…
-                      </Text>
-                    </View>
+                    <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <LinearGradient
-                      colors={['#F43F5E', '#E11D48']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.cancelConfirmBtn}
-                    >
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: 'white' }}>Yes, Cancel</Text>
-                    </LinearGradient>
+                    <Text style={[styles.sheetBtnText, { color: '#FFFFFF' }]}>Yes, cancel</Text>
                   )}
-                </AnimatedPressable>
+                </Pressable>
               </View>
-            </View>
+            </>
           ) : null}
-        </ReAnimated.View>
+        </View>
       </Modal>
     </View>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex1: { flex: 1 },
+  title: { fontSize: Typography['6xl'], fontWeight: Typography.extrabold, paddingHorizontal: Spacing.xl, marginTop: Spacing.lg, marginBottom: Spacing.lg },
 
-  /* Header */
-  header: { paddingHorizontal: 20, paddingTop: 12, borderBottomWidth: 1 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  segment: { flexDirection: 'row', marginHorizontal: Spacing.xl, padding: 4, borderRadius: Radius.md, gap: 4 },
+  segmentItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.sm },
+  segmentText: { fontSize: Typography.lg, fontWeight: Typography.bold },
+  loader: { marginTop: Spacing['4xl'] },
 
-  /* Tabs */
-  tabRow: { flexDirection: 'row' },
-  tabItem: { flex: 1, alignItems: 'center', paddingBottom: 12 },
-  tabInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  countBadge: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  tabIndicator: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, borderRadius: 1 },
+  cardList: { padding: Spacing.xl, gap: Spacing.lg, flexGrow: 1 },
+  card: { borderRadius: Radius.xl, borderWidth: 1, padding: Spacing.lg },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full },
+  statusText: { fontSize: Typography.sm, fontWeight: Typography.bold },
+  price: { fontSize: Typography['3xl'], fontWeight: Typography.extrabold },
+  cardTitle: { fontSize: Typography['3xl'], fontWeight: Typography.bold },
+  meta: { fontSize: Typography.md, marginTop: 3 },
+  actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg },
+  actionBtn: { flex: 1, flexDirection: 'row', gap: 6, minHeight: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  actionOutline: { borderWidth: 1 },
+  actionText: { fontSize: Typography.lg, fontWeight: Typography.bold },
 
-  /* Scroll */
-  scrollContent: { padding: 20, paddingBottom: 100 },
-  listGap: { gap: 14, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
+  historyList: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.xl, flexGrow: 1 },
+  historyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.lg, paddingHorizontal: Spacing.sm },
+  historyIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  historyTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold },
 
-  /* Empty */
-  emptyWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 64, gap: 8 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing['2xl'], gap: Spacing.sm },
+  emptyTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold, marginTop: Spacing.sm },
+  emptySub: { fontSize: Typography.md, textAlign: 'center' },
+  emptyBtn: { marginTop: Spacing.lg, minHeight: 48, paddingHorizontal: Spacing['2xl'], borderRadius: Radius.full, justifyContent: 'center' },
+  emptyBtnText: { fontSize: Typography.lg, fontWeight: Typography.bold },
 
-  /* Ride cards */
-  rideCard: { borderRadius: 16, borderWidth: 1, ...Shadow.md },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-  },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  divider: { height: 1 },
-  cardBody: { padding: 16, paddingTop: 14 },
-
-  /* Route dots */
-  routeDots: { alignItems: 'center', marginTop: 4, gap: 2 },
-  routeDot: { width: 8, height: 8, borderRadius: 4 },
-  routeSquare: { width: 8, height: 8, borderRadius: 2 },
-  routeLine: { width: 1.5, height: 18 },
-  routeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
-
-  /* Driver row */
-  driverRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  smallAvatar: { width: 34, height: 34, borderRadius: 10 },
-  tinyAvatar: { width: 30, height: 30, borderRadius: 8 },
-  cardActions: { flexDirection: 'row', gap: 8, marginLeft: 'auto' },
-  actionBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-
-  /* Past */
-  pastCard: { borderRadius: 16, borderWidth: 1, padding: 16, ...Shadow.md },
-  starsRow: { flexDirection: 'row', gap: 2, marginLeft: 'auto' },
-  pastActions: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  pastBtn: { flex: 1, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-
-  /* Cancelled reason */
-  reasonBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, borderRadius: Radius.lg },
-
-  /* ── Modal ── */
-  scrim: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 40,
-  },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'white',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    zIndex: 50,
-    ...Shadow.lg,
-  },
-  handleRow: { alignItems: 'center', paddingTop: 12, paddingBottom: 8 },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB' },
-
-  /* Done */
-  doneWrap: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 40, gap: 12 },
-  doneCircle: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center' },
-
-  /* Sheet confirm */
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  sheetTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sheetIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  sheetBody: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, gap: 16 },
-  recapCard: {
-    borderRadius: 14,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    padding: 14,
-  },
-  recapTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  recapAvatar: { width: 38, height: 38, borderRadius: 10 },
-  recapDivider: { height: 1, backgroundColor: '#E5E7EB', marginBottom: 12 },
-  recapRoute: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-
-  policyBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    padding: 12,
-    borderRadius: Radius.lg,
-    backgroundColor: '#FFF3EE',
-    borderWidth: 1,
-    borderColor: '#FFCBA4',
-  },
-
-  sheetActions: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28, width: '100%' },
-  keepBtn: {
-    flex: 1,
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelConfirmBtn: {
-    flex: 1,
-    height: 52,
-    width:120,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  sheet: { borderTopLeftRadius: Radius['4xl'], borderTopRightRadius: Radius['4xl'], paddingHorizontal: Spacing.xl },
+  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginVertical: Spacing.md },
+  sheetTitle: { fontSize: Typography['3xl'], fontWeight: Typography.extrabold, marginBottom: Spacing.md },
+  sheetText: { fontSize: Typography.md, lineHeight: 20, textAlign: 'center' },
+  summary: { padding: Spacing.lg, borderRadius: Radius.lg },
+  refund: { flexDirection: 'row', gap: Spacing.md, padding: Spacing.lg, borderRadius: Radius.lg, marginTop: Spacing.md },
+  sheetActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.xl },
+  sheetBtn: { minHeight: 52, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xl },
+  sheetBtnText: { fontSize: Typography.lg, fontWeight: Typography.bold },
+  doneBtn: { alignSelf: 'stretch', marginTop: Spacing.lg },
+  done: { alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.lg },
+  doneIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
 });

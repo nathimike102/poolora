@@ -30,6 +30,12 @@ export class AuthController {
       const { phone, otp, name, email, dateOfBirth } = req.body;
       const result = await authService.verifyOtp(phone, otp, name, email, dateOfBirth);
 
+      if ('needsProfile' in result) {
+        // Correct code, new phone: the app asks for a name and verifies again
+        sendSuccess(res, { needsProfile: true }, 200, req.requestId);
+        return;
+      }
+
       sendSuccess(
         res,
         {

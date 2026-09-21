@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useApp } from '../context/AppContext';
@@ -20,6 +21,8 @@ import { GradientButton } from '../components/GradientButton';
 import { Icon, type IconName } from '../components/Icon';
 import { Typography, Spacing, Radius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
+
+export const ONBOARDING_SEEN_KEY = '@poolora_onboarding_seen';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
 
@@ -179,16 +182,22 @@ export function OnboardingScreen() {
     [contentOpacity, contentY, badgeScale, slideX],
   );
 
+  const finish = () => {
+    // The splash screen skips onboarding once it has been seen on this device
+    AsyncStorage.setItem(ONBOARDING_SEEN_KEY, '1').catch(() => {});
+    // replace() removes onboarding from the back-stack
+    navigation.replace('Login');
+  };
+
   const next = () => {
     if (current < SLIDES.length - 1) {
       animateToSlide(current + 1);
     } else {
-      // replace() removes onboarding from the back-stack
-      navigation.replace('Login');
+      finish();
     }
   };
 
-  const skip = () => navigation.replace('Login');
+  const skip = finish;
 
   const slide = SLIDES[current];
 

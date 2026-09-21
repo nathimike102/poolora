@@ -1,1099 +1,466 @@
 /**
  * screens/rider/RideResultsScreen.tsx
+ *
+ * "Choose your ride": the searched route on a map, and below it every ride
+ * going that way. Riders narrow by vehicle (bike, auto, cab), sort or filter
+ * with chips, pick one row, set seats and book from the bar at the bottom.
  */
 
-import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-  Animated,
-  Modal,
-  Pressable,
-  FlatList,
-  LayoutAnimation,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import React, { useMemo, useState } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '../../context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LiveMap } from '../../components/LiveMap';
+import { Icon, type IconName } from '../../components/Icon';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
-import { Icon } from '../../components/Icon';
 import type { Ride as ApiRide, PaginatedResponse } from '../../types/api';
-
+import { VEHICLE_CATEGORIES, vehicleCategory, type VehicleCategory } from '../../utils/vehicles';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'RideResults'>;
-type RideResultsRoute = RouteProp<RootStackParamList, 'RideResults'>;
+type ResultsRoute = RouteProp<RootStackParamList, 'RideResults'>;
 
-// RideResultsScreen now accepts `route.params.rides` (passed from SearchScreen).
-// The incoming payload may be a paginated response or a plain array; map it safely to the UI shape.
+type SortBy = 'best' | 'time' | 'price' | 'rating';
 
-type RatingFilter = 0 | 3.5 | 4 | 4.5;
-type SortBy = 'ai' | 'price' | 'rating' | 'time';
-
-// ─── Custom Toggle Switch ─────────────────────────────────────────────────────
-
-function ToggleSwitch({
-  value,
-  onChange,
-  color,
-  label,
-}: {
-  value: boolean;
-  onChange: (v: boolean) => void;
-  color: string;
-  label: string;
-}) {
-  const translateX = useRef(new Animated.Value(value ? 21 : 0)).current;
-
-  useEffect(() => {
-    Animated.spring(translateX, {
-      toValue: value ? 21 : 0,
-      useNativeDriver: true,
-      stiffness: 500,
-      damping: 35,
-    }).start();
-  }, [value, translateX]);
-
-  return (
-    <TouchableOpacity
-      accessibilityRole="switch"
-      accessibilityLabel={label}
-      accessibilityState={{ checked: value }}
-      activeOpacity={0.8}
-      onPress={() => onChange(!value)}
-      style={[
-        styles.toggleTrack,
-        { backgroundColor: value ? color : '#D1D5DB' },
-      ]}
-    >
-      <Animated.View
-        style={[
-          styles.toggleKnob,
-          { transform: [{ translateX }] },
-        ]}
-      />
-    </TouchableOpacity>
-  );
-}
-
-// ─── AnimatedPressable ────────────────────────────────────────────────────────
-
-function AnimatedPressable({
-  onPress,
-  scaleValue = 0.98,
-  style,
-  children,
-}: {
-  onPress: () => void;
-  scaleValue?: number;
-  style?: StyleProp<ViewStyle>;
-  children: React.ReactNode;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = useCallback(() => {
-    Animated.spring(scale, { toValue: scaleValue, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
-  }, [scale, scaleValue]);
-
-  const handlePressOut = useCallback(() => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
-  }, [scale]);
-
-  return (
-    <TouchableOpacity accessibilityRole="button" activeOpacity={1} onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
-      <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
-    </TouchableOpacity>
-  );
-}
-
-// ─── Sort pill labels ─────────────────────────────────────────────────────────
-
-const SORT_OPTIONS: { key: SortBy; label: string }[] = [
-  { key: 'ai', label: 'Best match' },
-  { key: 'price', label: 'Lowest price' },
-  { key: 'rating', label: 'Highest rated' },
+const SORTS: { key: SortBy; label: string }[] = [
   { key: 'time', label: 'Earliest' },
+  { key: 'price', label: 'Cheapest' },
+  { key: 'rating', label: 'Top rated' },
 ];
 
-const RATING_OPTIONS: { label: string; value: RatingFilter }[] = [
-  { label: 'Any', value: 0 },
-  { label: '3.5+', value: 3.5 },
-  { label: '4+', value: 4 },
-  { label: '4.5+', value: 4.5 },
-];
+const MAX_SEATS_PER_BOOKING = 4;
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+interface ResultRide {
+  id: string;
+  category: VehicleCategory;
+  driver: string;
+  rating: number;
+  ratingCount: number;
+  vehicleName: string;
+  departureAt: number;
+  seatsLeft: number;
+  price: number;
+  matchScore: number;
+  womenOnly: boolean;
+  hasAC: boolean;
+}
+
+function toResult(r: ApiRide): ResultRide {
+  const stats = r.driver?.stats;
+  const v = r.vehicle;
+  return {
+    id: r._id,
+    category: vehicleCategory(v?.vehicleType),
+    driver: r.driver?.name || 'Driver',
+    rating: stats?.avgRatingAsDriver ?? 0,
+    ratingCount: stats?.totalRatingsAsDriver ?? 0,
+    vehicleName: v ? [v.color, v.make, v.model].filter(Boolean).join(' ') : '',
+    departureAt: r.scheduledDeparture ? new Date(r.scheduledDeparture).getTime() : 0,
+    seatsLeft: r.availableSeats ?? 0,
+    price: r.pricePerSeat ?? 0,
+    matchScore: typeof r.matchScore === 'number' ? r.matchScore : 0,
+    womenOnly: r.womenOnly ?? false,
+    hasAC: r.hasAC ?? false,
+  };
+}
+
+function formatLeaves(ms: number): string {
+  if (!ms) return 'Time not set';
+  const mins = Math.round((ms - Date.now()) / 60000);
+  const clock = new Date(ms).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  if (mins <= 1) return `Leaving now · ${clock}`;
+  if (mins < 60) return `Leaves in ${mins} min · ${clock}`;
+  const d = new Date(ms);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (d.toDateString() === new Date().toDateString()) return `Leaves ${clock}`;
+  if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow ${clock}`;
+  return `${d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}, ${clock}`;
+}
 
 export function RideResultsScreen() {
   const navigation = useNavigation<NavProp>();
-  const route = useRoute<RideResultsRoute>();
+  const route = useRoute<ResultsRoute>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
-
-  const [sortBy, setSortBy] = useState<SortBy>('ai');
-  const [showFilter, setShowFilter] = useState(false);
-
-  // Filter states
-  const [activeFilters, setActiveFilters] = useState({
-    womenOnly: false,
-    acOnly: false,
-    minRating: 0 as RatingFilter,
-  });
-  const [draftFilters, setDraftFilters] = useState({ ...activeFilters });
-
-  // Bottom sheet animation
-  const sheetY = useRef(new Animated.Value(600)).current;
-
-  const openFilter = useCallback(() => {
-    setDraftFilters({ ...activeFilters });
-    setShowFilter(true);
-    Animated.spring(sheetY, { toValue: 0, useNativeDriver: true, stiffness: 380, damping: 38 }).start();
-  }, [activeFilters, sheetY]);
-
-  const closeFilter = useCallback(() => {
-    Animated.spring(sheetY, { toValue: 600, useNativeDriver: true, stiffness: 380, damping: 38 }).start(() => {
-      setShowFilter(false);
-    });
-  }, [sheetY]);
-
-  const applyFilter = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setActiveFilters({ ...draftFilters });
-    closeFilter();
-  }, [draftFilters, closeFilter]);
-
-  const resetFilter = useCallback(() => {
-    setDraftFilters({ womenOnly: false, acOnly: false, minRating: 0 });
-  }, []);
-
-  const hasActiveFilters =
-    activeFilters.womenOnly || activeFilters.acOnly || activeFilters.minRating > 0;
-
-  const handleSortChange = useCallback((s: SortBy) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSortBy(s);
-  }, []);
+  const { height } = useWindowDimensions();
 
   const searched = route.params?.route;
-
-  // Normalize incoming rides for the UI
   const incoming = route.params?.rides as PaginatedResponse<ApiRide> | ApiRide[] | undefined;
 
-  const normalizedSource = useMemo(() => {
-    let arr: unknown[] = [];
-    if (Array.isArray(incoming)) {
-      arr = incoming;
-    } else if (incoming && 'data' in incoming && incoming.data) {
-      arr = incoming.data.items || [];
-    }
-    return (arr as ApiRide[]).map(r => {
-      const stats = r.driver?.stats;
-      const prefs: string[] = [];
-      if (r.hasAC) prefs.push('AC');
-      if (r.preferences && !r.preferences.smokingAllowed) prefs.push('No smoking');
-      if (r.preferences?.petsAllowed) prefs.push('Pets allowed');
-      return {
-        id: r._id,
-        driver: r.driver?.name || 'Driver',
-        avatar: r.driver?.profilePhotoUrl,
-        rating: stats?.avgRatingAsDriver ?? 0,
-        ratingCount: stats?.totalRatingsAsDriver ?? 0,
-        trips: stats?.totalRidesAsDriver ?? 0,
-        vehicle: r.vehicle?.vehicleType ?? '',
-        from: r.pickupLocation?.address || '',
-        to: r.dropoffLocation?.address || '',
-        departureAt: r.scheduledDeparture ?? '',
-        departure: r.scheduledDeparture ? new Date(r.scheduledDeparture).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-        arrival: r.estimatedArrival ? new Date(r.estimatedArrival).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-        seats: r.availableSeats ?? 0,
-        price: r.pricePerSeat ?? 0,
-        aiScore: typeof r.matchScore === 'number' ? Math.round(r.matchScore) : null,
-        prefs,
-        womenOnly: r.womenOnly ?? false,
-      };
-    });
+  const all = useMemo<ResultRide[]>(() => {
+    const list = Array.isArray(incoming) ? incoming : incoming?.data?.items ?? [];
+    return list.map(toResult);
   }, [incoming]);
 
-  // Compute filtered + sorted rides
+  const counts = useMemo(() => {
+    const n: Record<VehicleCategory, number> = { bike: 0, auto: 0, cab: 0 };
+    all.forEach(r => { n[r.category] += 1; });
+    return n;
+  }, [all]);
+
+  const [category, setCategory] = useState<VehicleCategory | 'all'>(route.params?.category ?? 'all');
+  const [sortBy, setSortBy] = useState<SortBy>('best');
+  const [womenOnly, setWomenOnly] = useState(false);
+  const [acOnly, setAcOnly] = useState(false);
+  const [seats, setSeats] = useState(searched?.seats ?? 1);
+
   const rides = useMemo(() => {
-    let list = normalizedSource.filter(r => {
-      if (activeFilters.womenOnly && !r.womenOnly) return false;
-      if (activeFilters.acOnly && !r.prefs.includes('AC')) return false;
-      if (activeFilters.minRating > 0 && r.rating < activeFilters.minRating) return false;
-      return true;
-    });
-    if (sortBy === 'ai') list = [...list].sort((a, b) => (b.aiScore ?? 0) - (a.aiScore ?? 0));
-    else if (sortBy === 'price') list = [...list].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-    else if (sortBy === 'rating') list = [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    else if (sortBy === 'time') list = [...list].sort((a, b) => a.departureAt.localeCompare(b.departureAt));
-    return list;
-  }, [sortBy, activeFilters, normalizedSource]);
+    const list = all.filter(r =>
+      (category === 'all' || r.category === category) &&
+      (!womenOnly || r.womenOnly) &&
+      (!acOnly || r.hasAC),
+    );
+    // Leaving now, the best ride is the one leaving soonest; for a set time, the closest match
+    const leavingNow = !searched?.when;
+    const by: Record<SortBy, (a: ResultRide, b: ResultRide) => number> = {
+      best: leavingNow
+        ? (a, b) => a.departureAt - b.departureAt || b.matchScore - a.matchScore
+        : (a, b) => b.matchScore - a.matchScore || a.departureAt - b.departureAt,
+      time: (a, b) => a.departureAt - b.departureAt,
+      price: (a, b) => a.price - b.price,
+      rating: (a, b) => b.rating - a.rating || b.ratingCount - a.ratingCount,
+    };
+    return [...list].sort(by[sortBy]);
+  }, [all, category, womenOnly, acOnly, sortBy, searched?.when]);
+
+  // Tag the single earliest and cheapest rides, as long as there's a choice
+  const tags = useMemo(() => {
+    const t: Record<string, string[]> = {};
+    if (rides.length < 2) return t;
+    const earliest = rides.reduce((a, b) => (b.departureAt < a.departureAt ? b : a));
+    const cheapest = rides.reduce((a, b) => (b.price < a.price ? b : a));
+    (t[earliest.id] ??= []).push('Earliest');
+    (t[cheapest.id] ??= []).push('Cheapest');
+    return t;
+  }, [rides]);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = rides.find(r => r.id === selectedId) ?? rides.find(r => r.seatsLeft >= seats) ?? null;
+  const maxSeats = Math.min(MAX_SEATS_PER_BOOKING, selected?.seatsLeft ?? MAX_SEATS_PER_BOOKING);
+  const canBook = Boolean(selected && selected.seatsLeft >= seats);
+
+  const changeSearch = (schedule = false) =>
+    navigation.popTo('Search', schedule ? { schedule: true } : undefined, { merge: true });
+
+  const mapHeight = Math.round(height * 0.32);
+  // Stable references so the map only fits the route once
+  const origin = useMemo(
+    () => (searched?.pickup ? { latitude: searched.pickup.lat, longitude: searched.pickup.lng } : undefined),
+    [searched?.pickup],
+  );
+  const destination = useMemo(
+    () => (searched?.dropoff ? { latitude: searched.dropoff.lat, longitude: searched.dropoff.lng } : undefined),
+    [searched?.dropoff],
+  );
+  const categories = (Object.keys(VEHICLE_CATEGORIES) as VehicleCategory[]).filter(k => counts[k] > 0);
+  const filtersOn = womenOnly || acOnly || sortBy !== 'best';
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      {/* ── Header ────────────────────────────────────────────────── */}
-      <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <View style={styles.headerTopRow}>
-          {/* Back */}
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
-            activeOpacity={0.7}
+    <View style={[styles.root, { backgroundColor: c.surface }]}>
+      {/* ── Map with the searched route ──────────────────────── */}
+      <View style={{ height: mapHeight + 24 }}>
+        <LiveMap
+          showRoute
+          origin={origin}
+          destination={destination}
+        />
+        <View style={[styles.mapTop, { top: insets.top + Spacing.sm }]} pointerEvents="box-none">
+          <Pressable
             onPress={() => navigation.goBack()}
-            style={[styles.backBtn, { backgroundColor: c.bg, borderColor: c.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={[styles.roundBtn, { backgroundColor: c.surface }, Shadow.md]}
           >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={c.text} strokeWidth={2.5} strokeLinecap="round">
-              <Path d="M19 12H5M12 5l-7 7 7 7" />
-            </Svg>
-          </TouchableOpacity>
-
-          {/* Route summary */}
-          <View style={styles.flex1}>
-            {searched ? (
-              <>
-                <Text style={[styles.routeName, { color: c.text }]} numberOfLines={1}>{searched.from}</Text>
-                <Text style={[styles.routeMeta, { color: c.textSec }]} numberOfLines={1}>
-                  to {searched.to} · {searched.seats} {searched.seats === 1 ? 'seat' : 'seats'}
-                </Text>
-              </>
-            ) : (
-              <Text style={[styles.routeName, { color: c.text }]}>Available rides</Text>
-            )}
-          </View>
-
-          {/* Filter button */}
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Filters"
-            activeOpacity={0.7}
-            onPress={openFilter}
-            style={[
-              styles.filterBtn,
-              {
-                backgroundColor: hasActiveFilters ? c.primary : c.primaryLight,
-                borderColor: hasActiveFilters ? c.primaryDark : c.primary + '40',
-              },
-            ]}
-          >
-            <Svg width={19} height={19} viewBox="0 0 24 24" fill={hasActiveFilters ? 'white' : c.primary}>
-              <Path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
-            </Svg>
-            {hasActiveFilters && <View style={styles.filterDot} />}
-          </TouchableOpacity>
-        </View>
-
-        {/* Sort pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
-          {SORT_OPTIONS.map(s => (
-            <TouchableOpacity accessibilityRole="button"
-              key={s.key}
-              activeOpacity={0.7}
-              onPress={() => handleSortChange(s.key)}
-              style={[
-                styles.sortPill,
-                {
-                  backgroundColor: sortBy === s.key ? c.primary : c.bg,
-                  borderColor: sortBy === s.key ? c.primary : c.border,
-                },
-              ]}
+            <Icon name="arrow-left" size={24} color={c.text} />
+          </Pressable>
+          {searched && (
+            <Pressable
+              onPress={() => changeSearch()}
+              accessibilityRole="button"
+              accessibilityLabel={`From ${searched.from} to ${searched.to}. Edit`}
+              style={[styles.routePill, { backgroundColor: c.surface }, Shadow.md]}
             >
-              <Text
-                style={[
-                  styles.sortPillText,
-                  { color: sortBy === s.key ? 'white' : c.textSec },
-                ]}
-              >
-                {s.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+              <View style={styles.flex1}>
+                <View style={styles.routeLine}>
+                  <View style={[styles.miniDot, { backgroundColor: c.success }]} />
+                  <Text style={[styles.routeText, { color: c.text }]} numberOfLines={1}>{searched.from}</Text>
+                </View>
+                <View style={styles.routeLine}>
+                  <View style={[styles.miniDot, { backgroundColor: c.error }]} />
+                  <Text style={[styles.routeText, styles.routeTextStrong, { color: c.text }]} numberOfLines={1}>{searched.to}</Text>
+                </View>
+              </View>
+              <Icon name="pencil-outline" size={20} color={c.textSec} />
+            </Pressable>
+          )}
+        </View>
       </View>
 
-      {/* ── Results count ─────────────────────────────────────────── */}
-      <View style={styles.countRow}>
-        <Text style={[styles.countText, { color: c.textSec }]}>
-          <Text style={[styles.countBold, { color: c.text }]}>
-            {rides.length} {rides.length === 1 ? 'ride' : 'rides'}
-          </Text>{' '}
-          found
-        </Text>
-        {hasActiveFilters && (
-          <View style={[styles.filterActiveBadge, { backgroundColor: c.primaryLight, borderColor: c.primary + '30' }]}>
-            <Text style={[styles.filterActiveText, { color: c.primary }]}>Filters active</Text>
+      {/* ── Sheet ─────────────────────────────────────────────── */}
+      <View style={[styles.sheet, { backgroundColor: c.surface }]}>
+        <View style={[styles.handle, { backgroundColor: c.border }]} />
+
+        {/* Vehicle tabs */}
+        {categories.length > 1 && (
+          <View style={[styles.tabs, { backgroundColor: c.surfaceVariant }]} accessibilityRole="tablist">
+            {(['all', ...categories] as const).map(k => {
+              const on = category === k;
+              const label = k === 'all' ? `All ${all.length}` : `${VEHICLE_CATEGORIES[k].label} ${counts[k]}`;
+              return (
+                <Pressable
+                  key={k}
+                  onPress={() => setCategory(k)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  style={[styles.tab, on && [{ backgroundColor: c.surface }, Shadow.sm]]}
+                >
+                  {k !== 'all' && <Icon name={VEHICLE_CATEGORIES[k].icon} size={18} color={on ? c.primary : c.textSec} />}
+                  <Text style={[styles.tabText, { color: on ? c.text : c.textSec }]}>{label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         )}
-      </View>
 
-      {/* ── Ride Cards ────────────────────────────────────────────── */}
-      <FlatList
-        data={rides}
-        keyExtractor={(item) => item.id}
-        style={styles.flex1}
-        contentContainerStyle={styles.cardsContainer}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Icon name="car-search" size={48} color={c.textSec} />
-            <Text style={[styles.emptyTitle, { color: c.text }]}>
-              {hasActiveFilters ? 'No rides match your filters' : 'No rides found for this route and time'}
-            </Text>
-            {!hasActiveFilters && (
-              <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', marginTop: 6 }}>
-                Try a different time. Rides within 2 hours of your chosen time are shown.
+        {/* Sort and filter chips */}
+        {all.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
+            {SORTS.map(s => (
+              <Chip key={s.key} label={s.label} on={sortBy === s.key} onPress={() => setSortBy(sortBy === s.key ? 'best' : s.key)} />
+            ))}
+            <Chip label="Women only" icon="gender-female" on={womenOnly} onPress={() => setWomenOnly(v => !v)} />
+            <Chip label="AC" icon="snowflake" on={acOnly} onPress={() => setAcOnly(v => !v)} />
+          </ScrollView>
+        )}
+
+        {/* Rides */}
+        <ScrollView style={styles.flex1} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          {rides.length === 0 ? (
+            <View style={styles.empty}>
+              <Icon name="car-clock" size={48} color={c.textSec} />
+              <Text style={[styles.emptyTitle, { color: c.text }]}>
+                {all.length === 0 ? 'No rides going your way yet' : 'No rides match these filters'}
               </Text>
-            )}
-            {hasActiveFilters && (
-            <TouchableOpacity accessibilityRole="button"
-              activeOpacity={0.7}
-              onPress={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setActiveFilters({ womenOnly: false, acOnly: false, minRating: 0 });
-              }}
-              style={[styles.clearBtn, { backgroundColor: c.primaryLight, borderColor: c.primary + '40' }]}
-            >
-              <Text style={[styles.clearBtnText, { color: c.primary }]}>Clear filters</Text>
-            </TouchableOpacity>
-            )}
-          </View>
-        }
-        renderItem={({ item: ride }) => (
-          <AnimatedPressable
-            scaleValue={0.98}
-            onPress={() => navigation.navigate('RideDetail', { rideId: ride.id })}
-            style={[
-              styles.rideCard,
-              { backgroundColor: c.surface, borderColor: c.border, ...Shadow.sm },
-            ]}
-          >
-            <View style={styles.cardContent}>
-              {/* Driver info row */}
-              <View style={styles.driverRow}>
-                {/* Avatar */}
-                {ride.avatar ? (
-                  <Image source={{ uri: ride.avatar }} style={styles.avatar} resizeMode="cover" />
-                ) : (
-                  <View style={[styles.avatar, { backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center' }]}>
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: c.primary }}>{ride.driver.charAt(0).toUpperCase()}</Text>
-                  </View>
-                )}
-
-                {/* Name + badges + meta */}
-                <View style={styles.flex1}>
-                  <View style={styles.driverNameRow}>
-                    <Text style={[styles.driverName, { color: c.text }]}>{ride.driver}</Text>
-                    {ride.womenOnly && (
-                      <View style={[styles.tagBadge, { backgroundColor: '#FFF1F2' }]}>
-                        <Text style={[styles.tagText, { color: '#9F1239' }]}>Women only</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.driverMetaRow}>
-                    {ride.ratingCount > 0 ? (
-                      <View style={styles.ratingRow} accessibilityLabel={`Rated ${ride.rating.toFixed(1)}`}>
-                        <Svg width={13} height={13} viewBox="0 0 24 24" fill="#FFB300">
-                          <Path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                        </Svg>
-                        <Text style={[styles.ratingText, { color: c.text }]}>{ride.rating.toFixed(1)}</Text>
-                      </View>
-                    ) : (
-                      <Text style={[styles.metaText, { color: c.textSec }]}>New driver</Text>
-                    )}
-                    <Text style={[styles.metaText, { color: c.textSec }]}>{ride.trips} {ride.trips === 1 ? 'trip' : 'trips'}</Text>
-                    <Text style={[styles.metaText, { color: c.textSec }]}>{ride.vehicle}</Text>
-                  </View>
-                </View>
-
-                {/* Match score from the matching engine */}
-                {ride.aiScore !== null && (
-                <View
+              <Text style={[styles.emptySub, { color: c.textSec }]}>
+                {all.length === 0
+                  ? 'Drivers post rides through the day. Try a different time, or a pickup nearer a main road.'
+                  : 'Turn off a filter to see more rides.'}
+              </Text>
+              {all.length === 0 ? (
+                <Pressable onPress={() => changeSearch(true)} accessibilityRole="button" style={[styles.emptyBtn, { borderColor: c.primary }]}>
+                  <Text style={[styles.emptyBtnText, { color: c.primary }]}>Try another time</Text>
+                </Pressable>
+              ) : filtersOn || category !== 'all' ? (
+                <Pressable
+                  onPress={() => { setWomenOnly(false); setAcOnly(false); setSortBy('best'); setCategory('all'); }}
+                  accessibilityRole="button"
+                  style={[styles.emptyBtn, { borderColor: c.primary }]}
+                >
+                  <Text style={[styles.emptyBtnText, { color: c.primary }]}>Clear filters</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : (
+            rides.map(r => {
+              const isSelected = selected?.id === r.id;
+              const full = r.seatsLeft < seats;
+              const cat = VEHICLE_CATEGORIES[r.category];
+              return (
+                <Pressable
+                  key={r.id}
+                  onPress={() => setSelectedId(r.id)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: isSelected, disabled: full }}
+                  accessibilityLabel={`${cat.label} with ${r.driver}, ₹${r.price} per seat, ${formatLeaves(r.departureAt)}, ${r.seatsLeft} ${r.seatsLeft === 1 ? 'seat' : 'seats'} left`}
                   style={[
-                    styles.aiBox,
-                    {
-                      backgroundColor:
-                        ride.aiScore >= 90 ? c.successLight
-                        : ride.aiScore >= 75 ? c.primaryLight
-                        : c.warningLight,
-                    },
+                    styles.ride,
+                    { borderColor: isSelected ? c.primary : 'transparent', backgroundColor: c.surface },
+                    full && styles.rideFull,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.aiScore,
-                      {
-                        color:
-                          ride.aiScore >= 90 ? c.success
-                          : ride.aiScore >= 75 ? c.primary
-                          : c.warning,
-                      },
-                    ]}
-                  >
-                    {ride.aiScore}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.aiLabel,
-                      {
-                        color:
-                          ride.aiScore >= 90 ? c.success
-                          : ride.aiScore >= 75 ? c.primary
-                          : c.warning,
-                      },
-                    ]}
-                  >
-                    match
-                  </Text>
-                </View>
-                )}
-              </View>
-
-              {/* Route & timing */}
-              <View style={[styles.routeBox, { backgroundColor: c.bg }]}>
-                <View style={styles.routeDots}>
-                  <View style={[styles.dotFrom, { backgroundColor: c.primary }]} />
-                  <View style={[styles.routeConnector, { backgroundColor: c.border }]} />
-                  <View style={[styles.dotTo, { backgroundColor: c.error }]} />
-                </View>
-                <View style={styles.flex1}>
-                  <View style={styles.routeLineRow}>
-                    <Text style={[styles.routeLocText, { color: c.text }]}>{ride.from}</Text>
-                    <Text style={[styles.routeTimeText, { color: c.primary }]}>{ride.departure}</Text>
+                  <View style={[styles.vehicleIcon, { backgroundColor: c.surfaceVariant }]}>
+                    <Icon name={cat.icon} size={30} color={c.primary} />
                   </View>
-                  <View style={styles.routeLineRow}>
-                    <Text style={[styles.routeLocText, { color: c.text }]}>{ride.to}</Text>
-                    <Text style={[styles.arrivalText, { color: c.textSec }]}>{ride.arrival}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Prefs & price */}
-              <View style={styles.bottomRow}>
-                <View style={styles.prefsRow}>
-                  {ride.prefs.slice(0, 2).map((p: string) => (
-                    <View key={p} style={[styles.prefChip, { backgroundColor: c.bg, borderColor: c.border }]}>
-                      <Text style={[styles.prefText, { color: c.textSec }]}>{p}</Text>
+                  <View style={styles.flex1}>
+                    <View style={styles.titleRow}>
+                      <Text style={[styles.rideTitle, { color: c.text }]}>{cat.label}</Text>
+                      {tags[r.id]?.map(t => (
+                        <View key={t} style={[styles.tag, { backgroundColor: c.successLight }]}>
+                          <Text style={[styles.tagText, { color: c.successDark }]}>{t.toUpperCase()}</Text>
+                        </View>
+                      ))}
+                      {r.womenOnly && (
+                        <View style={[styles.tag, { backgroundColor: c.surfaceVariant }]}>
+                          <Text style={[styles.tagText, { color: c.textSec }]}>WOMEN ONLY</Text>
+                        </View>
+                      )}
                     </View>
-                  ))}
-                  {ride.prefs.length > 2 && (
-                    <Text style={[styles.prefMore, { color: c.textSec }]}>+{ride.prefs.length - 2}</Text>
-                  )}
-                </View>
-                <View style={styles.priceCol}>
-                  <Text style={[styles.priceText, { color: c.text }]}>₹{ride.price}</Text>
-                  <Text style={[styles.seatsText, { color: c.textSec }]}>
-                    per seat · {ride.seats} {ride.seats === 1 ? 'seat' : 'seats'} left
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </AnimatedPressable>
-        )}
-      />
-
-      {/* ══════════════════════════════════════
-          FILTER BOTTOM SHEET (Modal)
-      ══════════════════════════════════════ */}
-      <Modal
-        visible={showFilter}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-        onRequestClose={closeFilter}
-      >
-        {/* Scrim */}
-        <Pressable accessibilityRole="button" style={styles.scrim} onPress={closeFilter}>
-          <View />
-        </Pressable>
-
-        {/* Sheet */}
-        <Animated.View
-          style={[
-            styles.sheet,
-            { transform: [{ translateY: sheetY }] },
-          ]}
-        >
-          {/* Drag handle */}
-          <View style={styles.handleBar}>
-            <View style={styles.handle} />
-          </View>
-
-          {/* Title row */}
-          <View style={styles.sheetTitleRow}>
-            <Text style={styles.sheetTitle}>Filters</Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close filters" activeOpacity={0.7} onPress={closeFilter} style={styles.sheetCloseBtn}>
-              <Svg width={16} height={16} viewBox="0 0 24 24" fill="#6B7280">
-                <Path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-              </Svg>
-            </TouchableOpacity>
-          </View>
-
-          {/* Filter options */}
-          <View style={styles.sheetBody}>
-            {/* Women-only */}
-            <View style={styles.filterRow}>
-              <View style={styles.flex1}>
-                <Text style={styles.filterLabel}>Women-only rides</Text>
-                <Text style={styles.filterDesc}>Rides open only to women passengers</Text>
-              </View>
-              <ToggleSwitch
-                label="Women-only rides"
-                value={draftFilters.womenOnly}
-                onChange={v => setDraftFilters(d => ({ ...d, womenOnly: v }))}
-                color={c.primary}
-              />
-            </View>
-
-            {/* AC rides */}
-            <View style={styles.filterRow}>
-              <View style={styles.flex1}>
-                <Text style={styles.filterLabel}>AC rides only</Text>
-                <Text style={styles.filterDesc}>Only show rides with air conditioning</Text>
-              </View>
-              <ToggleSwitch
-                label="AC rides only"
-                value={draftFilters.acOnly}
-                onChange={v => setDraftFilters(d => ({ ...d, acOnly: v }))}
-                color={c.primary}
-              />
-            </View>
-
-            {/* Minimum Rating */}
-            <View style={styles.filterRow}>
-              <View style={styles.ratingHeader}>
-                <Text style={styles.filterLabel}>Minimum Rating</Text>
-                <Text style={[styles.ratingValue, { color: c.primary }]}>
-                  {draftFilters.minRating === 0 ? 'Any' : `${draftFilters.minRating}+`}
-                </Text>
-              </View>
-              <View style={styles.ratingBtns}>
-                {RATING_OPTIONS.map(opt => (
-                  <TouchableOpacity accessibilityRole="button"
-                    key={opt.value}
-                    activeOpacity={0.7}
-                    onPress={() => setDraftFilters(d => ({ ...d, minRating: opt.value }))}
-                    style={[
-                      styles.ratingBtn,
-                      {
-                        borderColor: draftFilters.minRating === opt.value ? c.primary : '#E5E7EB',
-                        backgroundColor: draftFilters.minRating === opt.value ? c.primaryLight : 'white',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.ratingBtnText,
-                        {
-                          color: draftFilters.minRating === opt.value ? c.primary : '#6B7280',
-                          fontWeight: draftFilters.minRating === opt.value ? Typography.bold : Typography.medium,
-                        },
-                      ]}
-                    >
-                      {opt.label}
+                    <Text style={[styles.rideMeta, { color: c.textSec }]} numberOfLines={1}>
+                      {r.driver}
+                      {r.ratingCount > 0 ? ` · ★ ${r.rating.toFixed(1)}` : ' · New driver'}
+                      {r.vehicleName ? ` · ${r.vehicleName}` : ''}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          </View>
+                    <Text style={[styles.rideMeta, { color: full ? c.error : c.textSec }]} numberOfLines={1}>
+                      {formatLeaves(r.departureAt)} · {r.seatsLeft} {r.seatsLeft === 1 ? 'seat' : 'seats'} left
+                    </Text>
+                  </View>
+                  <View style={styles.priceCol}>
+                    <Text style={[styles.price, { color: c.text }]}>₹{r.price}</Text>
+                    <Text style={[styles.perSeat, { color: c.textSec }]}>per seat</Text>
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
+        </ScrollView>
 
-          {/* Action buttons */}
-          <View style={styles.sheetActions}>
-            <TouchableOpacity accessibilityRole="button"
-              activeOpacity={0.7}
-              onPress={resetFilter}
-              style={styles.resetBtn}
-            >
-              <Text style={styles.resetBtnText}>Reset</Text>
-            </TouchableOpacity>
-            <AnimatedPressable
-              scaleValue={0.97}
-              onPress={applyFilter}
-              style={styles.applyBtnWrap}
-            >
-              <LinearGradient
-                colors={[c.primary, c.primaryDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.applyBtn, Shadow.primary(c.primary)]}
+        {/* ── Book bar ─────────────────────────────────────────── */}
+        {rides.length > 0 && (
+          <View style={[styles.bookBar, { borderTopColor: c.border, paddingBottom: insets.bottom + Spacing.md }]}>
+            <View style={styles.barRow}>
+              <View style={styles.stepper} accessibilityRole="adjustable" accessibilityLabel={`${seats} ${seats === 1 ? 'seat' : 'seats'}`}>
+                <Icon name="account-outline" size={20} color={c.text} />
+                <Pressable
+                  onPress={() => setSeats(s => Math.max(1, s - 1))}
+                  disabled={seats <= 1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fewer seats"
+                  hitSlop={6}
+                  style={[styles.stepBtn, { borderColor: c.border, opacity: seats <= 1 ? 0.4 : 1 }]}
+                >
+                  <Icon name="minus" size={18} color={c.text} />
+                </Pressable>
+                <Text style={[styles.stepValue, { color: c.text }]}>{seats} {seats === 1 ? 'seat' : 'seats'}</Text>
+                <Pressable
+                  onPress={() => setSeats(s => Math.min(maxSeats, s + 1))}
+                  disabled={seats >= maxSeats}
+                  accessibilityRole="button"
+                  accessibilityLabel="More seats"
+                  hitSlop={6}
+                  style={[styles.stepBtn, { borderColor: c.border, opacity: seats >= maxSeats ? 0.4 : 1 }]}
+                >
+                  <Icon name="plus" size={18} color={c.text} />
+                </Pressable>
+              </View>
+              <View style={[styles.barDivider, { backgroundColor: c.border }]} />
+              <Pressable
+                onPress={() => selected && navigation.navigate('RideDetail', { rideId: selected.id })}
+                disabled={!selected}
+                accessibilityRole="button"
+                accessibilityLabel="Ride details"
+                style={styles.detailsBtn}
               >
-                <Text style={styles.applyBtnText}>Apply Filters</Text>
-              </LinearGradient>
-            </AnimatedPressable>
+                <Icon name="information-outline" size={20} color={c.text} />
+                <Text style={[styles.detailsText, { color: c.text }]}>Details</Text>
+                <Icon name="chevron-right" size={20} color={c.text} />
+              </Pressable>
+            </View>
+            <Pressable
+              onPress={() => selected && navigation.navigate('Booking', { rideId: selected.id, seats })}
+              disabled={!canBook}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canBook }}
+              style={[styles.bookBtn, { backgroundColor: canBook ? c.primary : c.border }]}
+            >
+              <Text style={[styles.bookText, { color: canBook ? c.textOnPrimary : c.textSec }]}>
+                {selected
+                  ? canBook
+                    ? `Book ${VEHICLE_CATEGORIES[selected.category].label} · ₹${(selected.price * seats).toLocaleString('en-IN')}`
+                    : `Only ${selected.seatsLeft} ${selected.seatsLeft === 1 ? 'seat' : 'seats'} left`
+                  : 'Choose a ride'}
+              </Text>
+            </Pressable>
           </View>
-        </Animated.View>
-      </Modal>
+        )}
+      </View>
     </View>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+function Chip({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon?: IconName }) {
+  const { c } = useApp();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: on }}
+      style={[styles.chip, { borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryLight : c.surface }]}
+    >
+      {icon && <Icon name={icon} size={16} color={on ? c.primary : c.textSec} />}
+      <Text style={[styles.chipText, { color: on ? c.primary : c.text }]}>{label}</Text>
+    </Pressable>
+  );
+}
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex1: { flex: 1 },
 
-  // ── Header ──────────────────────────────────────────────────────
-  header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
-    borderBottomWidth: 1,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  routeSummaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  routeName: {
-    fontSize: Typography.md,
-    fontWeight: Typography.bold,
-  },
-  routeMeta: {
-    fontSize: Typography.sm,
-    marginTop: 2,
-  },
-  filterBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterDot: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    width: 10,
-    height: 10,
-    borderRadius: Radius.full,
-    backgroundColor: '#F43F5E',
-    borderWidth: 2,
-    borderColor: 'white',
-  },
+  mapTop: { position: 'absolute', left: Spacing.lg, right: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  roundBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  routePill: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
+  routeLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 22 },
+  miniDot: { width: 8, height: 8, borderRadius: 4 },
+  routeText: { flex: 1, fontSize: Typography.md },
+  routeTextStrong: { fontWeight: Typography.bold },
 
-  // ── Sort pills ──────────────────────────────────────────────────
-  sortRow: {
-    gap: Spacing.sm,
-  },
-  sortPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  sortPillText: {
-    fontSize: Typography.sm,
-    fontWeight: Typography.semibold,
-  },
-
-  // ── Count row ───────────────────────────────────────────────────
-  countRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-  },
-  countText: {
-    fontSize: Typography.md,
-  },
-  countBold: {
-    fontWeight: Typography.bold,
-  },
-  filterActiveBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  filterActiveText: {
-    fontSize: Typography.xs,
-    fontWeight: Typography.bold,
-  },
-
-  // ── Ride Cards ──────────────────────────────────────────────────
-  cardsContainer: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xl,
-    gap: Spacing.md,
-  },
-  rideCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  surgeBanner: {
-    backgroundColor: '#FFF3EE',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  surgeText: {
-    fontSize: Typography.xs,
-    fontWeight: Typography.bold,
-    color: '#FF8A50',
-  },
-  cardContent: {
-    padding: Spacing.lg,
-  },
-
-  // Driver row
-  driverRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.lg,
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 18,
-    height: 18,
-    borderRadius: Radius.full,
-    borderWidth: 2,
-    borderColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  driverNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    flexWrap: 'wrap',
-  },
-  driverName: {
-    fontSize: Typography.lg,
-    fontWeight: Typography.bold,
-  },
-  tagBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  tagText: {
-    fontSize: 10,
-    fontWeight: Typography.bold,
-  },
-  driverMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    marginTop: 4,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: Typography.base,
-    fontWeight: Typography.semibold,
-  },
-  metaText: {
-    fontSize: Typography.sm,
-  },
-
-  // AI Score box
-  aiBox: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiScore: {
-    fontSize: Typography.md,
-    fontWeight: Typography.extrabold,
-  },
-  aiLabel: {
-    fontSize: 9,
-    fontWeight: Typography.semibold,
-  },
-
-  // Route box
-  routeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: Radius.md,
-    marginBottom: Spacing.md,
-  },
-  routeDots: {
-    alignItems: 'center',
-  },
-  dotFrom: {
-    width: 8,
-    height: 8,
-    borderRadius: Radius.full,
-  },
-  routeConnector: {
-    width: 1.5,
-    height: 18,
-  },
-  dotTo: {
-    width: 8,
-    height: 8,
-    borderRadius: 2,
-  },
-  routeLineRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  routeLocText: {
-    fontSize: Typography.base,
-    fontWeight: Typography.semibold,
-  },
-  routeTimeText: {
-    fontSize: Typography.base,
-    fontWeight: Typography.semibold,
-  },
-  arrivalText: {
-    fontSize: Typography.base,
-  },
-
-  // Prefs & price
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  prefsRow: {
-    flexDirection: 'row',
-    gap: 6,
-    flexWrap: 'wrap',
-    flex: 1,
-  },
-  prefChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  prefText: {
-    fontSize: Typography.xs,
-  },
-  prefMore: {
-    fontSize: Typography.xs,
-    alignSelf: 'center',
-  },
-  priceCol: {
-    alignItems: 'flex-end',
-  },
-  priceText: {
-    fontSize: Typography['3xl'],
-    fontWeight: Typography.extrabold,
-  },
-  seatsText: {
-    fontSize: Typography.xs,
-  },
-
-  // ── Empty State ─────────────────────────────────────────────────
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
-    gap: Spacing.md,
-  },
-  emptyEmoji: {
-    fontSize: 52,
-  },
-  emptyTitle: {
-    fontSize: Typography.xl,
-    fontWeight: Typography.bold,
-  },
-  clearBtn: {
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-  },
-  clearBtnText: {
-    fontSize: Typography.md,
-    fontWeight: Typography.semibold,
-  },
-
-  // ── Toggle Switch ───────────────────────────────────────────────
-  toggleTrack: {
-    width: 48,
-    height: 27,
-    borderRadius: 14,
-    padding: 3,
-    justifyContent: 'center',
-  },
-  toggleKnob: {
-    width: 21,
-    height: 21,
-    borderRadius: Radius.full,
-    backgroundColor: 'white',
-    ...Shadow.sm,
-  },
-
-  // ── Bottom Sheet ────────────────────────────────────────────────
-  scrim: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
   sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'white',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    ...Shadow.lg,
-  },
-  handleBar: {
-    alignItems: 'center',
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xs,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-  },
-  sheetTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: Typography.extrabold,
-    color: '#111827',
-  },
-  sheetCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.full,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetBody: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
-  },
-  filterRow: {
-    paddingVertical: Spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-  },
-  filterLabel: {
-    fontSize: Typography.lg,
-    fontWeight: Typography.semibold,
-    color: '#111827',
-  },
-  filterDesc: {
-    fontSize: Typography.sm,
-    color: '#9CA3AF',
-    marginTop: 1,
-  },
-  ratingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: Spacing.md,
-  },
-  ratingValue: {
-    fontSize: Typography.md,
-    fontWeight: Typography.semibold,
-  },
-  ratingBtns: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    width: '100%',
-  },
-  ratingBtn: {
     flex: 1,
-    height: 40,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: -24,
+    borderTopLeftRadius: Radius['4xl'],
+    borderTopRightRadius: Radius['4xl'],
+    paddingTop: Spacing.sm,
   },
-  ratingBtnText: {
-    fontSize: Typography.base,
-  },
+  handle: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, marginBottom: Spacing.md },
 
-  // ── Sheet Actions ───────────────────────────────────────────────
-  sheetActions: {
+  tabs: { flexDirection: 'row', marginHorizontal: Spacing.lg, padding: 4, borderRadius: Radius.md, gap: 4 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40, borderRadius: Radius.sm },
+  tabText: { fontSize: Typography.md, fontWeight: Typography.bold },
+
+  chipScroll: { flexGrow: 0 },
+  chips: { gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: Spacing.md, borderRadius: Radius.full, borderWidth: 1 },
+  chipText: { fontSize: Typography.base, fontWeight: Typography.semibold },
+
+  list: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.lg, gap: 2 },
+  ride: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing['3xl'],
-  },
-  resetBtn: {
-    flex: 1,
-    height: 52,
-    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.xl,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  resetBtnText: {
-    fontSize: Typography.lg,
-    fontWeight: Typography.bold,
-    color: '#374151',
-  },
-  applyBtnWrap: {
-    flex: 2,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-  },
-  applyBtn: {
-    height: 52,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  applyBtnText: {
-    fontSize: Typography.lg,
-    fontWeight: Typography.bold,
-    color: 'white',
-  },
+  rideFull: { opacity: 0.55 },
+  vehicleIcon: { width: 56, height: 56, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  rideTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold },
+  tag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  tagText: { fontSize: 10, fontWeight: Typography.extrabold, letterSpacing: 0.4 },
+  rideMeta: { fontSize: Typography.base, marginTop: 2 },
+  priceCol: { alignItems: 'flex-end' },
+  price: { fontSize: Typography['3xl'], fontWeight: Typography.extrabold },
+  perSeat: { fontSize: Typography.xs },
+
+  empty: { alignItems: 'center', paddingHorizontal: Spacing['2xl'], paddingTop: Spacing['2xl'], gap: Spacing.sm },
+  emptyTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold, textAlign: 'center', marginTop: Spacing.sm },
+  emptySub: { fontSize: Typography.md, lineHeight: 20, textAlign: 'center' },
+  emptyBtn: { marginTop: Spacing.md, minHeight: 44, paddingHorizontal: Spacing.xl, borderRadius: Radius.full, borderWidth: 1.5, justifyContent: 'center' },
+  emptyBtnText: { fontSize: Typography.lg, fontWeight: Typography.bold },
+
+  bookBar: { borderTopWidth: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
+  barRow: { flexDirection: 'row', alignItems: 'center', minHeight: 56 },
+  stepper: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  stepBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  stepValue: { fontSize: Typography.lg, fontWeight: Typography.bold, minWidth: 56, textAlign: 'center' },
+  barDivider: { width: 1, height: 32, marginHorizontal: Spacing.md },
+  detailsBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
+  detailsText: { flex: 1, fontSize: Typography.lg, fontWeight: Typography.semibold },
+  bookBtn: { minHeight: 56, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', marginTop: Spacing.xs },
+  bookText: { fontSize: Typography.xl, fontWeight: Typography.bold },
 });

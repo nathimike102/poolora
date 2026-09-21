@@ -17,10 +17,9 @@
  * │  role !== null                                          │
  * │  ├── AppStack                                           │
  * │  │   ├── RiderTabs  (if rider)                          │
- * │  │   │   ├── Home  → RiderHomeScreen                    │
- * │  │   │   ├── Search → SearchScreen                      │
+ * │  │   │   ├── Ride  → RiderHomeScreen                    │
+ * │  │   │   ├── Services → ServicesScreen                  │
  * │  │   │   ├── My Rides → MyRidesScreen                   │
- * │  │   │   ├── Chat  → ChatListScreen                     │
  * │  │   │   └── Profile → ProfileScreen                    │
  * │  │   │                                                  │
  * │  │   ├── DriverTabs (if driver)                         │
@@ -30,7 +29,7 @@
  * │  │   │   ├── Chat  → ChatListScreen                     │
  * │  │   │   └── Profile → DriverProfileScreen              │
  * │  │   │                                                  │
- * │  │   ├── RideResults, Booking, ActiveRide ...           │
+ * │  │   ├── Search, RideResults, Booking, ActiveRide ...   │
  * │  │   ├── CreateRide, KYC ...                            │
  * │  │   ├── ShipParcel, ParcelResults ...                  │
  * │  │   └── Chat, Settings, SOS ...                        │
@@ -46,6 +45,7 @@ import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApp } from "../context/AppContext";
 import { CustomTabBar } from "../components/CustomTabBar";
@@ -74,6 +74,7 @@ import { ActiveRideScreen } from "../screens/rider/ActiveRideScreen";
 import { RideDetailScreen } from "../screens/rider/RideDetailScreen";
 import { MyRidesScreen } from "../screens/rider/MyRidesScreen";
 import { PaymentScreen } from "../screens/rider/PaymentScreen";
+import { ServicesScreen } from "../screens/rider/ServicesScreen";
 
 // ─── Driver screens ───────────────────────────────────────────────────────────
 import { DriverHomeScreen } from "../screens/driver/DriverHomeScreen";
@@ -116,6 +117,20 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const RiderTab = createBottomTabNavigator<RiderTabParamList>();
 const DriverTab = createBottomTabNavigator<DriverTabParamList>();
 
+/**
+ * The app draws edge to edge, so each stack screen is lifted above the Android
+ * navigation bar here rather than in every screen. Screens that paint their
+ * own bottom edge (tab bar, map sheets, chat composer) opt out with
+ * FULL_BLEED.
+ */
+function useStackContentStyle() {
+  const { c } = useApp();
+  const insets = useSafeAreaInsets();
+  return { backgroundColor: c.bg, paddingBottom: insets.bottom };
+}
+
+const FULL_BLEED = { contentStyle: { paddingBottom: 0 } } as const;
+
 // ─── Bottom Tab Navigators ────────────────────────────────────────────────────
 
 function RiderTabs() {
@@ -127,22 +142,17 @@ function RiderTabs() {
       <RiderTab.Screen
         name="RiderHome"
         component={RiderHomeScreen}
-        options={{ title: "Home" }}
+        options={{ title: "Ride" }}
       />
       <RiderTab.Screen
-        name="Search"
-        component={SearchScreen}
-        options={{ title: "Search" }}
+        name="Services"
+        component={ServicesScreen}
+        options={{ title: "Services" }}
       />
       <RiderTab.Screen
         name="MyRides"
         component={MyRidesScreen}
         options={{ title: "My Rides" }}
-      />
-      <RiderTab.Screen
-        name="ChatList"
-        component={ChatListScreen}
-        options={{ title: "Chat" }}
       />
       <RiderTab.Screen
         name="Profile"
@@ -191,6 +201,7 @@ function DriverTabs() {
 // ─── Auth Stack ───────────────────────────────────────────────────────────────
 
 function AuthNavigator() {
+  const contentStyle = useStackContentStyle();
   return (
     <Stack.Navigator
       initialRouteName="Splash"
@@ -198,9 +209,10 @@ function AuthNavigator() {
         headerShown: false,
         animation: "slide_from_right",
         gestureEnabled: true,
+        contentStyle,
       }}
     >
-      <Stack.Screen name="Splash" component={SplashScreen} />
+      <Stack.Screen name="Splash" component={SplashScreen} options={FULL_BLEED} />
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
@@ -220,6 +232,7 @@ function AuthNavigator() {
 
 function AppNavigatorStack() {
   const { role } = useApp();
+  const contentStyle = useStackContentStyle();
 
   return (
     <Stack.Navigator
@@ -227,17 +240,19 @@ function AppNavigatorStack() {
         headerShown: false,
         animation: "slide_from_right",
         gestureEnabled: true,
+        contentStyle,
       }}
     >
       {/* Tab navigator as the root screen — role determines which one */}
       {role === "driver" ? (
-        <Stack.Screen name="DriverTabs" component={DriverTabs} />
+        <Stack.Screen name="DriverTabs" component={DriverTabs} options={FULL_BLEED} />
       ) : (
-        <Stack.Screen name="RiderTabs" component={RiderTabs} />
+        <Stack.Screen name="RiderTabs" component={RiderTabs} options={FULL_BLEED} />
       )}
 
       {/* ── Rider detail screens (pushed above tabs) ──────────── */}
-      <Stack.Screen name="RideResults" component={RideResultsScreen} />
+      <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen name="RideResults" component={RideResultsScreen} options={FULL_BLEED} />
       <Stack.Screen name="Booking" component={BookingScreen} />
       <Stack.Screen name="ActiveRide" component={ActiveRideScreen} />
       <Stack.Screen name="RideDetail" component={RideDetailScreen} />
@@ -264,7 +279,8 @@ function AppNavigatorStack() {
       <Stack.Screen name="TripPartners" component={TripPartnersScreen} />
 
       {/* ── Shared detail screens (pushed above tabs) ─────────── */}
-      <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} options={FULL_BLEED} />
+      <Stack.Screen name="Messages" component={ChatListScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="SOS" component={SOSScreen} />
@@ -274,7 +290,7 @@ function AppNavigatorStack() {
       />
 
       {/* ── Map picker ─────────────────────────────────────────── */}
-      <Stack.Screen name="MapPicker" component={MapPickerScreen} />
+      <Stack.Screen name="MapPicker" component={MapPickerScreen} options={FULL_BLEED} />
 
       {/* ── Admin (the backend enforces admin capability on every call) ── */}
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ headerShown: true, title: 'Admin' }} />
