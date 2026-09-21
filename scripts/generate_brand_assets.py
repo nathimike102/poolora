@@ -6,9 +6,9 @@ Usage (from the repo root):
     python3 scripts/generate_brand_assets.py
 
 branding/poolora-icon.png is the master: a full-bleed, square 1024px
-image with no rounded corners. It is a cleaned copy of
-branding/source/poolora-icon-original.png (dark backdrop trimmed, corners
-filled, watermark removed). Replace the master to rebrand, then rerun.
+image with no rounded corners. It is rendered from the vector artwork in
+branding/source/poolora-icon.svg by scripts/render_brand_master.py; run
+that first after editing the artwork.
 """
 
 from pathlib import Path

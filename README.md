@@ -10,7 +10,7 @@ Built with **React Native (Expo)**, **Node.js / Express**, **MongoDB**, **Redis*
 
 **GitHub:** [nathimike102/poolora](https://github.com/nathimike102/poolora)
 
-**Logo:** the master artwork is [branding/poolora-icon.png](branding/poolora-icon.png), a full-bleed 1024px square. After replacing it, regenerate every app icon, splash, web logo and link preview with `python3 scripts/generate_brand_assets.py` (needs `pillow`).
+**Logo:** the artwork is vector, in [branding/source/poolora-icon.svg](branding/source/poolora-icon.svg). After editing it, run `python3 scripts/render_brand_master.py` (adds the neon glow and writes `branding/poolora-icon.png`), then `python3 scripts/generate_brand_assets.py` to regenerate every app icon, splash, web logo and link preview (needs `cairosvg` and `pillow`).
 
 ---
 
