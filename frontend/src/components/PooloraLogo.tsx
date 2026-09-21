@@ -2,6 +2,7 @@
  * components/PooloraLogo.tsx
  *
  * Reusable Poolora brand mark rendered with react-native-svg.
+ * Mirrors branding/poolora-mark.svg; keep the two in sync.
  */
 
 import React from "react";
@@ -11,15 +12,19 @@ import Svg, {
   Defs,
   LinearGradient,
   Path,
+  Rect,
   Stop,
 } from "react-native-svg";
+
+/** Dark ink used for the road, wheels and passengers. */
+const INK = "#1A1446";
 
 interface PooloraLogoProps {
   /** Container box size */
   size?: number;
   /** Container background color */
   backgroundColor?: string;
-  /** Border radius of container — pass 0 for circular */
+  /** Border radius of container; defaults to the tile's own corner radius */
   borderRadius?: number;
   /** Render the wordmark below the icon */
   showWordmark?: boolean;
@@ -38,7 +43,7 @@ export function PooloraLogo({
   subtitle = "Smart Scheduled Carpooling",
 }: PooloraLogoProps) {
   const svgSize = size;
-  const br = borderRadius ?? size * 0.32; // Default proportional radius
+  const br = borderRadius ?? size * (56 / 256); // Match the tile's corners
 
   return (
     <View
@@ -58,133 +63,63 @@ export function PooloraLogo({
     >
       <Svg width={svgSize} height={svgSize} viewBox="0 0 256 256" fill="none">
         <Defs>
-          <LinearGradient
-            id="pinGradient"
-            x1="128"
-            y1="20"
-            x2="128"
-            y2="126"
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop offset="0%" stopColor="#FFB02E" />
-            <Stop offset="100%" stopColor="#FF7A00" />
+          <LinearGradient id="bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+            <Stop offset="0" stopColor="#FFB400" />
+            <Stop offset="0.5" stopColor="#FF4F6D" />
+            <Stop offset="1" stopColor="#7B3FF2" />
           </LinearGradient>
-          <LinearGradient
-            id="leftArc"
-            x1="42"
-            y1="56"
-            x2="118"
-            y2="164"
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop offset="0%" stopColor="#0FA7A0" />
-            <Stop offset="100%" stopColor="#11B5B0" />
-          </LinearGradient>
-          <LinearGradient
-            id="rightArc"
-            x1="138"
-            y1="56"
-            x2="214"
-            y2="164"
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop offset="0%" stopColor="#7A47C1" />
-            <Stop offset="100%" stopColor="#8E5BDA" />
-          </LinearGradient>
-          <LinearGradient
-            id="roadLeft"
-            x1="28"
-            y1="178"
-            x2="128"
-            y2="200"
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop offset="0%" stopColor="#18B7AF" />
-            <Stop offset="100%" stopColor="#2BA7BE" />
-          </LinearGradient>
-          <LinearGradient
-            id="roadRight"
-            x1="120"
-            y1="184"
-            x2="228"
-            y2="206"
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop offset="0%" stopColor="#3D79DD" />
-            <Stop offset="100%" stopColor="#2F63C5" />
+          <LinearGradient id="glass" x1="128" y1="100" x2="128" y2="132" gradientUnits="userSpaceOnUse">
+            <Stop offset="0" stopColor="#2FE0D2" />
+            <Stop offset="1" stopColor="#0B7A75" />
           </LinearGradient>
         </Defs>
 
+        {/* Tile */}
+        <Rect width="256" height="256" rx="56" fill="url(#bg)" />
+        <Circle cx="214" cy="42" r="70" fill="#FFFFFF" fillOpacity={0.12} />
+
+        {/* Road */}
+        <Path d="M16 198Q128 184 240 198L240 214Q128 200 16 214Z" fill={INK} fillOpacity={0.45} />
         <Path
-          d="M56 106C56 67.4 82.2 44 128 44"
-          stroke="url(#leftArc)"
-          strokeWidth="22"
+          d="M34 205Q128 192 222 205"
+          stroke="#FFFFFF"
+          strokeOpacity={0.85}
+          strokeWidth={3}
           strokeLinecap="round"
-        />
-        <Path
-          d="M200 106C200 67.4 173.8 44 128 44"
-          stroke="url(#rightArc)"
-          strokeWidth="22"
-          strokeLinecap="round"
+          strokeDasharray="12 11"
         />
 
-        <Path
-          d="M128 20C107 20 90 36.8 90 57.5C90 81.8 117.2 111.8 126.8 122.2C127.4 122.8 128.6 122.8 129.2 122.2C138.8 111.8 166 81.8 166 57.5C166 36.8 149 20 128 20Z"
-          fill="url(#pinGradient)"
-        />
-        <Circle cx="128" cy="59" r="18" fill="#FFF7EE" />
+        {/* Speed lines */}
+        <Path d="M14 126H34" stroke="#FFFFFF" strokeWidth={7} strokeLinecap="round" />
+        <Path d="M8 146H34" stroke="#FFFFFF" strokeWidth={7} strokeLinecap="round" strokeOpacity={0.8} />
+        <Path d="M18 164H34" stroke="#FFFFFF" strokeWidth={7} strokeLinecap="round" strokeOpacity={0.6} />
 
+        {/* Car body, windows and passengers */}
         <Path
-          d="M88 126C91 92 112.5 78 128 78C143.5 78 165 92 168 126"
-          stroke="#0D2F66"
-          strokeWidth="7"
-          strokeLinecap="round"
+          d="M44 168V151Q44 139 56 137L92 132L111 106Q117 97 128 97H160Q170 97 177 105L197 128L205 130Q216 133 216 146V168Q216 178 206 178H54Q44 178 44 168Z"
+          fill="#FFFFFF"
         />
-        <Path
-          d="M81 131H175C182.2 131 188 136.8 188 144V163H68V144C68 136.8 73.8 131 81 131Z"
-          fill="#F8FBFF"
-          stroke="#0D2F66"
-          strokeWidth="6"
-          strokeLinejoin="round"
-        />
-        <Path
-          d="M90 133C94 116 105.8 104 121 102H135C150.2 104 162 116 166 133"
-          stroke="#0D2F66"
-          strokeWidth="6"
-          strokeLinecap="round"
-        />
+        <Path d="M101 131L117 109Q121 104 128 104H140V131Z" fill="url(#glass)" />
+        <Path d="M147 104H160Q166 104 171 110L187 131H147Z" fill="url(#glass)" />
+        <Circle cx="124" cy="117" r="6.5" fill={INK} />
+        <Path d="M113 131Q124 121 135 131Z" fill={INK} />
+        <Circle cx="162" cy="117" r="6.5" fill={INK} />
+        <Path d="M151 131Q162 121 173 131Z" fill={INK} />
 
-        <Circle cx="104" cy="116" r="11" fill="#0D2F66" />
-        <Circle cx="128" cy="112" r="12" fill="#0D2F66" />
-        <Circle cx="153" cy="116" r="11" fill="#0D2F66" />
-        <Path
-          d="M96 150C98 140 104 134 112 134C119 134 124 139 128 145C132 139 137 134 144 134C152 134 158 140 160 150"
-          fill="#0D2F66"
-        />
+        {/* Stripe and lights */}
+        <Rect x="52" y="148" width="156" height="7" rx="3.5" fill="#0B7A75" />
+        <Rect x="203" y="137" width="11" height="8" rx="4" fill="#FFD23F" />
+        <Rect x="44" y="140" width="7" height="9" rx="3.5" fill="#FF3B5C" />
 
-        <Path d="M72 146C64 146 58 150 56 156L54 163H68" fill="#0D2F66" />
-        <Path d="M184 146C192 146 198 150 200 156L202 163H188" fill="#0D2F66" />
-        <Path
-          d="M71 158C71 152.5 77.3 147 86.5 147C95.7 147 102 151.1 107 157.2C101 162.5 94.4 165 86.8 165C77.8 165 71 162 71 158Z"
-          fill="#0D2F66"
-        />
-        <Path
-          d="M185 158C185 152.5 178.7 147 169.5 147C160.3 147 154 151.1 149 157.2C155 162.5 161.6 165 169.2 165C178.2 165 185 162 185 158Z"
-          fill="#0D2F66"
-        />
+        {/* Wheels */}
+        <Circle cx="82" cy="178" r="20" fill={INK} stroke="#FFFFFF" strokeWidth={5} />
+        <Circle cx="82" cy="178" r="7.5" fill="#FFD23F" />
+        <Circle cx="180" cy="178" r="20" fill={INK} stroke="#FFFFFF" strokeWidth={5} />
+        <Circle cx="180" cy="178" r="7.5" fill="#FFD23F" />
 
-        <Path
-          d="M36 194C78 171 121 168 169 176C187 179 202 184 220 194"
-          stroke="url(#roadLeft)"
-          strokeWidth="18"
-          strokeLinecap="round"
-        />
-        <Path
-          d="M92 208C134 189 174 188 222 197"
-          stroke="url(#roadRight)"
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
+        {/* Location pin */}
+        <Path d="M144 90C132 76 124 67 124 56A20 20 0 1 1 164 56C164 67 156 76 144 90Z" fill="#FFFFFF" />
+        <Circle cx="144" cy="56" r="8" fill="#FF4F6D" />
       </Svg>
 
       {showWordmark ? (
@@ -217,7 +152,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     lineHeight: 32,
     fontWeight: "800",
-    color: "#0D2F66",
+    color: INK,
     letterSpacing: -0.4,
   },
   subtitle: {

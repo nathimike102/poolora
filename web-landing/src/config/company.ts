@@ -62,15 +62,11 @@ const SITE_ORIGIN = "https://poolora.vercel.app";
 /**
  * Single public inbox for the whole site and app.
  *
- * TODO(poolora): replace with the real address before launch. The `.invalid`
- * TLD is reserved by RFC 2606 and can never resolve, so a forgotten
- * placeholder fails loudly instead of silently dropping mail.
- *
  * The support / contact / investors fields below are kept separate so the
  * legal pages can keep addressing them by purpose, and so they can be split
  * onto different inboxes later without touching any page.
  */
-const PUBLIC_EMAIL = "hello@poolora.invalid";
+const PUBLIC_EMAIL = "nathimike102@gmail.com";
 
 export const COMPANY: CompanyConfig = {
   name: "Poolora",

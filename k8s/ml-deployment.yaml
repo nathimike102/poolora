@@ -24,6 +24,9 @@ spec:
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
+      # GHCR images are private by default; scripts/deploy-k8s.sh creates this secret
+      imagePullSecrets:
+      - name: ghcr-pull
       containers:
       - name: ml-engine
         image: ghcr.io/nathimike102/poolora-ml:latest

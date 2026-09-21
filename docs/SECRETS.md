@@ -83,6 +83,7 @@ openssl rand -base64 756 | tr -d '\n'
 |---|---|
 | `poolora-secrets` | Fill in `k8s/secret.yaml`, or better, create it without committing values: `kubectl create secret generic poolora-secrets -n poolora --from-env-file=backend/.env` |
 | `firebase-service-account` | `kubectl create secret generic firebase-service-account -n poolora --from-file=firebase-service-account.json` |
+| `ghcr-pull` | Lets the cluster pull the private backend and ML images from ghcr.io. Create a GitHub personal access token (classic) with only the `read:packages` scope, then run `GHCR_USER=nathimike102 GHCR_TOKEN=<token> scripts/deploy-k8s.sh`, which creates it. Not needed if you make both packages public |
 | `poolora-api-tls` | Issued by cert-manager from the ingress annotation, or `kubectl create secret tls poolora-api-tls --cert=... --key=...` |
 | `BACKUP_S3_BUCKET`, `BACKUP_AWS_ACCESS_KEY_ID`, `BACKUP_AWS_SECRET_ACCESS_KEY`, `BACKUP_AWS_REGION` | A separate bucket and IAM user for the daily database backup job. Give that user write access to that bucket only |
 
@@ -137,6 +138,8 @@ It is public and only loads after a visitor accepts the consent banner.
 | `EC2_HOST` | Public hostname or IP of the deploy server |
 | `EC2_USER` | SSH user on that server, e.g. `ubuntu` |
 | `EC2_SSH_KEY` | The private key for a deploy-only key pair. Put its public key in the server's `~/.ssh/authorized_keys` |
+
+Without `EC2_HOST`, the deploy job skips with a notice instead of failing.
 | `GITHUB_TOKEN` | Provided automatically. Used to push images to ghcr.io |
 
 ## Sending mail without a custom domain

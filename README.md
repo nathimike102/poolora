@@ -1,3 +1,5 @@
+<p align="center"><img src="branding/poolora-mark.png" alt="Poolora logo" width="140"></p>
+
 # Poolora — Smart AI-Powered Mobility & Pooling Ecosystem
 
 > **"Share Seats. Save Costs. Travel Smarter."**
@@ -7,6 +9,8 @@ A production-grade, full-stack AI-powered mobility platform encompassing Car-Poo
 Built with **React Native (Expo)**, **Node.js / Express**, **MongoDB**, **Redis**, **Kafka**, **Elasticsearch**, **Docker**, and **Socket.IO**.
 
 **GitHub:** [nathimike102/poolora](https://github.com/nathimike102/poolora)
+
+**Logo:** the master artwork is [branding/poolora-mark.svg](branding/poolora-mark.svg). After editing it, regenerate every app icon, splash and web logo with `python3 scripts/generate_brand_assets.py` (needs `cairosvg` and `pillow`).
 
 ---
 
