@@ -200,11 +200,19 @@ jobs:
     needs: [docker-build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
     steps:
+      - name: Skip when no server is configured
+        if: env.EC2_HOST == ''
+        run: echo "::notice::EC2_HOST is not set, so nothing was deployed. Add EC2_HOST, EC2_USER and EC2_SSH_KEY to enable deploys."
+
       - name: Checkout Code
+        if: env.EC2_HOST != ''
         uses: actions/checkout@v4
 
       - name: Deploy via SSH
+        if: env.EC2_HOST != ''
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}

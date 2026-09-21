@@ -26,7 +26,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
-COPY frontend-tester ./frontend-tester
 
 # Create log directory with correct ownership
 RUN mkdir -p logs && chown -R nodejs:nodejs /app
