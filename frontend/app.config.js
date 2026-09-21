@@ -19,7 +19,7 @@ module.exports = {
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundImage: './assets/adaptive-icon-background.png',
-        backgroundColor: '#B81FD6',
+        backgroundColor: '#0B7A75',
       },
       googleServicesFile: './google-services.json',
       config: {

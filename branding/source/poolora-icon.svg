@@ -5,20 +5,6 @@
     blurs them and composites everything into branding/poolora-icon.png.
   -->
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FF8A00"/>
-      <stop offset="0.38" stop-color="#FF2E93"/>
-      <stop offset="0.7" stop-color="#9B2CF5"/>
-      <stop offset="1" stop-color="#2F6BFF"/>
-    </linearGradient>
-    <radialGradient id="halo" cx="512" cy="330" r="420" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="ground" x1="0" y1="760" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#140A33" stop-opacity="0"/>
-      <stop offset="1" stop-color="#140A33" stop-opacity="0.75"/>
-    </linearGradient>
     <linearGradient id="neon" x1="300" y1="0" x2="724" y2="0" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#27E1FF"/>
       <stop offset="0.5" stop-color="#FFFFFF"/>
@@ -71,10 +57,9 @@
 
   <!-- ═════ background ═════ -->
   <g id="background">
-    <rect width="1024" height="1024" fill="url(#sky)"/>
-    <rect width="1024" height="1024" fill="url(#halo)"/>
-    <rect y="760" width="1024" height="264" fill="url(#ground)"/>
-    <ellipse cx="512" cy="905" rx="420" ry="46" fill="#0B0620" fill-opacity="0.55"/>
+    <!-- flat brand teal, the landing site's brand colour -->
+    <rect width="1024" height="1024" fill="#0B7A75"/>
+    <ellipse cx="512" cy="905" rx="420" ry="46" fill="#04302E" fill-opacity="0.55"/>
   </g>
 
   <!-- ═════ glow: blurred and added on top of the background ═════ -->
