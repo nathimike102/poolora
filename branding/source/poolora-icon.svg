@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!--
+    Poolora icon artwork (full-bleed 1024 square). Layers are tagged with
+    ids; scripts/render_brand_master.py renders the glow layers separately,
+    blurs them and composites everything into branding/poolora-icon.png.
+  -->
+  <defs>
+    <linearGradient id="neon" x1="300" y1="0" x2="724" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#27E1FF"/>
+      <stop offset="0.5" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FF3DB8"/>
+    </linearGradient>
+    <linearGradient id="pearl" x1="0" y1="450" x2="0" y2="880" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#F1EEFF"/>
+      <stop offset="1" stop-color="#C9C3EE"/>
+    </linearGradient>
+    <linearGradient id="tintL" x1="150" y1="0" x2="512" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#27E1FF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#27E1FF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="tintR" x1="874" y1="0" x2="512" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF3DB8" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#FF3DB8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="465" x2="0" y2="575" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2B2366"/>
+      <stop offset="1" stop-color="#0E0A26"/>
+    </linearGradient>
+    <linearGradient id="lamp" x1="0" y1="690" x2="0" y2="735" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFBE0"/>
+      <stop offset="1" stop-color="#FFD23F"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="140" y1="0" x2="884" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B2A8A" stop-opacity="0.45"/>
+      <stop offset="0.12" stop-color="#3B2A8A" stop-opacity="0"/>
+      <stop offset="0.88" stop-color="#3B2A8A" stop-opacity="0"/>
+      <stop offset="1" stop-color="#3B2A8A" stop-opacity="0.45"/>
+    </linearGradient>
+    <linearGradient id="trailL" x1="0" y1="0" x2="230" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#27E1FF" stop-opacity="0"/>
+      <stop offset="1" stop-color="#27E1FF"/>
+    </linearGradient>
+    <linearGradient id="trailR" x1="1024" y1="0" x2="794" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF3DB8" stop-opacity="0"/>
+      <stop offset="1" stop-color="#FF3DB8"/>
+    </linearGradient>
+    <linearGradient id="coreL" x1="0" y1="0" x2="230" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="coreR" x1="1024" y1="0" x2="794" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ═════ background ═════ -->
+  <g id="background">
+    <!-- flat brand teal, the landing site's brand colour -->
+    <rect width="1024" height="1024" fill="#0B7A75"/>
+    <ellipse cx="512" cy="905" rx="420" ry="46" fill="#04302E" fill-opacity="0.55"/>
+  </g>
+
+  <!-- ═════ glow: blurred and added on top of the background ═════ -->
+  <g id="glow">
+    <!-- speed streaks -->
+    <g stroke-linecap="round" stroke-width="30">
+      <path d="M0 596H236" stroke="url(#trailL)"/>
+      <path d="M0 646H212" stroke="url(#trailL)"/>
+      <path d="M0 706H196" stroke="url(#trailL)"/>
+      <path d="M40 760H176" stroke="url(#trailL)"/>
+      <path d="M788 596H1024" stroke="url(#trailR)"/>
+      <path d="M812 646H1024" stroke="url(#trailR)"/>
+      <path d="M828 706H1024" stroke="url(#trailR)"/>
+      <path d="M848 760H984" stroke="url(#trailR)"/>
+    </g>
+    <!-- pin -->
+    <path d="M512 404C470 352 396 292 396 222A116 116 0 1 1 628 222C628 292 554 352 512 404Z" fill="none" stroke="url(#neon)" stroke-width="44"/>
+    <circle cx="512" cy="220" r="50" fill="none" stroke="url(#neon)" stroke-width="28"/>
+    <!-- car outline and lamps -->
+    <path d="M330 588L512 738L694 588" fill="none" stroke="url(#neon)" stroke-width="20"/>
+    <path d="M196 872H828" stroke="url(#neon)" stroke-width="26" stroke-linecap="round"/>
+    <ellipse cx="512" cy="912" rx="330" ry="16" fill="url(#neon)"/>
+    <path d="M172 664L356 692L398 722L206 712Z" fill="#FFD23F"/>
+    <path d="M852 664L668 692L626 722L818 712Z" fill="#FFD23F"/>
+    <path d="M398 760H626L652 842H372Z" fill="none" stroke="url(#neon)" stroke-width="20"/>
+    <path d="M196 772H344L334 836H186Z" fill="none" stroke="#27E1FF" stroke-width="16"/>
+    <path d="M828 772H680L690 836H838Z" fill="none" stroke="#FF3DB8" stroke-width="16"/>
+    <path d="M172 664L356 692L398 722L206 712Z" fill="#FFE680" stroke="#FFE680" stroke-width="14"/>
+    <path d="M852 664L668 692L626 722L818 712Z" fill="#FFE680" stroke="#FFE680" stroke-width="14"/>
+  </g>
+
+  <!-- ═════ sharp artwork ═════ -->
+  <g id="art">
+    <!-- streak cores -->
+    <g stroke-linecap="round" stroke-width="7">
+      <path d="M0 596H236" stroke="url(#coreL)"/>
+      <path d="M0 646H212" stroke="url(#coreL)" stroke-opacity="0.8"/>
+      <path d="M0 706H196" stroke="url(#coreL)" stroke-opacity="0.9"/>
+      <path d="M40 760H176" stroke="url(#coreL)" stroke-opacity="0.7"/>
+      <path d="M788 596H1024" stroke="url(#coreR)"/>
+      <path d="M812 646H1024" stroke="url(#coreR)" stroke-opacity="0.8"/>
+      <path d="M828 706H1024" stroke="url(#coreR)" stroke-opacity="0.9"/>
+      <path d="M848 760H984" stroke="url(#coreR)" stroke-opacity="0.7"/>
+    </g>
+
+    <!-- tyres -->
+    <rect x="138" y="744" width="92" height="162" rx="32" fill="#0D0A1E"/>
+    <rect x="794" y="744" width="92" height="162" rx="32" fill="#0D0A1E"/>
+
+    <!-- mirrors -->
+    <path d="M292 548Q246 536 222 556Q214 574 238 580L296 578Z" fill="#1A1440"/>
+    <path d="M732 548Q778 536 802 556Q810 574 786 580L728 578Z" fill="#1A1440"/>
+
+    <!-- body -->
+    <path id="body" d="M404 462Q512 452 620 462L700 576Q792 568 846 612Q880 642 882 702L884 814Q884 868 828 872H196Q140 868 140 814L142 702Q144 642 178 612Q232 568 324 576Z" fill="url(#pearl)"/>
+    <path d="M404 462Q512 452 620 462L700 576Q792 568 846 612Q880 642 882 702L884 814Q884 868 828 872H196Q140 868 140 814L142 702Q144 642 178 612Q232 568 324 576Z" fill="url(#tintL)"/>
+    <path d="M404 462Q512 452 620 462L700 576Q792 568 846 612Q880 642 882 702L884 814Q884 868 828 872H196Q140 868 140 814L142 702Q144 642 178 612Q232 568 324 576Z" fill="url(#tintR)"/>
+    <path d="M512 740Q640 760 700 872H324Q384 760 512 740Z" fill="#6E5BC8" fill-opacity="0.12"/>
+    <ellipse cx="236" cy="626" rx="70" ry="22" fill="#FFFFFF" fill-opacity="0.7" transform="rotate(-18 236 626)"/>
+    <ellipse cx="788" cy="626" rx="70" ry="22" fill="#FFFFFF" fill-opacity="0.7" transform="rotate(18 788 626)"/>
+
+    <path d="M404 462Q512 452 620 462L700 576Q792 568 846 612Q880 642 882 702L884 814Q884 868 828 872H196Q140 868 140 814L142 702Q144 642 178 612Q232 568 324 576Z" fill="url(#edge)"/>
+
+    <!-- windscreen with a reflection -->
+    <path d="M416 474Q512 466 608 474L676 572Q512 560 348 572Z" fill="url(#glass)"/>
+    <path d="M436 480Q480 476 520 477L452 566Q400 566 364 569Z" fill="#FFFFFF" fill-opacity="0.09"/>
+    <path d="M416 474Q512 466 608 474" fill="none" stroke="url(#neon)" stroke-width="5"/>
+
+    <!-- hood lines -->
+    <path d="M330 588L512 738L694 588" fill="none" stroke="url(#neon)" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M512 576V738" stroke="#FFFFFF" stroke-width="4" stroke-opacity="0.8"/>
+
+    <!-- headlights -->
+    <path d="M172 664L356 692L398 722L206 712Z" fill="url(#lamp)"/>
+    <path d="M852 664L668 692L626 722L818 712Z" fill="url(#lamp)"/>
+    <path d="M206 680L350 700" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+    <path d="M818 680L674 700" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- grille and intakes -->
+    <path d="M398 760H626L652 842H372Z" fill="#120C2C"/>
+    <g stroke="#3A2F7A" stroke-width="3">
+      <path d="M392 780H632M386 800H638M380 820H644"/>
+    </g>
+    <path d="M398 760H626L652 842H372Z" fill="none" stroke="url(#neon)" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M196 772H344L334 836H186Z" fill="#120C2C"/>
+    <path d="M828 772H680L690 836H838Z" fill="#120C2C"/>
+
+    <path d="M196 772H344L334 836H186Z" fill="none" stroke="#7BF0FF" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M828 772H680L690 836H838Z" fill="none" stroke="#FF8AD8" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M150 846H874L870 862Q866 872 850 872H174Q158 872 154 862Z" fill="#1A1440"/>
+
+    <!-- splitter -->
+    <path d="M196 872H828" stroke="url(#neon)" stroke-width="7" stroke-linecap="round"/>
+
+    <!-- pin -->
+    <path d="M512 404C470 352 396 292 396 222A116 116 0 1 1 628 222C628 292 554 352 512 404Z" fill="#FFFFFF" fill-opacity="0.14"/>
+    <path d="M512 404C470 352 396 292 396 222A116 116 0 1 1 628 222C628 292 554 352 512 404Z" fill="none" stroke="#FFFFFF" stroke-width="13" stroke-linejoin="round"/>
+    <circle cx="512" cy="220" r="50" fill="none" stroke="#FFFFFF" stroke-width="11"/>
+  </g>
+</svg>

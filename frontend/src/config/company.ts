@@ -7,8 +7,8 @@
 /** Public site origin. Mirrors SITE_ORIGIN in web-landing/src/config/company.ts. */
 const SITE_ORIGIN = 'https://poolora.vercel.app';
 
-/** Mirrors PUBLIC_EMAIL in web-landing/src/config/company.ts. See the note there. */
-const PUBLIC_EMAIL = 'hello@poolora.invalid';
+/** Mirrors PUBLIC_EMAIL in web-landing/src/config/company.ts. */
+const PUBLIC_EMAIL = 'nathimike102@gmail.com';
 
 export const COMPANY = {
   name: 'Poolora',

@@ -55,7 +55,6 @@
  * .dark {} overrides -> DarkColors object (switched via isDarkMode in AppContext)
  *
  * scrollbar-width: none -> showsVerticalScrollIndicator={false} on ScrollView
- *   Applied by default in ScreenWrapper.
  */
 
 import { MD3LightTheme, MD3DarkTheme, type MD3Theme } from 'react-native-paper';

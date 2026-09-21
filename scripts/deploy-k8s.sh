@@ -17,6 +17,20 @@ echo "→ Applying secrets and config..."
 kubectl apply -f k8s/secret.yaml
 kubectl apply -f k8s/configmap.yaml
 
+# Registry credentials for the private GHCR images. GHCR_TOKEN is a GitHub
+# personal access token with the read:packages scope.
+echo "→ Applying GHCR pull secret..."
+if [[ -n "${GHCR_USER:-}" && -n "${GHCR_TOKEN:-}" ]]; then
+  kubectl -n poolora create secret docker-registry ghcr-pull \
+    --docker-server=ghcr.io \
+    --docker-username="$GHCR_USER" \
+    --docker-password="$GHCR_TOKEN" \
+    --dry-run=client -o yaml | kubectl apply -f -
+else
+  echo "  ! GHCR_USER / GHCR_TOKEN not set; skipping. Backend and ML pods cannot pull"
+  echo "    private images until the ghcr-pull secret exists."
+fi
+
 # PVC & Resource Quota
 echo "→ Setting up storage and quotas..."
 kubectl apply -f k8s/pvc.yaml
