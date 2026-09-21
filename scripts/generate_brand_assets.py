@@ -21,15 +21,6 @@ MASTER = Image.open(ROOT / "branding" / "poolora-icon.png").convert("RGBA")
 # Corner radius of the rounded tile, as a share of its width (iOS uses ~22%).
 CORNER = 0.225
 
-# Android densities: launcher icon size and splash logo canvas size, in px.
-ANDROID_DENSITIES = {
-    "mdpi": (48, 288),
-    "hdpi": (72, 432),
-    "xhdpi": (96, 576),
-    "xxhdpi": (144, 864),
-    "xxxhdpi": (192, 1152),
-}
-
 INK = "#1A1446"
 
 
@@ -82,16 +73,6 @@ def floating(size: int, scale: float) -> Image.Image:
     out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     out.alpha_composite(art, ((size - inner) // 2, (size - inner) // 2))
     return out
-
-
-def round_icon(size: int) -> Image.Image:
-    """Circular launcher icon; the art is inset so the circle keeps the wheels."""
-    img = backdrop(size)
-    img.alpha_composite(floating(size, 0.86))
-    mask = Image.new("L", (size * 4, size * 4), 0)
-    ImageDraw.Draw(mask).ellipse((0, 0, size * 4 - 1, size * 4 - 1), fill=255)
-    img.putalpha(mask.resize((size, size), Image.LANCZOS))
-    return img
 
 
 def on_canvas(mark: Image.Image, canvas: int) -> Image.Image:
@@ -152,14 +133,6 @@ def main() -> None:
     save(on_canvas(tile(560), 1024), "frontend/assets/splash-icon.png", optimize=True)
     # Shown at up to 150pt in the app; 320px covers 2x screens
     save(tile(320), "frontend/assets/logo-mark.png", optimize=True)
-
-    # Prebuilt Android project
-    res = "android/app/src/main/res"
-    for density, (icon, splash) in ANDROID_DENSITIES.items():
-        save(tile(icon), f"{res}/mipmap-{density}/ic_launcher.webp", quality=92, method=6)
-        save(round_icon(icon), f"{res}/mipmap-{density}/ic_launcher_round.webp", quality=92, method=6)
-        save(on_canvas(tile(splash * 5 // 12), splash),
-             f"{res}/drawable-{density}/splashscreen_logo.png", optimize=True)
 
     # Marketing site (web-landing)
     save(tile(160), "web-landing/src/assets/poolora-logo.webp", quality=90, method=6)
