@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import path from 'path';
 dotenv.config();
 
 function required(key: string): string {
@@ -47,7 +48,10 @@ export const config = {
     projectId: process.env.FIREBASE_PROJECT_ID || '',
     // Region-specific Realtime Database instance URL.
     databaseUrl: process.env.FIREBASE_DATABASE_URL || '',
-    serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
+    // Resolved against the working directory so relative paths work with require() too.
+    serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH
+      ? path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
+      : '',
     // Optional: supply the service account JSON directly via env (base64 or raw JSON).
     serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '',
   },

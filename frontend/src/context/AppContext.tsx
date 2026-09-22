@@ -25,6 +25,7 @@ import {
   devLogin,
   getCurrentUserFromState,
   getCurrentUserFromBackend,
+  firebaseLoginWithBackend,
 } from "../services/authService";
 import { env } from "../config/env";
 import { PolicyModal } from "../components/PolicyModal";
@@ -73,6 +74,11 @@ interface AppContextValue extends AppState {
   setActiveTab: (tab: ActiveTab) => void;
   /** Sign out from Firebase */
   logout: () => Promise<void>;
+  /**
+   * Exchange a Firebase sign-in for a backend session. Returning users go
+   * straight into the app; 'profile' means the setup screen is still needed.
+   */
+  finishSignIn: (fbUser: FirebaseUser) => Promise<'home' | 'profile'>;
 }
 
 // ─── Context ───────────────────────────────────────────────────────────────────
@@ -262,6 +268,22 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   }, [isDarkMode, systemDark]);
 
+  // The date of birth is the last field of profile setup, so it marks the
+  // profile as done.
+  const finishSignIn = useCallback(async (fbUser: FirebaseUser) => {
+    const { user: u } = await firebaseLoginWithBackend(await fbUser.getIdToken());
+    if (!u.dateOfBirth) return 'profile' as const;
+    setUser({
+      id: u._id ?? u.id ?? "",
+      name: u.name,
+      phone: u.phone,
+      avatarUrl: u.profilePhotoUrl,
+      isVerified: u.isVerified,
+    });
+    setRole("rider");
+    return 'home' as const;
+  }, [setRole]);
+
   const switchRole = useCallback(() => {
     setRoleState((prev) => {
       const next: UserRole = prev === "rider" ? "driver" : "rider";
@@ -292,6 +314,7 @@ export function AppProvider({ children }: AppProviderProps) {
       switchRole,
       toggleDarkMode,
       logout,
+      finishSignIn,
     }),
     [
       role,
@@ -304,6 +327,7 @@ export function AppProvider({ children }: AppProviderProps) {
       switchRole,
       toggleDarkMode,
       logout,
+      finishSignIn,
       setRole,
       setUser,
       setActiveTab,

@@ -20,6 +20,7 @@ import { Icon } from '../../components/Icon';
 import { Radius, Spacing, Typography } from '../../theme';
 import { logger } from '../../utils/logger';
 import { bookingService } from '../../services/bookingService';
+import { realPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type PayRoute = RouteProp<RootStackParamList, 'Payment'>;
@@ -60,7 +61,7 @@ export function PaymentScreen() {
         currency: 'INR',
         name: 'Poolora',
         description: params.summary,
-        prefill: { name: user?.name, contact: user?.phone },
+        prefill: { name: user?.name, contact: realPhone(user?.phone) },
         theme: { color: c.primary },
       });
       setPayState('submitted');

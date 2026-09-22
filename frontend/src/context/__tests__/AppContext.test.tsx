@@ -19,6 +19,7 @@ jest.mock('../../services/authService', () => ({
   signOut: jest.fn().mockResolvedValue(undefined),
   restoreAuthState: jest.fn().mockResolvedValue(false),
   logoutAll: jest.fn().mockResolvedValue(undefined),
+  firebaseLoginWithBackend: jest.fn(),
 }));
 
 // The phone's light/dark setting, changed by the tests below.
@@ -33,7 +34,9 @@ jest.mock('react-native', () => {
 // jest.setup.js mocks AppContext for screen tests; this file tests the real one.
 jest.unmock('../AppContext');
 
+import { act } from '@testing-library/react-native';
 import { AppProvider, useApp } from '../AppContext';
+import { firebaseLoginWithBackend } from '../../services/authService';
 
 function Consumer() {
   const ctx = useApp();
@@ -70,4 +73,42 @@ test('dark mode follows the system setting while running', async () => {
     </AppProvider>,
   );
   expect(String((await findByTestId('vals')).props.children)).toMatch(/true$/);
+});
+
+describe('finishSignIn', () => {
+  let ctx: ReturnType<typeof useApp>;
+  function Capture() {
+    ctx = useApp();
+    return <Text testID="role">{String(ctx.role)}</Text>;
+  }
+  const fbUser = { getIdToken: jest.fn().mockResolvedValue('ftoken') } as any;
+
+  test('opens the app for a user who already finished setup', async () => {
+    (firebaseLoginWithBackend as jest.Mock).mockResolvedValue({
+      user: { _id: 'u1', name: 'Ghost', phone: '', isVerified: true, dateOfBirth: '2000-09-22T00:00:00.000Z' },
+    });
+    const { findByTestId } = render(<AppProvider><Capture /></AppProvider>);
+    await findByTestId('role');
+
+    let next: string | undefined;
+    await act(async () => { next = await ctx.finishSignIn(fbUser); });
+
+    expect(firebaseLoginWithBackend).toHaveBeenCalledWith('ftoken');
+    expect(next).toBe('home');
+    expect(String((await findByTestId('role')).props.children)).toBe('rider');
+  });
+
+  test('asks a user without a date of birth to finish setup', async () => {
+    (firebaseLoginWithBackend as jest.Mock).mockResolvedValue({
+      user: { _id: 'u1', name: 'Ghost', phone: '', isVerified: true },
+    });
+    const { findByTestId } = render(<AppProvider><Capture /></AppProvider>);
+    await findByTestId('role');
+
+    let next: string | undefined;
+    await act(async () => { next = await ctx.finishSignIn(fbUser); });
+
+    expect(next).toBe('profile');
+    expect(String((await findByTestId('role')).props.children)).toBe('null');
+  });
 });

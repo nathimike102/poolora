@@ -26,7 +26,10 @@ export class NotificationService {
    */
   private initializeFCM(): void {
     try {
-      if (!getApps().length) {
+      if (getApps().length) {
+        // Already initialized elsewhere (see config/firebase.ts); push needs real credentials.
+        this.fcmInitialized = !!getApps()[0].options.credential;
+      } else {
         const serviceAccountJson = config.firebase.serviceAccountJson
           ? JSON.parse(config.firebase.serviceAccountJson)
           : require(config.firebase.serviceAccountPath);

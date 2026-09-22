@@ -23,16 +23,17 @@ export class UserController {
 
   /**
    * PATCH /users/me
-   * Update the signed-in user's name and email. The phone number is verified
+   * Update the signed-in user's name, email and date of birth. The phone number is verified
    * by OTP and cannot be changed here.
    */
   static async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = (req as AuthenticatedRequest).user;
-      const { name, email } = req.body as { name?: string; email?: string | null };
+      const { name, email, dateOfBirth } = req.body as { name?: string; email?: string | null; dateOfBirth?: Date };
       const update: Record<string, unknown> = {};
       const unset: Record<string, ''> = {};
       if (name !== undefined) update.name = name;
+      if (dateOfBirth !== undefined) update.dateOfBirth = dateOfBirth;
       if (email) update.email = email;
       else if (email === null || email === '') unset.email = '';
 
@@ -40,7 +41,7 @@ export class UserController {
         userId,
         { ...(Object.keys(update).length ? { $set: update } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
         { new: true, runValidators: true },
-      ).select('name phone email profilePhotoUrl capabilities gender stats kyc.status kyc.rejectionReason createdAt');
+      ).select('name phone email dateOfBirth profilePhotoUrl capabilities gender stats kyc.status kyc.rejectionReason createdAt');
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, req.requestId);
     } catch (error) {

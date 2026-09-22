@@ -31,7 +31,7 @@ type NavProp = NativeStackNavigationProp<RootStackParamList, 'EmailLogin'>;
 
 export function EmailLoginScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c } = useApp();
+  const { c, finishSignIn } = useApp();
   const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');
@@ -52,8 +52,8 @@ export function EmailLoginScreen() {
     if (!isValid || loading) return;
     setLoading(true);
     try {
-      await signInWithEmail(email.trim(), password);
-      navigation.navigate('ProfileSetup');
+      const credential = await signInWithEmail(email.trim(), password);
+      if ((await finishSignIn(credential.user)) === 'profile') navigation.navigate('ProfileSetup');
     } catch (error) {
       Alert.alert('Login Failed', getErrorMessage(error, 'Unable to sign in.'));
     } finally {

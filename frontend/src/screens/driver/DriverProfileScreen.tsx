@@ -21,6 +21,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { userService } from '../../services/userService';
 import { ratingService } from '../../services/ratingService';
 import type { Rating, User } from '../../types/api';
+import { realPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -63,6 +64,7 @@ export function DriverProfileScreen() {
   const rides = stats?.totalRidesAsDriver ?? 0;
   const kycStatus = (profile?.kyc?.status ?? 'none') as KycStatus;
   const name = profile?.name ?? '';
+  const contact = realPhone(profile?.phone) ?? profile?.email ?? '';
   const memberSince = profile?.createdAt
     ? new Date(profile.createdAt).toLocaleDateString([], { month: 'short', year: 'numeric' })
     : null;
@@ -100,7 +102,7 @@ export function DriverProfileScreen() {
           <Pressable
             onPress={() => navigation.navigate('Settings')}
             accessibilityRole="button"
-            accessibilityLabel={`${name}, ${profile?.phone ?? ''}. Edit profile`}
+            accessibilityLabel={`${name}, ${contact}. Edit profile`}
             style={s.cardRow}
           >
             {profile?.profilePhotoUrl ? (
@@ -119,7 +121,7 @@ export function DriverProfileScreen() {
                 <Text style={[s.name, { color: c.text }]} numberOfLines={1}>{name || ' '}</Text>
                 {kycStatus === 'approved' && <Icon name="check-decagram" size={18} color={c.success} label="Verified driver" />}
               </View>
-              <Text style={[s.phone, { color: c.textSec }]}>{profile?.phone ?? ''}</Text>
+              <Text style={[s.phone, { color: c.textSec }]}>{contact}</Text>
               {memberSince && <Text style={[s.since, { color: c.textSec }]}>Driving since {memberSince}</Text>}
             </View>
             <Icon name="chevron-right" size={24} color={c.textSec} />

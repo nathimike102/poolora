@@ -22,10 +22,7 @@ import { useApp } from "../context/AppContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PooloraLogo } from "../components/PooloraLogo";
 import { Typography, Spacing, Radius, Shadow } from "../theme";
-import {
-  firebaseLoginWithBackend,
-  signInWithGoogle,
-} from "../services/authService";
+import { signInWithGoogle } from "../services/authService";
 import { logger } from "../utils/logger";
 import type { RootStackParamList } from "../navigation/types";
 
@@ -33,7 +30,7 @@ type NavProp = NativeStackNavigationProp<RootStackParamList, "Login">;
 
 export function LoginScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c } = useApp();
+  const { c, finishSignIn } = useApp();
   const insets = useSafeAreaInsets();
 
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -53,14 +50,11 @@ export function LoginScreen() {
       // First, sign in with Firebase
       const firebaseUser = await signInWithGoogle();
 
-      // Get Firebase ID token
-      const firebaseToken = await firebaseUser.user.getIdToken();
-
-      // Then, exchange Firebase token for backend JWT
-      await firebaseLoginWithBackend(firebaseToken);
+      // Then get a backend session; returning users skip profile setup
+      const next = await finishSignIn(firebaseUser.user);
 
       logger.info("Google sign-in successful");
-      navigation.navigate("ProfileSetup");
+      if (next === "profile") navigation.navigate("ProfileSetup");
     } catch (error) {
       const errorMessage = getErrorMessage(error, "Please try again");
       if (errorMessage !== "Sign-in was cancelled.") {

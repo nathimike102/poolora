@@ -1,4 +1,4 @@
-import { cert, initializeApp, type App, type ServiceAccount } from 'firebase-admin/app';
+import { cert, getApps, initializeApp, type App, type ServiceAccount } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getMessaging, type Messaging } from 'firebase-admin/messaging';
 import { config } from './index';
@@ -9,6 +9,14 @@ let firebaseApp: App | null = null;
 
 export function initializeFirebase(): void {
   if (firebaseApp) return;
+
+  // NotificationService may have already created the default app with the same credentials.
+  const existing = getApps()[0];
+  if (existing) {
+    firebaseApp = existing;
+    logger.info('Firebase Admin SDK initialized (reused existing app)');
+    return;
+  }
 
   try {
     const { serviceAccountJson, serviceAccountPath } = config.firebase as {

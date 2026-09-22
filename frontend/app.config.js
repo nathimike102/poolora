@@ -16,6 +16,7 @@ module.exports = {
     icon: './assets/icon.png',
     // Report the phone's light/dark setting to the app (Expo defaults to light).
     userInterfaceStyle: 'automatic',
+    orientation: 'portrait',
     android: {
       package: 'com.poolora.app',
       adaptiveIcon: {

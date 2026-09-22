@@ -189,7 +189,11 @@ export function ProfileSetupScreen() {
         saved = result.user;
       } else {
         // Already signed in (Google or email) but the account has no name yet
-        saved = await userService.updateMyProfile({ name: fullName, email: email || undefined });
+        saved = await userService.updateMyProfile({
+          name: fullName,
+          email: email || undefined,
+          dateOfBirth: dob?.toISOString(),
+        });
       }
 
       logger.info('Profile setup completed');

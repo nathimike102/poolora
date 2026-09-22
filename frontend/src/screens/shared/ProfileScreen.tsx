@@ -20,6 +20,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Icon, type IconName } from '../../components/Icon';
 import { COMPANY } from '../../config/company';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
+import { realPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -40,7 +41,7 @@ const HELP_ITEMS: { icon: IconName; title: string; sub: string; url: string }[] 
 /** Share of the profile that's filled in, for the ring around the avatar. */
 function completion(p: User | null): number {
   if (!p) return 0;
-  const fields = [p.name, p.phone, p.email, p.profilePhotoUrl, p.gender, (p.emergencyContacts?.length ?? 0) > 0];
+  const fields = [p.name, realPhone(p.phone), p.email, p.profilePhotoUrl, p.gender, (p.emergencyContacts?.length ?? 0) > 0];
   return fields.filter(Boolean).length / fields.length;
 }
 
@@ -68,6 +69,7 @@ export function ProfileScreen(): React.ReactElement {
   const rating = (isDriver ? stats?.avgRatingAsDriver : stats?.avgRatingAsRider) ?? 0;
   const rides = (isDriver ? stats?.totalRidesAsDriver : stats?.totalRidesAsRider) ?? 0;
   const name = profile?.name ?? '';
+  const contact = realPhone(profile?.phone) ?? profile?.email ?? '';
   const done = completion(profile);
 
   const menu: { icon: IconName; label: string; sub?: string; onPress: () => void }[] = [
@@ -99,7 +101,7 @@ export function ProfileScreen(): React.ReactElement {
           <Pressable
             onPress={() => navigation.navigate('Settings')}
             accessibilityRole="button"
-            accessibilityLabel={`${name}, ${profile?.phone ?? ''}. Edit profile`}
+            accessibilityLabel={`${name}, ${contact}. Edit profile`}
             style={st.cardRow}
           >
             <View
@@ -123,7 +125,7 @@ export function ProfileScreen(): React.ReactElement {
                 <Text style={[st.name, { color: c.text }]} numberOfLines={1}>{name || ' '}</Text>
                 {profile?.isVerified && <Icon name="check-decagram" size={18} color={c.success} label="Verified" />}
               </View>
-              <Text style={[st.phone, { color: c.textSec }]}>{profile?.phone ?? ''}</Text>
+              <Text style={[st.phone, { color: c.textSec }]}>{contact}</Text>
               {done < 1 && profile && (
                 <Text style={[st.complete, { color: c.primary }]}>Profile {Math.round(done * 100)}% complete</Text>
               )}
