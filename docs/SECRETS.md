@@ -63,10 +63,14 @@ openssl rand -base64 756 | tr -d '\n'
 | `TWILIO_ENABLED` | yes for SMS | `true` to send SMS. SOS texts to emergency contacts need this |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | if SMS on | console.twilio.com, Account Info on the dashboard |
 | `TWILIO_PHONE_NUMBER` | if SMS on | Twilio console, Phone Numbers, buy a number that can send SMS to India (DLT registration is required for Indian traffic) |
-| `GOOGLE_MAPS_API_KEY` | yes | console.cloud.google.com, APIs & Services, Credentials, Create API key. Enable Places, Geocoding and Directions. Restrict it to those APIs and to the server's IP. **Use a different key from the app's** |
+| `GOOGLE_MAPS_API_KEY` | no | Leave empty to use the free OpenStreetMap services (Photon, Nominatim, OSRM), which need no key. To use Google instead: console.cloud.google.com, APIs & Services, Credentials, Create API key; enable Places, Geocoding and Directions; restrict it to those APIs and the server's IP. With a key set, Google is used unless `MAPS_PROVIDER=osm` |
+| `MAPS_PROVIDER` | no | `osm` or `google`. Default: `google` when a Google key is set, otherwise `osm` |
+| `PHOTON_URL`, `NOMINATIM_URL`, `OSRM_URL`, `OSM_USER_AGENT` | production with OSM | The public OSM servers are for light use (Nominatim allows 1 request per second). Point these at self-hosted instances or a hosted OSM provider for real traffic. Nominatim asks for a user agent with a contact address |
+| `ENABLE_RIDE_SIMULATION` | no | `true` turns on the ride simulator (`/dev/simulate`) in production. It is on by default elsewhere |
 | `ML_SERVICE_API_KEY` | yes | Generate (above). Same value on the ML service |
 | `ML_SERVICE_URL` | no | ML service address. Default `http://poolora-ml:8000` |
 | `KAFKA_BROKERS`, `KAFKA_CLIENT_ID` | no | Your Kafka brokers, comma-separated |
+| `KAFKA_ENABLED` | no | `false` runs without Kafka and stops the reconnect attempts. Events are then handled in-process, so notifications still go out |
 | `ELASTICSEARCH_URL` | no | Default `http://localhost:9200` |
 | `CORS_ORIGIN` | yes | Comma-separated list of allowed origins. Never `*` in production |
 | `PLATFORM_FEE_RATE` | no | Business setting, default `0.15` |
@@ -93,7 +97,7 @@ openssl rand -base64 756 | tr -d '\n'
 |---|---|---|
 | `REACT_NATIVE_API_BASE_URL` | yes | Backend URL. `http://<your LAN IP>:5002` for a physical device in development |
 | `REACT_NATIVE_API_TIMEOUT` | no | Milliseconds, default `30000` |
-| `GOOGLE_MAPS_API_KEY` | yes | Google Cloud, a **separate** key with Maps SDK for Android and Maps SDK for iOS enabled. Restrict it to package `com.poolora.app` with your signing certificate SHA-1, and to the iOS bundle id |
+| `MAP_STYLE_LIGHT`, `MAP_STYLE_DARK` | no | Map style URLs. Default: OpenFreeMap's liberty and dark styles, which need no key. The app no longer uses a Google Maps key |
 | `EAS_PROJECT_ID` | for EAS builds | expo.dev, your project, Project ID. Or run `eas init` |
 | `SENTRY_DSN` | no | sentry.io, a React Native project, Client Keys |
 | `FIREBASE_DATABASE_URL` | yes | Firebase console, Realtime Database. Region-specific instance URL |
@@ -104,8 +108,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `GoogleService-Info.plist` | for iOS | The same place, for the iOS app. Not yet referenced in `app.config.js`; add it when you set up iOS |
 
 Getting the SHA-1: `cd frontend/android && ./gradlew signingReport` for local
-builds, or `eas credentials` for EAS-managed keys. Add it in Firebase and in the
-Maps key restriction.
+builds, or `eas credentials` for EAS-managed keys. Add it in Firebase.
 
 ## Website (`web-landing/.env`, Vercel environment variables)
 

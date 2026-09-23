@@ -1,6 +1,9 @@
 # Security Specifications & Compliance
 
-## Smart Scheduled Car Pooling Platform - Security & Compliance Framework
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and an admin area inside the mobile app rather than a separate web dashboard.
+
+
+## Poolora - Security & Compliance Framework
 
 **Classification**: Confidential  
 **Version**: 1.0
@@ -704,13 +707,13 @@ CMD ["node", "dist/index.js"]
 
 ```
 ✅ Don't Store Full Card Numbers
-   - Only store Stripe payment tokens (Razorpay for production)
+   - Only store Razorpay order and payment ids
    - Example: "pay_29QQoWBxaMR65N"
    - Never store: visa card numbers, CVV, expiration
 
 ✅ Secure Transmission
    - TLS 1.2 minimum for all payment data
-   - PCI-compliant payment processor (Stripe Test Mode / Razorpay for production)
+   - PCI-compliant payment processor (Razorpay, with test keys in development)
    - No payment data in server logs
 
 ✅ Access Control
@@ -1072,7 +1075,7 @@ Response Time: Within 1 day
 ### 11.1 Third-Party Risk Management
 
 ```
-Stripe (Razorpay for Production):
+Razorpay:
 - PCI DSS compliant
 - SOC 2 certified
 - Annual security audit

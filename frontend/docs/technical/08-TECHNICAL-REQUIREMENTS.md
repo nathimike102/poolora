@@ -1,6 +1,9 @@
 # Technical Requirements & Stack
 
-## Smart Scheduled Car Pooling Platform - Technical Requirements
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and an admin area inside the mobile app rather than a separate web dashboard.
+
+
+## Poolora - Technical Requirements
 
 ---
 
@@ -17,7 +20,7 @@
 | Navigation (Mobile)    | React Navigation                              | 6.0+    | Mobile navigation          |
 | UI Components (Mobile) | React Native Paper                            | 5.0+    | Material Design components |
 | UI Components (Web)    | Material-UI                                   | 5.14+   | Web UI components          |
-| Maps                   | Mapbox Free Tier (Google Maps for production) | Latest  | Location services          |
+| Maps                   | OpenStreetMap (MapLibre tiles; Photon, Nominatim and OSRM), with Google Maps optional | Latest  | Location services          |
 | Forms                  | React Hook Form                               | 7.45+   | Form handling              |
 | Validation             | Yup                                           | 1.2+    | Schema validation          |
 | Testing                | Jest                                          | 29.5+   | Unit testing               |
@@ -112,10 +115,10 @@ trip-events         → trip.created, trip.expense_added, trip.settlement_calcul
 
 | Service            | Provider                                   | Purpose               |
 | ------------------ | ------------------------------------------ | --------------------- |
-| Payment Processing | Stripe Test Mode (Razorpay for production) | Payment gateway       |
+| Payment Processing | Razorpay (test keys in development) | Payment gateway       |
 | Maps               | Google Maps API                            | Location services     |
 | SMS Gateway        | Twilio                                     | SMS notifications     |
-| Email Service      | SendGrid                                   | Email notifications   |
+| Email Service      | Not chosen yet                             | Email notifications   |
 | Push Notifications | Firebase                                   | Push notifications    |
 | Authentication     | Firebase Auth                              | Optional auth service |
 | Video Streaming    | Agora / Twilio                             | Optional video calls  |
@@ -209,9 +212,9 @@ trip-events         → trip.created, trip.expense_added, trip.settlement_calcul
 
 ---
 
-## 2. Docker Containerization Strategy
+## 5. Docker Containerization Strategy
 
-### 2.1 Docker Architecture
+### 5.1 Docker Architecture
 
 **Benefits**:
 
@@ -257,9 +260,9 @@ CMD ["node", "dist/index.js"]
 
 ---
 
-## 3. Kubernetes Orchestration
+## 6. Kubernetes Orchestration
 
-### 3.1 Kubernetes Cluster Architecture
+### 6.1 Kubernetes Cluster Architecture
 
 **High Availability Setup**:
 
@@ -282,7 +285,7 @@ Kubernetes Cluster (Production)
 └── Storage Classes (EBS, EFS)
 ```
 
-### 3.2 Kubernetes Deployment Patterns
+### 6.2 Kubernetes Deployment Patterns
 
 **Deployment Configuration Example**:
 
@@ -412,7 +415,7 @@ spec:
           value: 100
 ```
 
-### 3.3 Kubernetes Core Components
+### 6.3 Kubernetes Core Components
 
 **Services Configuration**:
 
@@ -483,7 +486,7 @@ stringData:
   stripe-key: your-stripe-api-key # For production: razorpay-key
 ```
 
-### 3.4 Networking
+### 6.4 Networking
 
 **Ingress Configuration**:
 
@@ -556,7 +559,7 @@ spec:
               app: api-gateway
 ```
 
-### 3.5 Storage & Persistence
+### 6.5 Storage & Persistence
 
 **Persistent Volumes** (databases, caches):
 
@@ -587,7 +590,7 @@ spec:
       storage: 500Gi
 ```
 
-### 3.6 Monitoring & Logging in Kubernetes
+### 6.6 Monitoring & Logging in Kubernetes
 
 **Prometheus/Grafana Integration**:
 
@@ -629,7 +632,7 @@ data:
 
 ---
 
-## 4. Docker & Kubernetes Deployment Summary
+## 7. Docker & Kubernetes Deployment Summary
 
 | Aspect                     | Details                                               |
 | -------------------------- | ----------------------------------------------------- |
@@ -644,9 +647,9 @@ data:
 
 ---
 
-## 5. Quality Metrics
+## 8. Database Configuration
 
-### 5.1 MongoDB Configuration
+### 8.1 MongoDB Configuration
 
 ```
 - Replica Set: 3+ nodes
@@ -657,7 +660,7 @@ data:
 - Authentication: SCRAM-SHA-256
 ```
 
-### 5.2 Redis Configuration
+### 8.2 Redis Configuration
 
 ```
 - Cluster: 6+ nodes
@@ -669,9 +672,9 @@ data:
 
 ---
 
-## 6. Integration Requirements
+## 9. Integration Requirements
 
-### 6.1 Stripe Integration (Razorpay for Production)
+### 9.1 Razorpay Integration
 
 - **API Version**: Latest stable
 - **Webhooks**: Fully implemented
@@ -679,14 +682,14 @@ data:
 - **Retry**: Exponential backoff
 - **Error Handling**: All error codes handled
 
-### 6.2 Google Maps Integration
+### 9.2 Maps Integration
 
-- **APIs**: Geocoding, Directions, Places, Distance Matrix
-- **Rate Limits**: Monitored & optimized
-- **Caching**: Results cached for 24 hours
-- **Fallback**: Alternative routing algorithm
+- **Default (`MAPS_PROVIDER=osm`)**: Photon for place suggestions, Nominatim for addresses, OSRM for routes and distances; OpenFreeMap vector tiles drawn by MapLibre in the app. No key needed
+- **Optional (`MAPS_PROVIDER=google`)**: Places, Geocoding and Directions with `GOOGLE_MAPS_API_KEY`
+- **Caching**: Results cached in Redis
+- **Production**: The public Nominatim and OSRM servers are for light use; self-host them or use a hosted OSM provider (`PHOTON_URL`, `NOMINATIM_URL`, `OSRM_URL`)
 
-### 6.3 Firebase Integration
+### 9.3 Firebase Integration
 
 - **Services**: Auth, Messaging, Realtime Database
 - **Configuration**: Per environment
@@ -695,9 +698,9 @@ data:
 
 ---
 
-## 7. Deployment Requirements
+## 10. Deployment Requirements
 
-### 7.1 CI/CD Pipeline
+### 10.1 CI/CD Pipeline
 
 ```
 Code Push
@@ -719,7 +722,7 @@ Manual Approval
 Deploy to Production
 ```
 
-### 7.2 Deployment Checklist
+### 10.2 Deployment Checklist
 
 - [ ] All tests passing
 - [ ] Code coverage >80%
@@ -731,9 +734,9 @@ Deploy to Production
 
 ---
 
-## 8. Monitoring & Logging
+## 11. Monitoring & Logging
 
-### 8.1 Key Metrics
+### 11.1 Key Metrics
 
 ```
 Application:
@@ -758,14 +761,14 @@ Infrastructure:
   - Container health
 ```
 
-### 8.2 Alerts
+### 11.2 Alerts
 
 - **Critical**: Page on-call immediately
 - **High**: Notify team, need resolution within 1 hour
 - **Medium**: Notify team, resolution within 4 hours
 - **Low**: Log for review
 
-### 8.3 Logging
+### 11.3 Logging
 
 - **Level**: DEBUG to FATAL
 - **Format**: Structured JSON
@@ -775,9 +778,9 @@ Infrastructure:
 
 ---
 
-## 9. Documentation Requirements
+## 12. Documentation Requirements
 
-### 9.1 Code Documentation
+### 12.1 Code Documentation
 
 - JSDoc comments for all functions
 - README for each module
@@ -785,7 +788,7 @@ Infrastructure:
 - API documentation (Swagger)
 - Database schema documentation
 
-### 9.2 Operational Documentation
+### 12.2 Operational Documentation
 
 - Runbooks for common issues
 - Incident response procedures
@@ -795,9 +798,9 @@ Infrastructure:
 
 ---
 
-## 10. Dependencies & Libraries
+## 13. Dependencies & Libraries
 
-### 10.1 Core Dependencies
+### 13.1 Core Dependencies
 
 ```json
 {
@@ -823,16 +826,16 @@ Infrastructure:
 
 ---
 
-## 11. Quality Metrics
+## 14. Quality Metrics
 
-### 11.1 Code Quality
+### 14.1 Code Quality
 
 - **Code Coverage**: Minimum 80%
 - **Cyclomatic Complexity**: Maximum 10
 - **Code Duplication**: <3%
 - **Technical Debt Ratio**: <5%
 
-### 11.2 Testing
+### 14.2 Testing
 
 - **Unit Tests**: 1 test per function
 - **Integration Tests**: Critical paths covered
@@ -841,16 +844,16 @@ Infrastructure:
 
 ---
 
-## 12. Development Workflow
+## 15. Development Workflow
 
-### 12.1 Git Workflow
+### 15.1 Git Workflow
 
 - **Branching**: Feature branches from develop
 - **Naming**: feature/feature-name, bugfix/bug-name
 - **PR Review**: Minimum 2 approvals
 - **Merge Strategy**: Squash merge to main
 
-### 12.2 Code Standards
+### 15.2 Code Standards
 
 - **Linting**: ESLint with strict rules
 - **Formatting**: Prettier with auto-fix

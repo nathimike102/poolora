@@ -1,6 +1,9 @@
 # Use Cases Document
 
-## Smart Scheduled Car Pooling Platform
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and an admin area inside the mobile app rather than a separate web dashboard.
+
+
+## Poolora
 
 ---
 
@@ -20,9 +23,9 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 ### 2.2 Secondary Actors
 
-- **Payment Gateway**: Stripe Test Mode (Razorpay for production)
-- **Map Service**: Mapbox Free Tier (Google Maps for production)
-- **Notification Service**: Firebase FCM, Firebase Phone Auth (Twilio for production), Mailgun
+- **Payment Gateway**: Razorpay (test keys in development)
+- **Map Service**: OpenStreetMap (MapLibre tiles; Photon, Nominatim and OSRM), with Google Maps optional
+- **Notification Service**: Firebase Cloud Messaging and Phone Auth, Twilio SMS for SOS alerts; no email provider yet
 - **AI/ML Service**: Intelligent matching and fraud detection system
 
 ---
@@ -159,9 +162,9 @@ This document outlines detailed use cases for the car pooling platform, covering
    - UPI
    - Wallet
    - Net banking
-5. System initiates Stripe payment (Razorpay for production)
-6. User completes payment on Stripe gateway (Razorpay for production)
-7. Stripe sends payment confirmation (Razorpay for production)
+5. System opens Razorpay Checkout
+6. User completes payment on Razorpay
+7. Razorpay sends the payment result by signed webhook
 8. System verifies payment
 9. System updates booking status to "Confirmed"
 10. System sends confirmation to user and driver
@@ -192,7 +195,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 1. User opens active ride details
 2. System displays map view with:
-   - Driver's current location (updated every 10 seconds)
+   - Driver's current location (updated every 5 seconds)
    - Rider's current location
    - Planned route
    - ETA to pickup
@@ -214,7 +217,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 **Business Rules**:
 
-- Location updates every 10 seconds during active ride
+- Location updates every 5 seconds during active ride
 - Route deviation alert if >500m off planned route
 - Automatic check-in prompts every 30 minutes for safety
 
@@ -513,7 +516,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 **Extensions**:
 
 - 6a. Surge pricing active: System shows +20-50% pricing
-- 10a. Route too long (>500km): System shows warning
+- 10a. Route longer than 300km: System refuses the ride and explains the limit
 - 11a. Driver has <3.5 rating: Ride requires admin approval
 
 **Business Rules**:
@@ -661,7 +664,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 **Business Rules**:
 
-- Location updates every 10 seconds
+- Location updates every 5 seconds
 - Route deviation tolerance: 500m
 - Alternative routes suggested if saves >10 minutes
 - Navigation data stored for dispute resolution
@@ -1603,9 +1606,9 @@ This document outlines detailed use cases for the car pooling platform, covering
 └─────────────────────────────────────────────────────────────────┘
 
 External Systems:
-- Payment Gateway (Stripe Test Mode / Razorpay for production)
+- Payment Gateway (Razorpay, with test keys in development)
 - Maps API (Google Maps)
-- Notification Service (Firebase, Twilio, SendGrid)
+- Notification Service (Firebase, Twilio)
 - AI/ML Service (Matching, Fraud Detection, Demand Prediction)
 ```
 
@@ -1660,7 +1663,7 @@ External Systems:
 
 ---
 
-## 19. Phase 4 Use Cases - Parcel Pooling Module
+## 10. Phase 4 Use Cases - Parcel Pooling Module
 
 ### UC-P01: Post Parcel for Shipping
 
@@ -1770,7 +1773,7 @@ External Systems:
 
 ---
 
-## 20. Phase 4 Use Cases - Trip Pooling Module
+## 11. Phase 4 Use Cases - Trip Pooling Module
 
 ### UC-T01: Create Trip Plan
 
@@ -1907,7 +1910,7 @@ Settlement: Bob owes Alice ₹1,000, Carol owes Alice ₹1,000
 
 ---
 
-## 21. Parcel & Trip Pooling Service Level Agreements
+## 12. Parcel & Trip Pooling Service Level Agreements
 
 ### Parcel Service SLAs
 

@@ -1,6 +1,9 @@
 # Database Schemas
 
-## Smart Scheduled Car Pooling Platform - Database Schema Design
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and an admin area inside the mobile app rather than a separate web dashboard.
+
+
+## Poolora - Database Schema Design
 
 ---
 

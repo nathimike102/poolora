@@ -1,6 +1,9 @@
 # Testing Strategy & Quality Assurance
 
-## Smart Scheduled Car Pooling Platform - Comprehensive Testing Framework
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and an admin area inside the mobile app rather than a separate web dashboard.
+
+
+## Poolora - Comprehensive Testing Framework
 
 **Classification**: Internal  
 **Version**: 1.0
@@ -143,7 +146,7 @@ describe("UserService", () => {
 ```javascript
 // Mock external dependencies
 jest.mock("../services/NotificationService");
-jest.mock("../integrations/StripeAPI"); // Or RazorpayAPI for production
+jest.mock("../integrations/RazorpayAPI");
 
 describe("PaymentService", () => {
   let paymentService;
@@ -177,7 +180,7 @@ describe("PaymentService", () => {
   });
 
   it("should log error on payment failure", async () => {
-    mockStripe.capturePayment.mockRejectedValue(
+    mockRazorpay.capturePayment.mockRejectedValue(
       new Error("Payment gateway unavailable"),
     );
 
@@ -1164,7 +1167,7 @@ OVERALL: ✅ PASS (1,587 tests, 99.8% pass rate)
 Recent Test Failures (Last 7 Days):
 
 2026-02-26: payment-service integration test
-  Issue: Stripe API timeout (Razorpay for production)
+  Issue: Razorpay API timeout
   Root Cause: API rate limiting
   Fix: Increase retry backoff
   Status: Resolved
@@ -1225,7 +1228,7 @@ Trend Analysis:
 
 ## 11. Summary
 
-This comprehensive testing strategy ensures the Smart Scheduled Car Pooling Platform meets the highest quality standards through:
+This comprehensive testing strategy ensures the Poolora meets the highest quality standards through:
 
 **Multi-layered Testing Approach:**
 

@@ -1,4 +1,7 @@
-# Smart Scheduled Car Pooling Platform - Project Plan
+# Poolora - Project Plan
+
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and an admin area inside the mobile app rather than a separate web dashboard.
+
 
 ## "Share Seats. Save Costs. Travel Smarter"
 
@@ -28,7 +31,7 @@ Empower commuters with a reliable, secure, and intelligent car-pooling solution 
 - Create a web-based admin dashboard for platform management
 - Implement AI-powered intelligent ride matching and recommendations
 - Ensure robust security and safety features, especially for vulnerable users
-- Integrate payment gateway (Stripe Test Mode / Razorpay for production) and real-time notifications (Firebase)
+- Integrate payment gateway (Razorpay, with test keys in development) and real-time notifications (Firebase)
 - Real-time GPS tracking and route optimization
 
 ### 2.2 Success Metrics
@@ -70,7 +73,7 @@ Empower commuters with a reliable, secure, and intelligent car-pooling solution 
 - Carbon footprint tracking (Phase 2)
 - Loyalty/rewards program (Phase 2)
 - Video calling feature (Phase 3)
-- Parcel Pooling module (Phase 2)
+- Parcel Pooling module (Phase 4)
 - Similar to car pooling but for shipping parcels
 - Send parcels with other travelers on the same route
 - Parcel tracking and insurance
@@ -98,7 +101,7 @@ Empower commuters with a reliable, secure, and intelligent car-pooling solution 
 ### 4.2 External Stakeholders
 
 - End Users: Drivers, Riders
-- Payment Gateway Provider: Stripe Test Mode (Razorpay for production)
+- Payment Gateway Provider: Razorpay (test keys in development)
 - Map Service Provider: Google Maps
 - Cloud Service Provider: AWS/GCP
 - Legal/Compliance Team
@@ -134,7 +137,7 @@ Empower commuters with a reliable, secure, and intelligent car-pooling solution 
 
 **Sprint 5-6 : Payment & Notifications**
 
-- Stripe integration (Razorpay for production)
+- Razorpay integration
 - Payment flow (booking, refunds)
 - Firebase push notifications
 - Email notifications
@@ -251,11 +254,11 @@ Empower commuters with a reliable, secure, and intelligent car-pooling solution 
 ### 6.3 Third-Party Services
 
 - Google Maps API (Standard plan)
-- Mapbox Free Tier (Google Maps for production)
-- Stripe Test Mode (Razorpay for production)
+- OpenStreetMap (MapLibre tiles; Photon, Nominatim and OSRM), with Google Maps optional
+- Razorpay (test keys in development)
 - Firebase Cloud Messaging
 - Twilio for SMS OTP
-- SendGrid for email notifications
+- Email notifications: provider not chosen yet
 
 ---
 
@@ -533,7 +536,7 @@ Empower commuters with a reliable, secure, and intelligent car-pooling solution 
 **Reusable Components from Phase 1**:
 
 - User authentication & verification system
-- Payment processing (Stripe Test Mode / Razorpay for production)
+- Payment processing (Razorpay, with test keys in development)
 - In-app messaging (chat system)
 - Rating & review system
 - Location services (Google Maps)

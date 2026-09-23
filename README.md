@@ -83,10 +83,12 @@ Poolora is a cloud-native AI-powered mobility platform built to address these ch
 - ✅ **Geospatial Optimisation** — VRP/TSP algorithms minimising detours and fuel consumption
 - ✅ **Safety-First Infrastructure** — Emergency SOS systems, live tracking, women-only rides
 - ✅ **Secure Payments** — Razorpay integration with AES-256 encryption
-- ✅ **Scalable Architecture** — Microservices with Kafka event streaming, Redis caching, Elasticsearch
-- ✅ **Production-Ready Deployment** — Docker Compose, GitHub Actions CI/CD, EC2 deployment
+- ✅ **Scalable Architecture** — Node.js API with Kafka events, Redis caching and Socket.IO, plus a Python ML service
+- ✅ **Production-Ready Deployment** — Docker Compose or Kubernetes, GitHub Actions CI/CD
 
-### Supported at Scale
+### Design Targets
+
+These are the targets the architecture is built for, not measured results.
 
 - 50K+ concurrent users with sub-300ms API response times
 - Sub-100ms WebSocket latency for real-time tracking and SOS events
@@ -292,27 +294,26 @@ The SOS layer is designed as an event-driven monitoring system, not just a panic
 | DevOps            | Docker Compose, GitHub Actions CI/CD, EC2          |
 | Cloud Storage     | AWS S3                                             |
 
-### Microservices Architecture
+### How It Fits Together
+
+The backend is one Node.js service, organised by domain (auth, rides, bookings, payments, safety, notifications, wallet, maps). The ML features live in a separate Python service that the backend calls over HTTP.
 
 ```
-React Native App
-      ↓
-NGINX API Gateway
-      ↓
-├─ Auth Service          → Firebase OTP, JWT, Redis Session Store
-├─ Ride Service          → AI Matching Engine, Geospatial Optimisation
-├─ Payment Service       → Razorpay, Secure Payments
-├─ Safety Service        → SOS Monitoring, Emergency Dashboard, escalation engine
-├─ Notification Service  → Push, Email, SMS
-└─ Analytics Service     → Demand Prediction, Fraud Detection
-      ↓
-Kafka Event Bus (Pub/Sub)
-      ↓
-├─ MongoDB 7.0           → User, Ride, Payment data
-├─ Redis 7.2             → Sessions, Cache, Real-time state
-├─ Elasticsearch 8.11    → Search, Analytics
-└─ AI Microservices      → Matching, Routing, Fraud Detection
+React Native App ──HTTP/Socket.IO──► NGINX / Kubernetes ingress
+                                          │
+                                          ▼
+                             Node.js API (Express + Socket.IO)
+            ┌───────────────┬─────────────┼──────────────┬─────────────────┐
+            ▼               ▼             ▼              ▼                 ▼
+        MongoDB 7        Redis 7      Kafka (optional)  ML service     External services
+     rides, users,    cache, rate    events that drive  (FastAPI):     Razorpay, Firebase,
+     bookings,        limits, locks, push notifications route order,   Twilio, S3,
+     payments         socket fan-out                    fraud, demand  OpenStreetMap / Google
 ```
+
+- **Booking sweeper:** a job inside the API that runs every minute. It cancels unpaid requests after 15 minutes, expires unanswered ones after 6 hours, and cancels rides nobody booked an hour before departure.
+- **Kafka is optional:** Without Kafka the API still works: events are handled in-process, so notifications still go out. The API keeps retrying Kafka in the background and switches to it once it is up; set `KAFKA_ENABLED=false` to run without it on purpose.
+- **Elasticsearch** is provisioned by Docker Compose and Kubernetes but not used by the backend yet.
 
 ---
 
@@ -332,6 +333,7 @@ Kafka Event Bus (Pub/Sub)
 | Authentication    | JWT + Firebase Admin SDK 13          |
 | Cloud Storage     | AWS S3 SDK v3                        |
 | Payments          | Razorpay                             |
+| Maps              | OpenStreetMap (Photon, Nominatim, OSRM) or Google |
 | Logging           | Winston                              |
 | Testing           | Jest 30 + Supertest                  |
 
@@ -339,16 +341,17 @@ Kafka Event Bus (Pub/Sub)
 
 | Component        | Technology                                |
 | ---------------- | ----------------------------------------- |
-| Framework        | React Native (Expo ~55.0)                 |
-| Language         | TypeScript 5.9                            |
-| Navigation       | React Navigation 6 (Native Stack)         |
+| Framework        | React Native 0.86 (Expo 57)               |
+| Language         | TypeScript 6.0                            |
+| Navigation       | React Navigation 7 (Native Stack)         |
 | UI Library       | React Native Paper (Material Design 3)    |
 | State Management | Context API                               |
+| Maps             | MapLibre with OpenFreeMap tiles (no key)  |
 | SVG Rendering    | react-native-svg                          |
 | Animations       | Reanimated 4 + Animated API               |
 | Gesture Handling | react-native-gesture-handler              |
 | Safe Area        | react-native-safe-area-context            |
-| Testing          | Jest + jest-expo (90% coverage threshold) |
+| Testing          | Jest + jest-expo                          |
 
 ---
 
@@ -365,20 +368,22 @@ poolora/
 │   │   ├── models/                   # Mongoose schemas
 │   │   ├── routes/                   # Express routes
 │   │   ├── middlewares/              # Custom middleware
-│   │   ├── events/                   # Socket.IO & Kafka handlers
+│   │   ├── events/                   # Kafka event bridge and consumers
+│   │   ├── jobs/                     # Booking sweeper (timeouts, expiry, empty rides)
+│   │   ├── sockets/                  # Socket.IO gateway (tracking, chat, SOS)
 │   │   ├── config/                   # Configuration files
 │   │   ├── validators/               # Input validation (Joi)
 │   │   ├── types/                    # TypeScript types
-│   │   └── utils/                    # Utility functions
-│   ├── tests/                        # Jest test files
+│   │   ├── utils/                    # Utility functions
+│   │   └── __tests__/                # Jest tests
 │   ├── scripts/                      # Utility scripts
-│   ├── frontend-tester/              # Frontend integration tests
+│   ├── frontend-tester/              # Browser page for trying the API (served at /tester in development)
 │   ├── secrets/                      # Firebase service account (gitignored)
 │   ├── jest.config.ts
 │   ├── tsconfig.json
 │   ├── package.json
 │   ├── Dockerfile                    # Multi-stage Node.js 20 Alpine build
-│   ├── docker-compose.yml            # Full stack: app + mongo + redis + kafka + elasticsearch
+│   ├── docker-compose.yml            # Full stack: API, ML, MongoDB, Redis, Kafka, Elasticsearch, Prometheus, Grafana
 │   └── .env.example                  # Environment variable template
 │
 ├── frontend/                         # React Native mobile app
@@ -407,14 +412,20 @@ poolora/
 │   ├── android/                      # Generated by `expo run:android` (not committed)
 │   ├── app.config.js                 # Expo dynamic config
 │   ├── metro.config.js
-│   ├── jest.config.js                # 90% coverage threshold
+│   ├── jest.config.js
 │   ├── tsconfig.json
 │   ├── eas.json                      # EAS Build config (dev/preview/production)
+│   ├── docs/                         # Design, use cases, API spec, gap analysis
 │   └── package.json
+│
+├── ml-service/                       # Python FastAPI ML service
+├── web-landing/                      # Marketing website (Vite, deployed on Vercel)
+├── k8s/                              # Kubernetes manifests
+├── docs/SECRETS.md                   # Every key and where it goes
 │
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                    # GitHub Actions CI (lint, typecheck, test, build)
+│       └── ci.yml                    # CI (lint, typecheck, test, build, audit) and deploy
 ├── package.json                      # Root npm workspace config
 └── README.md
 ```
@@ -435,7 +446,7 @@ poolora/
 
 - MongoDB 7.0
 - Redis 7.2
-- Kafka (Confluent 7.5) + Zookeeper
+- Kafka (Confluent 7.5), optional
 - Elasticsearch 8.11
 
 **Frontend:**
@@ -478,11 +489,14 @@ The backend ships with a full `docker-compose.yml` that spins up all infrastruct
 | Service         | Image                             | Port (localhost only) |
 | --------------- | --------------------------------- | --------------------- |
 | `app`           | Custom Node.js 20 Alpine build    | `127.0.0.1:5002`      |
+| `ml-engine`     | Built from `ml-service/`          | `127.0.0.1:8000`      |
 | `mongo`         | `mongo:7.0`                       | `127.0.0.1:27018`     |
 | `redis`         | `redis:7.2-alpine`                | `127.0.0.1:6379`      |
 | `zookeeper`     | `confluentinc/cp-zookeeper:7.5.0` | internal              |
 | `kafka`         | `confluentinc/cp-kafka:7.5.0`     | `127.0.0.1:9092`      |
 | `elasticsearch` | `elasticsearch:8.11.1`            | `127.0.0.1:9200`      |
+| `prometheus`    | `prom/prometheus:v2.51.0`         | `127.0.0.1:9090`      |
+| `grafana`       | `grafana/grafana:10.4.1`          | `127.0.0.1:3001`      |
 
 > All ports are bound to `127.0.0.1` only — never exposed to the public internet. Put NGINX in front for TLS termination.
 
@@ -493,7 +507,7 @@ cd backend
 
 # 1. Copy and configure environment variables
 cp .env.example .env
-# Fill in MONGO_USER, MONGO_PASS, REDIS_PASSWORD, JWT secrets, etc.
+# Fill in MONGO_USER, MONGO_PASS, REDIS_PASSWORD, JWT secrets, GRAFANA_ADMIN_PASSWORD, etc.
 
 # 2. Place your Firebase service account JSON
 mkdir -p secrets
@@ -525,191 +539,61 @@ docker run -p 127.0.0.1:5002:5002 --env-file .env poolora-backend
 
 The backend uses a **multi-stage build**:
 
-1. **Builder stage** (`node:20-alpine`) — installs all deps, compiles TypeScript
-2. **Runner stage** (`node:20-alpine`) — copies only compiled `dist/` and production deps, runs as non-root user `nodejs` (UID 1001)
+1. **Builder stage** (`node:20-alpine`): installs all dependencies and compiles TypeScript
+2. **Runner stage** (`node:20-alpine`): installs production dependencies only, copies `dist/`, and runs as the non-root user `nodejs` (UID 1001) with a `/health` check and a 400 MB heap cap
 
-```dockerfile
-# Stage 1: Builder
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production && npm ci
-COPY . .
-RUN npm run build
-
-# Stage 2: Runtime
-FROM node:20-alpine
-WORKDIR /app
-RUN addgroup -g 1001 nodejs && adduser -S nodejs -u 1001
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-USER nodejs
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD wget -qO- http://localhost:5002/health || exit 1
-
-# Memory-capped startup
-CMD ["node", "--max-old-space-size=400", "dist/server.js"]
-```
+See `backend/Dockerfile`.
 
 ### Docker Volumes & Networking
 
 **Volumes:**
 
-- `mongo_data` — MongoDB persistent storage
-- `redis_data` — Redis cache persistence
-- `kafka_data` — Kafka broker logs
+- `mongo-data`, `redis-data`, `kafka-data`, `zookeeper-data`, `zookeeper-logs`, `es-data`, `prometheus-data`, `grafana-data`
 
 **Networks:**
 
-- `poolora-network` — Internal Docker network (bridge mode) for service-to-service communication
+- `mobility-net`: internal bridge network for service-to-service traffic
 
-**Resource Limits per Container:**
-
-- Memory: 512 MB
-- CPU: 1 core (shared)
-- JSON logs: 50 MB per file, 5 files max
+**Limits:** the API is capped at 512 MB and the ML service at 1 GB. Container logs rotate by size.
 
 ---
 
 ## 🤖 ML Algorithms & Optimisation
 
-Poolora leverages multiple ML and optimization algorithms to power its matching and routing engine.
+What runs today. The algorithms named in the PRD (Prophet, isolation forests, VRP solvers) are future work.
 
-### 1. **Ride Matching Engine**
+| Feature | Where | How it works today |
+|---|---|---|
+| Ride matching | Backend, `MatchingEngineClient` | Weighted score: pickup distance to the ride's start 40%, departure-time match 30%, driver rating 15%, acceptance rate 10%, low cancellation rate 5%. Used to rank search results |
+| Pickup order | ML service, `POST /api/optimize-route` | Nearest-neighbour ordering over a haversine distance matrix |
+| Fraud checks | ML service, `POST /api/fraud-check` | Rule-based risk score from cancellations, payment failures, IP risk, booking velocity, account age and location spoofing. Runs after a failed payment |
+| Demand prediction | ML service, `POST /api/predict-demand` | Historical average adjusted for hour, weekday, weather and holidays, with a surge multiplier up to 2.5×. Deterministic. Shown to drivers; it does not change fares yet |
+| Routing | Backend, `MapsService` | OSRM on OpenStreetMap, or Google Directions when configured |
 
-**Algorithm:** Weighted Multi-Criteria Matching
-
-- Scores compatibility between riders and drivers based on:
-  - Route similarity (pickup/dropoff location distance)
-  - Scheduled time overlap (flexible time windows)
-  - User ratings and trust scores
-  - Vehicle preferences (AC, luggage, women-only)
-  - Price compatibility
-
-**Implementation:**
-
-```javascript
-const compatibilityScore =
-  (0.4 × routeScore) +
-  (0.25 × timeScore) +
-  (0.2 × ratingScore) +
-  (0.1 × preferencesScore) +
-  (0.05 × priceScore)
-```
-
-Matches with score > 0.75 are suggested to users.
-
-### 2. **Vehicle Routing Problem (VRP) Solver**
-
-**Algorithm:** Modified Nearest-Neighbor with 2-opt Optimization
-
-- Optimizes pickup/dropoff sequencing for multi-passenger rides
-- Minimizes total travel distance and time
-- Respects time windows and vehicle capacity constraints
-
-**Key Features:**
-
-- Handles up to 50 stops per route
-- Sub-second optimization for real-time use cases
-- Dynamically adjusts when new passengers join
-
-### 3. **Travelling Salesman Problem (TSP) Solver**
-
-**Algorithm:** Christofides Algorithm Approximation
-
-- Finds near-optimal route for driver pickup sequencing
-- Guarantees solution within 1.5× optimal
-- Uses Haversine distance for geospatial calculations
-
-### 4. **Demand Forecasting**
-
-**Algorithm:** ARIMA + Facebook Prophet
-
-- Predicts ride demand for next 24–72 hours by region
-- Enables driver surge pricing and incentives
-- Factors in historical patterns, events, weather, holidays
-
-**Data Points:**
-
-- Temporal patterns (hour, day, week, season)
-- Weather conditions (temperature, precipitation)
-- Local events and holidays
-- Traffic conditions
-
-### 5. **Fraud Detection Engine**
-
-**Algorithm:** Isolation Forest + Autoencoder
-
-- Real-time anomaly detection on transactions
-- Flags suspicious patterns:
-  - Multiple cancellations in short time
-  - Payment failures followed by success
-  - IP/device anomalies
-  - Route deviations (> 2km)
-
-**Accuracy:** 94% precision, 87% recall
-
-### 6. **Traffic-Aware Route Optimisation**
-
-**Integration:** Google Maps API + Real-time Traffic Data
-
-- Adjusts ETA based on current traffic conditions
-- Predicts traffic for the next 1–3 hours
-- Suggests alternative routes to minimize delays
-
-**Updates:** Every 5 minutes or on significant deviation
-
-### ML Model Deployment
-
-Models are served via:
-
-- **Primary:** In-process (lightweight, sub-100ms latency)
-- **Heavy Models:** Separate inference service (TensorFlow Serving / Triton)
-- **Updates:** Weekly retraining with latest data
+The ML service's `/api/match` endpoint mirrors the matching score but is not called by the backend.
 
 ---
 
 ## 🔄 CI/CD Pipeline
 
-### GitHub Actions (`/.github/workflows/ci.yml`)
+### GitHub Actions (`.github/workflows/ci.yml`)
 
-Triggers on push/PR to `main` and `develop` branches.
+Runs on pushes and pull requests to `main` and `develop`:
 
-```
-backend-checks
-  ├── Checkout
-  ├── Setup Node.js 22
-  ├── npm ci
-  ├── npm run lint
-  ├── npm run typecheck
-  ├── npm run test --coverage
-  └── npm run build
+| Job | Steps |
+|---|---|
+| `backend-checks` | lint, typecheck, test, build (Node 22) |
+| `frontend-checks` | lint, typecheck, test |
+| `web-landing-checks` | build (includes typecheck) |
+| `ml-checks` | install, start the service, check `/health` and that the internal key is required |
+| `dependency-audit` | `npm audit` on production dependencies, `pip-audit` on the ML service |
 
-frontend-checks
-  ├── Checkout
-  ├── Setup Node.js 22
-  ├── npm ci
-  ├── npm run lint
-  ├── npm run typecheck
-  └── npm run test --coverage
+On a push to `main` it also:
 
-upload-artifacts
-  └── Merge coverage reports
-```
+- **docker-build**: builds and pushes `poolora-backend` and `poolora-ml` to ghcr.io, tagged `latest` and with the commit SHA.
+- **deploy**: logs in to the server over SSH, runs `git pull`, then `docker compose up -d --build` in `backend/`, and restarts NGINX. It is skipped with a notice when `EC2_HOST` is not set. Needs the secrets `EC2_HOST`, `EC2_USER` and `EC2_SSH_KEY`, and the repository checked out at `/home/ubuntu/Poolora`.
 
-### GitHub Actions Deploy (`/backend/.github/workflows/deploy.yml`)
-
-Triggers on push to `main`. Deploys to EC2 via SSH:
-
-```bash
-cd /home/ubuntu/One-Piece-Backend
-git pull origin main
-sudo systemctl restart nginx
-```
-
-Requires GitHub secrets: `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`.
+For Kubernetes, `scripts/deploy-k8s.sh` applies `k8s/` using the images from ghcr.io.
 
 ---
 
@@ -753,14 +637,13 @@ npm run typecheck    # Verify TypeScript types
 | `npm test`              | Run Jest tests                    |
 | `npm run test:watch`    | Tests in watch mode               |
 | `npm run test:coverage` | Generate coverage report          |
-| `npm run test:frontend` | Run frontend integration tests    |
 
 ### Frontend Scripts
 
 | Script              | Purpose                                 |
 | ------------------- | --------------------------------------- |
 | `npx expo start`    | Start Expo dev server                   |
-| `npm test`          | Run Jest tests (90% coverage threshold) |
+| `npm test`          | Run Jest tests                           |
 | `npm run android`   | Build & install on Android              |
 | `npm run ios`       | Build & install on iOS                  |
 | `npm run typecheck` | Verify TypeScript types                 |
@@ -770,29 +653,27 @@ npm run typecheck    # Verify TypeScript types
 
 ## 🔧 Environment Variables
 
-Copy `backend/.env.example` to `backend/.env` and fill in all values. Key variables:
+Copy `backend/.env.example` to `backend/.env` and fill in the values. **[docs/SECRETS.md](docs/SECRETS.md) lists every variable, key and credential file, and where to get each one.** Key variables:
 
 | Variable                                       | Description                                      |
 | ---------------------------------------------- | ------------------------------------------------ |
 | `NODE_ENV`                                     | `production` \| `development` \| `test`          |
 | `PORT`                                         | Server port (default: `5002`)                    |
+| `APP_BASE_URL`                                 | Public API origin; required in production        |
 | `MONGO_URI`                                    | MongoDB connection string                        |
-| `MONGO_USER` / `MONGO_PASS`                    | MongoDB credentials (used by Docker Compose)     |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis connection                                 |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`     | JWT signing secrets (min 64 chars)               |
-| `JWT_ACCESS_EXPIRY` / `JWT_REFRESH_EXPIRY`     | Token expiry (`15m` / `7d`)                      |
-| `FIREBASE_PROJECT_ID`                          | Firebase project ID                              |
-| `FIREBASE_SERVICE_ACCOUNT_PATH`                | Path to Firebase service account JSON            |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`     | JWT signing secrets (at least 64 characters)     |
 | `AUTH_PROVIDER`                                | `firebase` \| `custom` \| `hybrid`               |
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`      | Razorpay credentials                             |
-| `RAZORPAY_WEBHOOK_SECRET`                      | Razorpay webhook validation                      |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`  | AWS credentials                                  |
-| `AWS_REGION` / `AWS_S3_BUCKET`                 | S3 config (default region: `ap-south-1`)         |
-| `GOOGLE_MAPS_API_KEY`                          | Google Maps API key                              |
-| `KAFKA_BROKERS`                                | Kafka broker addresses                           |
-| `ELASTICSEARCH_URL`                            | Elasticsearch URL                                |
-| `CORS_ORIGIN`                                  | Allowed CORS origins (comma-separated)           |
-| `PLATFORM_FEE_RATE`                            | Platform commission rate (default: `0.15` = 15%) |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_PATH` | Firebase sign-in and push                |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET` | Razorpay payments and webhook |
+| `AWS_*`                                        | S3 bucket for KYC documents                      |
+| `GOOGLE_MAPS_API_KEY`, `MAPS_PROVIDER`         | Optional. Without a key, free OpenStreetMap services are used |
+| `ML_SERVICE_URL` / `ML_SERVICE_API_KEY`        | The Python ML service and its shared key         |
+| `TWILIO_*`                                     | SMS to emergency contacts during an SOS          |
+| `KAFKA_BROKERS` / `KAFKA_ENABLED`              | Kafka brokers; optional (`KAFKA_ENABLED=false` turns it off) |
+| `CORS_ORIGIN`                                  | Allowed origins; never `*` in production         |
+| `PLATFORM_FEE_RATE`                            | Platform commission (default `0.15` = 15%)       |
+| `ENABLE_RIDE_SIMULATION`                       | Turn on the ride simulator in production         |
 
 > **Never commit `.env` to version control.** Generate strong secrets with:
 >
@@ -812,7 +693,6 @@ cd backend
 npm test                    # Run all tests
 npm run test:watch          # Watch mode
 npm run test:coverage       # Coverage report
-npm run test:frontend       # Frontend integration tests
 ```
 
 Tests use **Jest 30** + **Supertest** + **mongodb-memory-server** (in-memory MongoDB for isolation).
@@ -825,7 +705,7 @@ npm test                    # Run all tests
 npm test -- --watch         # Watch mode
 ```
 
-Frontend tests use **jest-expo** with a **90% coverage threshold** across branches, functions, lines, and statements.
+Frontend tests use **jest-expo** and React Native Testing Library. The coverage threshold is 10%, so coverage is a floor for now rather than a target.
 
 Coverage reports are generated in `frontend/coverage/` and `backend/coverage/`.
 
@@ -875,7 +755,7 @@ EAS profiles are defined in `frontend/eas.json`:
 
 ### EC2 Deployment (via GitHub Actions)
 
-Push to `main` triggers the deploy workflow which SSHs into the EC2 instance, pulls the latest code, and restarts NGINX. Configure these GitHub secrets:
+A push to `main` runs the deploy job in `ci.yml`. It connects to the server over SSH, pulls the latest code, rebuilds and restarts the Compose stack, and restarts NGINX. Configure these GitHub secrets:
 
 ```
 EC2_HOST       → Your EC2 public IP or hostname

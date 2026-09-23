@@ -1,6 +1,9 @@
 # System Design & Technical Specifications
 
-**Smart Scheduled Car Pooling Platform**
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and an admin area inside the mobile app rather than a separate web dashboard.
+
+
+**Poolora**
 
 ---
 
@@ -334,7 +337,7 @@ Characteristics:
   status: Enum,         // "pending" | "completed" | "failed" | "refunded"
   method: Enum,         // "card" | "upi" | "netbanking" | "wallet"
 
-  // Stripe Test Mode (Razorpay for production)
+  // Razorpay (test keys in development)
   orderId: String,
   paymentId: String,
   signature: String,    // verification
@@ -601,7 +604,7 @@ The following production-grade services from **02-SYSTEM-ARCHITECTURE.md section
 | Fraud Detection & Safety        | ML-based fraud scoring          | Real-time via XGBoost                               | Section 3.9  |
 | Advanced WebSocket              | 35+ real-time event types       | Redis Pub/Sub adapter                               | Section 3.10 |
 | ELK Stack Monitoring            | Observability & dashboards      | Logstash pipeline ingestion                         | Section 3.11 |
-| Enhanced Payment Service        | Idempotent payments & refunds   | Stripe webhook processing (Razorpay for production) | Section 3.12 |
+| Enhanced Payment Service        | Idempotent payments & refunds   | Razorpay webhook processing | Section 3.12 |
 | Enhanced Trip Service (Phase 4) | ML-based traveler matching      | Collaborative filtering                             | Section 3.13 |
 
 ---

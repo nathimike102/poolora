@@ -1,6 +1,9 @@
 # System Architecture Document
 
-## Smart Scheduled Car Pooling Platform
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and an admin area inside the mobile app rather than a separate web dashboard.
+
+
+## Poolora
 
 ---
 
@@ -80,16 +83,16 @@
 │                   EXTERNAL SERVICES LAYER                       │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
-│  │    Mapbox    │  │ Stripe Test  │  │   Firebase   │           │
-│  │  Free Tier   │  │     Mode     │  │     FCM      │           │
-│  │ (Google Maps │  │  (Razorpay   │  │              │           │
-│  │  for prod)   │  │   for prod)  │  │              │           │
+│  │ OpenStreetMap│  │   Razorpay   │  │   Firebase   │           │
+│  │ (MapLibre,   │  │  (test keys  │  │     FCM      │           │
+│  │ Photon, OSRM)│  │   in dev)    │  │              │           │
+│  │ Google opt.  │  │              │  │              │           │
 │  └──────────────┘  └──────────────┘  └──────────────┘           │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
-│  │   Firebase   │  │   Mailgun    │  │   Sentry     │           │
-│  │  Phone Auth  │  │  Free Tier   │  │  Free Tier   │           │
-│  │   (Twilio    │  │  (SendGrid   │  │  (Logging)   │           │
-│  │   for prod)  │  │   for prod)  │  │              │           │
+│  │   Firebase   │  │    Email     │  │   Sentry     │           │
+│  │  Phone Auth  │  │  (provider   │  │  (errors)    │           │
+│  │ Twilio SMS   │  │ not chosen)  │  │              │           │
+│  │  (SOS only)  │  │              │  │              │           │
 │  └──────────────┘  └──────────────┘  └──────────────┘           │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -2414,7 +2417,7 @@ POST   /api/v1/logs/query
 
 **Responsibilities:**
 
-- Payment processing via Stripe Test Mode (Razorpay for production)
+- Payment processing via Razorpay (test keys in development)
 - Wallet management
 - Refund processing
 - Transaction history
@@ -2423,7 +2426,7 @@ POST   /api/v1/logs/query
 **Technology Stack:**
 
 - Node.js + Express
-- Stripe SDK (Razorpay SDK for production)
+- Razorpay SDK
 - MongoDB Atlas M0 Free Tier (Paid tiers for production) for transaction records
 - Redis Cloud Free Tier (Paid for production) for payment session caching
 
@@ -2431,9 +2434,9 @@ POST   /api/v1/logs/query
 
 ```
 1. User initiates payment
-2. Payment service creates Stripe order (Razorpay for production)
-3. Client completes payment with Stripe (Razorpay for production)
-4. Stripe webhook (Razorpay for production) notifies payment service
+2. Payment service creates Razorpay order
+3. Client completes payment with Razorpay Checkout
+4. Razorpay webhook notifies payment service
 5. Payment service verifies payment signature
 6. Update booking status
 7. Trigger notification service
@@ -2457,7 +2460,7 @@ POST   /api/v1/payments/wallet/add-money
 
 - Push notifications (Firebase FCM)
 - SMS notifications (Twilio)
-- Email notifications (SendGrid)
+- Email notifications (provider not chosen yet)
 - In-app notifications
 - Notification preferences
 
@@ -2466,7 +2469,6 @@ POST   /api/v1/payments/wallet/add-money
 - Node.js + Express
 - Firebase Admin SDK
 - Twilio SDK
-- SendGrid SDK
 - Message Queue (RabbitMQ/SQS)
 
 **Notification Events:**
@@ -2551,7 +2553,7 @@ DELETE /api/v1/chat/messages/:messageId
 **Location Update Flow:**
 
 ```
-1. Mobile app sends location every 10 seconds
+1. Mobile app sends location every 5 seconds
 2. Tracking service validates and stores location
 3. Check for route deviations
 4. Calculate updated ETA
@@ -2785,10 +2787,10 @@ const route = await googleMaps.directions({
 });
 
 // Geocode address
-const location = await mapboxClient.geocode(address); // Mapbox (Google Maps for production)
+const location = await geocodeAddress(address); // OpenStreetMap by default, Google optional
 ```
 
-#### 3.5.2 Stripe Integration (Razorpay for Production)
+#### 3.5.2 Razorpay Integration
 
 **Features:**
 
@@ -2815,9 +2817,9 @@ const location = await mapboxClient.geocode(address); // Mapbox (Google Maps for
 - Voice calls (for safety)
 - WhatsApp notifications (future)
 
-#### 3.5.5 SendGrid Integration
+#### 3.5.5 Email (provider not chosen yet)
 
-**Features:**
+**Planned features:**
 
 - Transactional emails
 - Email templates
@@ -3079,7 +3081,7 @@ spec:
 
 - **Mobile**: React Native, Redux Toolkit, React Navigation
 - **Admin Web**: React.js, Material-UI, Redux Toolkit
-- **Maps**: React Native Maps, Mapbox (alternative)
+- **Maps**: MapLibre React Native with OpenFreeMap tiles
 
 ### Backend
 
@@ -3115,10 +3117,10 @@ spec:
 ### External Services
 
 - **Maps**: Google Maps Platform
-- **Payments**: Stripe Test Mode (Razorpay for production)
+- **Payments**: Razorpay (test keys in development)
 - **Notifications**: Firebase FCM
 - **SMS**: Twilio
-- **Email**: SendGrid
+- **Email**: provider not chosen yet
 - **Analytics**: Google Analytics, Mixpanel
 
 ---
@@ -3616,7 +3618,7 @@ LOW (Weekly digest):
 **Technology Stack**:
 
 - Node.js + Express
-- Stripe payment gateway (Razorpay for production)
+- Razorpay payment gateway
 - Idempotency keys for retry safety
 - MongoDB for transaction audit trail
 - Redis for payment state caching
@@ -3689,7 +3691,7 @@ Scenarios triggering automatic refunds:
    → Partial refund based on time difference
 
 All refunds processed within 3-5 business days
-Refund status tracked in real-time via Stripe API (Razorpay for production)
+Refund status tracked in real-time via Razorpay API
 ```
 
 ---
