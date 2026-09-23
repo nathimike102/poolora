@@ -163,6 +163,8 @@ function GoogleLiveMap({
       ) : (
         <MapView
           testID="live-map-view"
+          // The native map reads the style once, so remount it on theme change
+          key={isDarkMode ? 'dark' : 'light'}
           ref={mapRef}
           style={StyleSheet.absoluteFill}
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
