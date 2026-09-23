@@ -15,6 +15,7 @@ import {
 import { toGeoPoint, haversineDistanceKm, generateTrackingNumber, generateOTP } from '../utils/helpers';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
+import { callRazorpay } from '../utils/razorpay';
 import { NotificationService } from './NotificationService';
 
 const notificationService = new NotificationService();
@@ -101,11 +102,13 @@ export class ParcelPoolingService {
 
     // Create Razorpay order
     const razorpay = getRazorpayClient();
-    const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(estimatedCost * 100), // Convert to paise
-      currency: 'INR',
-      receipt: `parcel_${Date.now()}`,
-    });
+    const razorpayOrder = await callRazorpay('create parcel order', () =>
+      razorpay.orders.create({
+        amount: Math.round(estimatedCost * 100), // Convert to paise
+        currency: 'INR',
+        receipt: `parcel_${Date.now()}`,
+      }),
+    );
 
     const trackingNumber = generateTrackingNumber();
     // Shown once to the sender, who shares it with the recipient. The driver

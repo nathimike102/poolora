@@ -26,6 +26,7 @@ import { Radius, Shadow } from '../../theme';
 import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
 import { ActivityIndicator } from 'react-native';
+import { realPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -161,7 +162,7 @@ export function RideDetailScreen() {
   const arrival = formatTime(ride?.estimatedArrival);
   const plate = ride?.vehicle?.plateNumber;
   const vehicleType = ride?.vehicle?.vehicleType;
-  const phone = ride?.driver?.phone;
+  const phone = realPhone(ride?.driver?.phone);
 
   const origin = ride?.pickupLocation
     ? { latitude: ride.pickupLocation.lat, longitude: ride.pickupLocation.lng }

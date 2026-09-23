@@ -14,6 +14,9 @@ module.exports = {
     slug: 'one-piece',
     version: '1.0.0',
     icon: './assets/icon.png',
+    // Report the phone's light/dark setting to the app (Expo defaults to light).
+    userInterfaceStyle: 'automatic',
+    orientation: 'portrait',
     android: {
       package: 'com.poolora.app',
       adaptiveIcon: {
@@ -83,6 +86,9 @@ module.exports = {
       // runtimeVersion: { policy: 'appVersion' },
     },
     extra: {
+      // Without a key the native Maps SDK crashes on first render, so the app
+      // shows a placeholder instead of mounting a map.
+      mapsEnabled: Boolean(process.env.GOOGLE_MAPS_API_KEY),
       eas: {
         projectId: process.env.EAS_PROJECT_ID ?? '',
       },

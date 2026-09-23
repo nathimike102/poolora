@@ -1,35 +1,50 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
+const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ navigate: jest.fn() }),
+  useNavigation: () => ({ navigate: mockNavigate }),
 }));
 
 jest.mock('../..//services/authService', () => ({
   signInWithGoogle: jest.fn(),
-  firebaseLoginWithBackend: jest.fn(),
 }));
 
-jest.mock('../../context/AppContext', () => ({ useApp: () => ({ c: { bg: '#fff', primary: '#00f', surface: '#eee', border: '#ccc', text: '#000', textSec: '#666' } }) }));
+const mockFinishSignIn = jest.fn();
+jest.mock('../../context/AppContext', () => ({
+  useApp: () => ({
+    c: { bg: '#fff', primary: '#00f', surface: '#eee', border: '#ccc', text: '#000', textSec: '#666' },
+    finishSignIn: mockFinishSignIn,
+  }),
+}));
 
 import { LoginScreen } from '../LoginScreen';
-import { signInWithGoogle, firebaseLoginWithBackend } from '../../services/authService';
+import { signInWithGoogle } from '../../services/authService';
 
 describe('LoginScreen', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  test('handles Google sign-in success path', async () => {
-    // mock firebase user + token
-    const mockUser = { user: { getIdToken: jest.fn().mockResolvedValue('ftoken') } };
+  test('sends a new user to profile setup', async () => {
+    const mockUser = { user: { uid: 'u1' } };
     (signInWithGoogle as jest.Mock).mockResolvedValue(mockUser);
-    (firebaseLoginWithBackend as jest.Mock).mockResolvedValue({});
+    mockFinishSignIn.mockResolvedValue('profile');
 
     const { getByText } = render(<LoginScreen />);
-    const btn = getByText('Continue with Google');
-    fireEvent.press(btn);
+    fireEvent.press(getByText('Continue with Google'));
 
-    await waitFor(() => expect(signInWithGoogle).toHaveBeenCalled());
-    expect(firebaseLoginWithBackend).toHaveBeenCalledWith('ftoken');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('ProfileSetup'));
+    expect(mockFinishSignIn).toHaveBeenCalledWith(mockUser.user);
+  });
+
+  test('lets a returning user straight into the app', async () => {
+    (signInWithGoogle as jest.Mock).mockResolvedValue({ user: { uid: 'u1' } });
+    mockFinishSignIn.mockResolvedValue('home');
+
+    const { getByText } = render(<LoginScreen />);
+    fireEvent.press(getByText('Continue with Google'));
+
+    await waitFor(() => expect(mockFinishSignIn).toHaveBeenCalled());
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   test('does not show error when sign-in cancelled', async () => {

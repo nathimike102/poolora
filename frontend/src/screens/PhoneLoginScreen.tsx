@@ -24,7 +24,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../components/BackButton';
 import { GradientButton } from '../components/GradientButton';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
-import { sendOtp } from '../services/authService';
+import { sendOtpToBackend } from '../services/authService';
+import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'PhoneLogin'>;
@@ -39,23 +40,14 @@ export function PhoneLoginScreen() {
 
   const isValid = phone.length === 10;
 
-  const getErrorMessage = (error: unknown): string => {
-    if (error instanceof Error && error.message) {
-      return error.message;
-    }
-
-    return 'Failed to send OTP';
-  };
-
   const handleSendOtp = async () => {
     if (!isValid || sending) return;
     setSending(true);
     try {
-      const fullNumber = `+91${phone}`;
-      const confirmation = await sendOtp(fullNumber);
-      navigation.navigate('OTP', { phone, confirmation });
+      await sendOtpToBackend(`+91${phone}`);
+      navigation.navigate('OTP', { phone });
     } catch (error) {
-      Alert.alert('Error', getErrorMessage(error));
+      Alert.alert('Could not send code', errorHandler.process(error).message);
     } finally {
       setSending(false);
     }

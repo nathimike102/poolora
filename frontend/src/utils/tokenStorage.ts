@@ -24,10 +24,19 @@ export interface StoredTokens {
 
 const isWeb = Platform.OS === 'web';
 
+/**
+ * SecureStore keys may only contain letters, digits, ".", "-" and "_", so
+ * the "@poolora_..." keys are stripped for it. AsyncStorage (web, and the
+ * legacy migration below) keeps the original key.
+ */
+function secureStoreKey(key: string): string {
+  return key.replace(/[^A-Za-z0-9._-]/g, '');
+}
+
 async function secureSet(key: string, value: string): Promise<void> {
   try {
     if (isWeb) await AsyncStorage.setItem(key, value);
-    else await SecureStore.setItemAsync(key, value);
+    else await SecureStore.setItemAsync(secureStoreKey(key), value);
   } catch (error) {
     logger.error('Failed to store token securely', { key, error });
     throw error;
@@ -44,7 +53,7 @@ async function secureGet(key: string): Promise<string | null> {
   }
 
   try {
-    const value = await SecureStore.getItemAsync(key);
+    const value = await SecureStore.getItemAsync(secureStoreKey(key));
     if (value !== null) return value;
   } catch (error) {
     logger.error('Failed to read token from secure storage', { key, error });
@@ -56,7 +65,7 @@ async function secureGet(key: string): Promise<string | null> {
     const legacy = await AsyncStorage.getItem(key);
     if (legacy === null) return null;
     await AsyncStorage.removeItem(key);
-    await SecureStore.setItemAsync(key, legacy);
+    await SecureStore.setItemAsync(secureStoreKey(key), legacy);
     return legacy;
   } catch {
     return null;
@@ -66,7 +75,7 @@ async function secureGet(key: string): Promise<string | null> {
 async function secureRemove(key: string): Promise<void> {
   if (!isWeb) {
     try {
-      await SecureStore.deleteItemAsync(key);
+      await SecureStore.deleteItemAsync(secureStoreKey(key));
     } catch (error) {
       logger.debug('SecureStore remove failed', { key, error });
     }

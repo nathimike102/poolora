@@ -139,6 +139,7 @@ jest.mock('./src/context/AppContext', () => ({
     role: 'rider',
     switchRole: jest.fn(),
     setRole: jest.fn(),
+    finishSignIn: jest.fn().mockResolvedValue('profile'),
     isDarkMode: false,
     c: { surface: '#fff', primaryDark: '#000', text: '#000', textSec: '#666', border: '#eee', bg: '#f9f9f9', primaryLight: '#eee', primary: '#000', success: '#0f0' },
   }),

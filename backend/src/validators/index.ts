@@ -264,6 +264,7 @@ export const updateMeSchema = {
   body: Joi.object({
     name: Joi.string().trim().min(2).max(100),
     email: Joi.string().trim().lowercase().email().max(254).allow('', null),
+    dateOfBirth: Joi.date().iso().max('now'),
   }).min(1),
 };
 

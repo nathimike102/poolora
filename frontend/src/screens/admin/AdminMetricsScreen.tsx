@@ -123,8 +123,8 @@ export const AdminMetricsScreen: React.FC = () => {
       <View style={styles.row}>
         <View style={styles.columnHalf}>
           <MetricCard
-            title="Daily Revenue"
-            value={`₹${metrics.revenue.toLocaleString()}`}
+            title="Total revenue"
+            value={`₹${metrics.revenue.toLocaleString('en-IN')}`}
             icon="cash"
             color="#FF9800"
           />
@@ -132,7 +132,7 @@ export const AdminMetricsScreen: React.FC = () => {
         <View style={styles.columnHalf}>
           <MetricCard
             title="Avg Rating"
-            value={metrics.avgRating.toFixed(2)}
+            value={metrics.avgRating > 0 ? `${metrics.avgRating.toFixed(1)} / 5` : 'No ratings'}
             icon="star-outline"
             color="#FFD700"
           />

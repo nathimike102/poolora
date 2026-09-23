@@ -32,8 +32,10 @@ const GOOGLE_MAPS_BASE = 'https://maps.googleapis.com/maps/api';
 function getApiKey(): string {
   const key = config.maps.googleMapsKey;
   if (!key) {
+    // The fix is operational, so the detail goes to the log, not to users.
+    logger.error('GOOGLE_MAPS_API_KEY is not set; place search and routing are unavailable');
     throw new AppError(
-      'Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY in .env',
+      'Location search is temporarily unavailable. Please try again later.',
       503,
       'MAPS_SERVICE_UNAVAILABLE',
     );
@@ -253,6 +255,27 @@ export interface AddressValidationResult {
 // ─── Service Functions ───────────────────────────────────────────────────────
 
 /**
+ * Google reports billing, API key and quota problems in `status` and
+ * `error_message`. Those are for us, not for riders, so they are logged and
+ * the caller gets a plain message instead.
+ */
+function mapsFailure(
+  action: string,
+  data: { status?: string; error_message?: string },
+  noResultsMessage: string,
+  httpStatus: number,
+  code: string,
+): AppError {
+  logger.warn(`${action} failed`, { googleStatus: data.status, googleError: data.error_message });
+  const noResults = data.status === 'ZERO_RESULTS' || data.status === 'NOT_FOUND' || data.status === 'OK';
+  return new AppError(
+    noResults ? noResultsMessage : 'Maps are unavailable right now. Please try again in a moment.',
+    httpStatus,
+    code,
+  );
+}
+
+/**
  * Autocomplete a place search input using Google Places API.
  */
 export async function autocomplete(input: string): Promise<AutocompleteResult[]> {
@@ -265,8 +288,10 @@ export async function autocomplete(input: string): Promise<AutocompleteResult[]>
 
     const data = response.data;
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      throw new AppError(
-        `Autocomplete failed: ${data.status} — ${data.error_message || 'Unknown error'}`,
+      throw mapsFailure(
+        'Autocomplete',
+        data,
+        'No places matched that search.',
         400,
         'AUTOCOMPLETE_FAILED',
       );
@@ -298,8 +323,10 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
 
     const data = response.data;
     if (data.status !== 'OK' || !data.results?.length) {
-      throw new AppError(
-        `Geocoding failed: ${data.status} — ${data.error_message || 'No results found'}`,
+      throw mapsFailure(
+        'Geocoding',
+        data,
+        'We could not find that address.',
         400,
         'GEOCODING_FAILED',
       );
@@ -338,8 +365,10 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
 
     const data = response.data;
     if (data.status !== 'OK' || !data.results?.length) {
-      throw new AppError(
-        `Reverse geocoding failed: ${data.status} — ${data.error_message || 'No results found'}`,
+      throw mapsFailure(
+        'Reverse geocoding',
+        data,
+        'We could not find an address for that spot.',
         400,
         'REVERSE_GEOCODING_FAILED',
       );
@@ -383,8 +412,10 @@ export async function getRoute(
 
     const data = response.data;
     if (data.status !== 'OK' || !data.routes?.length) {
-      throw new AppError(
-        `Directions failed: ${data.status} — ${data.error_message || 'No route found'}`,
+      throw mapsFailure(
+        'Directions',
+        data,
+        'We could not find a route between those places.',
         400,
         'DIRECTIONS_FAILED',
       );
@@ -427,8 +458,10 @@ export async function calculateDistance(
 
     const data = response.data;
     if (data.status !== 'OK') {
-      throw new AppError(
-        `Distance Matrix failed: ${data.status} — ${data.error_message || 'Request failed'}`,
+      throw mapsFailure(
+        'Distance Matrix',
+        data,
+        'We could not work out the distance for that trip.',
         400,
         'DISTANCE_MATRIX_FAILED',
       );
@@ -489,8 +522,10 @@ export async function getDirections(
 
     const data = response.data;
     if (data.status !== 'OK' || !data.routes?.length) {
-      throw new AppError(
-        `Directions failed: ${data.status} — ${data.error_message || 'No route found'}`,
+      throw mapsFailure(
+        'Directions',
+        data,
+        'We could not find a route between those places.',
         400,
         'DIRECTIONS_FAILED',
       );
@@ -558,8 +593,10 @@ export async function findNearestDriver(
 
     const data = response.data;
     if (data.status !== 'OK') {
-      throw new AppError(
-        `Distance Matrix failed: ${data.status} — ${data.error_message || 'Request failed'}`,
+      throw mapsFailure(
+        'Distance Matrix',
+        data,
+        'We could not work out the distance for that trip.',
         400,
         'DISTANCE_MATRIX_FAILED',
       );
@@ -750,8 +787,10 @@ export async function optimizeRoute(
 
     const data = response.data;
     if (data.status !== 'OK' || !data.routes?.length) {
-      throw new AppError(
-        `Route optimization failed: ${data.status} — ${data.error_message || 'No route found'}`,
+      throw mapsFailure(
+        'Route optimization',
+        data,
+        'We could not find a route between those places.',
         400,
         'ROUTE_OPTIMIZATION_FAILED',
       );
@@ -811,8 +850,10 @@ export async function getNavigationData(
 
     const data = response.data;
     if (data.status !== 'OK' || !data.routes?.length) {
-      throw new AppError(
-        `Navigation data failed: ${data.status} — ${data.error_message || 'No route found'}`,
+      throw mapsFailure(
+        'Navigation data',
+        data,
+        'We could not find a route between those places.',
         400,
         'NAVIGATION_FAILED',
       );
@@ -949,8 +990,10 @@ export async function searchNearbyPlaces(
 
     const data = response.data;
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      throw new AppError(
-        `Nearby search failed: ${data.status} — ${data.error_message || 'Unknown error'}`,
+      throw mapsFailure(
+        'Nearby search',
+        data,
+        'No places matched that search.',
         400,
         'NEARBY_SEARCH_FAILED',
       );

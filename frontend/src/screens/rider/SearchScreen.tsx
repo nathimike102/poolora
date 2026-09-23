@@ -1,554 +1,577 @@
 /**
  * screens/rider/SearchScreen.tsx
+ *
+ * Where the rider sets pickup and drop. Pickup starts at the device location;
+ * choosing a drop from the suggestions or recent places searches straight
+ * away, the way riders expect from ride-hailing apps. Departure time defaults
+ * to "now" and can be moved to later, and the seat count sits in the header.
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
-  Animated,
-  Platform,
-  KeyboardAvoidingView,
   ActivityIndicator,
   Alert,
-  StyleProp,
-  ViewStyle,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
-import { useNavigation, useRoute, type CompositeNavigationProp, type RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '../../context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon, type IconName } from '../../components/Icon';
 import { ClockTimePicker } from '../../components/ClockTimePicker';
 import { RideDatePicker } from '../../components/RideDatePicker';
+import { MAPS_ENABLED } from '../../config/maps';
+import { useCurrentPlace } from '../../hooks/useCurrentPlace';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
-import type { RootStackParamList, RiderTabParamList } from '../../navigation/types';
+import type { RootStackParamList } from '../../navigation/types';
 import { rideService } from '../../services';
-import { fetchPlaceSuggestions, geocodePlace, suggestionLabel, type PlaceSuggestion } from '../../services/placesService';
+import { fetchPlaceSuggestions, geocodePlace, type PlaceSuggestion } from '../../services/placesService';
+import {
+  getPlaceHistory,
+  rememberPlace,
+  toggleFavouritePlace,
+  type HistoryPlace,
+} from '../../services/placeHistoryService';
 import { errorHandler } from '../../utils/errorHandler';
 import { logger } from '../../utils/logger';
 
-type NavProp = CompositeNavigationProp<
-  BottomTabNavigationProp<RiderTabParamList, 'Search'>,
-  NativeStackNavigationProp<RootStackParamList>
->;
-type SearchRoute = RouteProp<RiderTabParamList, 'Search'>;
+type NavProp = NativeStackNavigationProp<RootStackParamList, 'Search'>;
+type SearchRoute = RouteProp<RootStackParamList, 'Search'>;
 
 const SUGGESTION_DEBOUNCE_MS = 300;
+const MAX_SEATS = 4;
+/** "Now" searches rides leaving within the next four hours (backend window is ±2 h). */
+const NOW_WINDOW_CENTRE_MINS = 120;
 
-// ─── AnimatedPressable ────────────────────────────────────────────────────────
-
-function AnimatedPressable({
-  onPress,
-  scaleValue = 0.97,
-  style,
-  children,
-}: {
-  onPress: () => void;
-  scaleValue?: number;
-  style?: StyleProp<ViewStyle>;
-  children: React.ReactNode;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = useCallback(() => {
-    Animated.spring(scale, {
-      toValue: scaleValue,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 0,
-    }).start();
-  }, [scale, scaleValue]);
-
-  const handlePressOut = useCallback(() => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 4,
-    }).start();
-  }, [scale]);
-
-  return (
-    <TouchableOpacity accessibilityRole="button"
-      activeOpacity={1}
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
-      <Animated.View style={[style, { transform: [{ scale }] }]}>
-        {children}
-      </Animated.View>
-    </TouchableOpacity>
-  );
+/** A pickup or drop: the text shown, plus coordinates once known. */
+interface Stop {
+  name: string;
+  subtitle: string;
+  lat?: number;
+  lng?: number;
 }
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+const EMPTY_STOP: Stop = { name: '', subtitle: '' };
+/** Cursor at the start, so a long address shows its first words */
+const START = { start: 0, end: 0 };
+
+function stopText(s: Stop): string {
+  return s.subtitle ? `${s.name}, ${s.subtitle}` : s.name;
+}
+
+/** Coordinates for a stop, looking up typed addresses. */
+async function resolve(stop: Stop): Promise<Stop & { lat: number; lng: number }> {
+  if (stop.lat !== undefined && stop.lng !== undefined) return { ...stop, lat: stop.lat, lng: stop.lng };
+  const g = await geocodePlace(stopText(stop));
+  return { ...stop, lat: g.lat, lng: g.lng };
+}
+
+function formatWhen(when: Date | null): string {
+  if (!when) return 'Now';
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  const time = when.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  if (when.toDateString() === today.toDateString()) return `Today, ${time}`;
+  if (when.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+  return `${when.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${time}`;
+}
 
 export function SearchScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<SearchRoute>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
+  const { place: here, status: hereStatus } = useCurrentPlace();
 
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [time, setTime] = useState('09:00');
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [seats, setSeats] = useState(1);
-  const [activeInput, setActiveInput] = useState<'from' | 'to' | null>(null);
+  const [pickup, setPickup] = useState<Stop>(EMPTY_STOP);
+  /** True while pickup is the device location and hasn't been edited */
+  const [pickupIsHere, setPickupIsHere] = useState(true);
+  const [drop, setDrop] = useState<Stop>(EMPTY_STOP);
+  const [active, setActive] = useState<'pickup' | 'drop'>('drop');
+  /** The field with the cursor; the other shows the start of its address, not the end */
+  const [focused, setFocused] = useState<'pickup' | 'drop' | null>(null);
+  const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [suggestState, setSuggestState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [history, setHistory] = useState<HistoryPlace[]>([]);
+  const [seats, setSeats] = useState(1);
+  const [showSeats, setShowSeats] = useState(false);
+  const [when, setWhen] = useState<Date | null>(null);
+  const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
+  const pickedDate = useRef<Date | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [autoSearch, setAutoSearch] = useState(false);
+
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestRequest = useRef(0);
+  const dropInput = useRef<TextInput>(null);
+  const pickupInput = useRef<TextInput>(null);
 
-  useEffect(() => () => {
-    if (suggestTimer.current) clearTimeout(suggestTimer.current);
-    if (hideTimer.current) clearTimeout(hideTimer.current);
+  useEffect(() => {
+    getPlaceHistory().then(setHistory).catch(() => {});
+    return () => {
+      if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    };
   }, []);
 
-  const [searching, setSearching] = useState(false);
-  const canSearch = from.length > 2 && to.length > 2;
-
-  // Apply a location picked from the map picker screen
+  // Pickup follows the device location until the rider types their own
   useEffect(() => {
-    const params = route.params;
-    if (params?.from) setFrom(params.from);
-    if (params?.to) setTo(params.to);
-    if (params?.pickedLocation) {
-      if (params.pickedField === 'to') setTo(params.pickedLocation);
-      else setFrom(params.pickedLocation);
+    if (!pickupIsHere) return;
+    if (hereStatus === 'ready' && here) {
+      setPickup({ name: here.address ?? 'Current location', subtitle: '', lat: here.lat, lng: here.lng });
+    } else {
+      setPickup(EMPTY_STOP);
     }
-   
-  }, [route.params]);
+  }, [here, hereStatus, pickupIsHere]);
 
-  const formatSelectedDate = (d: Date | null) => {
-    if (!d) return 'Pick a date';
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    if (d.toDateString() === today.toDateString()) return 'Today';
-    if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-    return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
-  };
+  // Arrivals from home, saved routes and the map picker
+  useEffect(() => {
+    const p = route.params;
+    if (!p) return;
+    if (p.schedule) setShowDate(true);
+    if (p.from) {
+      setPickupIsHere(false);
+      setPickup({ name: p.from, subtitle: '' });
+    }
+    if (p.to) setDrop({ name: p.to, subtitle: '' });
+    if (p.drop) setDrop({ name: p.drop.name, subtitle: p.drop.subtitle, lat: p.drop.lat, lng: p.drop.lng });
+    if (p.pickedLocation) {
+      if (p.pickedField === 'from') {
+        setPickupIsHere(false);
+        setPickup({ name: p.pickedLocation, subtitle: '' });
+      } else {
+        setDrop({ name: p.pickedLocation, subtitle: '' });
+      }
+    }
+    if (p.to || p.drop || (p.pickedLocation && p.pickedField !== 'from')) setAutoSearch(true);
+    // Consumed: clear them so a later map pick doesn't re-apply these over the rider's edits
+    if (p.from || p.to || p.drop || p.pickedLocation || p.schedule) {
+      navigation.setParams({
+        from: undefined,
+        to: undefined,
+        drop: undefined,
+        pickedLocation: undefined,
+        pickedField: undefined,
+        schedule: undefined,
+      });
+    }
+  }, [route.params, navigation]);
 
-  // Converts internal 24-h "HH:mm" string to a display-friendly 12-h string.
-  const formatTime = (t: string): string => {
-    const [hStr, mStr] = t.split(':');
-    const h24 = parseInt(hStr, 10);
-    const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
-    return `${h12}:${mStr} ${h24 >= 12 ? 'PM' : 'AM'}`;
-  };
+  // Focus the drop field on arrival, unless a search is about to run
+  const arrival = useRef(route.params).current;
+  useEffect(() => {
+    if (arrival?.to || arrival?.drop || arrival?.schedule) return;
+    const t = setTimeout(() => dropInput.current?.focus(), 350);
+    return () => clearTimeout(t);
+  }, [arrival]);
 
-  const handleTimeConfirm = (newTime: string) => {
-    setTime(newTime);
-    setShowTimePicker(false);
-  };
-
-  const swapLocations = useCallback(() => {
-    const t = from;
-    setFrom(to);
-    setTo(t);
-  }, [from, to]);
-
-  // Debounced so typing doesn't fire a request per keystroke; stale responses are ignored.
   const requestSuggestions = (text: string) => {
     if (suggestTimer.current) clearTimeout(suggestTimer.current);
     if (text.trim().length < 2) {
       setSuggestions([]);
+      setSuggestState('idle');
       return;
     }
+    setSuggestState('loading');
     suggestTimer.current = setTimeout(async () => {
       const requestId = ++suggestRequest.current;
       try {
         const results = await fetchPlaceSuggestions(text);
-        if (requestId === suggestRequest.current) setSuggestions(results);
+        if (requestId !== suggestRequest.current) return;
+        setSuggestions(results);
+        setSuggestState('idle');
       } catch {
-        if (requestId === suggestRequest.current) setSuggestions([]);
+        if (requestId !== suggestRequest.current) return;
+        setSuggestions([]);
+        setSuggestState('error');
       }
     }, SUGGESTION_DEBOUNCE_MS);
   };
 
-  const onFromFocus = () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    setActiveInput('from');
-    requestSuggestions(from);
-  };
-  const onToFocus = () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    setActiveInput('to');
-    requestSuggestions(to);
-  };
-  const onInputBlur = () => {
-    hideTimer.current = setTimeout(() => {
-      setActiveInput(null);
-      setSuggestions([]);
-    }, 180);
-  };
-  const onFromChange = (t: string) => { setFrom(t); requestSuggestions(t); };
-  const onToChange = (t: string) => { setTo(t); requestSuggestions(t); };
-  const pickSuggestion = (place: PlaceSuggestion) => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    if (activeInput === 'from') setFrom(suggestionLabel(place)); else setTo(suggestionLabel(place));
-    setSuggestions([]);
-    setActiveInput(null);
+  const onChangePickup = (text: string) => {
+    setPickupIsHere(false);
+    setPickup({ name: text, subtitle: '' });
+    setQuery(text);
+    requestSuggestions(text);
   };
 
-  const runSearch = async () => {
+  const onChangeDrop = (text: string) => {
+    setDrop({ name: text, subtitle: '' });
+    setQuery(text);
+    requestSuggestions(text);
+  };
+
+  const focusField = (field: 'pickup' | 'drop') => {
+    setActive(field);
+    const text = field === 'pickup' ? (pickupIsHere ? '' : stopText(pickup)) : stopText(drop);
+    setQuery(text);
+    requestSuggestions(text);
+  };
+
+  /** Fill the active field; a completed drop starts the search. */
+  const choose = (stop: Stop) => {
+    setSuggestions([]);
+    setQuery('');
+    if (active === 'pickup') {
+      setPickupIsHere(false);
+      setPickup(stop);
+      if (drop.name.trim().length > 2) setAutoSearch(true);
+      else dropInput.current?.focus();
+      return;
+    }
+    setDrop(stop);
+    setAutoSearch(true);
+  };
+
+  const useCurrentLocation = () => {
+    setPickupIsHere(true);
+    setSuggestions([]);
+    setQuery('');
+    dropInput.current?.focus();
+  };
+
+  const pickupReady = pickupIsHere ? hereStatus === 'ready' : pickup.name.trim().length > 2;
+  const canSearch = pickupReady && drop.name.trim().length > 2;
+
+  const runSearch = useCallback(async () => {
     if (!canSearch || searching) return;
+    if (when && when.getTime() < Date.now()) {
+      Alert.alert('Pick a later time', 'That time has already passed. Choose a time from now on, or leave now.');
+      return;
+    }
     setSearching(true);
     try {
-      const scheduledAt = selectedDate ? new Date(selectedDate) : new Date();
-      const [hours, minutes] = time.split(':');
-      scheduledAt.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-
-      const [pickup, dropoff] = await Promise.all([geocodePlace(from), geocodePlace(to)]);
+      const [from, to] = await Promise.all([resolve(pickup), resolve(drop)]);
+      const departure = when ?? new Date(Date.now() + NOW_WINDOW_CENTRE_MINS * 60 * 1000);
       const results = await rideService.searchRides({
-        pickupLat: pickup.lat,
-        pickupLng: pickup.lng,
-        dropoffLat: dropoff.lat,
-        dropoffLng: dropoff.lng,
-        departureTime: scheduledAt.toISOString(),
+        pickupLat: from.lat,
+        pickupLng: from.lng,
+        dropoffLat: to.lat,
+        dropoffLng: to.lng,
+        departureTime: departure.toISOString(),
       });
-
+      rememberPlace({ name: to.name, subtitle: to.subtitle, lat: to.lat, lng: to.lng }).catch(() => {});
       logger.info('Search successful', { results: results.data.items?.length || 0 });
       navigation.navigate('RideResults', {
         rides: results,
-        route: { from: pickup.formattedAddress, to: dropoff.formattedAddress, seats },
+        route: {
+          from: stopText(from),
+          to: stopText(to),
+          seats,
+          pickup: { lat: from.lat, lng: from.lng },
+          dropoff: { lat: to.lat, lng: to.lng },
+          when: when ? when.toISOString() : undefined,
+        },
+        category: route.params?.category,
       });
     } catch (error) {
       logger.error('Search failed', { error });
-      Alert.alert('Search failed', errorHandler.process(error).message);
+      Alert.alert("Couldn't search rides", errorHandler.process(error).message);
     } finally {
       setSearching(false);
     }
-  };
+  }, [canSearch, searching, when, pickup, drop, seats, navigation, route.params?.category]);
+
+  useEffect(() => {
+    if (autoSearch && canSearch && !searching) {
+      setAutoSearch(false);
+      runSearch();
+    }
+  }, [autoSearch, canSearch, searching, runSearch]);
+
+  const toggleFavourite = async (p: HistoryPlace) => setHistory(await toggleFavouritePlace(p));
+
+  const showingSuggestions = query.trim().length >= 2;
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <KeyboardAvoidingView
-        style={styles.flex1}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        {/* ── Gradient Header ───────────────────────────────────────── */}
-        <LinearGradient
-          colors={[c.primary, c.primaryDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
-        >
-          {/* Back + Title */}
-          <View style={styles.headerRow}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
-              activeOpacity={0.7}
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-            >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} strokeLinecap="round">
-                <Path d="M19 12H5M12 5l-7 7 7 7" />
-              </Svg>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Find a Ride</Text>
-          </View>
-
-          {/* Route Input Card — white card with From/To */}
-          <View style={[styles.routeCard, Shadow.md]}>
-            {/* From input */}
-            <View style={styles.inputRow}>
-              <View style={[styles.dotFrom, { backgroundColor: c.primary }]} />
-              <TextInput
-                value={from}
-                onChangeText={onFromChange}
-                onFocus={onFromFocus}
-                onBlur={onInputBlur}
-                placeholder="Pickup location"
-                accessibilityLabel="Pickup location"
-                placeholderTextColor={c.textDisabled}
-                style={[styles.textInput, { color: c.text }]}
-              />
-              {from.length > 0 && (
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear pickup location" onPress={() => setFrom('')}>
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill={c.textSec}>
-                    <Path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                  </Svg>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* From suggestions */}
-            {activeInput === 'from' && suggestions.length > 0 && (
-              <View style={styles.suggestionBox}>
-                {suggestions.map((place, i) => (
-                  <TouchableOpacity
-                    key={place.placeId}
-                    onPress={() => pickSuggestion(place)}
-                    accessibilityRole="button"
-                    accessibilityLabel={suggestionLabel(place)}
-                    style={[styles.suggestionItem, i < suggestions.length - 1 && styles.suggestionBorder]}
-                  >
-                    <Svg width={13} height={13} viewBox="0 0 24 24" fill={c.textSec}>
-                      <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                    </Svg>
-                    <View style={styles.flex1}>
-                      <Text style={[styles.suggestionText, { color: c.text }]} numberOfLines={1}>{place.name}</Text>
-                      {place.subtitle ? (
-                        <Text style={{ fontSize: 12, color: c.textSec }} numberOfLines={1}>{place.subtitle}</Text>
-                      ) : null}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            {/* Divider + Swap button */}
-            <View style={styles.dividerRow}>
-              <View style={[styles.verticalLine, { backgroundColor: c.border }]} />
-              <View style={[styles.horizontalLine, { backgroundColor: c.border }]} />
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Swap pickup and destination"
-                activeOpacity={0.7}
-                onPress={swapLocations}
-                style={[styles.swapButton, { backgroundColor: c.primaryLight }]}
-              >
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill={c.primary}>
-                  <Path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z" />
-                </Svg>
-              </TouchableOpacity>
-            </View>
-
-            {/* To input */}
-            <View style={styles.inputRow}>
-              <View style={[styles.dotTo, { backgroundColor: c.error }]} />
-              <TextInput
-                value={to}
-                onChangeText={onToChange}
-                onFocus={onToFocus}
-                onBlur={onInputBlur}
-                placeholder="Destination"
-                accessibilityLabel="Destination"
-                placeholderTextColor={c.textDisabled}
-                style={[styles.textInput, { color: c.text }]}
-              />
-              {to.length > 0 && (
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear destination" onPress={() => setTo('')}>
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill={c.textSec}>
-                    <Path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                  </Svg>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* To suggestions */}
-            {activeInput === 'to' && suggestions.length > 0 && (
-              <View style={styles.suggestionBox}>
-                {suggestions.map((place, i) => (
-                  <TouchableOpacity
-                    key={place.placeId}
-                    onPress={() => pickSuggestion(place)}
-                    accessibilityRole="button"
-                    accessibilityLabel={suggestionLabel(place)}
-                    style={[styles.suggestionItem, i < suggestions.length - 1 && styles.suggestionBorder]}
-                  >
-                    <Svg width={13} height={13} viewBox="0 0 24 24" fill={c.textSec}>
-                      <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                    </Svg>
-                    <View style={styles.flex1}>
-                      <Text style={[styles.suggestionText, { color: c.text }]} numberOfLines={1}>{place.name}</Text>
-                      {place.subtitle ? (
-                        <Text style={{ fontSize: 12, color: c.textSec }} numberOfLines={1}>{place.subtitle}</Text>
-                      ) : null}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        </LinearGradient>
-
-        {/* ── Scrollable Content ────────────────────────────────────── */}
-        <ScrollView
-          style={styles.flex1}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Select on Map card */}
-          <AnimatedPressable
-            scaleValue={0.97}
-            onPress={() => navigation.navigate('MapPicker', { field: 'from' })}
-            style={[styles.mapPickerCard, Shadow.sm, { borderColor: c.primary + '30' }]}
+    <View style={[styles.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
+      <KeyboardAvoidingView style={styles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* ── Header ─────────────────────────────────────────── */}
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} style={styles.backBtn}>
+            <Icon name="arrow-left" size={26} color={c.text} />
+          </Pressable>
+          <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">
+            {active === 'pickup' ? 'Pickup' : 'Drop'}
+          </Text>
+          <Pressable
+            onPress={() => setShowSeats(v => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={`${seats} ${seats === 1 ? 'seat' : 'seats'}. Change number of seats`}
+            accessibilityState={{ expanded: showSeats }}
+            style={[styles.headerPill, { borderColor: c.border }]}
           >
-            <LinearGradient
-              colors={[c.primaryLight, c.surface]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.mapPickerInner}
-            >
-              <View style={[styles.mapPickerIcon, { backgroundColor: c.primaryLight }]}>
-                <Svg width={20} height={20} viewBox="0 0 24 24" fill={c.primary}>
-                  <Path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" />
-                </Svg>
-              </View>
-              <View style={styles.flex1}>
-                <Text style={[styles.mapPickerTitle, { color: c.text }]}>
-                  Select my location on a map
-                </Text>
-                <Text style={[styles.mapPickerSub, { color: c.textSec }]}>
-                  Pin your exact pickup point
-                </Text>
-              </View>
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill={c.primary}>
-                <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-              </Svg>
-            </LinearGradient>
-          </AnimatedPressable>
+            <Icon name="account-outline" size={18} color={c.text} />
+            <Text style={[styles.headerPillText, { color: c.text }]}>{seats} {seats === 1 ? 'seat' : 'seats'}</Text>
+            <Icon name={showSeats ? 'chevron-up' : 'chevron-down'} size={18} color={c.text} />
+          </Pressable>
+        </View>
 
-          {/* Date & Time Row */}
-          <Text style={[styles.sectionLabel, { color: c.textSec }]}>DATE & TIME</Text>
-          <View style={styles.dateTimeRow}>
-            {/* Date card */}
-            <AnimatedPressable
-              scaleValue={0.97}
-              onPress={() => setShowCalendar(true)}
-              style={[
-                styles.dtCard,
-                Shadow.sm,
-                {
-                  backgroundColor: c.surface,
-                  borderColor: showCalendar ? c.primary : c.border,
-                },
-              ]}
-            >
-              <View style={[styles.dtIconWrap, { backgroundColor: c.primaryLight }]}>
-                <Svg width={18} height={18} viewBox="0 0 24 24" fill={c.primary}>
-                  <Path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM7 11h5v5H7z" />
-                </Svg>
-              </View>
-              <View style={styles.dtTextWrap}>
-                <Text style={[styles.dtLabel, { color: c.textSec }]}>DATE</Text>
-                <Text style={[styles.dtValue, { color: c.text }]} numberOfLines={1}>
-                  {formatSelectedDate(selectedDate)}
-                </Text>
-              </View>
-            </AnimatedPressable>
-
-            {/* Time card */}
-            <TouchableOpacity accessibilityRole="button"
-              activeOpacity={0.8}
-              onPress={() => setShowTimePicker(true)}
-              style={[
-                styles.dtCard,
-                Shadow.sm,
-                {
-                  backgroundColor: c.surface,
-                  borderColor: showTimePicker ? c.primary : c.border,
-                },
-              ]}
-            >
-              <View style={[styles.dtIconWrap, { backgroundColor: c.primaryLight }]}>
-                <Svg width={18} height={18} viewBox="0 0 24 24" fill={c.primary}>
-                  <Path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                </Svg>
-              </View>
-              <View style={styles.dtTextWrap}>
-                <Text style={[styles.dtLabel, { color: c.textSec }]}>TIME</Text>
-                <Text style={[styles.dtValue, { color: c.text }]}>{formatTime(time)}</Text>
-              </View>
-            </TouchableOpacity>
+        {showSeats && (
+          <View style={styles.seatRow} accessibilityRole="radiogroup">
+            {Array.from({ length: MAX_SEATS }, (_, i) => i + 1).map(n => {
+              const selected = n === seats;
+              return (
+                <Pressable
+                  key={n}
+                  onPress={() => { setSeats(n); setShowSeats(false); }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={`${n} ${n === 1 ? 'seat' : 'seats'}`}
+                  style={[styles.seatChip, { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primaryLight : c.surface }]}
+                >
+                  <Text style={[styles.seatChipText, { color: selected ? c.primary : c.text }]}>{n}</Text>
+                </Pressable>
+              );
+            })}
           </View>
+        )}
 
-          {/* Seats selector */}
-          <View
-            style={[
-              styles.seatsRow,
-              { backgroundColor: c.surface, borderColor: c.border },
-            ]}
+        {/* ── Pickup / drop card ──────────────────────────────── */}
+        <View style={[styles.routeCard, { backgroundColor: c.surfaceVariant, borderColor: c.border }]}>
+          <View style={styles.dots}>
+            <View style={[styles.dotOuter, { backgroundColor: c.successLight }]}>
+              <View style={[styles.dotInner, { backgroundColor: c.success }]} />
+            </View>
+            <View style={[styles.dotLine, { borderColor: c.textSec }]} />
+            <View style={[styles.dotOuter, { backgroundColor: c.errorLight }]}>
+              <View style={[styles.dotInner, { backgroundColor: c.error }]} />
+            </View>
+          </View>
+          <View style={styles.flex1}>
+            <TextInput
+              ref={pickupInput}
+              value={pickupIsHere && active !== 'pickup' ? pickup.name || (hereStatus === 'loading' ? 'Finding your location…' : '') : stopText(pickup)}
+              onChangeText={onChangePickup}
+              onFocus={() => { setFocused('pickup'); focusField('pickup'); }}
+              onBlur={() => setFocused(null)}
+              selection={focused === 'pickup' ? undefined : START}
+              placeholder={pickupIsHere ? 'Current location' : 'Pickup location'}
+              placeholderTextColor={c.textSec}
+              accessibilityLabel="Pickup location"
+              selectTextOnFocus
+              style={[styles.input, { color: c.text }]}
+              numberOfLines={1}
+            />
+            <View style={[styles.inputDivider, { backgroundColor: c.border }]} />
+            <TextInput
+              ref={dropInput}
+              value={stopText(drop)}
+              onChangeText={onChangeDrop}
+              onFocus={() => { setFocused('drop'); focusField('drop'); }}
+              onBlur={() => setFocused(null)}
+              selection={focused === 'drop' ? undefined : START}
+              placeholder="Where to?"
+              placeholderTextColor={c.textSec}
+              accessibilityLabel="Drop location"
+              returnKeyType="search"
+              onSubmitEditing={runSearch}
+              style={[styles.input, styles.inputDrop, { color: c.text }]}
+              numberOfLines={1}
+            />
+          </View>
+        </View>
+
+        {/* ── Map and time chips ──────────────────────────────── */}
+        <View style={styles.chipRow}>
+          {MAPS_ENABLED && (
+            <Pressable
+              onPress={() => navigation.navigate('MapPicker', { field: active === 'pickup' ? 'from' : 'to' })}
+              accessibilityRole="button"
+              accessibilityLabel={`Choose ${active === 'pickup' ? 'pickup' : 'drop'} on the map`}
+              style={[styles.chip, { borderColor: c.border }]}
+            >
+              <Icon name="map-marker-outline" size={20} color={c.text} />
+              <Text style={[styles.chipText, { color: c.text }]}>Select on map</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={() => setShowDate(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Leaving ${formatWhen(when)}. Change departure time`}
+            style={[styles.chip, { borderColor: when ? c.primary : c.border, backgroundColor: when ? c.primaryLight : c.surface }]}
           >
-            <View style={styles.seatsLeft}>
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill={c.primary}>
-                <Path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-              </Svg>
-              <Text style={[styles.seatsLabel, { color: c.text }]}>Seats needed</Text>
-            </View>
-            <View style={styles.seatsControls}>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fewer seats"
-                activeOpacity={0.7}
-                onPress={() => setSeats(Math.max(1, seats - 1))}
-                style={[styles.seatBtn, { backgroundColor: c.border }]}
-              >
-                <Svg width={12} height={12} viewBox="0 0 24 24" fill={c.textSec}>
-                  <Path d="M19 13H5v-2h14v2z" />
-                </Svg>
-              </TouchableOpacity>
-              <Text style={[styles.seatsCount, { color: c.text }]}>{seats}</Text>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="More seats"
-                activeOpacity={0.7}
-                onPress={() => setSeats(Math.min(4, seats + 1))}
-                style={[styles.seatBtn, { backgroundColor: c.primaryLight }]}
-              >
-                <Svg width={12} height={12} viewBox="0 0 24 24" fill={c.primary}>
-                  <Path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                </Svg>
-              </TouchableOpacity>
-            </View>
-          </View>
+            <Icon name="clock-outline" size={20} color={when ? c.primary : c.text} />
+            <Text style={[styles.chipText, { color: when ? c.primary : c.text }]}>{formatWhen(when)}</Text>
+            <Icon name="chevron-down" size={18} color={when ? c.primary : c.text} />
+          </Pressable>
+          {when && (
+            <Pressable
+              onPress={() => setWhen(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Leave now instead"
+              hitSlop={8}
+              style={[styles.chip, { borderColor: c.border }]}
+            >
+              <Text style={[styles.chipText, { color: c.text }]}>Now</Text>
+            </Pressable>
+          )}
+        </View>
 
+        <View style={[styles.rule, { backgroundColor: c.border }]} />
+
+        {/* ── Suggestions, or recent places ───────────────────── */}
+        <ScrollView style={styles.flex1} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.listContent}>
+          {active === 'pickup' && !pickupIsHere && (
+            <Row
+              icon="crosshairs-gps"
+              title="Use current location"
+              subtitle={hereStatus === 'denied' ? 'Location permission is off' : here?.address ?? undefined}
+              onPress={useCurrentLocation}
+            />
+          )}
+
+          {showingSuggestions ? (
+            suggestState === 'error' ? (
+              <View style={styles.notice} accessibilityLiveRegion="polite">
+                <Icon name="wifi-off" size={20} color={c.textSec} />
+                <Text style={[styles.noticeText, { color: c.textSec }]}>
+                  Suggestions couldn't be loaded. Check your connection, or type the full address and tap search.
+                </Text>
+              </View>
+            ) : suggestions.length === 0 ? (
+              suggestState === 'loading' ? (
+                <ActivityIndicator style={styles.loader} color={c.primary} accessibilityLabel="Loading suggestions" />
+              ) : (
+                <Text style={[styles.noticeText, styles.notice, { color: c.textSec }]}>
+                  No matching places. Try a nearby landmark or area name.
+                </Text>
+              )
+            ) : (
+              suggestions.map((s, i) => (
+                <Row
+                  key={s.placeId}
+                  icon="map-marker-outline"
+                  title={s.name}
+                  subtitle={s.subtitle}
+                  onPress={() => choose({ name: s.name, subtitle: s.subtitle })}
+                  divider={i < suggestions.length - 1}
+                />
+              ))
+            )
+          ) : (
+            history.map((p, i) => (
+              <Row
+                key={`${p.name}|${p.subtitle}`}
+                icon={p.favourite ? 'star-outline' : 'history'}
+                title={p.name}
+                subtitle={p.subtitle}
+                onPress={() => choose({ name: p.name, subtitle: p.subtitle, lat: p.lat, lng: p.lng })}
+                divider={i < history.length - 1}
+                favourite={p.favourite}
+                onToggleFavourite={() => toggleFavourite(p)}
+              />
+            ))
+          )}
         </ScrollView>
 
-        {/* ── Search CTA ────────────────────────────────────────────── */}
-        <View style={styles.ctaWrap}>
-          <AnimatedPressable
-            scaleValue={0.97}
-            onPress={runSearch}
-            style={styles.ctaPressable}
-          >
-            <LinearGradient
-              colors={canSearch ? [c.primary, c.primaryDark] : [c.border, c.border]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[
-                styles.ctaButton,
-                canSearch && Shadow.primary(c.primary),
-              ]}
+        {/* ── Search button, for typed addresses ──────────────── */}
+        {canSearch && !showingSuggestions && (
+          <View style={[styles.ctaBar, { borderTopColor: c.border, backgroundColor: c.surface }]}>
+            <Pressable
+              onPress={runSearch}
+              disabled={searching}
+              accessibilityRole="button"
+              accessibilityLabel="Find rides"
+              accessibilityState={{ busy: searching }}
+              style={[styles.cta, { backgroundColor: c.primary }]}
             >
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="white">
-                <Path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-              </Svg>
-              {searching ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Text style={[styles.ctaText, { color: canSearch ? 'white' : c.textSec }]}>
-                  Search Rides
-                </Text>
-              )}
-            </LinearGradient>
-          </AnimatedPressable>
-        </View>
+              <Text style={[styles.ctaText, { color: c.textOnPrimary }]}>Find rides</Text>
+            </Pressable>
+          </View>
+        )}
       </KeyboardAvoidingView>
 
-      {/* Calendar Modal */}
-      <RideDatePicker
-        visible={showCalendar}
-        selectedDate={selectedDate}
-        onSelect={setSelectedDate}
-        onClose={() => setShowCalendar(false)}
-      />
+      {searching && (
+        <View style={[styles.overlay, { backgroundColor: c.surface }]} accessibilityLiveRegion="polite">
+          <ActivityIndicator size="large" color={c.primary} />
+          <Text style={[styles.overlayText, { color: c.text }]}>Finding rides going your way…</Text>
+        </View>
+      )}
 
-      <ClockTimePicker
-        visible={showTimePicker}
-        initialTime={time}
-        onConfirm={handleTimeConfirm}
-        onDismiss={() => setShowTimePicker(false)}
+      <RideDatePicker
+        visible={showDate}
+        selectedDate={when}
+        onSelect={d => { pickedDate.current = d; }}
+        onClose={() => {
+          setShowDate(false);
+          if (pickedDate.current) setShowTime(true);
+        }}
       />
+      <ClockTimePicker
+        visible={showTime}
+        initialTime={
+          when
+            ? `${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}`
+            : '09:00'
+        }
+        onConfirm={t => {
+          const d = new Date(pickedDate.current ?? new Date());
+          const [h, m] = t.split(':').map(Number);
+          d.setHours(h, m, 0, 0);
+          pickedDate.current = null;
+          setWhen(d);
+          setShowTime(false);
+        }}
+        onDismiss={() => {
+          pickedDate.current = null;
+          setShowTime(false);
+        }}
+      />
+    </View>
+  );
+}
+
+// ─── Row ──────────────────────────────────────────────────────────────────────
+
+function Row({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  divider,
+  favourite,
+  onToggleFavourite,
+}: {
+  icon: IconName;
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  divider?: boolean;
+  favourite?: boolean;
+  onToggleFavourite?: () => void;
+}) {
+  const { c } = useApp();
+  return (
+    <View style={[styles.row, divider && [styles.dashed, { borderColor: c.border }]]}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title} style={styles.rowMain}>
+        <Icon name={icon} size={22} color={c.textSec} />
+        <View style={styles.flex1}>
+          <Text style={[styles.rowTitle, { color: c.text }]} numberOfLines={1}>{title}</Text>
+          {subtitle ? <Text style={[styles.rowSub, { color: c.textSec }]} numberOfLines={1}>{subtitle}</Text> : null}
+        </View>
+      </Pressable>
+      {onToggleFavourite && (
+        <Pressable
+          onPress={onToggleFavourite}
+          accessibilityRole="button"
+          accessibilityLabel={favourite ? `Remove ${title} from favourites` : `Add ${title} to favourites`}
+          hitSlop={10}
+          style={styles.heartBtn}
+        >
+          <Icon name={favourite ? 'heart' : 'heart-outline'} size={24} color={favourite ? c.error : c.textSec} />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -556,275 +579,57 @@ export function SearchScreen() {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  flex1: {
-    flex: 1,
-  },
+  root: { flex: 1 },
+  flex1: { flex: 1 },
 
-  // ── Header ──────────────────────────────────────────────────────
-  header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xl,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    marginBottom: Spacing.lg,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: Typography.bold,
-    color: 'white',
-  },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: Spacing.sm },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  title: { flex: 1, fontSize: Typography['6xl'], fontWeight: Typography.extrabold },
+  headerPill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: Spacing.lg, borderRadius: Radius.full, borderWidth: 1 },
+  headerPillText: { fontSize: Typography.lg, fontWeight: Typography.semibold },
 
-  // ── Route Card ──────────────────────────────────────────────────
+  seatRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.sm, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.md },
+  seatChip: { width: 48, height: 44, borderRadius: Radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  seatChipText: { fontSize: Typography.xl, fontWeight: Typography.bold },
+
   routeCard: {
-    borderRadius: Radius.xl,
-    backgroundColor: 'white',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xs,
-  },
-  inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    paddingVertical: Spacing.md,
-  },
-  dotFrom: {
-    width: 10,
-    height: 10,
-    borderRadius: Radius.full,
-  },
-  dotTo: {
-    width: 10,
-    height: 10,
-    borderRadius: 2,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: Typography.lg,
-    padding: 0, // remove default Android padding
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  verticalLine: {
-    marginLeft: 4,
-    width: 2,
-    height: 16,
-  },
-  horizontalLine: {
-    flex: 1,
-    height: 1,
-  },
-  swapButton: {
-    width: 28,
-    height: 28,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // ── Scroll Content ──────────────────────────────────────────────
-  scrollContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.lg,
-  },
-  sectionLabel: {
-    fontSize: Typography.base,
-    fontWeight: Typography.semibold,
-    marginBottom: 10,
-  },
-
-  // ── Date & Time ─────────────────────────────────────────────────
-  dateTimeRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',   // guarantees equal height on both cards
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  dtCard: {
-    flex: 1,                 // equal width: each card gets 50% of the row
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    borderRadius: Radius.xl,
-    borderWidth: 1.5,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  dtIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dtTextWrap: {
-    flex: 1,
-  },
-  dtLabel: {
-    fontSize: Typography.xs,
-    fontWeight: Typography.semibold,
-    letterSpacing: 0.5,
-    marginBottom: 3,
-  },
-  dtValue: {
-    fontSize: Typography.md,
-    fontWeight: Typography.bold,
-  },
-
-  // ── Seats ───────────────────────────────────────────────────────
-  seatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: Radius.lg,
-    borderWidth: 1.5,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  seatsLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  seatsLabel: {
-    fontSize: Typography.md,
-    fontWeight: Typography.semibold,
-  },
-  seatsControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  seatBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  seatsCount: {
-    fontSize: 18,
-    fontWeight: Typography.extrabold,
-    minWidth: 20,
-    textAlign: 'center',
-  },
-
-  // ── Recent Searches ─────────────────────────────────────────────
-  recentSection: {
-    marginTop: Spacing.xs,
-  },
-  recentList: {
-    gap: Spacing.sm,
-  },
-  recentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    borderRadius: Radius.md,
+    marginHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    paddingLeft: Spacing.lg,
+    paddingRight: Spacing.md,
+    borderRadius: Radius['2xl'],
     borderWidth: 1,
-    paddingHorizontal: Spacing.lg - 2,
-    paddingVertical: Spacing.md,
-  },
-  recentFrom: {
-    fontSize: Typography.md,
-    fontWeight: Typography.semibold,
-  },
-  recentTo: {
-    fontSize: Typography.sm,
-  },
-
-  // ── CTA ─────────────────────────────────────────────────────────
-  ctaWrap: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xl,
-    paddingTop: Spacing.sm,
-  },
-  ctaPressable: {
-    borderRadius: Radius.xl,
-    overflow: 'hidden',
-  },
-  ctaButton: {
-    height: 56,
-    borderRadius: Radius.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-  },
-  ctaText: {
-    fontSize: Typography['2xl'],
-    fontWeight: Typography.bold,
-  },
-
-  // ── Map Picker Card ───────────────────────────────────
-  mapPickerCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    marginBottom: Spacing.xl,
-    overflow: 'hidden',
-  },
-  mapPickerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md + 2,
   },
-  mapPickerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapPickerTitle: {
-    fontSize: Typography.md,
-    fontWeight: Typography.semibold,
-    marginBottom: 2,
-  },
-  mapPickerSub: {
-    fontSize: Typography.sm,
-  },
+  dots: { alignItems: 'center', paddingVertical: 16 },
+  dotOuter: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  dotInner: { width: 10, height: 10, borderRadius: 5 },
+  dotLine: { flex: 1, width: 0, borderLeftWidth: 1.5, borderStyle: 'dashed', marginVertical: 4 },
+  input: { fontSize: Typography['2xl'], minHeight: 50, paddingVertical: 0 },
+  inputDrop: { fontWeight: Typography.semibold },
+  inputDivider: { height: 1 },
 
-  // ── Suggestions ─────────────────────────────────────────────────
-  suggestionBox: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E7EB',
-    paddingBottom: 4,
-  },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-  },
-  suggestionBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
-  },
-  suggestionText: {
-    flex: 1,
-    fontSize: 13,
-  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.lg },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: Spacing.lg, borderRadius: Radius.full, borderWidth: 1 },
+  chipText: { fontSize: Typography.lg, fontWeight: Typography.semibold },
 
+  rule: { height: 1 },
+  listContent: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing['2xl'] },
+  row: { flexDirection: 'row', alignItems: 'center', minHeight: 68 },
+  dashed: { borderBottomWidth: 1, borderStyle: 'dashed' },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.md },
+  rowTitle: { fontSize: Typography['2xl'], fontWeight: Typography.semibold },
+  rowSub: { fontSize: Typography.md, marginTop: 2 },
+  heartBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  notice: { flexDirection: 'row', gap: Spacing.md, paddingVertical: Spacing.xl },
+  noticeText: { flex: 1, fontSize: Typography.md, lineHeight: 20 },
+  loader: { marginTop: Spacing.xl },
+
+  ctaBar: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, borderTopWidth: 1 },
+  cta: { minHeight: 56, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', ...Shadow.sm },
+  ctaText: { fontSize: Typography.xl, fontWeight: Typography.bold },
+
+  overlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, opacity: 0.96 },
+  overlayText: { fontSize: Typography.xl, fontWeight: Typography.semibold },
 });

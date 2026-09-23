@@ -46,6 +46,34 @@ export interface IncidentData {
   bookingId: string;
 }
 
+/** An EmergencyRecord as GET /safety/sos/active returns it. */
+interface EmergencyRecordResponse {
+  _id: string;
+  status: IncidentData['status'];
+  triggeredBy?: { _id: string; name?: string } | string;
+  booking?: { _id: string } | string;
+  triggerLocation?: { coordinates?: [number, number] };
+  createdAt?: string;
+}
+
+function refId(ref: { _id: string } | string | undefined): string {
+  return typeof ref === 'string' ? ref : ref?._id ?? '';
+}
+
+function toIncident(record: EmergencyRecordResponse): IncidentData {
+  const [lng, lat] = record.triggerLocation?.coordinates ?? [0, 0];
+  const user = record.triggeredBy;
+  return {
+    id: record._id,
+    userId: refId(user),
+    userName: typeof user === 'object' ? user.name ?? '' : '',
+    status: record.status,
+    location: { lat, lng },
+    timestamp: new Date(record.createdAt ?? Date.now()),
+    bookingId: refId(record.booking),
+  };
+}
+
 export interface EmergencyContact {
   name: string;
   phone: string;
@@ -128,11 +156,11 @@ export const safetyService = {
    */
   async getActiveIncidents(): Promise<IncidentData[]> {
     try {
-      const response = await apiClient.get<ApiResponse<{ records: IncidentData[]; total: number }>>(
+      const response = await apiClient.get<ApiResponse<{ records: EmergencyRecordResponse[]; total: number }>>(
         API_ENDPOINTS.safety.activeIncidents,
       );
       logger.info('Active incidents fetched');
-      return response.data.data.records;
+      return response.data.data.records.map(toIncident);
     } catch (error) {
       logger.error('Failed to fetch active incidents', { error });
       throw error;

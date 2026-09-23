@@ -35,7 +35,8 @@ export const API_CONFIG = {
   timeout: parseInt(env.REACT_NATIVE_API_TIMEOUT || '30000', 10),
   retryAttempts: 3,
   retryDelay: 1000,
-  retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+  // 429 is left out: retrying a rate-limited request only extends the limit.
+  retryableStatusCodes: [408, 500, 502, 503, 504],
   tokenRefreshThreshold: 5 * 60 * 1000, // Refresh token if expires in < 5 min
   debugApiCalls: env.DEBUG_API_CALLS === 'true',
   logLevel: (env.LOG_LEVEL || 'info') as 'debug' | 'info' | 'warn' | 'error',

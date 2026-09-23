@@ -25,6 +25,7 @@ import { errorHandler } from '../../utils/errorHandler';
 import { COMPANY } from '../../config/company';
 import type { User } from '../../types/api';
 import Constants from 'expo-constants';
+import { realPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -231,7 +232,7 @@ export function SettingsScreen() {
       {/* ── Edit Profile Modal ────────────────────────────────── */}
       <Modal visible={showEditProfile} transparent animationType="slide" onRequestClose={() => setShowEditProfile(false)}>
         <Pressable accessibilityRole="button" style={st.overlay} onPress={() => setShowEditProfile(false)} />
-        <View style={[st.sheet, { backgroundColor: c.surface }]}>
+        <View style={[st.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom }]}>
           <View style={[st.sheetHandle, { backgroundColor: c.border }]} />
 
           {/* Title row */}
@@ -270,7 +271,7 @@ export function SettingsScreen() {
             ))}
             <View>
               <Text style={[st.fieldLabel, { color: c.textSec }]}>Phone number</Text>
-              <Text style={{ fontSize: 15, color: c.text }}>{profile?.phone ?? ''}</Text>
+              <Text style={{ fontSize: 15, color: c.text }}>{realPhone(profile?.phone) ?? 'Not added'}</Text>
               <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
                 Your phone number is verified at sign-in and can't be changed here.
               </Text>

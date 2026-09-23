@@ -30,7 +30,7 @@ type NavProp = NativeStackNavigationProp<RootStackParamList, 'EmailSignup'>;
 
 export function EmailSignupScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c } = useApp();
+  const { c, finishSignIn } = useApp();
   const insets = useSafeAreaInsets();
 
   const [firstName, setFirstName] = useState('');
@@ -64,7 +64,9 @@ export function EmailSignupScreen() {
     setLoading(true);
     try {
       const displayName = `${firstName.trim()} ${lastName.trim()}`;
-      await signUpWithEmail(email.trim(), password, displayName);
+      const credential = await signUpWithEmail(email.trim(), password, displayName);
+      // A new account has no profile yet, but profile setup needs the backend session
+      await finishSignIn(credential.user);
       navigation.navigate('ProfileSetup');
     } catch (error) {
       Alert.alert('Sign Up Failed', getErrorMessage(error, 'Unable to create account.'));

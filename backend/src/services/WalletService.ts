@@ -17,6 +17,7 @@ import {
 import { paginate } from '../utils/helpers';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
+import { callRazorpay } from '../utils/razorpay';
 import { RewardService } from './RewardService';
 
 const rewardService = new RewardService();
@@ -109,12 +110,14 @@ export class WalletService {
             };
         }
 
-        const order = await razorpay.orders.create({
-            amount: Math.round(amount * 100), // paise
-            currency: 'INR',
-            receipt: `wallet_${userId}_${Date.now()}`,
-            notes: { userId, purpose: 'wallet_topup' },
-        });
+        const order = await callRazorpay('create wallet top-up order', () =>
+            razorpay.orders.create({
+                amount: Math.round(amount * 100), // paise
+                currency: 'INR',
+                receipt: `wallet_${userId}_${Date.now()}`,
+                notes: { userId, purpose: 'wallet_topup' },
+            }),
+        );
 
         logger.info('Wallet top-up order created', { userId, amount, orderId: order.id });
 
@@ -158,10 +161,12 @@ export class WalletService {
         if (existing) return this.resolveExistingTopUp(existing, userId);
 
         // 3. Confirm with Razorpay that this payment was captured for this user's top-up order
-        const [order, payment] = await Promise.all([
-            razorpay.orders.fetch(razorpayOrderId),
-            razorpay.payments.fetch(razorpayPaymentId),
-        ]);
+        const [order, payment] = await callRazorpay('verify wallet top-up', () =>
+            Promise.all([
+                razorpay.orders.fetch(razorpayOrderId),
+                razorpay.payments.fetch(razorpayPaymentId),
+            ]),
+        );
         const notes = (order.notes ?? {}) as Record<string, unknown>;
         if (notes.purpose !== 'wallet_topup' || String(notes.userId) !== userId) {
             throw new AppError('This payment does not belong to your wallet', 403, 'TOPUP_OWNER_MISMATCH');

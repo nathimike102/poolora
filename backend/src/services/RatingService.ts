@@ -1,4 +1,5 @@
 import { Rating, IRating } from '../models/Rating';
+import type { FilterQuery } from 'mongoose';
 import { Booking } from '../models/Booking';
 import { User } from '../models/User';
 import { BookingStatus } from '../types';
@@ -110,20 +111,23 @@ export class RatingService {
     /**
      * Get validated ratings for a specific user.
      */
-    async getUserRatings(userId: string, page: number, limit: number): Promise<{ ratings: IRating[]; total: number }> {
-        const ratings = await Rating.find({
-            ratee: userId,
-            isValidated: true,
-        })
+    async getUserRatings(
+        userId: string,
+        page: number,
+        limit: number,
+        as?: 'driver' | 'rider',
+    ): Promise<{ ratings: IRating[]; total: number }> {
+        const filter: FilterQuery<IRating> = { ratee: userId, isValidated: true };
+        // A driver is rated by riders, and a rider by drivers
+        if (as) filter.raterRole = as === 'driver' ? 'rider' : 'driver';
+
+        const ratings = await Rating.find(filter)
             .populate('rater', 'name profilePhotoUrl')
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit);
 
-        const total = await Rating.countDocuments({
-            ratee: userId,
-            isValidated: true,
-        });
+        const total = await Rating.countDocuments(filter);
 
         return { ratings, total };
     }

@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { Typography, Spacing, Radius } from '../theme';
 
@@ -190,6 +191,7 @@ export function RideDatePicker({
   onClose,
 }: RideDatePickerProps) {
   const { c } = useApp();
+  const insets = useSafeAreaInsets();
   const today = startOfDay(new Date());
   const maxDate = new Date(today);
   maxDate.setDate(today.getDate() + 60);
@@ -300,7 +302,7 @@ export function RideDatePicker({
       <Animated.View
         style={[
           styles.sheet,
-          { backgroundColor: c.surface },
+          { backgroundColor: c.surface, paddingBottom: Spacing['2xl'] + insets.bottom },
           { transform: [{ translateY: slideY }] },
         ]}
       >

@@ -28,6 +28,8 @@ import { API_ENDPOINTS } from '../api/constants';
 import { tokenStorage } from '../utils/tokenStorage';
 import { logger } from '../utils/logger';
 import { getJwtExpiresAtMs } from '../utils/jwt';
+
+export type VerifyOtpResult = VerifyOtpResponse | { needsProfile: true };
 import type {
   ApiResponse,
   VerifyOtpResponse,
@@ -320,7 +322,7 @@ export async function sendOtpToBackend(phone: string): Promise<void> {
  * @param otp - 6-digit OTP code
  * @param name - User's name (for new users)
  * @param email - User's email (optional)
- * @returns User and tokens
+ * @returns User and tokens, or { needsProfile: true } for a new phone sent without a name
  */
 export async function verifyOtpWithBackend(
   phone: string,
@@ -328,15 +330,19 @@ export async function verifyOtpWithBackend(
   name?: string,
   email?: string,
   dateOfBirth?: string,
-): Promise<VerifyOtpResponse> {
+): Promise<VerifyOtpResult> {
   try {
-    const response = await apiClient.post<ApiResponse<VerifyOtpResponse>>(API_ENDPOINTS.auth.verifyOtp, {
+    const response = await apiClient.post<ApiResponse<VerifyOtpResult>>(API_ENDPOINTS.auth.verifyOtp, {
       phone,
       otp,
       name,
       email,
       dateOfBirth,
     });
+
+    // New phone: the code was right but there is no account yet. Nothing is
+    // stored; the caller collects a name and verifies again with the same code.
+    if ('needsProfile' in response.data.data) return { needsProfile: true };
 
     const { user, accessToken, refreshToken, isNewUser } = response.data.data;
 
@@ -401,10 +407,24 @@ export async function firebaseLoginWithBackend(
   }
 }
 
+// Refresh tokens rotate: the backend rejects a refresh token once it has been
+// used. Concurrent callers (startup restore, several 401s at once) must share
+// one request, or every refresh after the first fails and logs the user out.
+let refreshInFlight: Promise<string> | null = null;
+
 /**
- * Refresh JWT access token
+ * Refresh the JWT access token. Concurrent calls share one request.
  */
-export async function refreshAccessToken(): Promise<string> {
+export function refreshAccessToken(): Promise<string> {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshAccessTokenOnce().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function refreshAccessTokenOnce(): Promise<string> {
   try {
     const refreshToken = await tokenStorage.getRefreshToken();
     if (!refreshToken) {
@@ -453,9 +473,24 @@ export async function getCurrentUserFromBackend(): Promise<User> {
 /**
  * Logout from backend and Firebase
  */
+let loggingOut = false;
+
 export async function logoutAll(): Promise<void> {
+  // A failed refresh calls logoutAll(); don't recurse into another refresh.
+  if (loggingOut) return;
+  loggingOut = true;
   try {
-    // Call backend logout
+    // The backend revokes the session only for a valid access token, so
+    // refresh an expired one first; otherwise the refresh token would stay
+    // usable on the server after "logging out".
+    try {
+      if (await tokenStorage.isTokenExpired()) {
+        await refreshAccessToken();
+      }
+    } catch (error) {
+      logger.warn('Could not refresh before logout', { error });
+    }
+
     try {
       await apiClient.post(API_ENDPOINTS.auth.logout, {});
     } catch (error) {
@@ -467,13 +502,18 @@ export async function logoutAll(): Promise<void> {
     clearAuthorizationHeader();
     clearLocalAuthState();
 
-    // Sign out from Firebase
-    await firebaseSignOut(getAuth());
+    // Phone sign-in goes through the backend only, so there may be no
+    // Firebase session; signOut() throws in that case.
+    if (getAuth().currentUser) {
+      await firebaseSignOut(getAuth());
+    }
 
     logger.info('User logged out successfully');
   } catch (error) {
     logger.error('Logout error', { error });
     throw error;
+  } finally {
+    loggingOut = false;
   }
 }
 

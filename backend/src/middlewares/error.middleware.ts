@@ -6,6 +6,14 @@ import { logger } from '../utils/logger';
 import { config } from '../config';
 import { Error } from 'mongoose';
 
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 /** The duplicate-key shape the MongoDB driver puts on an error. */
 interface DuplicateKeyError {
   code?: number;
@@ -122,9 +130,11 @@ export function globalErrorHandler(
   Sentry.captureException(err, { tags: { requestId } });
   logger.error('Unhandled error', {
     requestId,
-    error: err.message,
-    stack: err.stack,
-    name: err.name,
+    // Some SDKs (e.g. Razorpay) reject with plain objects, which have no
+    // message or stack; log their content instead of an empty entry.
+    error: err instanceof globalThis.Error ? err.message : safeStringify(err),
+    stack: err instanceof globalThis.Error ? err.stack : undefined,
+    name: err instanceof globalThis.Error ? err.name : typeof err,
   });
 
   const response: ApiResponse = {

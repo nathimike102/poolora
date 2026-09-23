@@ -23,17 +23,20 @@ export class RatingController {
   }
 
   /**
-   * GET /api/v1/ratings/user/:userId
-   * Get ratings for a specific user.
+   * GET /api/v1/ratings/user/:userId?as=driver|rider
+   * Get ratings for a specific user, optionally only those received in one role.
    */
   static async getUserRatings(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const page = queryInt(req, 'page', 1);
       const limit = queryInt(req, 'limit', 20);
+      // ?as=driver: ratings riders gave this user as a driver; ?as=rider: the reverse
+      const as = req.query.as === 'driver' || req.query.as === 'rider' ? req.query.as : undefined;
       const { ratings, total } = await ratingService.getUserRatings(
         req.params.userId as string,
         page,
-        limit
+        limit,
+        as,
       );
 
       sendSuccess(

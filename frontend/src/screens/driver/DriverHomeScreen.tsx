@@ -1,405 +1,463 @@
-import React, { useRef } from 'react';
+/**
+ * screens/driver/DriverHomeScreen.tsx
+ *
+ * Map-first home for drivers, matching the rider home: the driver's area on
+ * top, and a sheet that scrolls up over it with the "offer a ride" action,
+ * today's numbers, riders waiting for an answer, upcoming rides and shortcuts.
+ */
+
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   Pressable,
-  Animated,
+  StyleSheet,
+  ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useApp } from '../../context/AppContext';
+import { LiveMap } from '../../components/LiveMap';
+import { Icon, type IconName } from '../../components/Icon';
+import { Typography, Spacing, Radius, Shadow } from '../../theme';
+import type { RootStackParamList } from '../../navigation/types';
 import { userService } from '../../services/userService';
 import { bookingService } from '../../services/bookingService';
 import { rideService } from '../../services/rideService';
+import { useCurrentPlace } from '../../hooks/useCurrentPlace';
+import { logger } from '../../utils/logger';
 import type { Booking, Ride } from '../../types/api';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
-
-import { useApp } from '../../context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RoleToggle } from '../../components/RoleToggle';
-import type { RootStackParamList } from '../../navigation/types';
-import { Icon, type IconName } from '../../components/Icon';
-import { Shadow } from '../../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-/* ── Helpers ────────────────────────────────────────────────────── */
-const AnimatedPressable = ({
-  onPress,
-  style,
-  children,
-}: {
-  onPress?: () => void;
-  style?: any;
-  children: React.ReactNode;
-}) => {
-  const scale = useRef(new Animated.Value(1)).current;
-  const onIn = () =>
-    Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
-  const onOut = () =>
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
-  return (
-    <Pressable accessibilityRole="button" onPressIn={onIn} onPressOut={onOut} onPress={onPress}>
-      <Animated.View style={[style, { transform: [{ scale }] }]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-};
+const MAX_UPCOMING = 3;
 
-// Data will be fetched from APIs
+interface UpcomingRide {
+  id: string;
+  from: string;
+  to: string;
+  departure: string;
+  booked: number;
+  total: number;
+  earned: number;
+}
 
-/* ═══════════════════════════════════════════════════════════════════ */
+function formatDeparture(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
+  if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+  return `${d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
+}
+
 export function DriverHomeScreen() {
   const navigation = useNavigation<Nav>();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
-  const [loadError, setLoadError] = useState(false);
+  const { height } = useWindowDimensions();
+  const mapHeight = Math.round(height * 0.32);
+  const { place: here, status: hereStatus, refresh: refreshHere } = useCurrentPlace();
 
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [driverName, setDriverName] = useState('');
   const [rating, setRating] = useState<{ avg: number; count: number } | null>(null);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [ridesToday, setRidesToday] = useState(0);
-
-  interface UpcomingRide {
-    id: string;
-    from: string;
-    to: string;
-    date: string;
-    time: string;
-    booked: number;
-    total: number;
-    earned: number;
-  }
-
   const [pendingCount, setPendingCount] = useState(0);
   const [upcomingRides, setUpcomingRides] = useState<UpcomingRide[]>([]);
 
+  const load = useCallback(async (isActive: () => boolean = () => true) => {
+    try {
+      const [userProfile, completedRes, pendingRes, ridesRes] = await Promise.all([
+        userService.getMyProfile(),
+        bookingService.getDriverBookings(1, 100, 'completed'),
+        bookingService.getDriverBookings(1, 50, 'pending'),
+        rideService.getMyRides(undefined, 1, 20),
+      ]);
+      if (!isActive()) return;
+
+      setDriverName(userProfile.name);
+      const stats = userProfile.stats;
+      setRating(stats && stats.totalRatingsAsDriver > 0
+        ? { avg: stats.avgRatingAsDriver, count: stats.totalRatingsAsDriver }
+        : null);
+
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const today = (completedRes.data?.items ?? []).filter(
+        (b: Booking) => new Date(b.updatedAt) >= startOfToday,
+      );
+      setRidesToday(today.length);
+      setTodayEarnings(today.reduce((sum: number, b: Booking) => sum + (b.driverEarnings ?? 0), 0));
+
+      setPendingCount(pendingRes.data?.total ?? pendingRes.data?.items?.length ?? 0);
+
+      const upcoming = (ridesRes.data?.items ?? [])
+        .filter((r: Ride) => r.status === 'scheduled' || r.status === 'active')
+        .sort((a: Ride, b: Ride) => new Date(a.scheduledDeparture).getTime() - new Date(b.scheduledDeparture).getTime());
+      setUpcomingRides(upcoming.map((r: Ride) => {
+        const booked = (r.seats ?? 0) - (r.availableSeats ?? 0);
+        return {
+          id: r._id,
+          from: r.pickupLocation?.address || 'Pickup',
+          to: r.dropoffLocation?.address || 'Drop',
+          departure: r.scheduledDeparture,
+          booked,
+          total: r.seats ?? 0,
+          earned: booked * r.pricePerSeat,
+        };
+      }));
+      setLoadError(false);
+    } catch (error) {
+      logger.error('Failed to load the driver dashboard', { error });
+      if (isActive()) setLoadError(true);
+    } finally {
+      if (isActive()) setLoaded(true);
+    }
+  }, []);
+
   useFocusEffect(
-    React.useCallback(() => {
-      let isActive = true;
-      const fetchDashboardData = async () => {
-        try {
-          const [userProfile, completedRes, pendingRes, ridesRes] = await Promise.all([
-            userService.getMyProfile(),
-            bookingService.getDriverBookings(1, 100, 'completed'),
-            bookingService.getDriverBookings(1, 50, 'pending'),
-            rideService.getMyRides(undefined, 1, 20),
-          ]);
-          if (!isActive) return;
-
-          setDriverName(userProfile.name);
-          const stats = userProfile.stats;
-          setRating(stats && stats.totalRatingsAsDriver > 0
-            ? { avg: stats.avgRatingAsDriver, count: stats.totalRatingsAsDriver }
-            : null);
-
-          const startOfToday = new Date();
-          startOfToday.setHours(0, 0, 0, 0);
-          const today = (completedRes.data?.items ?? []).filter(
-            (b: Booking) => new Date(b.updatedAt) >= startOfToday,
-          );
-          setRidesToday(today.length);
-          setTodayEarnings(today.reduce((sum: number, b: Booking) => sum + (b.driverEarnings ?? 0), 0));
-
-          setPendingCount(pendingRes.data?.total ?? pendingRes.data?.items?.length ?? 0);
-
-          const upcoming = (ridesRes.data?.items ?? []).filter(
-            (r: Ride) => r.status === 'scheduled' || r.status === 'active',
-          );
-          setUpcomingRides(upcoming.map((r: Ride) => {
-            const departure = new Date(r.scheduledDeparture);
-            const booked = (r.seats ?? 0) - (r.availableSeats ?? 0);
-            return {
-              id: r._id,
-              from: r.pickupLocation?.address || 'Pickup',
-              to: r.dropoffLocation?.address || 'Drop',
-              date: departure.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }),
-              time: departure.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              booked,
-              total: r.seats ?? 0,
-              earned: booked * r.pricePerSeat,
-            };
-          }));
-          setLoadError(false);
-        } catch {
-          if (isActive) setLoadError(true);
-        }
-      };
-
-      fetchDashboardData();
-      return () => { isActive = false; };
-    }, [])
+    useCallback(() => {
+      let active = true;
+      load(() => active);
+      return () => { active = false; };
+    }, [load]),
   );
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = driverName.split(' ')[0];
+
+  const areaLabel =
+    hereStatus === 'ready'
+      ? here?.address ?? 'Current location'
+      : hereStatus === 'loading'
+        ? 'Finding your location…'
+        : hereStatus === 'denied'
+          ? 'Allow location to see your area'
+          : "Couldn't find your location";
+
+  const offerRide = () => navigation.navigate('DriverTabs', { screen: 'CreateRide' });
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <StatusBar style="light" />
+    <View style={[styles.root, { backgroundColor: c.surface }]}>
+      {/* ── Map ──────────────────────────────────────────────── */}
+      <View style={[styles.mapWrap, { height: mapHeight + 40 }]}>
+        <LiveMap />
+      </View>
+
+      {/* ── Sheet (scrolls up over the map) ──────────────────── */}
       <ScrollView
-        style={styles.flex1}
-        contentContainerStyle={styles.scrollContent}
+        style={StyleSheet.absoluteFill}
+        contentContainerStyle={{ paddingTop: mapHeight, paddingBottom: Spacing['2xl'] }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Gradient Header ────────────────────────────────────── */}
-        <LinearGradient
-          colors={[c.primaryDark, c.primary]}
-          start={{ x: 0.2, y: 0 }}
-          end={{ x: 0.8, y: 1 }}
-          style={styles.headerGradient}
-        >
-          {/* Row 1: Name | Trust + Bell */}
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.greeting}>{greeting}</Text>
-              <Text style={styles.driverName}>{driverName}</Text>
-            </View>
+        <View style={[styles.sheet, { backgroundColor: c.surface }]}>
+          <View style={[styles.handle, { backgroundColor: c.border }]} />
 
-            <View style={styles.headerRight}>
-              {/* Bell */}
-              <Pressable
-                onPress={() => navigation.navigate('Notifications')}
-                accessibilityRole="button"
-                accessibilityLabel="Notifications"
-                style={styles.bellBtn}
-              >
-                <Svg width={20} height={20} viewBox="0 0 24 24">
-                  <Path
-                    d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"
-                    fill="white"
-                  />
-                </Svg>
-              </Pressable>
-            </View>
-          </View>
+          <Text style={[styles.greeting, { color: c.textSec }]}>
+            {greeting}{firstName ? `, ${firstName}` : ''}
+          </Text>
 
-          {/* Row 2: RoleToggle */}
-          <RoleToggle />
-
-          {/* Earnings card */}
-          <AnimatedPressable onPress={() => navigation.navigate('Earnings')}>
-          <View style={styles.earningsCard} accessibilityRole="button" accessibilityLabel="View earnings">
-            <View style={styles.flex1}>
-              <Text style={styles.earningsLabel}>Earned today</Text>
-              <Text style={styles.earningsValue}>₹{todayEarnings.toLocaleString('en-IN')}</Text>
-            </View>
-            <View style={styles.earningsDivider} />
-            <View style={[styles.flex1, { alignItems: 'center' }]}>
-              <Text style={styles.earningsLabel}>Rides today</Text>
-              <Text style={styles.earningsValue}>{ridesToday}</Text>
-            </View>
-            <View style={styles.earningsDivider} />
-            <View style={[styles.flex1, { alignItems: 'center' }]}>
-              <Text style={styles.earningsLabel}>Rating</Text>
-              <Text style={styles.earningsValue}>{rating ? rating.avg.toFixed(1) : 'New'}</Text>
-              <Text style={styles.earningsSubLabel}>
-                {rating ? `${rating.count} ${rating.count === 1 ? 'rating' : 'ratings'}` : 'No ratings yet'}
-              </Text>
-            </View>
-          </View>
-          </AnimatedPressable>
-        </LinearGradient>
-
-        {loadError && (
-          <View style={styles.sectionPad}>
-            <Text style={{ fontSize: 14, color: c.error }}>
-              Some of your dashboard could not be loaded. Check your connection.
+          {/* Offer a ride */}
+          <Pressable
+            onPress={offerRide}
+            accessibilityRole="button"
+            accessibilityLabel="Offer a ride"
+            style={({ pressed }) => [
+              styles.offerPill,
+              { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.85 : 1 },
+              Shadow.md,
+            ]}
+          >
+            <Icon name="steering" size={26} color={c.text} />
+            <Text style={[styles.offerText, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              Where are you driving?
             </Text>
-          </View>
-        )}
+            <View style={[styles.offerChip, { backgroundColor: c.primary }]}>
+              <Icon name="plus" size={18} color={c.textOnPrimary} />
+              <Text style={[styles.offerChipText, { color: c.textOnPrimary }]}>Offer</Text>
+            </View>
+          </Pressable>
 
-        {/* ── Pending requests banner (online only) ─────────── */}
-        {pendingCount > 0 && (
-          <View style={styles.sectionPad}>
-            <AnimatedPressable onPress={() => navigation.navigate('ManageRequests' as unknown as never)}>
-              <View style={[styles.pendingBanner, { backgroundColor: c.surface, borderColor: c.accent }]}>
-                <View style={[styles.pendingIcon, { backgroundColor: c.accent + '22' }]}>
-                  <Svg width={22} height={22} viewBox="0 0 24 24">
-                    <Path
-                      d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"
-                      fill={c.accent}
-                    />
-                  </Svg>
+          {/* Today */}
+          {!loaded ? (
+            <ActivityIndicator style={styles.loader} color={c.primary} accessibilityLabel="Loading your dashboard" />
+          ) : loadError ? (
+            <Pressable
+              onPress={() => load()}
+              accessibilityRole="button"
+              style={[styles.banner, { backgroundColor: c.errorLight, borderColor: c.errorLight }]}
+            >
+              <Icon name="alert-circle-outline" size={22} color={c.error} />
+              <Text style={[styles.flex1, { color: c.text }]}>Your dashboard couldn't be loaded. Tap to retry.</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => navigation.navigate('Earnings')}
+              accessibilityRole="button"
+              accessibilityLabel={`Today: ₹${todayEarnings} earned from ${ridesToday} ${ridesToday === 1 ? 'ride' : 'rides'}. View earnings`}
+              style={[styles.statsCard, { borderColor: c.border }]}
+            >
+              <Stat label="Earned today" value={`₹${todayEarnings.toLocaleString('en-IN')}`} />
+              <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+              <Stat label="Rides today" value={String(ridesToday)} />
+              <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+              <Stat
+                label={rating ? `${rating.count} ${rating.count === 1 ? 'rating' : 'ratings'}` : 'Rating'}
+                value={rating ? rating.avg.toFixed(1) : 'New'}
+                icon={rating ? 'star' : undefined}
+              />
+            </Pressable>
+          )}
+
+          {/* Riders waiting */}
+          {pendingCount > 0 && (
+            <Pressable
+              onPress={() => navigation.navigate('DriverTabs', { screen: 'ManageRequests' })}
+              accessibilityRole="button"
+              accessibilityLabel={`${pendingCount} ${pendingCount === 1 ? 'request' : 'requests'} waiting. Review requests`}
+              style={[styles.banner, { backgroundColor: c.primaryLight, borderColor: c.primaryLight }]}
+            >
+              <View style={[styles.bannerIcon, { backgroundColor: c.surface }]}>
+                <Icon name="account-clock-outline" size={22} color={c.primary} />
+              </View>
+              <View style={styles.flex1}>
+                <Text style={[styles.bannerLabel, { color: c.primary }]}>Needs your answer</Text>
+                <Text style={[styles.bannerTitle, { color: c.text }]}>
+                  {pendingCount} {pendingCount === 1 ? 'rider is' : 'riders are'} waiting
+                </Text>
+              </View>
+              <Icon name="chevron-right" size={22} color={c.textSec} />
+            </Pressable>
+          )}
+
+          {/* Upcoming rides */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, styles.sectionTitleInline, { color: c.text }]}>Your rides</Text>
+            {upcomingRides.length > 0 && (
+              <Pressable
+                onPress={() => navigation.navigate('UpcomingRides')}
+                accessibilityRole="button"
+                accessibilityLabel="See all your rides"
+                hitSlop={8}
+              >
+                <Text style={[styles.link, { color: c.primary }]}>See all</Text>
+              </Pressable>
+            )}
+          </View>
+          {loaded && upcomingRides.length === 0 && !loadError ? (
+            <Text style={[styles.hint, { color: c.textSec }]}>
+              No rides coming up. Offer one and riders going your way can book your empty seats.
+            </Text>
+          ) : (
+            upcomingRides.slice(0, MAX_UPCOMING).map((r, i) => (
+              <Pressable
+                key={r.id}
+                onPress={() => navigation.navigate('DriverRideDetails', { rideId: r.id })}
+                accessibilityRole="button"
+                accessibilityLabel={`Ride to ${r.to}, ${formatDeparture(r.departure)}, ${r.booked} of ${r.total} seats booked`}
+                style={[
+                  styles.rideRow,
+                  i < Math.min(upcomingRides.length, MAX_UPCOMING) - 1 && [styles.dashed, { borderColor: c.border }],
+                ]}
+              >
+                <View style={[styles.rideIcon, { backgroundColor: c.surfaceVariant }]}>
+                  <Icon name="car-clock" size={22} color={c.primary} />
                 </View>
                 <View style={styles.flex1}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Pending Requests</Text>
-                  <Text style={{ fontSize: 13, color: c.textSec, marginTop: 1 }}>
-                    {pendingCount} {pendingCount === 1 ? 'rider is' : 'riders are'} waiting for your response
+                  <Text style={[styles.rideTitle, { color: c.text }]} numberOfLines={1}>To {r.to}</Text>
+                  <Text style={[styles.rideSub, { color: c.textSec }]} numberOfLines={1}>
+                    {formatDeparture(r.departure)} · from {r.from}
+                  </Text>
+                  <Text style={[styles.rideSub, { color: c.textSec }]}>
+                    {r.booked}/{r.total} seats booked
+                    {r.earned > 0 ? <Text style={{ color: c.success, fontWeight: Typography.semibold }}>{`  ·  ₹${r.earned.toLocaleString('en-IN')}`}</Text> : null}
                   </Text>
                 </View>
-                <View style={[styles.countCircle, { backgroundColor: c.accent }]}>
-                  <Text style={styles.countText}>{pendingCount}</Text>
-                </View>
-                <Svg width={18} height={18} viewBox="0 0 24 24">
-                  <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill={c.textSec} />
-                </Svg>
-              </View>
-            </AnimatedPressable>
-          </View>
-        )}
-
-        {/* ── Upcoming rides ─────────────────────────────────── */}
-        {(
-        <View style={styles.sectionPad}>
-          <View style={styles.sectionHeader}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }}>Upcoming Rides</Text>
-            <Pressable accessibilityRole="button" onPress={() => navigation.navigate('UpcomingRides')}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Manage</Text>
-            </Pressable>
-          </View>
-
-          {upcomingRides.length === 0 && !loadError && (
-            <View style={[styles.upcomingCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Text style={{ fontSize: 14, color: c.textSec }}>You have no upcoming rides. Create one to start taking bookings.</Text>
-            </View>
+                <Icon name="chevron-right" size={22} color={c.textSec} />
+              </Pressable>
+            ))
           )}
-          {upcomingRides.map(r => (
-            <AnimatedPressable key={r.id} onPress={() => navigation.navigate('DriverRideDetails', { rideId: r.id })} style={{ marginBottom: 12 }}>
-              <View style={[styles.upcomingCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <View style={styles.upcomingRow}>
-                  <View style={[styles.clockIcon, { backgroundColor: c.primaryLight }]}>
-                    <Svg width={18} height={18} viewBox="0 0 24 24">
-                      <Path
-                        d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"
-                        fill={c.primary}
-                      />
-                    </Svg>
-                  </View>
 
-                  <View style={styles.flex1}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>
-                      {r.from} to {r.to}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: c.textSec, marginTop: 3 }}>
-                      {r.date} · {r.time}
-                    </Text>
-                    <View style={styles.seatsRow}>
-                      <Svg width={13} height={13} viewBox="0 0 24 24">
-                        <Path
-                          d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"
-                          fill={c.textSec}
-                        />
-                      </Svg>
-                      <Text style={{ fontSize: 12, color: c.textSec, marginLeft: 4 }}>
-                        {r.booked}/{r.total} booked
-                      </Text>
-                      <Text style={{ fontSize: 12, color: c.textSec, marginHorizontal: 4 }}>·</Text>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: c.success }}>
-                        ₹{r.earned} from booked seats
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginTop: 10 }}>
-                    <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill={c.textSec} />
-                  </Svg>
-                </View>
-              </View>
-            </AnimatedPressable>
-          ))}
-        </View>
-        )}
-
-        {/* ── Quick Actions ──────────────────────────────────────── */}
-        <View style={styles.sectionPad}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginBottom: 12 }}>
-            Quick Actions
-          </Text>
-          <View style={styles.actionsGrid}>
-            {([
-              { icon: 'road-variant', label: 'Create ride', nav: 'CreateRide', bg: c.primaryLight, fg: c.primary },
-              { icon: 'cash', label: 'Earnings', nav: 'Earnings', bg: c.successLight, fg: c.successDark },
-              { icon: 'card-account-details-outline', label: 'Verification', nav: 'KYC', bg: c.warningLight, fg: '#8A5A00' },
-              { icon: 'alert', label: 'SOS', nav: 'SOS', bg: c.errorLight, fg: c.error },
-            ] as { icon: IconName; label: string; nav: string; bg: string; fg: string }[]).map(item => (
-              <AnimatedPressable key={item.label} onPress={() => navigation.navigate(item.nav as never)} style={{ flex: 1 }}>
-                <View style={[styles.actionCard, { backgroundColor: item.bg }]} accessibilityRole="button" accessibilityLabel={item.label}>
-                  <Icon name={item.icon} size={32} color={item.fg} />
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: item.fg, textAlign: 'center' }}>{item.label}</Text>
-                </View>
-              </AnimatedPressable>
-            ))}
+          {/* Shortcuts */}
+          <Text style={[styles.sectionTitle, { color: c.text }]}>Drive with Poolora</Text>
+          <View style={styles.tileRow}>
+            <Tile icon="road-variant" label="Offer ride" onPress={offerRide} />
+            <Tile icon="cash" label="Earnings" onPress={() => navigation.navigate('Earnings')} />
+            <Tile icon="card-account-details-outline" label="Verify" onPress={() => navigation.navigate('KYC')} />
+            <Tile icon="shield-check-outline" label="Safety" onPress={() => navigation.navigate('SOS')} />
           </View>
         </View>
       </ScrollView>
-      
+
+      {/* ── Floating area pill and bell over the map ─────────── */}
+      <View style={[styles.topBar, { top: insets.top + Spacing.sm }]} pointerEvents="box-none">
+        <Pressable
+          onPress={() => (hereStatus === 'ready' ? undefined : refreshHere(true))}
+          disabled={hereStatus === 'ready' || hereStatus === 'loading'}
+          accessibilityRole="button"
+          accessibilityLabel={`Your area: ${areaLabel}`}
+          style={[styles.locationPill, { backgroundColor: c.surface }, Shadow.md]}
+        >
+          {hereStatus === 'loading' ? (
+            <ActivityIndicator size="small" color={c.primary} />
+          ) : (
+            <View style={[styles.pickupDot, { borderColor: hereStatus === 'ready' ? c.success : c.warning }]} />
+          )}
+          <Text style={[styles.locationText, { color: c.text }]} numberOfLines={1}>{areaLabel}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => navigation.navigate('Notifications')}
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
+          style={[styles.roundBtn, { backgroundColor: c.surface }, Shadow.md]}
+        >
+          <Icon name="bell-outline" size={22} color={c.text} />
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
+function Stat({ label, value, icon }: { label: string; value: string; icon?: IconName }) {
+  const { c } = useApp();
+  return (
+    <View style={styles.stat}>
+      <View style={styles.statValueRow}>
+        {icon && <Icon name={icon} size={18} color="#F5B301" />}
+        <Text style={[styles.statValue, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      </View>
+      <Text style={[styles.statLabel, { color: c.textSec }]} numberOfLines={1}>{label}</Text>
+    </View>
+  );
+}
+
+function Tile({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+  const { c } = useApp();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.tile, { opacity: pressed ? 0.7 : 1 }]}
+    >
+      <View style={[styles.tileIcon, { backgroundColor: c.surfaceVariant }]}>
+        <Icon name={icon} size={30} color={c.primary} />
+      </View>
+      <Text style={[styles.tileLabel, { color: c.text }]} numberOfLines={1}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex1: { flex: 1 },
-  scrollContent: { paddingBottom: 16 },
+  mapWrap: { position: 'absolute', top: 0, left: 0, right: 0 },
 
-  /* Header */
-  headerGradient: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  greeting: { fontSize: 13, color: 'rgba(255,255,255,0.85)' },
-  driverName: { fontSize: 20, fontWeight: '800', color: 'white', marginTop: 1 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  topBar: {
+    position: 'absolute',
+    left: Spacing.lg,
+    right: Spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  locationPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minHeight: 48,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.full,
+  },
+  pickupDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 4 },
+  locationText: { flex: 1, fontSize: Typography.lg, fontWeight: Typography.medium },
+  roundBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
 
-  /* Trust ring */
+  sheet: {
+    borderTopLeftRadius: Radius['4xl'],
+    borderTopRightRadius: Radius['4xl'],
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
+    minHeight: 600,
+  },
+  handle: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, marginBottom: Spacing.lg },
+  greeting: { fontSize: Typography.lg, fontWeight: Typography.medium, marginBottom: Spacing.md },
 
-  /* Bell */
-  bellBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+  offerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    minHeight: 64,
+    paddingLeft: Spacing.xl,
+    paddingRight: Spacing.sm,
+    borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-
-  /* Earnings */
-  earningsCard: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 12,
-    gap: 12,
-  },
-  earningsLabel: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
-  earningsValue: { fontSize: 28, fontWeight: '800', color: 'white' },
-  earningsSubLabel: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
-  earningsDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
-
-  /* Online */
-
-  /* Pending */
-  sectionPad: { paddingHorizontal: 20, paddingTop: 20 },
-  pendingBanner: {
+  offerText: { flex: 1, fontSize: Typography['3xl'], fontWeight: Typography.bold },
+  offerChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: 14,
-    ...Shadow.sm,
+    gap: 4,
+    height: 44,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
   },
-  pendingIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  countCircle: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  countText: { fontSize: 13, fontWeight: '800', color: 'white' },
+  offerChipText: { fontSize: Typography.md, fontWeight: Typography.bold },
 
-  /* Upcoming */
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  upcomingCard: { borderRadius: 16, borderWidth: 1, padding: 14, ...Shadow.sm },
-  upcomingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  clockIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  seatsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  loader: { marginTop: Spacing.xl },
 
-  /* Quick actions */
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  actionCard: { borderRadius: 14, padding: 20, paddingVertical: 24, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 120 },
+  statsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+  },
+  stat: { flex: 1, alignItems: 'center', paddingHorizontal: Spacing.xs },
+  statValueRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statValue: { fontSize: Typography['4xl'], fontWeight: Typography.extrabold },
+  statLabel: { fontSize: Typography.base, marginTop: 2 },
+  statDivider: { width: 1, alignSelf: 'stretch' },
 
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+  },
+  bannerIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  bannerLabel: { fontSize: Typography.sm, fontWeight: Typography.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
+  bannerTitle: { fontSize: Typography.xl, fontWeight: Typography.bold, marginTop: 2 },
+
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing['2xl'], marginBottom: Spacing.sm },
+  sectionTitle: { fontSize: Typography['3xl'], fontWeight: Typography.bold, marginTop: Spacing['2xl'], marginBottom: Spacing.md },
+  sectionTitleInline: { marginTop: 0, marginBottom: 0 },
+  link: { fontSize: Typography.lg, fontWeight: Typography.bold },
+  hint: { fontSize: Typography.md, lineHeight: 20 },
+
+  rideRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.md, minHeight: 72 },
+  dashed: { borderBottomWidth: 1, borderStyle: 'dashed' },
+  rideIcon: { width: 44, height: 44, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  rideTitle: { fontSize: Typography['2xl'], fontWeight: Typography.semibold },
+  rideSub: { fontSize: Typography.md, marginTop: 2 },
+
+  tileRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  tile: { width: '23%', alignItems: 'center', gap: 6 },
+  tileIcon: { width: '100%', aspectRatio: 1, borderRadius: Radius.xl, alignItems: 'center', justifyContent: 'center' },
+  tileLabel: { fontSize: Typography.base, fontWeight: Typography.semibold },
 });

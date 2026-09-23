@@ -6,8 +6,7 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { bookingService } from '../../services/bookingService';
 import { userService } from '../../services/userService';
 import type { Booking } from '../../types/api';
@@ -162,6 +161,7 @@ function MiniChart({
 
 /* ═══════════════════════════════════════════════════════════════ */
 export function EarningsScreen() {
+  const navigation = useNavigation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<Period>('today');
@@ -214,7 +214,6 @@ export function EarningsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <StatusBar style="light" />
       <ScrollView
         style={styles.flex1}
         contentContainerStyle={styles.scrollContent}
@@ -228,6 +227,17 @@ export function EarningsScreen() {
           style={styles.gradientHeader}
         >
           <View style={styles.headerRow}>
+            {navigation.canGoBack() && (
+              <Pressable
+                onPress={() => navigation.goBack()}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                hitSlop={8}
+                style={styles.backBtn}
+              >
+                <Icon name="arrow-left" size={24} color="#FFFFFF" />
+              </Pressable>
+            )}
             <Text style={styles.headerTitle} accessibilityRole="header">Earnings</Text>
           </View>
 
@@ -371,7 +381,8 @@ const styles = StyleSheet.create({
 
   /* Header */
   gradientHeader: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.15)' },
   headerTitle: { fontSize: 22, fontWeight: '800', color: 'white' },
 
   /* Period */

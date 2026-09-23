@@ -156,7 +156,9 @@ export class AuthService {
 
   /**
    * Verify OTP and either register or login the user.
-   * Returns access + refresh tokens.
+   * Returns access + refresh tokens. A correct code for a phone with no
+   * account, sent without a name, returns { needsProfile: true } and leaves
+   * the code valid, so the app can collect the name and verify again.
    */
   async verifyOtp(
     phone: string,
@@ -164,13 +166,18 @@ export class AuthService {
     name?: string,
     email?: string,
     dateOfBirth?: string,
-  ): Promise<{
-    user: IUser;
-    accessToken: string;
-    refreshToken: string;
-    isNewUser: boolean;
-  }> {
+  ): Promise<
+    | { needsProfile: true }
+    | {
+        user: IUser;
+        accessToken: string;
+        refreshToken: string;
+        isNewUser: boolean;
+      }
+  > {
     const redis = getRedisClient();
+    const existingUser = await User.findOne({ phone });
+    const needsProfile = !existingUser && !name;
 
     if (redis) {
       // Still waiting out an earlier wrong code?
@@ -226,6 +233,9 @@ export class AuthService {
           `Invalid OTP. ${config.otp.maxAttemptsPerCode - attempts} attempts remaining before a new code is needed.`,
         );
       }
+
+      // Keep the code for the second verify that carries the new user's name
+      if (needsProfile) return { needsProfile: true };
 
       // OTP valid — clean up, including the failure history.
       await redis.del(otpKey, attemptsKey, failuresKey, retryKey);
@@ -299,11 +309,12 @@ export class AuthService {
         );
       }
 
+      if (needsProfile) return { needsProfile: true };
       await OtpChallenge.deleteOne({ phone });
     }
 
     // Find or create user
-    let user = await User.findOne({ phone });
+    let user = existingUser;
     let isNewUser = false;
 
     if (!user) {
@@ -405,6 +416,16 @@ export class AuthService {
 
     if (user.kyc.status !== KYCStatus.PENDING) {
       throw new AppError('No pending KYC to approve', 400);
+    }
+
+    // Riders are told a driver's licence and vehicle papers were checked
+    const vehicle = user.vehicles[user.vehicles.length - 1];
+    if (!user.kyc.drivingLicenseUrl || !vehicle?.registrationDocUrl) {
+      throw new AppError(
+        'The driving licence and vehicle registration must be uploaded before approval',
+        409,
+        'KYC_DOCUMENTS_MISSING',
+      );
     }
 
     user.kyc.status = KYCStatus.APPROVED;

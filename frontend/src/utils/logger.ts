@@ -16,6 +16,20 @@ const LOG_LEVELS = {
   error: 3,
 } as const;
 
+/**
+ * JSON.stringify drops an Error's own fields (name, message, stack are not
+ * enumerable), so errors logged as data used to print as {}. Keep the useful
+ * parts, plus any codes the error carries, such as Firebase or Google Sign-In codes.
+ */
+function errorReplacer(_key: string, value: unknown): unknown {
+  if (value instanceof Error) {
+    const { name, message } = value;
+    const extra = value as Error & { code?: unknown; status?: unknown };
+    return { name, message, code: extra.code, status: extra.status };
+  }
+  return value;
+}
+
 class Logger {
   private currentLevel: LogLevel;
   private isDev: boolean;
@@ -34,7 +48,7 @@ class Logger {
   private formatMessage(level: LogLevel, message: string, data?: unknown): string {
     const timestamp = new Date().toISOString();
     const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
-    return data ? `${prefix} ${message} ${JSON.stringify(data)}` : `${prefix} ${message}`;
+    return data ? `${prefix} ${message} ${JSON.stringify(data, errorReplacer)}` : `${prefix} ${message}`;
   }
 
   debug(message: string, data?: unknown): void {

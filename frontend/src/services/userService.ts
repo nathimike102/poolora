@@ -28,9 +28,9 @@ export const userService = {
   },
 
   /**
-   * Update the signed-in user's name and email
+   * Update the signed-in user's name, email and date of birth
    */
-  async updateMyProfile(update: { name?: string; email?: string | null }): Promise<User> {
+  async updateMyProfile(update: { name?: string; email?: string | null; dateOfBirth?: string }): Promise<User> {
     try {
       const response = await apiClient.patch<ApiResponse<{ user: User }>>(API_ENDPOINTS.users.me, update);
       logger.info('User profile updated');

@@ -10,17 +10,18 @@
  * - Tab navigators are nested inside the root stack as "RiderTabs" / "DriverTabs"
  */
 
-import type { ConfirmationResult } from '@react-native-firebase/auth';
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { Ride, PaginatedResponse } from '../types/api';
+import type { VehicleCategory } from '../utils/vehicles';
+
+type LatLng = { lat: number; lng: number };
 
 // ─── Rider bottom tabs ────────────────────────────────────────────────────────
 
 export type RiderTabParamList = {
   RiderHome: undefined;
-  Search: { pickedLocation?: string; pickedField?: 'from' | 'to'; from?: string; to?: string } | undefined;
+  Services: undefined;
   MyRides: undefined;
-  ChatList: undefined;
   Profile: undefined;
 };
 
@@ -42,24 +43,51 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Login: undefined;
   PhoneLogin: undefined;
-  OTP: { phone: string; confirmation: ConfirmationResult };
+  OTP: { phone: string };
   EmailLogin: undefined;
   EmailSignup: undefined;
-  ProfileSetup: undefined;
+  /** phone + otp: a verified code for a phone with no account yet */
+  ProfileSetup: { phone: string; otp: string } | undefined;
 
   // Tab navigators (nested)
   RiderTabs: NavigatorScreenParams<RiderTabParamList>;
   DriverTabs: NavigatorScreenParams<DriverTabParamList>;
 
   // Rider detail screens (pushed above tabs)
+  /** Pickup and drop entry. Every field is optional and pre-fills the form. */
+  Search:
+    | {
+        /** Saved route: both ends as typed text */
+        from?: string;
+        to?: string;
+        /** A recent or favourite place as the drop; searches immediately */
+        drop?: { name: string; subtitle: string; lat?: number; lng?: number };
+        /** Address chosen on the map picker */
+        pickedLocation?: string;
+        pickedField?: 'from' | 'to';
+        /** Open the date picker first */
+        schedule?: boolean;
+        /** Show only this kind of vehicle in the results */
+        category?: VehicleCategory;
+      }
+    | undefined;
   RideResults:
     | {
         rides?: PaginatedResponse<Ride> | Ride[];
         /** What the rider searched for, shown in the results header */
-        route?: { from: string; to: string; seats: number };
+        route?: {
+          from: string;
+          to: string;
+          seats: number;
+          pickup?: LatLng;
+          dropoff?: LatLng;
+          /** ISO time the rider asked for; absent means "now" */
+          when?: string;
+        };
+        category?: VehicleCategory;
       }
     | undefined;
-  Booking: { rideId: string };
+  Booking: { rideId: string; seats?: number };
   ActiveRide: { rideId: string; bookingId?: string };
   RideDetail: { rideId: string };
   Payment: {
@@ -90,6 +118,8 @@ export type RootStackParamList = {
 
   // Shared detail screens (pushed above tabs)
   Chat: { chatId: string; recipientName: string };
+  /** Chat list for riders, whose tab bar has no chat tab */
+  Messages: undefined;
   Settings: undefined;
   Notifications: undefined;
   SOS: undefined;

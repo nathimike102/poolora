@@ -24,6 +24,7 @@ import { useApp } from '../context/AppContext';
 import { Typography } from '../theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
+const TAB_BAR_HEIGHT = 68;
 
 // ─── SVG Icons ─────────────────────────────────────────────────────────────────
 
@@ -103,10 +104,24 @@ const CreateRideIcon = (active: boolean, color: string) => (
   </Svg>
 );
 
+const ServicesIcon = (active: boolean, color: string) => (
+  <Svg width={22} height={22} viewBox="0 0 24 24"
+    fill={active ? color : 'none'}
+    stroke={active ? color : '#9CA3AF'}
+    strokeWidth={2}
+  >
+    <Rect x={3} y={3} width={7} height={7} rx={1.5} />
+    <Rect x={14} y={3} width={7} height={7} rx={1.5} />
+    <Rect x={3} y={14} width={7} height={7} rx={1.5} />
+    <Rect x={14} y={14} width={7} height={7} rx={1.5} />
+  </Svg>
+);
+
 // Map route names to icons
 const iconMap: Record<string, (active: boolean, color: string) => React.ReactElement> = {
   RiderHome: HomeIcon,
   Search: SearchIcon,
+  Services: ServicesIcon,
   MyRides: RidesIcon,
   ChatList: ChatIcon,
   Profile: ProfileIcon,
@@ -204,6 +219,8 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
       style={[
         styles.container,
         {
+          // Grow by the inset so the tabs keep their full 68dp above the system bar
+          height: TAB_BAR_HEIGHT + insets.bottom,
           paddingBottom: insets.bottom,
           backgroundColor: c.surface,
           borderTopColor: c.border,
@@ -218,7 +235,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
       <Animated.View
         style={[
           styles.activeIndicator,
-          { backgroundColor: c.primary },
+          { backgroundColor: c.primary, bottom: insets.bottom },
           { transform: [{ translateX: indicatorX }] },
         ]}
       />
@@ -247,16 +264,13 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
 
 const styles = StyleSheet.create({
   container: {
-    height: 68,
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    paddingBottom: 4,
     position: 'relative',
   },
   activeIndicator: {
     position: 'absolute',
-    bottom: 0,
     width: 24,
     height: 3,
     borderRadius: 2,

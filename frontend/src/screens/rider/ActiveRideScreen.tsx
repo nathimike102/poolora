@@ -34,6 +34,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Radius, Shadow } from '../../theme';
 import { initSocket } from '../../utils/socket';
 import { errorHandler } from '../../utils/errorHandler';
+import { realPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -204,6 +205,7 @@ export function ActiveRideScreen() {
         ? 'Ride in progress'
         : `Departs at ${formatTime(ride.scheduledDeparture)}`;
   const driverName = ride.driver?.name ?? 'Your driver';
+  const driverPhone = realPhone(ride.driver?.phone);
 
   const origin = { latitude: ride.pickupLocation.lat, longitude: ride.pickupLocation.lng };
   const destination = { latitude: ride.dropoffLocation.lat, longitude: ride.dropoffLocation.lng };
@@ -347,10 +349,10 @@ export function ActiveRideScreen() {
                 ) : null}
               </View>
               <View style={styles.actionBtns}>
-                {ride.driver?.phone ? (
+                {driverPhone ? (
                   <Pressable
                     style={[styles.iconBtn, { backgroundColor: c.successLight }]}
-                    onPress={() => Linking.openURL(`tel:${ride.driver.phone}`)}
+                    onPress={() => Linking.openURL(`tel:${driverPhone}`)}
                     accessibilityRole="button"
                     accessibilityLabel={`Call ${driverName}`}
                   >

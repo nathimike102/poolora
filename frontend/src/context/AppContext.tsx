@@ -24,6 +24,8 @@ import {
   logoutAll,
   devLogin,
   getCurrentUserFromState,
+  getCurrentUserFromBackend,
+  firebaseLoginWithBackend,
 } from "../services/authService";
 import { env } from "../config/env";
 import { PolicyModal } from "../components/PolicyModal";
@@ -72,6 +74,11 @@ interface AppContextValue extends AppState {
   setActiveTab: (tab: ActiveTab) => void;
   /** Sign out from Firebase */
   logout: () => Promise<void>;
+  /**
+   * Exchange a Firebase sign-in for a backend session. Returning users go
+   * straight into the app; 'profile' means the setup screen is still needed.
+   */
+  finishSignIn: (fbUser: FirebaseUser) => Promise<'home' | 'profile'>;
 }
 
 // ─── Context ───────────────────────────────────────────────────────────────────
@@ -89,8 +96,11 @@ export function AppProvider({ children }: AppProviderProps) {
   const [role, setRoleState] = useState<UserRole>(null);
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
-  // Default to system preference; user can override via toggleDarkMode
-  const [isDarkMode, setIsDarkMode] = useState(systemScheme === "dark");
+  // null follows the phone's setting live; a boolean is the user's override
+  // from toggleDarkMode.
+  const [darkOverride, setDarkOverride] = useState<boolean | null>(null);
+  const systemDark = systemScheme === "dark";
+  const isDarkMode = darkOverride ?? systemDark;
 
   // Firebase auth state
   const [firebaseUser, setFirebaseUser] =
@@ -110,8 +120,8 @@ export function AppProvider({ children }: AppProviderProps) {
           setRoleState(savedRole[1]);
         }
 
-        if (savedTheme[1] !== null) {
-          setIsDarkMode(savedTheme[1] === "true");
+        if (savedTheme[1] === "true" || savedTheme[1] === "false") {
+          setDarkOverride(savedTheme[1] === "true");
         }
       } catch {
         // Ignore read errors — start with defaults
@@ -170,8 +180,23 @@ export function AppProvider({ children }: AppProviderProps) {
         const restored = await restoreAuthState();
         if (restored) {
           logger.info("Backend auth state restored successfully");
-        } else {
+          try {
+            const u = await getCurrentUserFromBackend();
+            setUser({
+              id: u._id ?? u.id ?? "",
+              name: u.name,
+              phone: u.phone,
+              avatarUrl: u.profilePhotoUrl,
+              isVerified: u.isVerified,
+            });
+          } catch (error) {
+            logger.warn("Could not load the signed-in user", { error });
+          }
+        } else if (!(__DEV__ && env.DEV_AUTH_BYPASS === "true")) {
+          // No usable session: a saved role alone must not open the app.
           logger.debug("No backend auth state to restore");
+          setRoleState(null);
+          AsyncStorage.removeItem("@poolora_role").catch(() => {});
         }
         // If dev bypass is enabled, perform a local dev login so the app
         // can be used without real authentication.
@@ -222,7 +247,7 @@ export function AppProvider({ children }: AppProviderProps) {
     } catch (error) {
       logger.warn("Error during backend logout", { error });
       // Still proceed with local logout
-      await signOutFromFirebase();
+      await signOutFromFirebase().catch(() => {});
     }
     setUser(null);
     setRoleState(null);
@@ -230,13 +255,34 @@ export function AppProvider({ children }: AppProviderProps) {
     AsyncStorage.removeItem("@poolora_role").catch(() => {});
   }, []);
 
+  // Toggling back to the phone's own setting drops the override, so the app
+  // follows the system again instead of staying pinned.
   const toggleDarkMode = useCallback(() => {
-    setIsDarkMode((prev) => {
-      const next = !prev;
+    const next = !isDarkMode;
+    if (next === systemDark) {
+      setDarkOverride(null);
+      AsyncStorage.removeItem("@poolora_dark_mode").catch(() => {});
+    } else {
+      setDarkOverride(next);
       AsyncStorage.setItem("@poolora_dark_mode", String(next)).catch(() => {});
-      return next;
+    }
+  }, [isDarkMode, systemDark]);
+
+  // The date of birth is the last field of profile setup, so it marks the
+  // profile as done.
+  const finishSignIn = useCallback(async (fbUser: FirebaseUser) => {
+    const { user: u } = await firebaseLoginWithBackend(await fbUser.getIdToken());
+    if (!u.dateOfBirth) return 'profile' as const;
+    setUser({
+      id: u._id ?? u.id ?? "",
+      name: u.name,
+      phone: u.phone,
+      avatarUrl: u.profilePhotoUrl,
+      isVerified: u.isVerified,
     });
-  }, []);
+    setRole("rider");
+    return 'home' as const;
+  }, [setRole]);
 
   const switchRole = useCallback(() => {
     setRoleState((prev) => {
@@ -268,6 +314,7 @@ export function AppProvider({ children }: AppProviderProps) {
       switchRole,
       toggleDarkMode,
       logout,
+      finishSignIn,
     }),
     [
       role,
@@ -280,6 +327,7 @@ export function AppProvider({ children }: AppProviderProps) {
       switchRole,
       toggleDarkMode,
       logout,
+      finishSignIn,
       setRole,
       setUser,
       setActiveTab,

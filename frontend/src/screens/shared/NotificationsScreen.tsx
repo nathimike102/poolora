@@ -38,6 +38,7 @@ export function NotificationsScreen() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const unreadCount = useMemo(() => items.filter((n) => !n.isRead).length, [items]);
 
@@ -80,8 +81,10 @@ export function NotificationsScreen() {
       if (isRefresh) setRefreshing(true);
       const result = await notificationService.getNotifications(1, 50);
       setItems(result.data.items ?? []);
+      setLoadError(false);
     } catch (error) {
       logger.error('Failed to load notifications', { error });
+      setLoadError(true);
     } finally {
       setLoading(false);
       if (isRefresh) setRefreshing(false);
@@ -123,9 +126,23 @@ export function NotificationsScreen() {
       ) : (
       <ScrollView
         style={s.flex1}
+        contentContainerStyle={items.length === 0 ? s.emptyContainer : undefined}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadNotifications(true)} />}
       >
+        {items.length === 0 && (
+          <View style={s.empty} accessibilityLiveRegion="polite">
+            <Icon name={loadError ? 'wifi-off' : 'bell-check-outline'} size={48} color={c.textSec} />
+            <Text style={[s.emptyTitle, { color: c.text }]}>
+              {loadError ? "Notifications couldn't be loaded" : "You're all caught up"}
+            </Text>
+            <Text style={[s.emptySub, { color: c.textSec }]}>
+              {loadError
+                ? 'Check your connection and pull down to try again.'
+                : 'Booking updates, messages and ride alerts will show up here.'}
+            </Text>
+          </View>
+        )}
         {items.map(notif => {
           const typeKey = colorTypeFor(notif.type);
           const bg = TYPE_COLORS[typeKey] ?? TYPE_COLORS.info;
@@ -195,6 +212,12 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700' },
+
+  /* Empty state */
+  emptyContainer: { flexGrow: 1, justifyContent: 'center' },
+  empty: { alignItems: 'center', paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', marginTop: 8, textAlign: 'center' },
+  emptySub: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
 
   /* Notification row */
   notifRow: {

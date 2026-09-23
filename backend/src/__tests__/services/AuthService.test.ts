@@ -39,6 +39,7 @@ jest.mock('../../models/User', () => ({
   User: {
     findOne: jest.fn(),
     findOneAndUpdate: jest.fn(),
+    findById: jest.fn(),
     create: jest.fn(),
   },
 }));
@@ -62,6 +63,7 @@ jest.mock('jsonwebtoken', () => ({
 // ── Import under test ───────────────────────────────────────────────────────
 
 import { AuthService } from '../../services/AuthService';
+import { User } from '../../models/User';
 
 describe('AuthService — OTP Security', () => {
   let authService: AuthService;
@@ -133,8 +135,39 @@ describe('AuthService — OTP Security', () => {
       });
 
       const result = await authService.verifyOtp(testPhone, rawOtp, undefined);
-      expect(result).toBeDefined();
-      expect(result.isNewUser).toBe(false);
+      expect(result).toMatchObject({ isNewUser: false });
+    });
+
+    it('asks a new phone for a profile without using up the code', async () => {
+      const otpHash = crypto.createHash('sha256').update('123456').digest('hex');
+      mockRedis.ttl.mockResolvedValueOnce(-2);
+      mockRedis.get.mockResolvedValueOnce(otpHash);
+      const { User } = require('../../models/User');
+      User.findOne.mockResolvedValueOnce(null);
+
+      const result = await authService.verifyOtp(testPhone, '123456', undefined);
+
+      expect(result).toEqual({ needsProfile: true });
+      expect(mockRedis.del).not.toHaveBeenCalled();
+      expect(User.create).not.toHaveBeenCalled();
+    });
+
+    it('creates the account when the same code comes back with a name', async () => {
+      const otpHash = crypto.createHash('sha256').update('123456').digest('hex');
+      mockRedis.ttl.mockResolvedValueOnce(-2);
+      mockRedis.get.mockResolvedValueOnce(otpHash);
+      mockRedis.del.mockResolvedValue(1);
+      const { User } = require('../../models/User');
+      User.findOne.mockResolvedValueOnce(null);
+      User.create.mockResolvedValueOnce({ _id: 'new1', phone: testPhone, name: 'Asha Rao', capabilities: ['rider'], kyc: { status: 'none' } });
+
+      const result = await authService.verifyOtp(testPhone, '123456', 'Asha Rao');
+
+      expect(result).toMatchObject({ isNewUser: true });
+      expect(User.create).toHaveBeenCalledWith(expect.objectContaining({ phone: testPhone, name: 'Asha Rao' }));
+      expect(mockRedis.del).toHaveBeenCalledWith(
+        `otp:${testPhone}`, `otp:attempts:${testPhone}`, `otp:failures:${testPhone}`, `otp:retry:${testPhone}`,
+      );
     });
 
     it('should reject an incorrect OTP', async () => {
@@ -198,5 +231,50 @@ describe('AuthService — OTP Security', () => {
       // It never even looks the code up.
       expect(mockRedis.get).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('AuthService — KYC approval', () => {
+  let authService: AuthService;
+
+  function pendingDriver(overrides: { licence?: string; registration?: string } = {}) {
+    return {
+      kyc: { status: 'pending', drivingLicenseUrl: overrides.licence },
+      vehicles: overrides.registration === undefined ? [] : [{ registrationDocUrl: overrides.registration }],
+      capabilities: ['rider'],
+      save: jest.fn(),
+    };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    authService = new AuthService();
+    jest.spyOn(authService as any, 'invalidateAllSessions').mockResolvedValue(undefined);
+  });
+
+  it('refuses to approve a driver who has not uploaded a licence', async () => {
+    const user = pendingDriver({ registration: 's3://kyc/rc.jpg' });
+    (User.findById as jest.Mock).mockResolvedValue(user);
+
+    await expect(authService.approveKyc('u1')).rejects.toMatchObject({ statusCode: 409, errorId: 'KYC_DOCUMENTS_MISSING' });
+    expect(user.save).not.toHaveBeenCalled();
+  });
+
+  it('refuses to approve a driver with no vehicle registration', async () => {
+    const user = pendingDriver({ licence: 's3://kyc/dl.jpg' });
+    (User.findById as jest.Mock).mockResolvedValue(user);
+
+    await expect(authService.approveKyc('u1')).rejects.toMatchObject({ errorId: 'KYC_DOCUMENTS_MISSING' });
+    expect(user.save).not.toHaveBeenCalled();
+  });
+
+  it('approves and grants the driver capability once both documents are uploaded', async () => {
+    const user = pendingDriver({ licence: 's3://kyc/dl.jpg', registration: 's3://kyc/rc.jpg' });
+    (User.findById as jest.Mock).mockResolvedValue(user);
+
+    await authService.approveKyc('u1');
+    expect(user.kyc.status).toBe('approved');
+    expect(user.capabilities).toContain('driver');
+    expect(user.save).toHaveBeenCalled();
   });
 });
