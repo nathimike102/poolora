@@ -104,15 +104,29 @@ jest.mock('@expo/vector-icons', () => ({
   MaterialCommunityIcons: 'MaterialCommunityIcons',
 }));
 
-// Mock react-native-maps
-jest.mock('react-native-maps', () => {
+// Mock MapLibre (native map views)
+jest.mock('@maplibre/maplibre-react-native', () => {
+  const React = require('react');
   const { View } = require('react-native');
+  const Camera = React.forwardRef((props, ref) => {
+    React.useImperativeHandle(ref, () => ({
+      fitBounds: jest.fn(),
+      easeTo: jest.fn(),
+      flyTo: jest.fn(),
+      jumpTo: jest.fn(),
+      zoomTo: jest.fn(),
+    }));
+    return React.createElement(View, props);
+  });
   return {
     __esModule: true,
-    default: View,
+    Map: View,
+    Camera,
     Marker: View,
-    Polyline: View,
-    Circle: View,
+    GeoJSONSource: View,
+    Layer: View,
+    NativeUserLocation: View,
+    UserLocation: View,
   };
 });
 

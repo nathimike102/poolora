@@ -14,6 +14,7 @@ import parcelRoutes from './parcel.routes';
 import adminRoutes from './admin.routes';
 import trackRoutes from './track.routes';
 import uploadRoutes from './upload.routes';
+import simulationRoutes from './simulation.routes';
 
 const router = Router();
 
@@ -32,6 +33,7 @@ router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
 router.use('/track', trackRoutes);
 router.use('/uploads', uploadRoutes);
+router.use('/dev/simulate', simulationRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {

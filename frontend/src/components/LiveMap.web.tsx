@@ -2,7 +2,7 @@
  * components/LiveMap.web.tsx
  *
  * Web fallback for LiveMap.
- * `react-native-maps` is native-only in this project setup, so this component
+ * MapLibre is native-only in this project setup, so this component
  * avoids importing it on web and renders a lightweight placeholder.
  */
 

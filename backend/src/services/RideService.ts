@@ -412,9 +412,6 @@ export class RideService {
   }
 
   /**
-   * Mark a ride as completed after all dropoffs.
-   */
-  /**
    * Get upcoming rides for a rider (booked but not yet completed/cancelled).
    */
   async getUpcomingRides(riderId: string) {
@@ -451,6 +448,41 @@ export class RideService {
       }));
   }
 
+  /**
+   * Driver sets off: the ride leaves the search results and riders see it as
+   * under way. Needs at least one confirmed rider.
+   */
+  async startRide(rideId: string, driverId: string): Promise<IRide> {
+    const ride = await Ride.findById(rideId);
+    if (!ride) throw new NotFoundError('Ride');
+    if (ride.driver.toString() !== driverId) {
+      throw new AuthorizationError('Only the driver can start the ride');
+    }
+    if (ride.status !== RideStatus.SCHEDULED && ride.status !== RideStatus.ACTIVE) {
+      throw new ConflictError('Only a scheduled ride can be started');
+    }
+
+    const confirmed = await Booking.find({ ride: rideId, status: BookingStatus.CONFIRMED }).select('rider');
+    if (confirmed.length === 0) {
+      throw new ConflictError('Accept at least one rider before starting the ride');
+    }
+
+    ride.status = RideStatus.IN_PROGRESS;
+    ride.startedAt = new Date();
+    await ride.save();
+
+    EventBridge.publish('ride-events', {
+      eventType: 'ride.started',
+      data: { rideId, driverId, riderIds: confirmed.map((b) => b.rider.toString()) },
+    });
+
+    return ride;
+  }
+
+  /**
+   * Mark the ride completed and settle each confirmed booking on it, which
+   * records the driver's earnings and lets riders rate the trip.
+   */
   async completeRide(rideId: string, driverId: string): Promise<IRide> {
     const ride = await Ride.findById(rideId);
     if (!ride) throw new NotFoundError('Ride');
@@ -464,6 +496,24 @@ export class RideService {
     ride.status = RideStatus.COMPLETED;
     ride.completedAt = new Date();
     await ride.save();
+
+    const confirmedBookings = await Booking.find({
+      ride: rideId,
+      status: BookingStatus.CONFIRMED,
+    }).select('_id');
+    const { BookingService } = await import('./BookingService');
+    const bookingService = new BookingService();
+    for (const { _id } of confirmedBookings) {
+      try {
+        await bookingService.completeBooking(_id.toString(), driverId);
+      } catch (error) {
+        logger.error('Failed to complete booking for completed ride', {
+          rideId,
+          bookingId: _id,
+          error: (error as Error).message,
+        });
+      }
+    }
 
     EventBridge.publish('ride-events', {
       eventType: 'ride.completed',

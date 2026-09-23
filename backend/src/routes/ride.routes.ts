@@ -38,6 +38,7 @@ router.get('/:id', RideController.getRide);
 
 // Ride actions
 router.post('/:id/cancel', RideController.cancelRide);
+router.post('/:id/start', requireDriverVerification(), RideController.startRide);
 router.post('/:id/complete', requireDriverVerification(), RideController.completeRide);
 router.post('/:id/optimize', requireDriverVerification(), RideController.optimizeRoute);
 

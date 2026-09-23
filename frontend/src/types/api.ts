@@ -183,6 +183,8 @@ export interface Ride {
   /** From the backend route calculation */
   estimatedDistanceKm?: number;
   estimatedDurationMins?: number;
+  /** Encoded road route from pickup to drop */
+  routePolyline?: string;
   preferences?: RidePreferences;
   /** 0-100 match score from ride search */
   matchScore?: number;

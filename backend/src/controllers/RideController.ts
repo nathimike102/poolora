@@ -138,6 +138,19 @@ export class RideController {
   }
 
   /**
+   * POST /api/v1/rides/:id/start
+   */
+  static async startRide(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const ride = await rideService.startRide(String(req.params.id), user.userId);
+      sendSuccess(res, { ride }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/v1/rides/:id/complete
    */
   static async completeRide(req: Request, res: Response, next: NextFunction): Promise<void> {

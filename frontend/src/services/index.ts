@@ -16,3 +16,4 @@ export { notificationService } from './notificationService';
 export { chatService } from './chatService';
 export { mapsService } from './mapsService';
 export { safetyService } from './safetyService';
+export { simulationService } from './simulationService';

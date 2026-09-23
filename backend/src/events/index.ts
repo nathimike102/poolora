@@ -200,6 +200,18 @@ export class EventBridge {
               { rideId: data.rideId },
             );
           }
+        } else if (event.eventType === 'ride.started') {
+          const { NotificationService } = await import('../services/NotificationService');
+          const notificationService = new NotificationService();
+          const data = event.data as { rideId?: string; riderIds?: string[] };
+          for (const riderId of data.riderIds ?? []) {
+            await notificationService.sendPushNotification(
+              riderId,
+              'Your driver is on the way',
+              'Your ride has started. Open Poolora to follow the car live.',
+              { rideId: data.rideId ?? '', type: 'ride' },
+            );
+          }
         }
       });
 

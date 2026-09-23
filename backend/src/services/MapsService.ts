@@ -5,6 +5,7 @@ import { getRedisClient } from '../config/redis';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 import { errorMessage } from '../utils/errors';
+import * as osm from './OsmMapsService';
 import type {
   AddressComponentV1,
   AddressValidationResponse,
@@ -28,6 +29,11 @@ import type {
 } from '../types/googleMaps';
 
 const GOOGLE_MAPS_BASE = 'https://maps.googleapis.com/maps/api';
+
+/** Free OpenStreetMap services answer the core ride-flow calls when chosen. */
+function osmSelected(): boolean {
+  return config.maps.provider === 'osm';
+}
 
 function getApiKey(): string {
   const key = config.maps.googleMapsKey;
@@ -276,9 +282,10 @@ function mapsFailure(
 }
 
 /**
- * Autocomplete a place search input using Google Places API.
+ * Autocomplete a place search input using Google Places API (or Photon on OSM).
  */
 export async function autocomplete(input: string): Promise<AutocompleteResult[]> {
+  if (osmSelected()) return osm.autocomplete(input);
   try {
     const response = await cachedMapsGet<AutocompleteResponse>(
       `${GOOGLE_MAPS_BASE}/place/autocomplete/json`,
@@ -314,6 +321,7 @@ export async function autocomplete(input: string): Promise<AutocompleteResult[]>
  * Geocode an address string to lat/lng coordinates.
  */
 export async function geocodeAddress(address: string): Promise<GeocodeResult> {
+  if (osmSelected()) return osm.geocodeAddress(address);
   try {
     const response = await cachedMapsGet<GeocodeResponse>(
       `${GOOGLE_MAPS_BASE}/geocode/json`,
@@ -356,6 +364,7 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
  * Reverse geocode lat/lng coordinates to an address.
  */
 export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult> {
+  if (osmSelected()) return osm.reverseGeocode(lat, lng);
   try {
     const response = await cachedMapsGet<GeocodeResponse>(
       `${GOOGLE_MAPS_BASE}/geocode/json`,
@@ -399,6 +408,7 @@ export async function getRoute(
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
 ): Promise<RouteResult> {
+  if (osmSelected()) return osm.getRoute(origin, destination);
   try {
     const response = await cachedMapsGet<DirectionsResponse>(
       `${GOOGLE_MAPS_BASE}/directions/json`,
@@ -445,6 +455,7 @@ export async function calculateDistance(
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
 ): Promise<DistanceResult> {
+  if (osmSelected()) return osm.calculateDistance(origin, destination);
   try {
     const response = await cachedMapsGet<DistanceMatrixResponse>(
       `${GOOGLE_MAPS_BASE}/distancematrix/json`,

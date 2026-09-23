@@ -80,6 +80,7 @@ export const API_ENDPOINTS = {
     create: '/rides',
     detail: (id: string) => `/rides/${id}`,
     cancel: (id: string) => `/rides/${id}/cancel`,
+    start: (id: string) => `/rides/${id}/start`,
     complete: (id: string) => `/rides/${id}/complete`,
     upcoming: '/rides/upcoming',
     updateLocation: '/rides/driver/location',
@@ -174,6 +175,15 @@ export const API_ENDPOINTS = {
     users: '/admin/users',
     kycDocuments: (userId: string) => `/admin/kyc/${userId}/documents`,
     payments: '/admin/payments',
+  },
+
+  // Development ride simulator
+  simulation: {
+    status: '/dev/simulate',
+    asRider: '/dev/simulate/as-rider',
+    asDriver: '/dev/simulate/as-driver',
+    drive: (rideId: string) => `/dev/simulate/rides/${rideId}/drive`,
+    stop: (rideId: string) => `/dev/simulate/rides/${rideId}/stop`,
   },
 } as const;
 

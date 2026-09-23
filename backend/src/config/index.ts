@@ -78,6 +78,27 @@ export const config = {
 
   maps: {
     googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || '',
+    /**
+     * 'google' or 'osm'. OSM uses free OpenStreetMap services (Photon for
+     * suggestions, Nominatim for addresses, OSRM for routes) and needs no key.
+     * Defaults to Google when a key is set, otherwise OSM.
+     */
+    provider: (process.env.MAPS_PROVIDER
+      || (process.env.GOOGLE_MAPS_API_KEY ? 'google' : 'osm')) as 'google' | 'osm',
+    // The public instances are for light use; point these at your own for production.
+    photonUrl: optional('PHOTON_URL', 'https://photon.komoot.io'),
+    nominatimUrl: optional('NOMINATIM_URL', 'https://nominatim.openstreetmap.org'),
+    osrmUrl: optional('OSRM_URL', 'https://router.project-osrm.org'),
+    // Nominatim's usage policy asks every client to identify itself.
+    osmUserAgent: optional('OSM_USER_AGENT', 'Poolora/1.0 (poolora carpooling app)'),
+  },
+
+  simulation: {
+    // Dev tool that drives a ride along its route. Never on in production
+    // unless explicitly asked for.
+    enabled: process.env.ENABLE_RIDE_SIMULATION
+      ? process.env.ENABLE_RIDE_SIMULATION === 'true'
+      : process.env.NODE_ENV !== 'production',
   },
 
   kafka: {

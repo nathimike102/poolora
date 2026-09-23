@@ -1,106 +1,95 @@
 /**
  * components/LiveMap.tsx
  *
- * Real map component powered by react-native-maps + expo-location.
- * Map used for ride routes and live driver position.
+ * Map for ride routes and live driver position, drawn with MapLibre on free
+ * OpenFreeMap tiles (OpenStreetMap data, no API key).
  *
  * Features:
  * - Requests user location permission and centres map automatically
- * - Shows origin (teal) / destination (red) markers joined by a dashed line
- *   when showRoute is true and both coordinates are known
+ * - Shows origin (teal) / destination (red) markers joined by the road route
+ *   when one is given, or by a dashed straight line otherwise
  * - Shows a driver marker only when a real driver location is provided
- * - Supports dark mode via custom map styling
+ * - Follows the phone's light/dark setting
  * - Centres on Bangalore if the user's location is unavailable
  *
  * Nothing is drawn from placeholder data: without coordinates the map just
  * shows the user's area.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
   ActivityIndicator,
-  Platform,
   type ViewStyle,
 } from 'react-native';
-import MapView, {
+import {
+  Map as MapLibreMap,
+  Camera,
   Marker,
-  Polyline,
-  PROVIDER_GOOGLE,
-  type Region,
-} from 'react-native-maps';
+  GeoJSONSource,
+  Layer,
+  NativeUserLocation,
+  type CameraRef,
+  type LngLat,
+} from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 
 import { useApp } from '../context/AppContext';
-import { MAPS_ENABLED } from '../config/maps';
+import { MAPS_ENABLED, MAP_STYLE } from '../config/maps';
 import { Icon } from './Icon';
 import { MapPlaceholder } from './MapPlaceholder';
+
+type Coordinate = { latitude: number; longitude: number };
 
 /* ── Props ─────────────────────────────────────────────────────── */
 interface LiveMapProps {
   showRoute?: boolean;
   showDriver?: boolean;
   style?: ViewStyle;
-  /** Override the initial map region */
-  initialRegion?: Region;
+  /** Override the initial map centre */
+  initialRegion?: Coordinate;
   /** Origin coordinate for the route line */
-  origin?: { latitude: number; longitude: number };
+  origin?: Coordinate;
   /** Destination coordinate for the route line */
-  destination?: { latitude: number; longitude: number };
+  destination?: Coordinate;
+  /** Road route between origin and destination; a straight dashed line is drawn without it */
+  route?: Coordinate[];
   /** Driver coordinate (only used when showDriver is true) */
-  driverLocation?: { latitude: number; longitude: number };
+  driverLocation?: Coordinate;
 }
 
 /* ── Fallback camera centre (Bangalore) ─────────────────────────── */
-const DEFAULT_REGION: Region = {
-  latitude: 12.9352,
-  longitude: 77.6245,
-  latitudeDelta: 0.06,
-  longitudeDelta: 0.06,
-};
+const DEFAULT_CENTER: Coordinate = { latitude: 12.9352, longitude: 77.6245 };
+const DEFAULT_ZOOM = 13;
+const FIT_PADDING = { top: 60, right: 60, bottom: 60, left: 60 };
 
-/* ── Dark mode map style ─────────────────────────────────────────── */
-const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#304a7d' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#255d7c' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2c6675' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
-  { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#023e58' }] },
-  { featureType: 'transit', elementType: 'labels.text.fill', stylers: [{ color: '#98a5be' }] },
-];
+const toLngLat = (c: Coordinate): LngLat => [c.longitude, c.latitude];
 
 /* ── Component ───────────────────────────────────────────────────── */
 export function LiveMap(props: LiveMapProps) {
   if (!MAPS_ENABLED) {
     return <MapPlaceholder style={[styles.container, props.style]} />;
   }
-  return <GoogleLiveMap {...props} />;
+  return <OpenLiveMap {...props} />;
 }
 
-function GoogleLiveMap({
+function OpenLiveMap({
   showRoute = false,
   showDriver = false,
   style,
   initialRegion,
-  origin: originProp,
-  destination: destinationProp,
-  driverLocation: driverProp,
+  origin,
+  destination,
+  route,
+  driverLocation,
 }: LiveMapProps) {
   const { isDarkMode, c } = useApp();
-  const mapRef = useRef<MapView>(null);
-  const [userLocation, setUserLocation] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+  const cameraRef = useRef<CameraRef>(null);
+  const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
+  const [locationGranted, setLocationGranted] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const origin = originProp;
-  const destination = destinationProp;
-  const driverLocation = driverProp;
   const canShowRoute = showRoute && Boolean(origin && destination);
   const canShowDriver = showDriver && Boolean(driverLocation);
 
@@ -111,6 +100,7 @@ function GoogleLiveMap({
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
+          if (mounted) setLocationGranted(true);
           const loc = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.Balanced,
           });
@@ -132,27 +122,47 @@ function GoogleLiveMap({
     };
   }, []);
 
-  /* ── Fit markers into view when route is visible ──────────────── */
-  useEffect(() => {
-    if (!canShowRoute || !mapRef.current || !origin || !destination) return;
-    const coords = [origin, destination];
-    if (canShowDriver && driverLocation) coords.push(driverLocation);
+  /* ── Route geometry ───────────────────────────────────────────── */
+  // Keyed on the coordinates, not the objects, which callers rebuild on every render
+  const routeKey = canShowRoute && origin && destination
+    ? [origin, destination, ...(route ?? [])].map(p => `${p.latitude},${p.longitude}`).join(';')
+    : '';
+  const routeLine = useMemo(() => {
+    if (!routeKey || !origin || !destination) return null;
+    const path = route && route.length >= 2 ? route : [origin, destination];
+    return {
+      roadRoute: path.length > 2,
+      feature: {
+        type: 'Feature' as const,
+        properties: {},
+        geometry: { type: 'LineString' as const, coordinates: path.map(toLngLat) },
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey]);
 
-    // Small delay to let MapView fully mount
+  /* ── Fit the route (and the driver when they appear) into view ─── */
+  useEffect(() => {
+    if (loading || !routeLine) return;
+    const coords = routeLine.feature.geometry.coordinates.slice();
+    if (canShowDriver && driverLocation) coords.push(toLngLat(driverLocation));
+    const lngs = coords.map(p => p[0]);
+    const lats = coords.map(p => p[1]);
+
+    // Small delay to let the map fully mount
     const timer = setTimeout(() => {
-      mapRef.current?.fitToCoordinates(coords, {
-        edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
-        animated: true,
-      });
+      cameraRef.current?.fitBounds(
+        [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
+        { padding: FIT_PADDING, duration: 600 },
+      );
     }, 500);
     return () => clearTimeout(timer);
-  }, [canShowRoute, canShowDriver, origin, destination, driverLocation]);
+    // Refit when the driver first appears, not on every position update
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, routeLine, canShowDriver]);
 
-  /* ── Region to show ───────────────────────────────────────────── */
-  const region: Region = initialRegion
-    ?? (userLocation
-      ? { ...userLocation, latitudeDelta: 0.06, longitudeDelta: 0.06 }
-      : DEFAULT_REGION);
+  /* ── Where the camera starts ──────────────────────────────────── */
+  const center = initialRegion ?? origin ?? userLocation ?? DEFAULT_CENTER;
 
   return (
     <View testID="live-map" style={[styles.container, style]}>
@@ -161,38 +171,48 @@ function GoogleLiveMap({
           <ActivityIndicator testID="map-loader" size="large" color={c.primary} />
         </View>
       ) : (
-        <MapView
+        <MapLibreMap
           testID="live-map-view"
-          // The native map reads the style once, so remount it on theme change
-          key={isDarkMode ? 'dark' : 'light'}
-          ref={mapRef}
           style={StyleSheet.absoluteFill}
-          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-          initialRegion={region}
-          showsUserLocation
-          showsMyLocationButton={false}
-          showsCompass={false}
-          customMapStyle={isDarkMode ? DARK_MAP_STYLE : undefined}
-          mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+          mapStyle={isDarkMode ? MAP_STYLE.dark : MAP_STYLE.light}
+          logo={false}
+          compass={false}
+          attributionPosition={{ bottom: 8, left: 8 }}
         >
-          {/* ── Route polyline ────────────────────────────────── */}
+          <Camera
+            ref={cameraRef}
+            initialViewState={{ center: toLngLat(center), zoom: DEFAULT_ZOOM }}
+          />
+
+          {locationGranted && <NativeUserLocation />}
+
+          {/* ── Route line ────────────────────────────────────── */}
+          {routeLine && (
+            <GeoJSONSource id="ride-route" data={routeLine.feature}>
+              <Layer
+                id="ride-route-line"
+                type="line"
+                layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                paint={{
+                  'line-color': c.primary,
+                  'line-width': routeLine.roadRoute ? 5 : 3,
+                  // Dashed when it only shows the direction, not the road route
+                  ...(routeLine.roadRoute ? {} : { 'line-dasharray': [2, 1.5] }),
+                }}
+              />
+            </GeoJSONSource>
+          )}
+
           {canShowRoute && origin && destination && (
             <>
-              {/* Straight dashed line: indicates direction, not the road route */}
-              <Polyline
-                coordinates={[origin, destination]}
-                strokeColor={c.primary}
-                strokeWidth={3}
-                lineDashPattern={[8, 6]}
-              />
               {/* Origin marker */}
-              <Marker coordinate={origin} anchor={{ x: 0.5, y: 0.5 }}>
+              <Marker id="origin" lngLat={toLngLat(origin)} anchor="center">
                 <View style={styles.originMarkerOuter}>
                   <View style={styles.originMarkerInner} />
                 </View>
               </Marker>
               {/* Destination marker */}
-              <Marker coordinate={destination} anchor={{ x: 0.5, y: 0.5 }}>
+              <Marker id="destination" lngLat={toLngLat(destination)} anchor="center">
                 <View style={styles.destMarkerOuter}>
                   <View style={styles.destMarkerInner} />
                 </View>
@@ -202,28 +222,15 @@ function GoogleLiveMap({
 
           {/* ── Driver marker ─────────────────────────────────── */}
           {canShowDriver && driverLocation && (
-            <Marker
-              coordinate={driverLocation}
-              anchor={{ x: 0.5, y: 0.5 }}
-              title="Driver"
-            >
-              <View style={styles.driverMarkerOuter}>
+            <Marker id="driver" lngLat={toLngLat(driverLocation)} anchor="center">
+              <View style={styles.driverMarkerOuter} accessibilityLabel="Driver">
                 <View style={styles.driverMarkerInner}>
                   <Icon name="car" size={20} color="#FFFFFF" />
                 </View>
               </View>
             </Marker>
           )}
-
-          {/* ── User location blue dot (fallback if showsUserLocation fails) ── */}
-          {userLocation && !canShowRoute && (
-            <Marker coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={styles.userDotOuter}>
-                <View style={styles.userDotInner} />
-              </View>
-            </Marker>
-          )}
-        </MapView>
+        </MapLibreMap>
       )}
     </View>
   );
@@ -294,23 +301,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B7A75',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  // User dot — blue
-  userDotOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(66,133,244,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userDotInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#4285F4',
-    borderWidth: 2,
-    borderColor: 'white',
   },
 });

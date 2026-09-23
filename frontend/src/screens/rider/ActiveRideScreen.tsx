@@ -6,7 +6,7 @@
  * tracking room over Socket.io. Nothing on this screen is simulated.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,7 @@ import { Icon } from '../../components/Icon';
 import type { RootStackParamList } from '../../navigation/types';
 import { Radius, Shadow } from '../../theme';
 import { initSocket } from '../../utils/socket';
+import { decodePolyline } from '../../utils/polyline';
 import { errorHandler } from '../../utils/errorHandler';
 import { realPhone } from '../../utils/phone';
 
@@ -89,6 +90,7 @@ export function ActiveRideScreen() {
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | undefined>();
   const [driverUpdate, setDriverUpdate] = useState<string>('');
   const [deviationMessage, setDeviationMessage] = useState<string>('');
+  const route = useMemo(() => decodePolyline(ride?.routePolyline), [ride?.routePolyline]);
 
   const [rating, setRating] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -219,6 +221,7 @@ export function ActiveRideScreen() {
           showDriver={Boolean(driverLocation)}
           origin={origin}
           destination={destination}
+          route={route}
           driverLocation={driverLocation}
           style={StyleSheet.absoluteFill}
         />

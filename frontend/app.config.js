@@ -25,11 +25,6 @@ module.exports = {
         backgroundColor: '#0B7A75',
       },
       googleServicesFile: './google-services.json',
-      config: {
-        googleMaps: {
-          apiKey: process.env.GOOGLE_MAPS_API_KEY ?? '',
-        },
-      },
       permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
     },
     autolinking: {
@@ -72,6 +67,8 @@ module.exports = {
           cameraPermission: 'Poolora uses the camera so you can photograph driver verification documents.',
         },
       ],
+      // Maps: MapLibre with free OpenStreetMap tiles, no API key
+      '@maplibre/maplibre-react-native',
       '@react-native-google-signin/google-signin',
       'expo-font',
       'expo-secure-store',
@@ -86,9 +83,11 @@ module.exports = {
       // runtimeVersion: { policy: 'appVersion' },
     },
     extra: {
-      // Without a key the native Maps SDK crashes on first render, so the app
-      // shows a placeholder instead of mounting a map.
-      mapsEnabled: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+      // Maps need no key. MAPS_ENABLED=false shows placeholders instead, and
+      // MAP_STYLE_LIGHT / MAP_STYLE_DARK swap in another MapLibre style URL.
+      mapsEnabled: process.env.MAPS_ENABLED !== 'false',
+      mapStyleLight: process.env.MAP_STYLE_LIGHT ?? '',
+      mapStyleDark: process.env.MAP_STYLE_DARK ?? '',
       eas: {
         projectId: process.env.EAS_PROJECT_ID ?? '',
       },

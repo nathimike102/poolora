@@ -57,6 +57,7 @@ export interface IRide extends Document {
   };
   cancelledAt?: Date;
   cancellationReason?: string;
+  startedAt?: Date;
   completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -148,6 +149,7 @@ const RideSchema = new Schema<IRide>(
     },
     cancelledAt: Date,
     cancellationReason: String,
+    startedAt: Date,
     completedAt: Date,
   },
   {

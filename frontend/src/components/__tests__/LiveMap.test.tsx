@@ -8,6 +8,7 @@ jest.mock('../../config/maps', () => ({
   get MAPS_ENABLED() {
     return mockMapsEnabled;
   },
+  MAP_STYLE: { light: 'https://example.com/light', dark: 'https://example.com/dark' },
 }));
 
 jest.mock('expo-location', () => ({
@@ -32,7 +33,7 @@ describe('LiveMap', () => {
     (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValue(mockCoords);
   });
 
-  it('shows a placeholder and never mounts the native map without a Maps key', () => {
+  it('shows a placeholder and never mounts the native map when maps are turned off', () => {
     mockMapsEnabled = false;
     const { getByTestId, queryByTestId } = render(<LiveMap showRoute />);
     expect(getByTestId('map-placeholder')).toBeTruthy();
@@ -73,5 +74,19 @@ describe('LiveMap', () => {
     await waitFor(() => {
       expect(getByTestId('live-map-view')).toBeTruthy();
     }, { timeout: 2000 });
+  });
+
+  it('draws the road route and the driver when they are given', async () => {
+    const origin = { latitude: 12.93, longitude: 77.62 };
+    const destination = { latitude: 12.97, longitude: 77.64 };
+    const route = [origin, { latitude: 12.95, longitude: 77.63 }, destination];
+    const { getByTestId, getByLabelText } = render(
+      <LiveMap showRoute showDriver origin={origin} destination={destination} route={route} driverLocation={origin} />,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('live-map-view')).toBeTruthy();
+    }, { timeout: 2000 });
+    expect(getByLabelText('Driver')).toBeTruthy();
   });
 });

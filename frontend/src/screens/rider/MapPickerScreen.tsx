@@ -6,8 +6,14 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
-import MapView, { PROVIDER_GOOGLE, type Region } from 'react-native-maps';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import {
+  Map as MapLibreMap,
+  Camera,
+  NativeUserLocation,
+  type CameraRef,
+  type ViewStateChangeEvent,
+} from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,7 +23,7 @@ import { useApp } from '../../context/AppContext';
 import { Icon } from '../../components/Icon';
 import { BackButton } from '../../components/BackButton';
 import { MapPlaceholder } from '../../components/MapPlaceholder';
-import { MAPS_ENABLED } from '../../config/maps';
+import { MAPS_ENABLED, MAP_STYLE } from '../../config/maps';
 import { reverseGeocodePlace } from '../../services/placesService';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
@@ -26,14 +32,17 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'MapPicker'>;
 type Route = RouteProp<RootStackParamList, 'MapPicker'>;
 
 const LOOKUP_DEBOUNCE_MS = 500;
+type Point = { latitude: number; longitude: number };
+
 /** Camera starts over Bangalore until the device location is known. */
-const INITIAL_REGION: Region = { latitude: 12.9716, longitude: 77.5946, latitudeDelta: 0.04, longitudeDelta: 0.04 };
+const INITIAL_POINT: Point = { latitude: 12.9716, longitude: 77.5946 };
+const PICKER_ZOOM = 15;
 
 export function MapPickerScreen() {
   return MAPS_ENABLED ? <MapPickerView /> : <MapPickerUnavailable />;
 }
 
-/** Entry points hide "Select on map" without a Maps key; this covers a stale deep link. */
+/** Entry points hide "Select on map" when maps are off; this covers a stale deep link. */
 function MapPickerUnavailable() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
@@ -50,9 +59,9 @@ function MapPickerUnavailable() {
 function MapPickerView() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { c } = useApp();
+  const { c, isDarkMode } = useApp();
   const insets = useSafeAreaInsets();
-  const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<CameraRef>(null);
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lookupRequest = useRef(0);
 
@@ -60,8 +69,9 @@ function MapPickerView() {
   const [address, setAddress] = useState('');
   const [looking, setLooking] = useState(false);
   const [lookupFailed, setLookupFailed] = useState(false);
+  const [locationGranted, setLocationGranted] = useState(false);
 
-  const lookup = useCallback((region: Region) => {
+  const lookup = useCallback((region: Point) => {
     if (lookupTimer.current) clearTimeout(lookupTimer.current);
     lookupTimer.current = setTimeout(async () => {
       const requestId = ++lookupRequest.current;
@@ -86,15 +96,16 @@ function MapPickerView() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          lookup(INITIAL_REGION);
+          lookup(INITIAL_POINT);
           return;
         }
+        setLocationGranted(true);
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const region = { ...INITIAL_REGION, latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        mapRef.current?.animateToRegion(region, 400);
-        lookup(region);
+        const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        cameraRef.current?.easeTo({ center: [here.longitude, here.latitude], zoom: PICKER_ZOOM, duration: 400 });
+        lookup(here);
       } catch {
-        lookup(INITIAL_REGION);
+        lookup(INITIAL_POINT);
       }
     })();
     return () => {
@@ -110,15 +121,24 @@ function MapPickerView() {
 
   return (
     <View style={styles.root}>
-      <MapView
-        ref={mapRef}
+      <MapLibreMap
         style={StyleSheet.absoluteFill}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        initialRegion={INITIAL_REGION}
-        onRegionChangeComplete={lookup}
-        showsUserLocation
+        mapStyle={isDarkMode ? MAP_STYLE.dark : MAP_STYLE.light}
+        logo={false}
+        compass={false}
+        attributionPosition={{ top: insets.top + 80, right: 8 }}
+        onRegionDidChange={(event: { nativeEvent: ViewStateChangeEvent }) => {
+          const [longitude, latitude] = event.nativeEvent.center;
+          lookup({ latitude, longitude });
+        }}
         accessibilityLabel="Map. Move the map to place the pin."
-      />
+      >
+        <Camera
+          ref={cameraRef}
+          initialViewState={{ center: [INITIAL_POINT.longitude, INITIAL_POINT.latitude], zoom: PICKER_ZOOM }}
+        />
+        {locationGranted && <NativeUserLocation />}
+      </MapLibreMap>
 
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <BackButton onPress={() => navigation.goBack()} />

@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Switch,
+  Alert,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +22,8 @@ import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
 import { userService } from '../../services/userService';
 import { walletService } from '../../services/walletService';
+import { simulationService } from '../../services/simulationService';
+import * as Location from 'expo-location';
 import { errorHandler } from '../../utils/errorHandler';
 import { COMPANY } from '../../config/company';
 import type { User } from '../../types/api';
@@ -40,6 +43,7 @@ const IC_HELP = 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12
 const IC_CHECK_CIRCLE = 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z';
 const IC_LOGOUT = 'M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z';
 const IC_CHEVRON = 'M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z';
+const IC_PLAY = 'M8 5v14l11-7z';
 const IC_CLOSE = 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z';
 
 /* ── Sub-components ──────────────────────────────────────── */
@@ -115,13 +119,48 @@ export function SettingsScreen() {
   const [profileEmail, setProfileEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [simulationEnabled, setSimulationEnabled] = useState(false);
+  const [simulatingAs, setSimulatingAs] = useState<'rider' | 'driver' | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      simulationService.isEnabled().then(setSimulationEnabled);
       userService.getMyProfile().then(setProfile).catch(() => undefined);
       walletService.getBalance().then(w => setWalletBalance(w.balance)).catch(() => setWalletBalance(null));
     }, []),
   );
+
+  /** Start a simulated ride from where the phone is (or a default spot). */
+  const simulate = async (as: 'rider' | 'driver') => {
+    setSimulatingAs(as);
+    try {
+      let near: { lat: number; lng: number } | undefined;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          near = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        }
+      } catch {
+        // The server starts the ride in Bangalore instead
+      }
+      if (as === 'rider') {
+        const { rideId, bookingId } = await simulationService.asRider(near);
+        navigation.navigate('ActiveRide', { rideId, bookingId });
+      } else {
+        const { rideId } = await simulationService.asDriver(near);
+        navigation.navigate('DriverRideDetails', { rideId });
+        Alert.alert(
+          'A test rider wants a seat',
+          'Sim Rider asked to join this ride. Accept the request in Requests, start the ride, then tap "Simulate the drive".',
+        );
+      }
+    } catch (error) {
+      Alert.alert('Could not start the simulation', errorHandler.process(error).message);
+    } finally {
+      setSimulatingAs(null);
+    }
+  };
 
   const openEditProfile = () => {
     setProfileName(profile?.name ?? '');
@@ -194,6 +233,31 @@ export function SettingsScreen() {
         <Section title="SAFETY" c={c}>
           <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_SHIELD} label="Emergency contacts" onPress={() => navigation.navigate('EmergencyContacts')} />
         </Section>
+
+        {/* TESTING (development servers only) */}
+        {simulationEnabled && (
+          <Section title="TESTING" c={c}>
+            <SettingsRow
+              c={c}
+              iconBg="#E3F2F1"
+              iconColor="#0B7A75"
+              iconPath={IC_PLAY}
+              label="Simulate a ride as rider"
+              value={simulatingAs === 'rider' ? 'Starting…' : undefined}
+              onPress={simulatingAs ? undefined : () => simulate('rider')}
+            />
+            <Divider c={c} />
+            <SettingsRow
+              c={c}
+              iconBg="#E8EEF9"
+              iconColor="#2B6CC4"
+              iconPath={IC_PLAY}
+              label="Simulate a ride as driver"
+              value={simulatingAs === 'driver' ? 'Starting…' : undefined}
+              onPress={simulatingAs ? undefined : () => simulate('driver')}
+            />
+          </Section>
+        )}
 
         {/* PREFERENCES */}
         <Section title="PREFERENCES" c={c}>

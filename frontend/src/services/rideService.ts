@@ -15,7 +15,6 @@ import type {
   SearchRidesRequest,
   PaginatedResponse,
   PaginatedResult,
-  GeoPoint,
   Location,
   RidePreferences,
   UpcomingBooking,
@@ -204,6 +203,20 @@ export const rideService = {
   },
 
   /**
+   * Start a ride: the driver has set off with confirmed riders
+   */
+  async startRide(rideId: string): Promise<Ride> {
+    try {
+      const response = await apiClient.post<ApiResponse<{ ride: unknown }>>(API_ENDPOINTS.rides.start(rideId), {});
+      logger.info('Ride started', { rideId });
+      return normalizeRide(response.data.data);
+    } catch (error) {
+      logger.error('Failed to start ride', { error, rideId });
+      throw error;
+    }
+  },
+
+  /**
    * Complete a ride
    *
    * @param rideId - Ride ID to complete
@@ -221,14 +234,21 @@ export const rideService = {
   },
 
   /**
-   * Update driver location (for tracking)
-   *
-   * @param location - Current location coordinates
+   * Send the driver's position for one booking so its rider can follow the car
    */
-  async updateDriverLocation(location: GeoPoint): Promise<void> {
+  async updateDriverLocation(update: {
+    bookingId: string;
+    lat: number;
+    lng: number;
+    speed?: number;
+    heading?: number;
+    accuracy?: number;
+  }): Promise<void> {
     try {
-      await apiClient.post(API_ENDPOINTS.rides.updateLocation, location);
-      logger.debug('Driver location updated');
+      await apiClient.post(API_ENDPOINTS.rides.updateLocation, { ...update, timestamp: Date.now() }, {
+        // A missed fix is replaced by the next one a few seconds later
+        noRetry: true,
+      });
     } catch (error) {
       logger.error('Failed to update driver location', { error });
       throw error;
