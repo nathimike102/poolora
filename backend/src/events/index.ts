@@ -1,4 +1,4 @@
-import { getKafkaProducer, createKafkaConsumer } from '../config/kafka';
+import { getKafkaProducer, createKafkaConsumer, ensureKafkaTopics } from '../config/kafka';
 import { KafkaTopic, KafkaEvent } from '../types';
 import { logger } from '../utils/logger';
 import type { ObjectSchema } from 'joi';
@@ -23,6 +23,16 @@ function normalizeIds(value: unknown): unknown {
   }
   return value;
 }
+
+/** Every topic the backend publishes to; created at startup if missing. */
+const ALL_TOPICS: readonly KafkaTopic[] = [
+  'user-events',
+  'ride-events',
+  'booking-events',
+  'payment-events',
+  'safety-events',
+  'location-events',
+];
 
 /**
  * Event bridge for Kafka producer/consumer operations.
@@ -123,15 +133,14 @@ export class EventBridge {
         correlationId: event.correlationId,
       });
     } catch (error) {
-      // If Kafka producer is not connected (e.g. dev mode), just log and skip
-      if ((error as Error).message === 'Kafka producer not initialized') {
-        logger.debug('Kafka not connected — event skipped', {
-          topic,
-          eventType: event.eventType,
-        });
-        return;
-      }
-      throw error;
+      // Kafka is down or not configured: handle the event here instead, so
+      // the notifications it drives are not lost
+      logger.debug('Kafka unavailable; handling event in-process', {
+        topic,
+        eventType: event.eventType,
+        reason: (error as Error).message,
+      });
+      await EventBridge.dispatchLocally(topic, event);
     }
   }
 
@@ -170,179 +179,215 @@ export class EventBridge {
       EventBridge.isConnected = true;
       logger.info(`Kafka consumer subscribed to ${topic}`);
     } catch (error) {
-      logger.warn('Failed to subscribe to Kafka topic', { topic, error });
+      logger.warn('Failed to subscribe to Kafka topic', { topic, error: (error as Error).message });
     }
   }
 
   /**
-   * Start all event consumers.
+   * The handlers behind each topic. Kafka consumers run them when Kafka is up;
+   * when it is not, `publish` runs them in-process so notifications still go
+   * out on a single server without Kafka.
    */
-  static async startConsumers(): Promise<void> {
+  private static handlers = new Map<KafkaTopic, { groupId: string; handler: (event: KafkaEvent) => Promise<void> }>();
+
+  private static register(
+    topic: KafkaTopic,
+    groupId: string,
+    handler: (event: KafkaEvent) => Promise<void>,
+  ): void {
+    EventBridge.handlers.set(topic, { groupId, handler });
+  }
+
+  private static ensureHandlers(): void {
+    if (EventBridge.handlers.size === 0) EventBridge.registerHandlers();
+  }
+
+  /** Runs an event's handler in this process, for when Kafka cannot deliver it. */
+  static async dispatchLocally(topic: KafkaTopic, event: KafkaEvent): Promise<void> {
+    EventBridge.ensureHandlers();
+    const entry = EventBridge.handlers.get(topic);
+    if (!entry) return;
     try {
-      // User events consumer
-      await EventBridge.subscribe('user-events', 'user-events-group', async (event) => {
-        logger.info('User event', { type: event.eventType, data: event.data });
-      });
-
-      // Ride events consumer — notify riders about new rides matching their saved routes
-      await EventBridge.subscribe('ride-events', 'ride-events-group', async (event) => {
-        logger.info('Ride event', { type: event.eventType });
-        if (event.eventType === 'ride.created') {
-          const { NotificationService } = await import('../services/NotificationService');
-          const notificationService = new NotificationService();
-          const data = event.data as { driverId?: string; rideId?: string };
-          if (data.driverId && data.rideId) {
-            await notificationService.createNotification(
-              data.driverId,
-              'Ride Published',
-              'Your ride has been published and is visible to riders.',
-              'ride',
-              { rideId: data.rideId },
-            );
-          }
-        } else if (event.eventType === 'ride.cancelled') {
-          const data = event.data as { rideId?: string; driverId?: string; reason?: string; automatic?: boolean };
-          if (data.automatic && data.driverId) {
-            const { NotificationService } = await import('../services/NotificationService');
-            const notificationService = new NotificationService();
-            await notificationService.sendPushNotification(
-              data.driverId,
-              'Ride cancelled',
-              `${data.reason || 'Your ride was cancelled'}, so we cancelled it for you.`,
-              { rideId: data.rideId ?? '', type: 'ride' },
-            );
-          }
-        } else if (event.eventType === 'ride.started') {
-          const { NotificationService } = await import('../services/NotificationService');
-          const notificationService = new NotificationService();
-          const data = event.data as { rideId?: string; riderIds?: string[] };
-          for (const riderId of data.riderIds ?? []) {
-            await notificationService.sendPushNotification(
-              riderId,
-              'Your driver is on the way',
-              'Your ride has started. Open Poolora to follow the car live.',
-              { rideId: data.rideId ?? '', type: 'ride' },
-            );
-          }
-        }
-      });
-
-      // Booking events consumer — send push notifications for booking state changes
-      await EventBridge.subscribe('booking-events', 'booking-events-group', async (event) => {
-        logger.info('Booking event', { type: event.eventType });
-        const { NotificationService } = await import('../services/NotificationService');
-        const notificationService = new NotificationService();
-        const data = event.data as { riderId?: string; driverId?: string; bookingId?: string; status?: string };
-
-        if (event.eventType === 'booking.created' && data.driverId) {
-          await notificationService.sendPushNotification(
-            data.driverId,
-            'New Booking Request',
-            'You have a new ride booking request. Tap to review.',
-            { bookingId: data.bookingId || '', type: 'booking' },
-          );
-          await notificationService.createNotification(
-            data.driverId,
-            'New Booking Request',
-            'A rider has requested to join your ride.',
-            'ride',
-            { bookingId: data.bookingId ?? '' },
-          );
-        } else if (event.eventType === 'booking.confirmed' && data.riderId) {
-          await notificationService.sendPushNotification(
-            data.riderId,
-            'Booking Confirmed',
-            'Your booking has been confirmed by the driver.',
-            { bookingId: data.bookingId || '', type: 'booking' },
-          );
-        } else if (event.eventType === 'booking.cancelled' && data.riderId) {
-          await notificationService.sendPushNotification(
-            data.riderId,
-            'Booking Cancelled',
-            'Your booking has been cancelled.',
-            { bookingId: data.bookingId || '', type: 'booking' },
-          );
-        } else if (event.eventType === 'booking.expired' && data.riderId) {
-          const reason = (event.data as { reason?: string }).reason;
-          await notificationService.sendPushNotification(
-            data.riderId,
-            'Request closed',
-            `${reason || 'Your ride request was closed'}. Anything you paid is refunded.`,
-            { bookingId: data.bookingId || '', type: 'booking' },
-          );
-        }
-      });
-
-      // Payment events consumer — fraud detection pipeline
-      await EventBridge.subscribe('payment-events', 'payment-events-group', async (event) => {
-        logger.info('Payment event', { type: event.eventType });
-        const data = event.data as { userId?: string; amount?: number; bookingId?: string; paymentId?: string };
-
-        if (event.eventType === 'payment.captured' && data.userId) {
-          const { NotificationService } = await import('../services/NotificationService');
-          const notificationService = new NotificationService();
-          await notificationService.createNotification(
-            data.userId,
-            'Payment Successful',
-            `Payment of ₹${data.amount || 0} has been processed.`,
-            'system',
-            { bookingId: data.bookingId ?? '', paymentId: data.paymentId ?? '' },
-          );
-        } else if (event.eventType === 'payment.failed' && data.userId) {
-          logger.warn('Payment failure detected — starting fraud analysis', {
-            userId: data.userId,
-            paymentId: data.paymentId,
-            orderId: (data as { orderId?: string }).orderId,
-            amount: data.amount,
-          });
-
-          try {
-            const { FraudDetectionService } = await import('../services/FraudDetectionService');
-            const fraudService = new FraudDetectionService();
-            const result = await fraudService.analyzePaymentFailure(data.userId, data);
-            
-            if (result.shouldBlock) {
-              logger.error('User blocked after fraud analysis', { userId: data.userId, flags: result.flags });
-            } else if (result.riskLevel === 'high') {
-              logger.warn('User flagged for review after fraud analysis', { userId: data.userId, flags: result.flags });
-            }
-          } catch (error) {
-            logger.error('Failed to run fraud analysis pipeline', {
-              userId: data.userId,
-              error: (error as Error).message,
-            });
-          }
-        }
-      });
-
-      // Safety events consumer — broadcast to admin dashboard via SocketGateway
-      await EventBridge.subscribe('safety-events', 'safety-events-group', async (event) => {
-        logger.info('Safety event', { type: event.eventType });
-
-        if (
-          event.eventType === 'sos.triggered' ||
-          event.eventType === 'sos.location.updated' ||
-          event.eventType === 'sos.escalated' ||
-          event.eventType === 'sos.resolved'
-        ) {
-          const { SocketGateway } = await import('../sockets/SocketGateway');
-          const gateway = SocketGateway.getInstance();
-          if (gateway) {
-            const io = gateway.getIO();
-            io.to('admin:sos').emit('sos:alert', {
-              eventType: event.eventType,
-              data: event.data,
-              timestamp: event.timestamp,
-            });
-          }
-        }
-      });
-
-      logger.info('All Kafka consumers started');
+      await entry.handler(event);
     } catch (error) {
-      logger.warn('Failed to start Kafka consumers — running without event streaming', {
+      logger.error('Error handling event in-process', {
+        topic,
+        eventType: event.eventType,
         error: (error as Error).message,
       });
     }
+  }
+
+  /**
+   * Subscribe a Kafka consumer group to every topic that has a handler.
+   */
+  static async startConsumers(): Promise<void> {
+    EventBridge.ensureHandlers();
+    await ensureKafkaTopics([...ALL_TOPICS]);
+    for (const [topic, { groupId, handler }] of EventBridge.handlers) {
+      await EventBridge.subscribe(topic, groupId, handler);
+    }
+    logger.info('All Kafka consumers started');
+  }
+
+  private static registerHandlers(): void {
+    // User events consumer
+    EventBridge.register('user-events', 'user-events-group', async (event) => {
+      logger.info('User event', { type: event.eventType, data: event.data });
+    });
+
+    // Ride events consumer — notify riders about new rides matching their saved routes
+    EventBridge.register('ride-events', 'ride-events-group', async (event) => {
+      logger.info('Ride event', { type: event.eventType });
+      if (event.eventType === 'ride.created') {
+        const { NotificationService } = await import('../services/NotificationService');
+        const notificationService = new NotificationService();
+        const data = event.data as { driverId?: string; rideId?: string };
+        if (data.driverId && data.rideId) {
+          await notificationService.createNotification(
+            data.driverId,
+            'Ride Published',
+            'Your ride has been published and is visible to riders.',
+            'ride',
+            { rideId: data.rideId },
+          );
+        }
+      } else if (event.eventType === 'ride.cancelled') {
+        const data = event.data as { rideId?: string; driverId?: string; reason?: string; automatic?: boolean };
+        if (data.automatic && data.driverId) {
+          const { NotificationService } = await import('../services/NotificationService');
+          const notificationService = new NotificationService();
+          await notificationService.sendPushNotification(
+            data.driverId,
+            'Ride cancelled',
+            `${data.reason || 'Your ride was cancelled'}, so we cancelled it for you.`,
+            { rideId: data.rideId ?? '', type: 'ride' },
+          );
+        }
+      } else if (event.eventType === 'ride.started') {
+        const { NotificationService } = await import('../services/NotificationService');
+        const notificationService = new NotificationService();
+        const data = event.data as { rideId?: string; riderIds?: string[] };
+        for (const riderId of data.riderIds ?? []) {
+          await notificationService.sendPushNotification(
+            riderId,
+            'Your driver is on the way',
+            'Your ride has started. Open Poolora to follow the car live.',
+            { rideId: data.rideId ?? '', type: 'ride' },
+          );
+        }
+      }
+    });
+
+    // Booking events consumer — send push notifications for booking state changes
+    EventBridge.register('booking-events', 'booking-events-group', async (event) => {
+      logger.info('Booking event', { type: event.eventType });
+      const { NotificationService } = await import('../services/NotificationService');
+      const notificationService = new NotificationService();
+      const data = event.data as { riderId?: string; driverId?: string; bookingId?: string; status?: string };
+
+      if (event.eventType === 'booking.created' && data.driverId) {
+        await notificationService.sendPushNotification(
+          data.driverId,
+          'New Booking Request',
+          'You have a new ride booking request. Tap to review.',
+          { bookingId: data.bookingId || '', type: 'booking' },
+        );
+        await notificationService.createNotification(
+          data.driverId,
+          'New Booking Request',
+          'A rider has requested to join your ride.',
+          'ride',
+          { bookingId: data.bookingId ?? '' },
+        );
+      } else if (event.eventType === 'booking.confirmed' && data.riderId) {
+        await notificationService.sendPushNotification(
+          data.riderId,
+          'Booking Confirmed',
+          'Your booking has been confirmed by the driver.',
+          { bookingId: data.bookingId || '', type: 'booking' },
+        );
+      } else if (event.eventType === 'booking.cancelled' && data.riderId) {
+        await notificationService.sendPushNotification(
+          data.riderId,
+          'Booking Cancelled',
+          'Your booking has been cancelled.',
+          { bookingId: data.bookingId || '', type: 'booking' },
+        );
+      } else if (event.eventType === 'booking.expired' && data.riderId) {
+        const reason = (event.data as { reason?: string }).reason;
+        await notificationService.sendPushNotification(
+          data.riderId,
+          'Request closed',
+          `${reason || 'Your ride request was closed'}. Anything you paid is refunded.`,
+          { bookingId: data.bookingId || '', type: 'booking' },
+        );
+      }
+    });
+
+    // Payment events consumer — fraud detection pipeline
+    EventBridge.register('payment-events', 'payment-events-group', async (event) => {
+      logger.info('Payment event', { type: event.eventType });
+      const data = event.data as { userId?: string; amount?: number; bookingId?: string; paymentId?: string };
+
+      if (event.eventType === 'payment.captured' && data.userId) {
+        const { NotificationService } = await import('../services/NotificationService');
+        const notificationService = new NotificationService();
+        await notificationService.createNotification(
+          data.userId,
+          'Payment Successful',
+          `Payment of ₹${data.amount || 0} has been processed.`,
+          'system',
+          { bookingId: data.bookingId ?? '', paymentId: data.paymentId ?? '' },
+        );
+      } else if (event.eventType === 'payment.failed' && data.userId) {
+        logger.warn('Payment failure detected — starting fraud analysis', {
+          userId: data.userId,
+          paymentId: data.paymentId,
+          orderId: (data as { orderId?: string }).orderId,
+          amount: data.amount,
+        });
+
+        try {
+          const { FraudDetectionService } = await import('../services/FraudDetectionService');
+          const fraudService = new FraudDetectionService();
+          const result = await fraudService.analyzePaymentFailure(data.userId, data);
+          
+          if (result.shouldBlock) {
+            logger.error('User blocked after fraud analysis', { userId: data.userId, flags: result.flags });
+          } else if (result.riskLevel === 'high') {
+            logger.warn('User flagged for review after fraud analysis', { userId: data.userId, flags: result.flags });
+          }
+        } catch (error) {
+          logger.error('Failed to run fraud analysis pipeline', {
+            userId: data.userId,
+            error: (error as Error).message,
+          });
+        }
+      }
+    });
+
+    // Safety events consumer — broadcast to admin dashboard via SocketGateway
+    EventBridge.register('safety-events', 'safety-events-group', async (event) => {
+      logger.info('Safety event', { type: event.eventType });
+
+      if (
+        event.eventType === 'sos.triggered' ||
+        event.eventType === 'sos.location.updated' ||
+        event.eventType === 'sos.escalated' ||
+        event.eventType === 'sos.resolved'
+      ) {
+        const { SocketGateway } = await import('../sockets/SocketGateway');
+        const gateway = SocketGateway.getInstance();
+        if (gateway) {
+          const io = gateway.getIO();
+          io.to('admin:sos').emit('sos:alert', {
+            eventType: event.eventType,
+            data: event.data,
+            timestamp: event.timestamp,
+          });
+        }
+      }
+    });
   }
 }

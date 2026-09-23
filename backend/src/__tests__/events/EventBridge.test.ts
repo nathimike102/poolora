@@ -40,3 +40,40 @@ describe('EventBridge.publish', () => {
     error.mockRestore();
   });
 });
+
+describe('EventBridge without Kafka', () => {
+  it('handles an event in-process when the producer is not connected, so the push still goes out', async () => {
+    const kafka = jest.requireMock('../../config/kafka') as { getKafkaProducer: jest.Mock };
+    kafka.getKafkaProducer.mockImplementationOnce(() => { throw new Error('Kafka producer not initialized'); });
+    const { NotificationService } = await import('../../services/NotificationService');
+    const push = jest.spyOn(NotificationService.prototype, 'sendPushNotification').mockResolvedValue(undefined as never);
+
+    const riderId = id().toString();
+    await EventBridge.dispatchLocally('booking-events', {
+      eventType: 'booking.confirmed',
+      data: { bookingId: id().toString(), riderId },
+      timestamp: new Date().toISOString(),
+      source: 'test',
+      correlationId: 'c1',
+    } as never);
+
+    expect(push).toHaveBeenCalledWith(riderId, 'Booking Confirmed', expect.any(String), expect.anything());
+    push.mockRestore();
+  });
+
+  it('falls back to in-process handling when publishing fails', async () => {
+    const kafka = jest.requireMock('../../config/kafka') as { getKafkaProducer: jest.Mock };
+    kafka.getKafkaProducer.mockImplementation(() => { throw new Error('Kafka producer not initialized'); });
+    const local = jest.spyOn(EventBridge, 'dispatchLocally').mockResolvedValue();
+
+    EventBridge.publish('booking-events', {
+      eventType: 'booking.confirmed',
+      data: { bookingId: id().toString(), riderId: id().toString() },
+    });
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(local).toHaveBeenCalledWith('booking-events', expect.objectContaining({ eventType: 'booking.confirmed' }));
+    local.mockRestore();
+    kafka.getKafkaProducer.mockReset();
+  });
+});

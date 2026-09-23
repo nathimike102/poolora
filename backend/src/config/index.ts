@@ -102,6 +102,8 @@ export const config = {
   },
 
   kafka: {
+    /** Set KAFKA_ENABLED=false to run without Kafka and stop the reconnect attempts. */
+    enabled: process.env.KAFKA_ENABLED !== 'false',
     brokers: optional('KAFKA_BROKERS', 'localhost:9092').split(','),
     clientId: optional('KAFKA_CLIENT_ID', 'mobility-backend'),
   },

@@ -4,7 +4,7 @@ import app from './app';
 import { config } from './config';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
-import { connectKafkaProducer, disconnectKafka } from './config/kafka';
+import { connectKafkaInBackground, disconnectKafka } from './config/kafka';
 import { initializeFirebase } from './config/firebase';
 import { SocketGateway } from './sockets/SocketGateway';
 import { EventBridge } from './events';
@@ -75,15 +75,12 @@ async function bootstrap(): Promise<void> {
       logger.warn('Firebase initialization skipped', { error: (error as Error).message });
     }
 
-    // 4. Connect Kafka producer
-    try {
-      await connectKafkaProducer();
-      // Start event consumers
-      await EventBridge.startConsumers();
-    } catch (error) {
-      logger.warn('Kafka connection failed — running without event streaming', {
-        error: (error as Error).message,
-      });
+    // 4. Kafka: connect in the background and keep retrying. Until it is up,
+    //    events are handled in-process, so notifications still go out.
+    if (config.kafka.enabled) {
+      connectKafkaInBackground(() => EventBridge.startConsumers());
+    } else {
+      logger.info('Kafka disabled (KAFKA_ENABLED=false); events are handled in-process');
     }
 
     // 5. Initialize Socket.io gateway
