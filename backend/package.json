@@ -11,8 +11,6 @@
     "lint:fix": "eslint src --ext .ts --fix || true",
     "typecheck": "tsc --noEmit",
     "test": "jest --forceExit",
-    "test:frontend": "jest --config frontend-tester/jest.frontend.config.cjs --runInBand",
-    "test:frontend:coverage": "jest --config frontend-tester/jest.frontend.config.cjs --coverage --runInBand",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --forceExit"
   },
