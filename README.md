@@ -174,13 +174,17 @@ These are the targets the architecture is built for, not measured results.
 
 ### 🛠️ Admin Features
 
-- 👥 User Management Dashboard with KYC approval
-- 🚗 Real-Time Ride Monitoring & tracking
-- 🔍 Fraud Detection Monitoring with risk scores
-- 🆘 SOS Incident Dashboard with call logs
-- 📊 Demand Analytics & Heatmaps by location/time
-- ⚙️ System Configuration & Feature Flags
-- 📈 Real-Time Operational Monitoring with metrics
+The web admin (`admin-web/`, see its README) and the app's admin screens:
+
+
+- 📊 Live dashboard: users, rides, money, safety and system health, with anomaly alerts
+- 🆘 SOS incidents with a live map, one-tap calls, a communications log and resolution
+- ✅ Driver applications with document review, a verification checklist and risk indicators
+- ⚖️ Disputes with the full case file, refunds, driver compensation, warnings and suspensions
+- 👥 User search and management: suspensions, two-admin permanent blocks, internal notes
+- 📈 Reports on users, rides, money, performance and safety, with CSV export
+- ⚙️ Editable platform settings (fees, refund tiers, time limits, matching) with a 24-hour revert
+- 📋 An audit log of every admin action
 
 ---
 
@@ -420,6 +424,7 @@ poolora/
 │
 ├── ml-service/                       # Python FastAPI ML service
 ├── web-landing/                      # Marketing website (Vite, deployed on Vercel)
+├── admin-web/                        # Web admin dashboard (Vite + React)
 ├── k8s/                              # Kubernetes manifests
 ├── docs/SECRETS.md                   # Every key and where it goes
 │
@@ -466,6 +471,17 @@ npm run dev
 ```
 
 The server starts on **port 5002** by default.
+
+### Web Admin Setup
+
+```bash
+cd admin-web
+cp .env.example .env   # API URL and the Firebase web app config
+npm install
+npm run dev            # http://localhost:5174
+```
+
+Add `http://localhost:5174` to the backend's `CORS_ORIGIN`. See [admin-web/README.md](admin-web/README.md) for making an account an admin.
 
 ### Frontend Setup
 
@@ -585,6 +601,7 @@ Runs on pushes and pull requests to `main` and `develop`:
 | `backend-checks` | lint, typecheck, test, build (Node 22) |
 | `frontend-checks` | lint, typecheck, test |
 | `web-landing-checks` | build (includes typecheck) |
+| `admin-web-checks` | typecheck, test, build |
 | `ml-checks` | install, start the service, check `/health` and that the internal key is required |
 | `dependency-audit` | `npm audit` on production dependencies, `pip-audit` on the ML service |
 

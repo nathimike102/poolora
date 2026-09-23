@@ -392,14 +392,49 @@ The app's parcel screens are not connected yet.
 
 ### Admin — `/admin` (admin only)
 
+Used by the web admin (`admin-web/`) and the app's admin screens. Every action that changes something takes a written `reason` of at least a few words and is recorded in the audit log.
+
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/admin/metrics` | Platform totals |
-| GET | `/admin/rides` | Rides; query `status`, `page`, `limit` |
-| GET | `/admin/users` | Users; query `role`, `kycStatus`, `page`, `limit` |
-| GET | `/admin/payments` | Payments; query `status`, `page`, `limit` |
-| GET | `/admin/demand-heatmap` | Ride demand by area and time |
-| GET | `/admin/kyc/:userId/documents` | Short-lived links to a driver's KYC documents |
+| GET | `/admin/overview` | Dashboard figures (users, rides, money, safety, system health) and anomalies (UC-A02) |
+| GET | `/admin/applications` | Driver applications waiting for review, with document status, risk indicators and an `overdue` flag after 48 hours (UC-A01) |
+| POST | `/admin/applications/:userId/request-changes` | Ask for documents again. Body: `documents` (any of `licence`, `registration`, `insurance`, `photo`) and `note`. The driver is notified and can resubmit |
+| GET | `/admin/kyc/:userId/documents` | Short-lived links to a driver's KYC documents. A document that cannot be signed is listed in `unavailable` instead of failing the request |
+| GET | `/admin/accounts` | Search users. Query: `q` (name, phone or email), `status` (`active`, `suspended`, `blocked`, `pending_block`), `role`, `kycStatus`, `page`, `limit` |
+| GET | `/admin/accounts/:id` | Everything about an account: profile, bookings, rides, ratings, payments, disputes, SOS, internal notes, audit entries (UC-A05) |
+| POST | `/admin/accounts/:id/suspend` | Body: `days` (7, 15, 30, or `null` for until lifted) and `reason`. The user can sign in but cannot post or book |
+| POST | `/admin/accounts/:id/reinstate` | Lift a suspension. Body: `reason` |
+| POST | `/admin/accounts/:id/block` | Ask to block permanently. Body: `reason`. Takes effect only when another admin approves |
+| POST | `/admin/accounts/:id/block/approve` | Approve a block. Refused (`SECOND_ADMIN_REQUIRED`) for the admin who asked for it |
+| POST | `/admin/accounts/:id/block/reject` | Reject a block request. Body: `reason` |
+| POST | `/admin/accounts/:id/unblock` | Body: `reason` |
+| POST | `/admin/accounts/:id/notes` | Internal note, seen only by admins. Body: `text` |
+| GET | `/admin/disputes` | Query: `status` (`open`, `in_review`, `resolved`), `category`, `page`, `limit` (UC-A04) |
+| GET | `/admin/disputes/:id` | The case file: both parties, booking, payments, chat, ratings, SOS, earlier disputes, and `refundable` (what can still be refunded) |
+| POST | `/admin/disputes/:id/assign` | Take the case |
+| POST | `/admin/disputes/:id/resolve` | Body: `outcome` (`rider`, `driver`, `both`, `dismissed`), `refundAmount`, `driverCompensation`, `warn` and `suspend` (arrays of `rider`/`driver`), `suspendDays`, `justification`. Carries out the refund and wallet payment, records warnings and suspensions, and notifies both parties. `decision.refundStatus` says whether the refund went through or needs a manual one |
+| GET | `/admin/sos` | Incidents. Query: `status` (`open`, `resolved`, `false_alarm`, or empty for all) (UC-A03) |
+| GET | `/admin/sos/:id` | The incident with rider, driver (including emergency contacts), booking and ride |
+| POST | `/admin/sos/:id/acknowledge` | Take the incident |
+| POST | `/admin/sos/:id/log` | Add a call or action to the timeline. Body: `text` |
+| POST | `/admin/sos/:id/police` | Record that police were called. Body: optional `notes` |
+| POST | `/admin/sos/:id/resolve` | Body: `notes`, `isFalseAlarm` |
+| GET | `/admin/reports/:type` | `type`: `users`, `rides`, `financial`, `performance`, `safety`. Query: `from`, `to` (at most two years apart; default the last 30 days), `groupBy` (`day`, `week`, `month`), `format=csv` for a download. Periods are in India time (UC-A06) |
+| GET | `/admin/settings` | Every editable setting with its value, default and limits (UC-A07) |
+| PUT | `/admin/settings` | Body: `changes` (key to value) and `reason`. All values are validated first; nothing changes unless all are valid. Applies at once, and on other servers within a minute |
+| GET | `/admin/settings/history` | Recent changes with before and after values |
+| POST | `/admin/settings/revert/:auditId` | Put back what a change replaced, within 24 hours. Body: `reason` |
+| GET | `/admin/audit` | The audit log. Query: `action` (prefix such as `user` or `sos`), `actor`, `targetId`, `page`, `limit` |
+| GET | `/admin/metrics`, `/admin/rides`, `/admin/users`, `/admin/payments`, `/admin/demand-heatmap` | Older summary endpoints used by the app's admin screens |
+
+Settings an admin can change: platform commission, rider cancellation refund tiers, payment time limit, driver response time, empty-ride cancellation, SOS check-in intervals by risk level, match-score weights (must add up to 100%), distance from the route, default search radius and time window, active rides per driver, and open requests per rider. Payment credentials and message templates are deliberately not editable.
+
+### Disputes — `/disputes`
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/disputes` | A rider or driver disputes one of their bookings. Body: `bookingId`, `category` (`payment`, `cancellation`, `behavior`, `route`, `quality`), `description` (at least 10 characters), optional `evidenceUrls` (https, up to 5). Allowed up to 30 days after the ride or cancellation, one open dispute per booking per person |
+| GET | `/disputes/mine` | Disputes the caller raised or is named in |
 
 ### Ride simulator — `/dev/simulate`
 
@@ -468,7 +503,7 @@ With several backend instances, events are shared through the Socket.IO Redis ad
 |---|---|---|
 | 400 | `BAD_REQUEST` and specific ids such as `PICKUP_TOO_FAR`, `DROPOFF_TOO_FAR`, `WRONG_DIRECTION`, `MAX_PENDING_BOOKINGS`, `INSUFFICIENT_SEATS`, `SELF_BOOKING` | The request cannot be carried out |
 | 401 | `UNAUTHORIZED` | Missing or expired token |
-| 403 | `FORBIDDEN` | Signed in, but not allowed |
+| 403 | `FORBIDDEN`, `ACCOUNT_BLOCKED`, `ACCOUNT_SUSPENDED`, `SECOND_ADMIN_REQUIRED` | Signed in, but not allowed. A blocked account gets `ACCOUNT_BLOCKED` on every request; a suspended one gets `ACCOUNT_SUSPENDED` when it tries to post a ride, book or send a parcel |
 | 404 | `NOT_FOUND` | No such resource |
 | 409 | `CONFLICT`, `PAYMENT_PENDING` | The state does not allow it, for example a booking already answered |
 | 422 | `VALIDATION_ERROR` | The body or query failed validation; `details` lists the fields |

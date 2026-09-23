@@ -34,6 +34,9 @@ These blocked the core ride flow and are now in the code:
 | API specification | Described endpoints that do not exist. | Rewritten from the route files (`technical/07-API-SPECIFICATIONS.md`). |
 | Search along the route (UC-R03) | Search found rides only by their *start*, so riders on the route but far from its start never saw them. | Rides store their route as an indexed GeoJSON line; search matches the rider's pickup and drop anywhere along it, in the right direction, and the app books from the rider's own points. |
 | Kafka (bug) | The API tried Kafka once at startup and gave up; on a fresh cluster every consumer failed because the topics did not exist; without Kafka every booking, ride and payment push was dropped; the Kubernetes Kafka could not start at all. | Background reconnect, topics created before subscribing, events handled in-process when Kafka is down, and a working three-broker KRaft StatefulSet. |
+| Account blocks never enforced (bug) | Fraud detection set `isBlocked`, and users carry `isSuspended`, but nothing checked them: a user blocked for fraud could keep booking and paying. | Blocked accounts are refused on every request and socket; suspended ones can read but not post or book; suspensions lift themselves when they end. |
+| Web admin (UC-A01 to UC-A07) | Only the app's admin screens: verifications, incidents, metrics. | `admin-web/` with a live dashboard, SOS handling, driver applications, disputes, user management, reports, settings and an audit log (section 2.4). |
+| Partial refunds on card payments (bug) | A partial refund marked the Razorpay payment `refunded`, so any later refund on the rest was skipped silently. | Payments track the amount refunded and stay `captured` until fully refunded; a refund reports whether it went through. |
 
 ---
 
@@ -76,14 +79,16 @@ These blocked the core ride flow and are now in the code:
 
 ### 2.4 Admin
 
-The docs describe a **web** admin dashboard. The app has an in-app admin area with verifications, incidents and metrics.
+Built as a web dashboard (`admin-web/`, September 2026) covering UC-A01 to UC-A07: driver applications with a verification checklist, a live dashboard with anomalies, SOS handling with a live map, disputes with refunds and warnings, user management with two-admin blocks and internal notes, reports with CSV export, editable platform settings, and an audit log of every admin action. See `admin-web/README.md`. The mobile app keeps its admin screens.
 
-| Feature | Docs | Today | What to build |
-|---|---|---|---|
-| Disputes | UC-A04 | Missing | Dispute model, submission from a booking, admin decision with refund or warning. |
-| User management | UC-A05 | Backend `GET /admin/users` exists; no screen | Search, suspend or reinstate, internal notes, audit log. |
-| Reports | UC-A06 | Metrics screen only | Scheduled and exported reports. |
-| Platform settings | UC-A07 | Values are hard-coded in `config` | Settings collection, read at runtime, with an admin editor. |
+Still missing from the admin use cases:
+- **Reports:** scheduled and emailed reports, and PDF or Excel export. These need an email provider (see section 3).
+- **Alerts:** SMS and email alerts to admins, custom alert rules, and ML-based anomaly detection. The anomalies are rule-based.
+- **Settings approval:** dual approval for critical settings. A 24-hour revert exists instead.
+- **Account tools:** password reset, merging duplicate accounts, and an appeals workflow.
+- **Driver checks:** background checks and automatic document validation.
+- **SOS:** call recording during an SOS.
+- **Disputes in the app:** the app has no screen for raising a dispute yet; the endpoint is `POST /disputes`.
 
 ### 2.5 AI/ML
 
@@ -112,7 +117,7 @@ The documents disagree with each other and with the code in several places:
 3. ~~**Contradictions in the use cases.**~~ UC-D02 now refuses rides over 300 km, and parcel pooling is Phase 4 everywhere.
 4. ~~**Numbering.**~~ `08-TECHNICAL-REQUIREMENTS.md` runs 1–15 (the second "Quality Metrics" was the database configuration), and `03-USE-CASES.md` runs 1–12.
 5. ~~**Naming.**~~ The documents say Poolora.
-6. **Admin.** The documents describe a web dashboard; the admin area is inside the mobile app. Every design document now carries a status note saying so. A web dashboard remains a product decision.
+6. ~~**Admin.**~~ The web dashboard the documents describe now exists (`admin-web/`), alongside the app's admin screens.
 7. ~~**Tracking interval.**~~ 5 seconds everywhere, as in the app.
 8. **Aspirational design.** `02-SYSTEM-ARCHITECTURE.md`, `05-SYSTEM-DESIGN.md`, `06-DATABASE-SCHEMAS.md` and `08-TECHNICAL-REQUIREMENTS.md` still describe a larger target design (PostgreSQL, RabbitMQ, Redux, a web dashboard) that was never built. Each now opens with a status note pointing here and to the API specification. Rewrite them only if they are needed as a reference for new work.
 
@@ -127,7 +132,7 @@ Code hygiene: ~~frontend linting could not run~~ fixed; `npm run lint` passes an
 3. Per-rider pickup and drop-off, no-show handling, and deviation alerts measured against the route.
 4. Live trip-share link, approach push notifications and periodic safety check-ins.
 5. Price suggestion and ride-creation rules.
-6. Admin disputes and user management.
+6. ~~Admin disputes and user management.~~ Done in the web admin; a dispute screen in the app is still to build.
 7. Parcel app screens, then Trip pooling.
 8. Documentation cleanup (section 3), which can happen at any point.
 

@@ -72,7 +72,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `KAFKA_BROKERS`, `KAFKA_CLIENT_ID` | no | Your Kafka brokers, comma-separated |
 | `KAFKA_ENABLED` | no | `false` runs without Kafka and stops the reconnect attempts. Events are then handled in-process, so notifications still go out |
 | `ELASTICSEARCH_URL` | no | Default `http://localhost:9200` |
-| `CORS_ORIGIN` | yes | Comma-separated list of allowed origins. Never `*` in production |
+| `CORS_ORIGIN` | yes | Comma-separated list of allowed origins, including the web admin's. Never `*` in production |
 | `PLATFORM_FEE_RATE` | no | Business setting, default `0.15` |
 | `COIN_TO_INR_RATE` | no | Business setting for wallet coins |
 | `SENTRY_DSN` | no | sentry.io, create a Node.js project, Settings, Client Keys (DSN). Empty disables it |
@@ -127,6 +127,16 @@ Set these in Vercel, under Project, Settings, Environment Variables. Use
 
 Analytics: set `analytics.googleAnalyticsId` in `web-landing/src/config/site.ts`.
 It is public and only loads after a visitor accepts the consent banner.
+
+## Web admin (`admin-web/.env`, hosting environment variables)
+
+All of these are compiled into the build and are public; none is a secret.
+
+| Variable | Required | How to get it |
+|---|---|---|
+| `VITE_API_URL` | yes | The backend's public URL. Add the admin's own origin to the backend's `CORS_ORIGIN` |
+| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | yes | Firebase console, Project settings, Your apps, **Add app > Web** (same project as the mobile app). Enable Email/Password and Google sign-in, and add the admin's domain under Authentication, Settings, Authorized domains. Restrict the web API key to that domain in Google Cloud |
+| `VITE_MAP_STYLE` | no | Map style for the SOS map. Default: OpenFreeMap, no key |
 
 ## ML service
 
