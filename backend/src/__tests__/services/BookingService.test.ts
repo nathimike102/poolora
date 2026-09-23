@@ -23,6 +23,12 @@ jest.mock('../../config', () => ({
       platformFeeRate: 0.15,
       maxPendingRequestsPerRider: 3,
       maxPickupDistanceFromRouteKm: 2,
+      riderCancellationRefunds: [
+        { minHours: 24, refundRate: 1 },
+        { minHours: 12, refundRate: 0.5 },
+        { minHours: 6, refundRate: 0.25 },
+        { minHours: 0, refundRate: 0 },
+      ],
     },
     razorpay: { keyId: 'rzp_test', keySecret: 'secret' },
   },
@@ -217,6 +223,7 @@ describe('BookingService', () => {
       };
       (Booking.findById as jest.Mock).mockResolvedValue(mockBooking);
       (Ride.findOneAndUpdate as jest.Mock).mockResolvedValue({ availableSeats: 2 });
+      (Booking.find as jest.Mock).mockReturnValue({ select: jest.fn().mockResolvedValue([]) });
 
       const result = await bookingService.confirmBooking('booking123', 'driver456');
 
@@ -303,7 +310,7 @@ describe('BookingService', () => {
 
     it('refunds a confirmed wallet booking to the wallet on cancel', async () => {
       (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.CONFIRMED, razorpayOrderId: undefined });
-      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({});
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: new Date(Date.now() + 48 * 3600_000) });
 
       await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
 
@@ -366,7 +373,7 @@ describe('BookingService', () => {
         save: jest.fn().mockResolvedValue(true),
       };
       (Booking.findById as jest.Mock).mockResolvedValue(mockBooking);
-      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({});
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: new Date(Date.now() + 48 * 3600_000) });
 
       await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
 
@@ -388,6 +395,114 @@ describe('BookingService', () => {
       await expect(
         bookingService.cancelBooking('booking123', 'stranger999', 'Reason'),
       ).rejects.toThrow('not part of this booking');
+    });
+  });
+
+  describe('rider cancellation refunds (UC-R09)', () => {
+    const hours = (h: number) => new Date(Date.now() + h * 3600_000);
+    const confirmed = () => ({
+      _id: 'booking123',
+      rider: { toString: () => 'rider123' },
+      driver: { toString: () => 'driver456' },
+      ride: 'ride789',
+      status: BookingStatus.CONFIRMED,
+      seatsBooked: 1,
+      estimatedFare: 400,
+      save: jest.fn().mockResolvedValue(true),
+    } as Record<string, unknown>);
+
+    it.each([
+      [30, 400],
+      [18, 200],
+      [8, 100],
+      [2, 0],
+    ])('refunds the right share %i hours before departure', async (h, refund) => {
+      const booking = confirmed();
+      (Booking.findById as jest.Mock).mockResolvedValue(booking);
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: hours(h) });
+
+      await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
+
+      expect(booking.refundAmount).toBe(refund);
+      expect(booking.cancellationFee).toBe(400 - refund);
+      if (refund > 0) {
+        expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', refund, 'Changed plans');
+      } else {
+        expect(mockRefundToWallet).not.toHaveBeenCalled();
+      }
+    });
+
+    it('pays the late-cancellation fee to the driver, less the platform fee', async () => {
+      const booking = confirmed();
+      (Booking.findById as jest.Mock).mockResolvedValue(booking);
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: hours(2) });
+
+      await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
+
+      expect(booking.platformFee).toBe(60);
+      expect(booking.driverEarnings).toBe(340);
+      expect(User.findByIdAndUpdate).toHaveBeenCalledWith(booking.driver, { $inc: { 'stats.totalEarnings': 340 } });
+    });
+
+    it('always refunds in full when the driver cancels', async () => {
+      const booking = confirmed();
+      (Booking.findById as jest.Mock).mockResolvedValue(booking);
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: hours(1) });
+
+      await bookingService.cancelBooking('booking123', 'driver456', 'Car broke down');
+
+      expect(booking.refundAmount).toBe(400);
+      expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', 400, 'Car broke down');
+    });
+
+    it('quotes the refund before the rider confirms', async () => {
+      (Booking.findById as jest.Mock).mockResolvedValue(confirmed());
+      (Ride.findById as jest.Mock).mockReturnValue({ select: jest.fn().mockResolvedValue({ departureTime: hours(18) }) });
+
+      const quote = await bookingService.getCancellationQuote('booking123', 'rider123');
+
+      expect(quote).toMatchObject({ fare: 400, refundAmount: 200, refundPercent: 50 });
+      expect(quote.policy).toHaveLength(4);
+    });
+  });
+
+  describe('when a confirmation fills the ride (UC-D03 5a)', () => {
+    it('turns down the pending requests that no longer fit', async () => {
+      (Booking.findById as jest.Mock).mockResolvedValue({
+        _id: 'booking123',
+        driver: { toString: () => 'driver456' },
+        rider: { toString: () => 'rider123' },
+        ride: 'ride789',
+        status: BookingStatus.PENDING,
+        seatsBooked: 1,
+        save: jest.fn().mockResolvedValue(true),
+      });
+      (Ride.findOneAndUpdate as jest.Mock).mockResolvedValue({ availableSeats: 0 });
+      (Booking.find as jest.Mock).mockReturnValue({ select: jest.fn().mockResolvedValue([{ _id: 'other1' }]) });
+      (Booking.findOneAndUpdate as jest.Mock).mockResolvedValue({
+        _id: 'other1',
+        rider: { toString: () => 'rider999' },
+        estimatedFare: 150,
+      });
+
+      await bookingService.confirmBooking('booking123', 'driver456');
+
+      expect(Booking.find).toHaveBeenCalledWith(expect.objectContaining({ ride: 'ride789', seatsBooked: { $gt: 0 } }));
+      expect(Booking.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: 'other1', status: BookingStatus.PENDING },
+        { $set: expect.objectContaining({ status: BookingStatus.REJECTED, cancellationReason: 'The ride is now full' }) },
+        { new: true },
+      );
+      expect(mockRefundToWallet).toHaveBeenCalledWith('rider999', 'other1', 150, 'The ride is now full');
+    });
+
+    it('leaves a request alone that the driver already answered', async () => {
+      (Booking.findOneAndUpdate as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        bookingService.expireBooking('other1', BookingStatus.REJECTED, 'The ride is now full'),
+      ).resolves.toBe(false);
+      expect(mockRefundToWallet).not.toHaveBeenCalled();
     });
   });
 

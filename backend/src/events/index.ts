@@ -200,6 +200,18 @@ export class EventBridge {
               { rideId: data.rideId },
             );
           }
+        } else if (event.eventType === 'ride.cancelled') {
+          const data = event.data as { rideId?: string; driverId?: string; reason?: string; automatic?: boolean };
+          if (data.automatic && data.driverId) {
+            const { NotificationService } = await import('../services/NotificationService');
+            const notificationService = new NotificationService();
+            await notificationService.sendPushNotification(
+              data.driverId,
+              'Ride cancelled',
+              `${data.reason || 'Your ride was cancelled'}, so we cancelled it for you.`,
+              { rideId: data.rideId ?? '', type: 'ride' },
+            );
+          }
         } else if (event.eventType === 'ride.started') {
           const { NotificationService } = await import('../services/NotificationService');
           const notificationService = new NotificationService();
@@ -248,6 +260,14 @@ export class EventBridge {
             data.riderId,
             'Booking Cancelled',
             'Your booking has been cancelled.',
+            { bookingId: data.bookingId || '', type: 'booking' },
+          );
+        } else if (event.eventType === 'booking.expired' && data.riderId) {
+          const reason = (event.data as { reason?: string }).reason;
+          await notificationService.sendPushNotification(
+            data.riderId,
+            'Request closed',
+            `${reason || 'Your ride request was closed'}. Anything you paid is refunded.`,
             { bookingId: data.bookingId || '', type: 'booking' },
           );
         }

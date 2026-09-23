@@ -16,6 +16,7 @@ router.get('/as-driver', BookingController.getDriverBookings);
 router.post('/', validate(createBookingSchema), BookingController.createBooking);
 
 // Booking actions
+router.get('/:id/cancellation-quote', BookingController.getCancellationQuote);
 router.post('/:id/confirm', BookingController.confirmBooking);
 router.post('/:id/reject', BookingController.rejectBooking);
 router.post('/:id/cancel', BookingController.cancelBooking);

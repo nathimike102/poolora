@@ -52,6 +52,13 @@ const schemas = {
     reason: Joi.string().allow('').optional(),
   }),
 
+  'booking.expired': Joi.object({
+    bookingId: Joi.string().hex().length(24).required(),
+    riderId: Joi.string().hex().length(24).required(),
+    status: Joi.string().valid('rejected', 'cancelled').required(),
+    reason: Joi.string().required(),
+  }),
+
   // ─── Payment Events ────────────────────────────────────────────────────────
   'payment.authorized': Joi.object({
     orderId: Joi.string().required(),

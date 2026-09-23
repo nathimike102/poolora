@@ -6,7 +6,7 @@
  * where tapping one starts a new search to the same place.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { bookingService } from '../../services/bookingService';
 import { logger } from '../../utils/logger';
-import type { Booking } from '../../types/api';
+import type { Booking, CancellationQuote } from '../../types/api';
 import { useApp } from '../../context/AppContext';
 import type { RootStackParamList, RiderTabParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
@@ -79,6 +79,22 @@ function toItem(b: Booking): RideItem {
   };
 }
 
+
+const POLICY_TEXT =
+  'Full refund more than 24 hours before departure, 50% from 12 hours, 25% from 6 hours, and nothing after that.';
+
+/** What the rider gets back, in words, for the cancel sheet. */
+function refundMessage(quote: CancellationQuote | null): string {
+  if (!quote) return `Refunds depend on how soon the ride leaves. ${POLICY_TEXT}`;
+  if (quote.refundPercent >= 100) {
+    return `You get the full ₹${quote.refundAmount} back to your wallet or original payment method.`;
+  }
+  if (quote.refundAmount <= 0) {
+    return `The ride leaves in under 6 hours, so this cancellation is not refunded. ${POLICY_TEXT}`;
+  }
+  return `You get ₹${quote.refundAmount} back (${quote.refundPercent}% of ₹${quote.fare}). ${POLICY_TEXT}`;
+}
+
 export function MyRidesScreen() {
   const navigation = useNavigation<Nav>();
   const { c } = useApp();
@@ -127,6 +143,22 @@ export function MyRidesScreen() {
   const [cancelTarget, setCancelTarget] = useState<RideItem | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelDone, setCancelDone] = useState(false);
+  // undefined while loading, null if it could not be fetched
+  const [quote, setQuote] = useState<CancellationQuote | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!cancelTarget) return;
+    let active = true;
+    setQuote(undefined);
+    bookingService
+      .getCancellationQuote(cancelTarget.id)
+      .then(q => { if (active) setQuote(q); })
+      .catch(error => {
+        logger.warn('Could not load cancellation quote', { error });
+        if (active) setQuote(null);
+      });
+    return () => { active = false; };
+  }, [cancelTarget]);
 
   const closeCancel = () => {
     if (cancelling) return;
@@ -150,6 +182,8 @@ export function MyRidesScreen() {
       setCancelling(false);
     }
   };
+
+  const confirmDisabled = cancelling || quote === undefined;
 
   const rebook = (r: RideItem) =>
     navigation.navigate('Search', { drop: { name: placeName(r.to), subtitle: r.to.split(',').slice(1).join(',').trim() } });
@@ -299,7 +333,9 @@ export function MyRidesScreen() {
                 <Icon name="check" size={36} color={c.successDark} />
               </View>
               <Text style={[styles.sheetTitle, { color: c.text }]}>Ride cancelled</Text>
-              <Text style={[styles.sheetText, { color: c.textSec }]}>Your refund has been started.</Text>
+              <Text style={[styles.sheetText, { color: c.textSec }]}>
+                {quote && quote.refundAmount === 0 ? 'No refund was due for this cancellation.' : 'Your refund has been started.'}
+              </Text>
               <Pressable onPress={closeCancel} accessibilityRole="button" style={[styles.sheetBtn, styles.doneBtn, { backgroundColor: c.primary }]}>
                 <Text style={[styles.sheetBtnText, { color: c.textOnPrimary }]}>Done</Text>
               </Pressable>
@@ -315,9 +351,13 @@ export function MyRidesScreen() {
               </View>
               <View style={[styles.refund, { backgroundColor: c.infoLight }]}>
                 <Icon name="cash-refund" size={20} color={c.info} />
-                <Text style={[styles.sheetText, styles.flex1, { color: c.text, textAlign: 'left' }]}>
-                  There is no cancellation fee. The full amount goes back to your wallet or original payment method.
-                </Text>
+                {quote === undefined ? (
+                  <ActivityIndicator color={c.info} accessibilityLabel="Checking your refund" />
+                ) : (
+                  <Text style={[styles.sheetText, styles.flex1, { color: c.text, textAlign: 'left' }]}>
+                    {refundMessage(quote)}
+                  </Text>
+                )}
               </View>
               <View style={styles.sheetActions}>
                 <Pressable
@@ -330,7 +370,7 @@ export function MyRidesScreen() {
                 </Pressable>
                 <Pressable
                   onPress={confirmCancel}
-                  disabled={cancelling}
+                  disabled={confirmDisabled}
                   accessibilityRole="button"
                   accessibilityState={{ busy: cancelling }}
                   style={[styles.sheetBtn, styles.flex1, { backgroundColor: DESTRUCTIVE }]}

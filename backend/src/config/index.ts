@@ -142,6 +142,24 @@ export const config = {
     defaultSearchRadiusKm: 5,
     defaultTimeDeviationMins: 120,
     platformFeeRate: parseFloat(process.env.PLATFORM_FEE_RATE || '0.15'), // 15% default
+    /** Card/UPI requests still unpaid after this are cancelled (UC-R04). */
+    paymentTimeoutMins: 15,
+    /** Requests the driver has not answered after this expire (UC-D03). */
+    requestExpiryHours: 6,
+    /** Rides with nobody booked are cancelled this long before departure (UC-D02). */
+    emptyRideCancelMins: 60,
+    /**
+     * Refund when a rider cancels a confirmed booking (UC-R09), by hours left
+     * before departure. The first tier whose `minHours` is met applies.
+     */
+    riderCancellationRefunds: [
+      { minHours: 24, refundRate: 1 },
+      { minHours: 12, refundRate: 0.5 },
+      { minHours: 6, refundRate: 0.25 },
+      { minHours: 0, refundRate: 0 },
+    ],
+    /** How often the booking sweeper runs. */
+    sweepIntervalMs: 60_000,
   },
 
   otp: {

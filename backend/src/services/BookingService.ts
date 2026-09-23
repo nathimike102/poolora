@@ -23,6 +23,13 @@ import type { Orders } from 'razorpay/dist/types/orders';
 
 const walletService = new WalletService();
 
+/** Share of the fare a rider gets back for cancelling a confirmed booking. */
+export function riderRefundRate(departureTime: Date, now = new Date()): number {
+  const hoursLeft = (departureTime.getTime() - now.getTime()) / 3_600_000;
+  const tier = config.ride.riderCancellationRefunds.find((t) => hoursLeft >= t.minHours);
+  return tier ? tier.refundRate : 0;
+}
+
 function getRazorpayClient(): Razorpay {
   if (!config.razorpay.keyId) {
     throw new AppError('Online payments are unavailable right now. Please pay from your wallet.', 503, 'SERVICE_UNAVAILABLE');
@@ -274,7 +281,46 @@ export class BookingService {
       },
     });
 
+    // Requests that no longer fit are turned down now rather than left
+    // waiting for seats that are gone (UC-D03 5a)
+    const overflow = await Booking.find({
+      ride: booking.ride,
+      status: BookingStatus.PENDING,
+      seatsBooked: { $gt: ride.availableSeats },
+    }).select('_id');
+    for (const { _id } of overflow) {
+      await this.expireBooking(_id.toString(), BookingStatus.REJECTED, 'The ride is now full');
+    }
+
     return booking;
+  }
+
+  /**
+   * Closes a pending request without the driver or rider acting: the ride
+   * filled up, the driver did not answer, or the rider never paid. Anything
+   * already paid is refunded in full. The status update is conditional on the
+   * request still being pending, so it cannot race a driver accepting it.
+   * Returns false when the request had already moved on.
+   */
+  async expireBooking(
+    bookingId: string,
+    status: BookingStatus.REJECTED | BookingStatus.CANCELLED,
+    reason: string,
+  ): Promise<boolean> {
+    const booking = await Booking.findOneAndUpdate(
+      { _id: bookingId, status: BookingStatus.PENDING },
+      { $set: { status, cancellationReason: reason, cancelledAt: new Date() } },
+      { new: true },
+    );
+    if (!booking) return false;
+
+    await this.refundBooking(booking, reason, 'system');
+
+    EventBridge.publish('booking-events', {
+      eventType: 'booking.expired',
+      data: { bookingId: booking._id, riderId: booking.rider.toString(), status, reason },
+    });
+    return true;
   }
 
   /**
@@ -282,10 +328,15 @@ export class BookingService {
    * payments go back to the wallet; captured card/UPI payments are refunded
    * through Razorpay. Uncaptured authorizations are released by Razorpay
    * automatically. Failures are logged for manual follow-up rather than
-   * blocking the cancellation.
+   * blocking the cancellation. `amount` defaults to the whole fare.
    */
-  async refundBooking(booking: IBooking, reason: string, actorId: string): Promise<void> {
-    const amount = booking.estimatedFare;
+  async refundBooking(
+    booking: IBooking,
+    reason: string,
+    actorId: string,
+    amount: number = booking.estimatedFare,
+  ): Promise<void> {
+    if (amount <= 0) return;
 
     if (!booking.razorpayOrderId) {
       try {
@@ -306,7 +357,8 @@ export class BookingService {
     if (!payment) return; // never paid
 
     if (payment.status === PaymentStatus.AUTHORIZED) {
-      logger.info('Uncaptured authorization will be released by Razorpay', { bookingId: booking._id });
+      // An authorization cannot be partly released, so the rider gets it all back
+      logger.info('Uncaptured authorization will be released by Razorpay', { bookingId: booking._id, amount });
       return;
     }
 
@@ -393,21 +445,64 @@ export class BookingService {
     await booking.save();
 
     // Restore seats if booking was confirmed
-    if (originalStatus === BookingStatus.CONFIRMED) {
-      await Ride.findByIdAndUpdate(
-        booking.ride,
-        { $inc: { availableSeats: booking.seatsBooked } },
-      );
-    }
+    const ride = originalStatus === BookingStatus.CONFIRMED
+      ? await Ride.findByIdAndUpdate(booking.ride, { $inc: { availableSeats: booking.seatsBooked } })
+      : null;
 
-    await this.refundBooking(booking, reason, cancelledBy);
+    // A rider cancelling a confirmed seat gets back a share that shrinks as
+    // departure nears (UC-R09); the rest goes to the driver, less the platform
+    // fee (UC-D04 7b). Requests not yet accepted, and anything the driver
+    // cancels, are refunded in full.
+    const refundRate = isRider && ride ? riderRefundRate(ride.departureTime) : 1;
+    const refundAmount = Math.round(booking.estimatedFare * refundRate * 100) / 100;
+    const cancellationFee = Math.round((booking.estimatedFare - refundAmount) * 100) / 100;
+    booking.refundAmount = refundAmount;
+    booking.cancellationFee = cancellationFee;
+    if (cancellationFee > 0) {
+      booking.platformFee = Math.round(cancellationFee * config.ride.platformFeeRate * 100) / 100;
+      booking.driverEarnings = cancellationFee - booking.platformFee;
+      await User.findByIdAndUpdate(booking.driver, {
+        $inc: { 'stats.totalEarnings': booking.driverEarnings },
+      });
+    }
+    await booking.save();
+
+    await this.refundBooking(booking, reason, cancelledBy, refundAmount);
 
     EventBridge.publish('booking-events', {
       eventType: 'booking.cancelled',
-      data: { bookingId: booking._id, riderId: booking.rider, cancelledBy, reason },
+      data: { bookingId: booking._id, riderId: booking.rider, cancelledBy, reason, refundAmount },
     });
 
     return booking;
+  }
+
+  /**
+   * What the rider would get back for cancelling now, so the app can show the
+   * policy before they confirm.
+   */
+  async getCancellationQuote(bookingId: string, userId: string) {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) throw new NotFoundError('Booking');
+    const isRider = booking.rider.toString() === userId;
+    if (!isRider && booking.driver.toString() !== userId) {
+      throw new AuthorizationError('You are not part of this booking');
+    }
+    let refundRate = 1;
+    if (isRider && booking.status === BookingStatus.CONFIRMED) {
+      const ride = await Ride.findById(booking.ride).select('departureTime');
+      if (ride) refundRate = riderRefundRate(ride.departureTime);
+    }
+    const refundAmount = Math.round(booking.estimatedFare * refundRate * 100) / 100;
+    return {
+      fare: booking.estimatedFare,
+      refundAmount,
+      refundPercent: Math.round(refundRate * 100),
+      policy: config.ride.riderCancellationRefunds.map((t) => ({
+        minHoursBeforeDeparture: t.minHours,
+        refundPercent: Math.round(t.refundRate * 100),
+      })),
+    };
   }
 
   /**

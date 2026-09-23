@@ -8,6 +8,7 @@ import { connectKafkaProducer, disconnectKafka } from './config/kafka';
 import { initializeFirebase } from './config/firebase';
 import { SocketGateway } from './sockets/SocketGateway';
 import { EventBridge } from './events';
+import { BookingSweeper } from './jobs/BookingSweeper';
 import { logger } from './utils/logger';
 
 const server = http.createServer(app);
@@ -95,7 +96,10 @@ async function bootstrap(): Promise<void> {
       });
     }
 
-    // 6. Start HTTP server
+    // 6. Time-based booking rules (payment timeout, request expiry, empty rides)
+    BookingSweeper.start();
+
+    // 7. Start HTTP server
     server.listen(config.port, () => {
       logger.info(`Mobility Backend running on port ${config.port}`, {
         env: config.env,
@@ -120,6 +124,8 @@ async function shutdown(signal: string): Promise<void> {
     logger.info('HTTP server closed');
 
     try {
+      BookingSweeper.stop();
+
       // Close Socket.io connections
       socketGateway.getIO()?.close();
       logger.info('Socket.io server closed');

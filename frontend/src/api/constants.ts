@@ -94,6 +94,7 @@ export const API_ENDPOINTS = {
     confirm: (id: string) => `/bookings/${id}/confirm`,
     reject: (id: string) => `/bookings/${id}/reject`,
     cancel: (id: string) => `/bookings/${id}/cancel`,
+    cancellationQuote: (id: string) => `/bookings/${id}/cancellation-quote`,
     complete: (id: string) => `/bookings/${id}/complete`,
   },
 

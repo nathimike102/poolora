@@ -193,6 +193,14 @@ export interface Ride {
 }
 
 /** A rider's booked ride as returned by /rides/upcoming */
+/** GET /bookings/:id/cancellation-quote */
+export interface CancellationQuote {
+  fare: number;
+  refundAmount: number;
+  refundPercent: number;
+  policy: Array<{ minHoursBeforeDeparture: number; refundPercent: number }>;
+}
+
 export interface UpcomingBooking {
   rideId: string;
   bookingId: string;

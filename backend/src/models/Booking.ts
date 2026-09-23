@@ -34,6 +34,10 @@ export interface IBooking extends Document {
   cancelledBy?: Types.ObjectId;
   cancellationReason?: string;
   cancelledAt?: Date;
+  /** What the rider got back on cancellation. */
+  refundAmount?: number;
+  /** What the rider forfeited for a late cancellation; paid to the driver less the platform fee. */
+  cancellationFee?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,6 +92,8 @@ const BookingSchema = new Schema<IBooking>(
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
     cancellationReason: String,
     cancelledAt: Date,
+    refundAmount: { type: Number, min: 0 },
+    cancellationFee: { type: Number, min: 0 },
   },
   {
     timestamps: true,
@@ -97,6 +103,7 @@ const BookingSchema = new Schema<IBooking>(
 
 BookingSchema.index({ rider: 1, status: 1 });
 BookingSchema.index({ driver: 1, status: 1 });
+BookingSchema.index({ status: 1, createdAt: 1 }); // booking sweeper
 BookingSchema.index(
   { ride: 1, rider: 1 },
   {

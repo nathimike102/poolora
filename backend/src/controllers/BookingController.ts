@@ -76,6 +76,19 @@ export class BookingController {
   }
 
   /**
+   * GET /bookings/:id/cancellation-quote — refund the caller would get now.
+   */
+  static async getCancellationQuote(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const quote = await bookingService.getCancellationQuote(String(req.params.id), user.userId);
+      sendSuccess(res, quote, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/v1/bookings/:id/complete
    */
   static async completeBooking(req: Request, res: Response, next: NextFunction): Promise<void> {

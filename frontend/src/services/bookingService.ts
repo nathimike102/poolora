@@ -12,6 +12,7 @@ import type {
   ApiResponse,
   Booking,
   BookingStatus,
+  CancellationQuote,
   CreateBookingRequest,
   CreateBookingResult,
   PaginatedResponse,
@@ -162,6 +163,19 @@ export const bookingService = {
       logger.error('Failed to cancel booking', { error, bookingId });
       throw error;
     }
+  },
+
+  /**
+   * What the rider would get back for cancelling now
+   *
+   * @param bookingId - Booking the rider is thinking of cancelling
+   * @returns Refund amount and the policy behind it
+   */
+  async getCancellationQuote(bookingId: string): Promise<CancellationQuote> {
+    const response = await apiClient.get<ApiResponse<CancellationQuote>>(
+      API_ENDPOINTS.bookings.cancellationQuote(bookingId),
+    );
+    return response.data.data;
   },
 
   /**
