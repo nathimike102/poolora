@@ -3,6 +3,7 @@ import { IUser } from '../models/User';
 import { MatchScore, RideSearchParams } from '../types';
 import { haversineDistanceKm, minutesBetween } from '../utils/helpers';
 import { logger } from '../utils/logger';
+import { config } from '../config';
 
 /**
  * Matching Engine — applies the 5-Factor Weighted Score:
@@ -12,13 +13,10 @@ import { logger } from '../utils/logger';
  * This implementation provides the deterministic scoring locally.
  */
 export class MatchingEngineClient {
-  private static readonly WEIGHTS = {
-    proximity: 0.4,
-    time: 0.3,
-    rating: 0.15,
-    acceptance: 0.1,
-    safety: 0.05,
-  };
+  /** Admin-editable (UC-A07), so read on every score */
+  private static get WEIGHTS() {
+    return config.matching.weights;
+  }
 
   /**
    * Score a list of candidate rides against a rider's search parameters.

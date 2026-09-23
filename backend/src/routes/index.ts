@@ -15,6 +15,7 @@ import adminRoutes from './admin.routes';
 import trackRoutes from './track.routes';
 import uploadRoutes from './upload.routes';
 import simulationRoutes from './simulation.routes';
+import disputeRoutes from './dispute.routes';
 
 const router = Router();
 
@@ -34,6 +35,7 @@ router.use('/admin', adminRoutes);
 router.use('/track', trackRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/dev/simulate', simulationRoutes);
+router.use('/disputes', disputeRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {

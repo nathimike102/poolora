@@ -34,6 +34,12 @@ export interface IUser extends Document {
   fraudLevel: FraudLevel;
   blockReason?: string;
   isBlocked: boolean;
+  /** Why the account is suspended, shown to admins */
+  suspensionReason?: string;
+  /** Warnings from dispute decisions (UC-A04) */
+  warnings: number;
+  /** A block waits for a second admin to approve it (UC-A05 3b) */
+  pendingBlock?: { requestedBy: Types.ObjectId; reason: string; requestedAt: Date };
   otpAttempts: number;
   otpLastAttemptAt?: Date;
   isActive: boolean;
@@ -149,6 +155,13 @@ const UserSchema = new Schema<IUser>(
     isBlocked: { type: Boolean, default: false },
     otpAttempts: { type: Number, default: 0 },
     otpLastAttemptAt: Date,
+    suspensionReason: String,
+    warnings: { type: Number, default: 0 },
+    pendingBlock: {
+      requestedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+      reason: String,
+      requestedAt: Date,
+    },
     isActive: { type: Boolean, default: true },
   },
   {

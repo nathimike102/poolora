@@ -125,8 +125,9 @@ export const searchRideSchema = {
     dropoffLng: Joi.number().min(-180).max(180).required(),
     dropoffLat: Joi.number().min(-90).max(90).required(),
     departureTime: Joi.date().iso().required(),
-    radiusKm: Joi.number().min(1).max(50).default(5),
-    timeDeviationMins: Joi.number().min(0).max(480).default(120),
+    // No defaults here: the service falls back to the admin-editable settings
+    radiusKm: Joi.number().min(1).max(50),
+    timeDeviationMins: Joi.number().min(0).max(480),
     maxPrice: Joi.number().min(0).optional(),
     womenOnly: Joi.boolean().optional(),
     hasAC: Joi.boolean().optional(),

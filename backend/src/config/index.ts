@@ -134,7 +134,16 @@ export const config = {
   tracking: {
     intervalMs: 5_000,
     startBeforePickupMins: 30,
-    routeDeviationMeters: 500,
+  },
+
+  safety: {
+    /** Seconds between SOS check-ins, by risk level. Admin-editable. */
+    checkInSeconds: { low: 120, medium: 60, high: 30 },
+  },
+
+  matching: {
+    /** Weights of the ride match score; they sum to 1. Admin-editable. */
+    weights: { proximity: 0.4, time: 0.3, rating: 0.15, acceptance: 0.1, safety: 0.05 },
   },
 
   ride: {

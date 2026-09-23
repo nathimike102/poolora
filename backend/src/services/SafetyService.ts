@@ -17,6 +17,9 @@ type SafetyConfig = {
   retentionDays?: number;
 };
 
+/** Seconds between SOS check-ins by risk level; admins can change them (config.safety). */
+const DEFAULT_CHECK_IN_SECONDS = { low: 120, medium: 60, high: 30 };
+
 function getSafetyConfig(): SafetyConfig {
   return (config as typeof config & { safety?: SafetyConfig }).safety ?? {};
 }
@@ -42,9 +45,11 @@ export class SafetyService {
   }
 
   private getMonitoringIntervalSeconds(riskLevel: SOSRiskLevel): number {
-    if (riskLevel === SOSRiskLevel.HIGH) return 30;
-    if (riskLevel === SOSRiskLevel.MEDIUM) return 60;
-    return 120;
+    const seconds = (config as { safety?: { checkInSeconds?: typeof DEFAULT_CHECK_IN_SECONDS } }).safety?.checkInSeconds
+      ?? DEFAULT_CHECK_IN_SECONDS;
+    if (riskLevel === SOSRiskLevel.HIGH) return seconds.high;
+    if (riskLevel === SOSRiskLevel.MEDIUM) return seconds.medium;
+    return seconds.low;
   }
 
   private async autoEscalateIfOverdue(record: IEmergencyRecord): Promise<IEmergencyRecord> {

@@ -4,6 +4,7 @@ import { UnifiedAuthService } from '../auth';
 import { User } from '../models/User';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
+import { audit } from '../services/AuditService';
 
 const authService = new AuthService();
 const unifiedAuth = new UnifiedAuthService();
@@ -113,6 +114,7 @@ export class AuthController {
   static async approveKyc(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await authService.approveKyc(String(req.params.userId));
+      await audit((req as AuthenticatedRequest).user.userId, 'kyc.approve', 'kyc', String(req.params.userId));
       sendSuccess(res, { user: result }, 200, req.requestId);
     } catch (error) {
       next(error);
@@ -125,6 +127,7 @@ export class AuthController {
   static async rejectKyc(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await authService.rejectKyc(String(req.params.userId), req.body.reason);
+      await audit((req as AuthenticatedRequest).user.userId, 'kyc.reject', 'kyc', String(req.params.userId), req.body.reason);
       sendSuccess(res, { user: result }, 200, req.requestId);
     } catch (error) {
       next(error);

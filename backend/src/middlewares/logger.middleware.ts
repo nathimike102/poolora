@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
+import { recordRequest } from '../utils/requestStats';
 
 export function requestLoggerMiddleware(req: Request, res: Response, next: NextFunction): void {
   const start = Date.now();
@@ -7,6 +8,7 @@ export function requestLoggerMiddleware(req: Request, res: Response, next: NextF
 
   res.on('finish', () => {
     const duration = Date.now() - start;
+    recordRequest(duration, res.statusCode);
     const logData = {
       requestId,
       method: req.method,

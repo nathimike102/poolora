@@ -1,10 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import { UnifiedAuthService } from '../auth';
+import { getRedisClient } from '../config/redis';
 import { AuthenticationError } from '../utils/AppError';
 import { checkAccountStatus } from './accountStatus.middleware';
 import { JWTPayload, AuthenticatedRequest, UserCapability } from '../types';
 
 const unifiedAuth = new UnifiedAuthService();
+
+/**
+ * Counts distinct signed-in users per hour for the admin dashboard, in a
+ * Redis HyperLogLog (about 12 KB per hour however many users). Best effort.
+ */
+function markActive(userId: string): void {
+  const redis = getRedisClient();
+  if (!redis) return;
+  const key = `active:users:${new Date().toISOString().slice(0, 13)}`;
+  redis.pipeline().pfadd(key, userId).expire(key, 3 * 3600).exec().catch(() => undefined);
+}
 
 /**
  * Validates the access token from Authorization header or cookie.
@@ -59,6 +71,7 @@ export async function authenticate(
     };
 
     (req as AuthenticatedRequest).user = payload;
+    markActive(payload.userId);
     next();
   } catch (error) {
     next(error);
