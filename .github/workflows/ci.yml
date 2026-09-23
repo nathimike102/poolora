@@ -229,14 +229,11 @@ jobs:
             # Pull latest code
             git pull origin main
 
-            # Pull latest Docker images
-            docker pull ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-            docker pull ${{ env.ML_IMAGE }}:${{ github.sha }}
-
-            # Update running containers
+            # docker-compose.yml builds app and ml-engine from this checkout,
+            # so rebuild them; `pull` refreshes the third-party images
             cd backend
-            docker compose pull
-            docker compose up -d --remove-orphans
+            docker compose pull --ignore-buildable
+            docker compose up -d --build --remove-orphans
 
             # Restart nginx
             sudo systemctl restart nginx
