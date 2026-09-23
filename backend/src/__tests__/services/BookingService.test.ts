@@ -348,18 +348,21 @@ describe('BookingService', () => {
 
       await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
 
-      expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', 300, 'Changed plans');
+      expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', 300, 'Changed plans', undefined);
     });
 
     it('refunds a captured card payment through Razorpay when the driver declines', async () => {
       (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.PENDING, razorpayOrderId: 'order_1' });
-      (Payment.findOne as jest.Mock).mockResolvedValue({ _id: 'pay_doc', status: 'captured', razorpayPaymentId: 'pay_1' });
+      (Payment.findOne as jest.Mock).mockResolvedValue({ _id: 'pay_doc', status: 'captured', razorpayPaymentId: 'pay_1', amount: 300 });
       mockRazorpayRefund.mockResolvedValue({ id: 'rfnd_1' });
 
       await bookingService.rejectBooking('booking123', 'driver456', 'Car is full');
 
       expect(mockRazorpayRefund).toHaveBeenCalledWith('pay_1', expect.objectContaining({ amount: 30000 }));
-      expect(Payment.updateOne).toHaveBeenCalledWith({ _id: 'pay_doc' }, { $set: { status: 'refunded' } });
+      expect(Payment.updateOne).toHaveBeenCalledWith(
+        { _id: 'pay_doc' },
+        { $set: { refundAmount: 300, refundReason: 'Car is full', status: 'refunded' } },
+      );
     });
 
     it('does not call the refund API for an uncaptured authorization', async () => {
@@ -460,7 +463,7 @@ describe('BookingService', () => {
       expect(booking.refundAmount).toBe(refund);
       expect(booking.cancellationFee).toBe(400 - refund);
       if (refund > 0) {
-        expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', refund, 'Changed plans');
+        expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', refund, 'Changed plans', undefined);
       } else {
         expect(mockRefundToWallet).not.toHaveBeenCalled();
       }
@@ -486,7 +489,7 @@ describe('BookingService', () => {
       await bookingService.cancelBooking('booking123', 'driver456', 'Car broke down');
 
       expect(booking.refundAmount).toBe(400);
-      expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', 400, 'Car broke down');
+      expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', 400, 'Car broke down', undefined);
     });
 
     it('quotes the refund before the rider confirms', async () => {
@@ -527,7 +530,7 @@ describe('BookingService', () => {
         { $set: expect.objectContaining({ status: BookingStatus.REJECTED, cancellationReason: 'The ride is now full' }) },
         { new: true },
       );
-      expect(mockRefundToWallet).toHaveBeenCalledWith('rider999', 'other1', 150, 'The ride is now full');
+      expect(mockRefundToWallet).toHaveBeenCalledWith('rider999', 'other1', 150, 'The ride is now full', undefined);
     });
 
     it('leaves a request alone that the driver already answered', async () => {

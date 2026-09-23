@@ -318,24 +318,25 @@ export class WalletService {
     // ── Refund ──────────────────────────────────────────────────────────────────
 
     /**
-     * Refunds a deducted wallet amount (e.g., on booking cancellation).
-     * Idempotent by idempotencyKey.
+     * Credits money back to a wallet (a cancelled booking, a dispute decision).
+     * Idempotent by idempotencyKey, which defaults to one refund per booking
+     * and user; a dispute passes its own key so it is not mistaken for the
+     * cancellation refund. Creates the wallet if the user has none yet.
      */
     async refundToWallet(
         userId: string,
         bookingId: string,
         amount: number,
         reason: string,
+        idempotencyKey = `refund_${bookingId}_${userId}`,
     ): Promise<void> {
-        const idempotencyKey = `refund_${bookingId}_${userId}`;
         const existing = await WalletTransaction.findOne({ idempotencyKey });
         if (existing) {
             logger.info('Duplicate wallet refund ignored', { bookingId, userId });
             return;
         }
 
-        const wallet = await Wallet.findOne({ userId });
-        if (!wallet) throw new NotFoundError('Wallet');
+        const wallet = await this.getOrCreateWallet(userId);
 
         const balanceBefore = wallet.balance;
         wallet.balance += amount;

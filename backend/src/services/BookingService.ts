@@ -24,6 +24,13 @@ import type { Orders } from 'razorpay/dist/types/orders';
 
 const walletService = new WalletService();
 
+/**
+ * What a refund did: credited the wallet, refunded through Razorpay (all or
+ * only part of what was asked), left an uncaptured authorization to lapse,
+ * found nothing paid, or failed and needs a manual refund.
+ */
+export type RefundOutcome = 'wallet' | 'razorpay' | 'partial' | 'released' | 'none' | 'failed';
+
 /** Share of the fare a rider gets back for cancelling a confirmed booking. */
 export function riderRefundRate(departureTime: Date, now = new Date()): number {
   const hoursLeft = (departureTime.getTime() - now.getTime()) / 3_600_000;
@@ -337,51 +344,78 @@ export class BookingService {
     reason: string,
     actorId: string,
     amount: number = booking.estimatedFare,
-  ): Promise<void> {
-    if (amount <= 0) return;
+    /** A dispute passes its own, so it is not deduplicated against a cancellation refund */
+    walletIdempotencyKey?: string,
+  ): Promise<RefundOutcome> {
+    if (amount <= 0) return 'none';
 
     if (!booking.razorpayOrderId) {
       try {
-        await walletService.refundToWallet(booking.rider.toString(), booking._id.toString(), amount, reason);
+        await walletService.refundToWallet(booking.rider.toString(), booking._id.toString(), amount, reason, walletIdempotencyKey);
+        return 'wallet';
       } catch (refundError) {
         logger.error('Wallet refund failed; needs manual refund', {
           bookingId: booking._id,
           error: (refundError as Error).message,
         });
+        return 'failed';
       }
-      return;
     }
 
     const payment = await Payment.findOne({
       razorpayOrderId: booking.razorpayOrderId,
-      status: { $in: [PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED] },
+      status: { $in: [PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED, PaymentStatus.REFUNDED] },
     });
-    if (!payment) return; // never paid
+    if (!payment) return 'none'; // never paid
 
     if (payment.status === PaymentStatus.AUTHORIZED) {
       // An authorization cannot be partly released, so the rider gets it all back
       logger.info('Uncaptured authorization will be released by Razorpay', { bookingId: booking._id, amount });
-      return;
+      return 'released';
+    }
+
+    // REFUNDED means fully refunded; older records carry no refundAmount
+    const alreadyRefunded = payment.status === PaymentStatus.REFUNDED
+      ? payment.refundAmount ?? payment.amount
+      : payment.refundAmount ?? 0;
+    const refundable = Math.round((payment.amount - alreadyRefunded) * 100) / 100;
+    const toRefund = Math.min(amount, refundable);
+    if (toRefund <= 0) {
+      logger.error('Nothing left to refund on this payment; needs manual review', { bookingId: booking._id, amount });
+      return 'failed';
     }
 
     if (!payment.razorpayPaymentId) {
       logger.error('Cannot refund: payment has no Razorpay payment id', { bookingId: booking._id });
-      return;
+      return 'failed';
     }
 
     try {
       await getRazorpayClient().payments.refund(payment.razorpayPaymentId, {
-        amount: Math.round(amount * 100), // paise
+        amount: Math.round(toRefund * 100), // paise
         notes: { bookingId: booking._id.toString(), reason, cancelledBy: actorId },
       });
-      await Payment.updateOne({ _id: payment._id }, { $set: { status: PaymentStatus.REFUNDED } });
-      logger.info('Razorpay refund initiated', { bookingId: booking._id, paymentId: payment.razorpayPaymentId, amount });
+      const refundedTotal = Math.round((alreadyRefunded + toRefund) * 100) / 100;
+      await Payment.updateOne(
+        { _id: payment._id },
+        {
+          $set: {
+            refundAmount: refundedTotal,
+            refundReason: reason,
+            // Only a full refund marks the payment refunded; a partial one stays captured
+            status: refundedTotal >= payment.amount ? PaymentStatus.REFUNDED : PaymentStatus.CAPTURED,
+          },
+        },
+      );
+      logger.info('Razorpay refund initiated', { bookingId: booking._id, paymentId: payment.razorpayPaymentId, amount: toRefund });
+      return toRefund < amount ? 'partial' : 'razorpay';
     } catch (refundError) {
       logger.error('Razorpay refund failed; needs manual refund', {
         bookingId: booking._id,
         paymentId: payment.razorpayPaymentId,
         error: (refundError as Error).message,
       });
+      return 'failed';
     }
   }
 
