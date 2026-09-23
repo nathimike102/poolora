@@ -19,12 +19,24 @@ export async function getKycDocuments(req: Request, res: Response, next: NextFun
     if (!user) throw new NotFoundError('User');
     const { presignKycDownload } = await import('../services/UploadService');
     const vehicle = user.vehicles[user.vehicles.length - 1];
-    const sign = (url?: string) => (url?.startsWith('s3://') ? presignKycDownload(url) : Promise.resolve(null));
+    // Each document is signed on its own: one that cannot be signed is listed
+    // as unavailable instead of failing the whole review
+    const unavailable: string[] = [];
+    const sign = async (url: string | undefined, name: string) => {
+      if (!url) return null;
+      try {
+        return await presignKycDownload(url);
+      } catch (error) {
+        logger.warn('Could not sign a KYC document', { userId: String(req.params.userId), document: name, error: (error as Error).message });
+        unavailable.push(name);
+        return null;
+      }
+    };
     const [licence, registration, insurance, ...photos] = await Promise.all([
-      sign(user.kyc.drivingLicenseUrl),
-      sign(vehicle?.registrationDocUrl),
-      sign(vehicle?.insuranceDocUrl),
-      ...(vehicle?.photos ?? []).map(sign),
+      sign(user.kyc.drivingLicenseUrl, 'licence'),
+      sign(vehicle?.registrationDocUrl, 'registration'),
+      sign(vehicle?.insuranceDocUrl, 'insurance'),
+      ...(vehicle?.photos ?? []).map((p, i) => sign(p, `photo${i + 1}`)),
     ]);
     sendSuccess(
       res,
@@ -41,6 +53,7 @@ export async function getKycDocuments(req: Request, res: Response, next: NextFun
           vehicleType: vehicle.vehicleType,
         },
         documents: { licence, registration, insurance, photos },
+        unavailable,
       },
       200,
       req.requestId,
