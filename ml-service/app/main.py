@@ -333,10 +333,9 @@ async def predict_demand(request: DemandPredictionRequest):
     # Holiday factor
     holiday_factor = 0.6 if request.is_holiday else 1.0
 
-    # Predicted demand with noise for realism
+    # Deterministic: the same inputs must give the same forecast and surge
     raw_demand = base_demand * hour_factor * day_factor * weather_factor * holiday_factor
-    noise = np.random.normal(0, raw_demand * 0.05)  # 5% noise
-    predicted_demand = max(0, round(raw_demand + noise, 1))
+    predicted_demand = max(0, round(raw_demand, 1))
 
     # Surge multiplier
     if predicted_demand > base_demand * 2:
