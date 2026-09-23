@@ -161,6 +161,9 @@ export interface JWTPayload {
   capabilities: UserCapability[];
   driverVerified: boolean;
   sessionId: string;
+  /** Suspended accounts can read but not post or book (see requireActiveAccount) */
+  accountStatus?: 'active' | 'suspended';
+  suspendedUntil?: Date;
 }
 
 // ─── Authenticated Request ───────────────────────────────────────────────────

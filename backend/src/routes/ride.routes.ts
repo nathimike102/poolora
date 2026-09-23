@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { RideController } from '../controllers/RideController';
 import { authenticate } from '../middlewares/auth.middleware';
+import { requireActiveAccount } from '../middlewares/accountStatus.middleware';
 import { requireDriverVerification } from '../middlewares/capability.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import { createRideSchema, searchRideSchema, updateDriverLocationSchema } from '../validators';
@@ -31,7 +32,7 @@ router.post(
 );
 
 // Create ride — requires verified driver
-router.post('/', requireDriverVerification(), validate(createRideSchema), RideController.createRide);
+router.post('/', requireDriverVerification(), requireActiveAccount, validate(createRideSchema), RideController.createRide);
 
 // Single ride
 router.get('/:id', RideController.getRide);

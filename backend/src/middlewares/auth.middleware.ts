@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { UnifiedAuthService } from '../auth';
 import { AuthenticationError } from '../utils/AppError';
+import { checkAccountStatus } from './accountStatus.middleware';
 import { JWTPayload, AuthenticatedRequest, UserCapability } from '../types';
 
 const unifiedAuth = new UnifiedAuthService();
@@ -44,6 +45,7 @@ export async function authenticate(
     }
 
     const result = await unifiedAuth.authenticate(token);
+    const accountStatus = await checkAccountStatus(result.user);
 
     // Build a JWTPayload-compatible object so downstream code is unaffected
     const payload: JWTPayload = {
@@ -52,6 +54,8 @@ export async function authenticate(
       capabilities: result.user.capabilities,
       driverVerified: result.user.kyc.status === 'approved',
       sessionId: result.sessionId || 'firebase',
+      accountStatus,
+      suspendedUntil: accountStatus === 'suspended' ? result.user.suspendedUntil : undefined,
     };
 
     (req as AuthenticatedRequest).user = payload;

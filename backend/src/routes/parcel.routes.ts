@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ParcelPoolingController } from '../controllers/ParcelPoolingController';
 import { authenticate } from '../middlewares/auth.middleware';
+import { requireActiveAccount } from '../middlewares/accountStatus.middleware';
 import { requireCapability } from '../middlewares/capability.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import {
@@ -21,7 +22,7 @@ router.use(authenticate);
  * POST /api/v1/parcels/create
  * Create a new parcel pooling request
  */
-router.post('/create', validate(createParcelValidator), ParcelPoolingController.createParcelRequest);
+router.post('/create', requireActiveAccount, validate(createParcelValidator), ParcelPoolingController.createParcelRequest);
 
 /**
  * POST /api/v1/parcels/:id/accept

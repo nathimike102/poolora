@@ -5,6 +5,7 @@ import { Types } from 'mongoose';
 import { config } from '../config';
 import { getRedisPub, getRedisSub, getRedisClient } from '../config/redis';
 import { UnifiedAuthService } from '../auth';
+import { checkAccountStatus } from '../middlewares/accountStatus.middleware';
 import { LocationUpdate, DistanceMilestone } from '../types';
 import { Message } from '../models/Message';
 import { Booking, IBooking } from '../models/Booking';
@@ -116,6 +117,7 @@ export class SocketGateway {
         // Same verification as REST: signature, session, blacklist, and
         // capabilities loaded from the database rather than trusted from the token.
         const result = await this.auth.authenticate(token);
+        await checkAccountStatus(result.user); // blocked accounts cannot connect
 
         const authSocket = socket as AuthenticatedSocket;
         authSocket.userId = result.user._id.toString();

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { BookingController } from '../controllers/BookingController';
 import { authenticate } from '../middlewares/auth.middleware';
+import { requireActiveAccount } from '../middlewares/accountStatus.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import { createBookingSchema } from '../validators';
 
@@ -13,7 +14,7 @@ router.get('/as-rider', BookingController.getRiderBookings);
 router.get('/as-driver', BookingController.getDriverBookings);
 
 // Create booking
-router.post('/', validate(createBookingSchema), BookingController.createBooking);
+router.post('/', requireActiveAccount, validate(createBookingSchema), BookingController.createBooking);
 
 // Booking actions
 router.get('/:id/cancellation-quote', BookingController.getCancellationQuote);
