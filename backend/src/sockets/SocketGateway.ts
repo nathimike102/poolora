@@ -79,6 +79,10 @@ export class SocketGateway {
    * Initialize Socket.io with Redis adapter for horizontal scaling.
    */
   initialize(httpServer: HttpServer): Server {
+    // server.ts creates the gateway with `new`; register it so getInstance()
+    // callers (HTTP location updates, the simulator, SOS alerts to admins)
+    // reach this initialised gateway rather than an empty new one
+    SocketGateway.instance = this;
     this.io = new Server(httpServer, {
       cors: {
         origin: config.cors.origin,
