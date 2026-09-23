@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import Razorpay from 'razorpay';
 import { Booking, IBooking } from '../models/Booking';
-import { Ride } from '../models/Ride';
+import { Ride, rideRoutePath } from '../models/Ride';
 import { User } from '../models/User';
 import { config } from '../config';
 import { BookingStatus, PaymentStatus, RideStatus } from '../types';
@@ -12,7 +12,8 @@ import {
   ConflictError,
   AuthorizationError,
 } from '../utils/AppError';
-import { toGeoPoint, haversineDistanceKm, paginate } from '../utils/helpers';
+import { toGeoPoint, paginate } from '../utils/helpers';
+import { nearestOnPath } from '../utils/routeGeometry';
 import { MatchingEngineClient } from './MatchingEngineClient';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
@@ -104,19 +105,20 @@ export class BookingService {
       throw new ConflictError('You already have a booking for this ride');
     }
 
-    // Validate pickup is within 2km of route start
-    const pickupDistFromRoute = haversineDistanceKm(
-      data.pickup.lat,
-      data.pickup.lng,
-      ride.pickup.location.coordinates[1],
-      ride.pickup.location.coordinates[0],
-    );
-    if (pickupDistFromRoute > config.ride.maxPickupDistanceFromRouteKm) {
-      throw new AppError(
-        `Pickup location must be within ${config.ride.maxPickupDistanceFromRouteKm}km of the ride route`,
-        400,
-        'PICKUP_TOO_FAR',
-      );
+    // Riders may join and leave part-way, so both ends are measured against
+    // the whole route (UC-R03), and the pickup must come before the drop
+    const path = rideRoutePath(ride);
+    const maxKm = config.ride.maxPickupDistanceFromRouteKm;
+    const boarding = nearestOnPath({ lat: data.pickup.lat, lng: data.pickup.lng }, path);
+    const leaving = nearestOnPath({ lat: data.dropoff.lat, lng: data.dropoff.lng }, path);
+    if (boarding.distanceKm > maxKm) {
+      throw new AppError(`Pickup location must be within ${maxKm}km of the ride route`, 400, 'PICKUP_TOO_FAR');
+    }
+    if (leaving.distanceKm > maxKm) {
+      throw new AppError(`Drop location must be within ${maxKm}km of the ride route`, 400, 'DROPOFF_TOO_FAR');
+    }
+    if (leaving.alongKm <= boarding.alongKm) {
+      throw new AppError('This ride goes the other way: your drop comes before your pickup on its route', 400, 'WRONG_DIRECTION');
     }
 
     // Calculate estimated fare
@@ -128,7 +130,7 @@ export class BookingService {
     if (!rider || !driver) throw new NotFoundError('User');
 
     const [matchResult] = await this.matchingEngine.scoreRides(
-      [{ ride, driver }],
+      [{ ride, driver, pickupDistanceKm: boarding.distanceKm }],
       {
         pickupLng: data.pickup.lng,
         pickupLat: data.pickup.lat,

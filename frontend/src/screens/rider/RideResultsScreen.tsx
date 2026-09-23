@@ -89,6 +89,11 @@ export function RideResultsScreen() {
   const { height } = useWindowDimensions();
 
   const searched = route.params?.route;
+  // The rider boards where they searched from, which may be part-way along the route
+  const riderStops = {
+    pickup: searched?.pickup ? { ...searched.pickup, address: searched.from } : undefined,
+    dropoff: searched?.dropoff ? { ...searched.dropoff, address: searched.to } : undefined,
+  };
   const incoming = route.params?.rides as PaginatedResponse<ApiRide> | ApiRide[] | undefined;
 
   const all = useMemo<ResultRide[]>(() => {
@@ -348,7 +353,7 @@ export function RideResultsScreen() {
               </View>
               <View style={[styles.barDivider, { backgroundColor: c.border }]} />
               <Pressable
-                onPress={() => selected && navigation.navigate('RideDetail', { rideId: selected.id })}
+                onPress={() => selected && navigation.navigate('RideDetail', { rideId: selected.id, ...riderStops })}
                 disabled={!selected}
                 accessibilityRole="button"
                 accessibilityLabel="Ride details"
@@ -360,7 +365,7 @@ export function RideResultsScreen() {
               </Pressable>
             </View>
             <Pressable
-              onPress={() => selected && navigation.navigate('Booking', { rideId: selected.id, seats })}
+              onPress={() => selected && navigation.navigate('Booking', { rideId: selected.id, seats, ...riderStops })}
               disabled={!canBook}
               accessibilityRole="button"
               accessibilityState={{ disabled: !canBook }}

@@ -6,6 +6,7 @@ import {
   RecurringPattern,
   GeoPoint,
 } from '../types';
+import { decodePolyline, toLineString, LatLng } from '../utils/routeGeometry';
 
 // ─── Interface ───────────────────────────────────────────────────────────────
 
@@ -38,6 +39,8 @@ export interface IRide extends Document {
   estimatedDurationMins: number;
   estimatedDistanceKm: number;
   routePolyline: string;
+  /** The route as GeoJSON, indexed so riders can be matched anywhere along it. Derived from routePolyline. */
+  routeLine?: { type: 'LineString'; coordinates: [number, number][] };
   pricePerSeat: number;
   availableSeats: number;
   totalSeats: number;
@@ -119,6 +122,10 @@ const RideSchema = new Schema<IRide>(
     estimatedDurationMins: { type: Number, required: true },
     estimatedDistanceKm: { type: Number, required: true },
     routePolyline: { type: String },
+    routeLine: {
+      type: { type: String, enum: ['LineString'] },
+      coordinates: { type: [[Number]], default: undefined },
+    },
     pricePerSeat: { type: Number, required: true, min: 0 },
     availableSeats: { type: Number, required: true, min: 0 },
     totalSeats: { type: Number, required: true, min: 1 },
@@ -169,5 +176,42 @@ RideSchema.index({ 'dropoff.location': '2dsphere' });
 RideSchema.index({ status: 1, departureTime: 1 });
 RideSchema.index({ driver: 1, status: 1 });
 RideSchema.index({ status: 1, 'pickup.location': '2dsphere', departureTime: 1 });
+RideSchema.index({ routeLine: '2dsphere' }, { sparse: true });
+
+type RouteSource = Pick<IRide, 'routePolyline' | 'pickup' | 'dropoff'> & { waypoints?: IRide['waypoints'] };
+
+/**
+ * The ride's driving route. Rides without a usable polyline fall back to
+ * straight lines through the start, the stops and the end.
+ */
+export function rideRoutePath(ride: RouteSource): LatLng[] {
+  if (ride.routePolyline) {
+    try {
+      const path = decodePolyline(ride.routePolyline);
+      if (path.length >= 2) return path;
+    } catch {
+      // fall through to the straight-line route
+    }
+  }
+  const toLatLng = (p: { location: { coordinates: number[] } }) => ({
+    lat: p.location.coordinates[1],
+    lng: p.location.coordinates[0],
+  });
+  const stops = [...(ride.waypoints ?? [])].sort((a, b) => a.order - b.order);
+  return [ride.pickup, ...stops, ride.dropoff].filter((p) => p?.location?.coordinates).map(toLatLng);
+}
+
+/** GeoJSON line for `routeLine`, or undefined when the route has no length. */
+export function rideRouteLine(ride: RouteSource): IRide['routeLine'] {
+  return toLineString(rideRoutePath(ride)) ?? undefined;
+}
+
+// Keep routeLine in step with the route on every save
+RideSchema.pre('save', function (next) {
+  if (this.isNew || this.isModified('routePolyline') || this.isModified('pickup') || this.isModified('dropoff') || !this.routeLine?.coordinates?.length) {
+    this.routeLine = rideRouteLine(this);
+  }
+  next();
+});
 
 export const Ride = mongoose.model<IRide>('Ride', RideSchema);

@@ -75,3 +75,61 @@ export function bearing(a: LatLng, b: LatLng): number {
     Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng));
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
+
+/**
+ * The point on a path closest to `point`: how far away it is, and how far
+ * along the path it lies (both in km). Uses a flat projection around the
+ * point, accurate to well under 1% at the few-km scale this is used for.
+ */
+export function nearestOnPath(point: LatLng, path: LatLng[]): { distanceKm: number; alongKm: number } {
+  if (path.length === 0) return { distanceKm: Infinity, alongKm: 0 };
+  if (path.length === 1) {
+    return { distanceKm: haversineDistanceKm(point.lat, point.lng, path[0].lat, path[0].lng), alongKm: 0 };
+  }
+  const kmPerDegLat = 111.32;
+  const kmPerDegLng = 111.32 * Math.cos((point.lat * Math.PI) / 180);
+  const toXY = (p: LatLng) => ({ x: (p.lng - point.lng) * kmPerDegLng, y: (p.lat - point.lat) * kmPerDegLat });
+  let best = { distanceKm: Infinity, alongKm: 0 };
+  let travelled = 0;
+  for (let i = 1; i < path.length; i++) {
+    const a = toXY(path[i - 1]);
+    const b = toXY(path[i]);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lenSq = dx * dx + dy * dy;
+    const t = lenSq > 0 ? Math.max(0, Math.min(1, -(a.x * dx + a.y * dy) / lenSq)) : 0;
+    const d = Math.hypot(a.x + t * dx, a.y + t * dy);
+    const segKm = Math.sqrt(lenSq);
+    if (d < best.distanceKm) best = { distanceKm: d, alongKm: travelled + t * segKm };
+    travelled += segKm;
+  }
+  return best;
+}
+
+/** Shortest distance in km from a point to a path. */
+export function distanceToPathKm(point: LatLng, path: LatLng[]): number {
+  return nearestOnPath(point, path).distanceKm;
+}
+
+/**
+ * A route as a GeoJSON LineString for a 2dsphere index. Points closer than
+ * `minSpacingKm` to the last kept one are dropped, which keeps long routes to
+ * a few thousand points without changing their shape at search scale.
+ * Returns null when fewer than two distinct points remain.
+ */
+export function toLineString(
+  path: LatLng[],
+  minSpacingKm = 0.1,
+): { type: 'LineString'; coordinates: [number, number][] } | null {
+  if (path.length < 2) return null;
+  const spacing = Math.max(minSpacingKm, pathLengthKm(path) / 3000);
+  const kept: LatLng[] = [path[0]];
+  for (let i = 1; i < path.length; i++) {
+    const last = kept[kept.length - 1];
+    const isEnd = i === path.length - 1;
+    const d = haversineDistanceKm(last.lat, last.lng, path[i].lat, path[i].lng);
+    if (d >= spacing || (isEnd && d > 0)) kept.push(path[i]);
+  }
+  if (kept.length < 2) return null;
+  return { type: 'LineString', coordinates: kept.map((p) => [p.lng, p.lat]) };
+}

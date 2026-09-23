@@ -11,7 +11,11 @@ import { BookingStatus, RideStatus } from '../../types';
 import { Payment } from '../../models/Payment';
 
 jest.mock('../../models/Booking');
-jest.mock('../../models/Ride');
+jest.mock('../../models/Ride', () => {
+  // Mock the model, keep the real route helper the pickup checks rely on
+  const actual = jest.requireActual('../../models/Ride');
+  return { ...jest.createMockFromModule<object>('../../models/Ride'), rideRoutePath: actual.rideRoutePath };
+});
 jest.mock('../../models/User');
 jest.mock('../../models/Payment', () => ({ Payment: { exists: jest.fn(), findOne: jest.fn(), updateOne: jest.fn() } }));
 jest.mock('../../events', () => ({
@@ -150,6 +154,36 @@ describe('BookingService', () => {
           dropoff: { lng: 77.2, lat: 28.8, address: 'B' },
         }),
       ).rejects.toThrow('pending booking requests allowed');
+    });
+
+    it('refuses a drop that is far from the route', async () => {
+      (Ride.findById as jest.Mock).mockResolvedValue(mockRide);
+      (Booking.countDocuments as jest.Mock).mockResolvedValue(0);
+      (Booking.findOne as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        bookingService.createBooking('rider123', {
+          rideId: 'ride123',
+          seatsBooked: 1,
+          pickup: { lng: 77.1, lat: 28.7, address: 'A' },
+          dropoff: { lng: 77.5, lat: 28.8, address: 'Far away' },
+        }),
+      ).rejects.toThrow('Drop location must be within 2km');
+    });
+
+    it('refuses a ride going the other way', async () => {
+      (Ride.findById as jest.Mock).mockResolvedValue(mockRide);
+      (Booking.countDocuments as jest.Mock).mockResolvedValue(0);
+      (Booking.findOne as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        bookingService.createBooking('rider123', {
+          rideId: 'ride123',
+          seatsBooked: 1,
+          pickup: { lng: 77.2, lat: 28.8, address: 'B' },
+          dropoff: { lng: 77.1, lat: 28.7, address: 'A' },
+        }),
+      ).rejects.toThrow('This ride goes the other way');
     });
 
     it('should reject duplicate booking for same ride', async () => {

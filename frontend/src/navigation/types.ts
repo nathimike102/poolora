@@ -37,6 +37,9 @@ export type DriverTabParamList = {
 
 // ─── Root stack (auth + app) ──────────────────────────────────────────────────
 
+/** A place the rider boards or leaves a ride, with its label. */
+export type BookingStop = { lat: number; lng: number; address: string };
+
 export type RootStackParamList = {
   // Auth flow
   Splash: undefined;
@@ -87,9 +90,14 @@ export type RootStackParamList = {
         category?: VehicleCategory;
       }
     | undefined;
-  Booking: { rideId: string; seats?: number };
+  /**
+   * `pickup` and `dropoff` are where the rider searched from and to. They can
+   * be anywhere within 2 km of the ride's route; without them the rider boards
+   * at the ride's start and leaves at its end.
+   */
+  Booking: { rideId: string; seats?: number; pickup?: BookingStop; dropoff?: BookingStop };
   ActiveRide: { rideId: string; bookingId?: string };
-  RideDetail: { rideId: string };
+  RideDetail: { rideId: string; pickup?: BookingStop; dropoff?: BookingStop };
   Payment: {
     bookingId: string;
     orderId: string;

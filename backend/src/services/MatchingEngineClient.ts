@@ -24,14 +24,14 @@ export class MatchingEngineClient {
    * Score a list of candidate rides against a rider's search parameters.
    */
   async scoreRides(
-    candidates: Array<{ ride: IRide; driver: IUser }>,
+    candidates: Array<{ ride: IRide; driver: IUser; pickupDistanceKm?: number }>,
     params: RideSearchParams,
   ): Promise<MatchScore[]> {
     const scores: MatchScore[] = [];
 
-    for (const { ride, driver } of candidates) {
+    for (const { ride, driver, pickupDistanceKm } of candidates) {
       try {
-        const score = this.computeScore(ride, driver, params);
+        const score = this.computeScore(ride, driver, params, pickupDistanceKm);
         scores.push(score);
       } catch (err) {
         logger.warn('Failed to score ride', {
@@ -51,9 +51,11 @@ export class MatchingEngineClient {
     ride: IRide,
     driver: IUser,
     params: RideSearchParams,
+    /** Distance from the rider's pickup to the route, when known; else to the ride's start */
+    routeDistanceKm?: number,
   ): MatchScore {
     // ── Proximity Score (40%) ──
-    const pickupDistKm = haversineDistanceKm(
+    const pickupDistKm = routeDistanceKm ?? haversineDistanceKm(
       params.pickupLat,
       params.pickupLng,
       ride.pickup.location.coordinates[1],

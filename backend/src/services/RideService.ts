@@ -19,6 +19,7 @@ import {
 } from '../utils/AppError';
 import { toGeoPoint, paginate } from '../utils/helpers';
 import { mlClient } from '../utils/mlClient';
+import { nearestOnPath } from '../utils/routeGeometry';
 import { MatchingEngineClient } from './MatchingEngineClient';
 import { getRoute } from './MapsService';
 import { EventBridge } from '../events';
@@ -64,6 +65,30 @@ type PopulatedRideBooking = Omit<IBooking, 'ride'> & {
 
 /** Mean Earth radius, to turn a distance into radians for $centerSphere. */
 const EARTH_RADIUS_METERS = 6_378_100;
+
+/** Most rides a search considers before direction, rating and paging filters. */
+const SEARCH_CANDIDATE_LIMIT = 200;
+
+/** A circle as a GeoJSON polygon (32 sides), for $geoIntersects. */
+function circlePolygon(lng: number, lat: number, radiusMeters: number) {
+  const sides = 32;
+  const dLat = (radiusMeters / EARTH_RADIUS_METERS) * (180 / Math.PI);
+  const dLng = dLat / Math.cos((lat * Math.PI) / 180);
+  const ring: [number, number][] = [];
+  for (let i = 0; i < sides; i++) {
+    const a = (2 * Math.PI * i) / sides;
+    ring.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
+  }
+  ring.push(ring[0]);
+  return { type: 'Polygon' as const, coordinates: [ring] };
+}
+
+/** Search results carry the encoded polyline; the GeoJSON copy only bloats them. */
+function withoutRouteLine<T extends { routeLine?: unknown }>(ride: T): Omit<T, 'routeLine'> {
+  const copy = { ...ride };
+  delete (copy as { routeLine?: unknown }).routeLine;
+  return copy;
+}
 
 export class RideService {
   private matchingEngine = new MatchingEngineClient();
@@ -215,12 +240,11 @@ export class RideService {
       driver: { $ne: new Types.ObjectId(authenticatedUserId) },
       availableSeats: { $gte: 1 },
       departureTime: { $gte: timeMin, $lte: timeMax },
-      // The ride must also end near where the rider is going, not just start
-      // near them. $geoWithin is allowed inside $geoNear's query; $near is not.
-      'dropoff.location': {
-        $geoWithin: {
-          $centerSphere: [[params.dropoffLng, params.dropoffLat], radiusMeters / EARTH_RADIUS_METERS],
-        },
+      // The route must also pass near where the rider is going, not just
+      // near where they start. $geoIntersects is allowed inside $geoNear's
+      // query; $near is not.
+      routeLine: {
+        $geoIntersects: { $geometry: circlePolygon(params.dropoffLng, params.dropoffLat, radiusMeters) },
       },
     };
 
@@ -249,60 +273,62 @@ export class RideService {
       filter.rideType = params.rideType;
     }
 
-    // Geospatial query using $geoNear via aggregation
+    // Rides whose route passes within the radius of the rider's pickup,
+    // nearest first. $geoNear on a LineString measures to its closest point,
+    // so riders can join part-way along the route (UC-R03).
     const pipeline: PipelineStage[] = [
       {
         $geoNear: {
-          near: {
-            type: 'Point',
-            coordinates: [params.pickupLng, params.pickupLat],
-          },
+          near: { type: 'Point', coordinates: [params.pickupLng, params.pickupLat] },
           distanceField: 'pickupDistance',
           maxDistance: radiusMeters,
           spherical: true,
-          key: 'pickup.location',
+          key: 'routeLine',
           query: filter,
         },
       },
-      { $sort: { pickupDistance: 1 } },
-      {
-        $facet: {
-          metadata: [{ $count: 'total' }],
-          rides: [{ $skip: (page - 1) * limit }, { $limit: limit }],
-        },
-      },
+      { $limit: SEARCH_CANDIDATE_LIMIT },
     ];
+    const found = (await Ride.aggregate(pipeline)) as Array<IRide & { pickupDistance: number }>;
 
-    const [result] = await Ride.aggregate(pipeline);
-    const total = result.metadata[0]?.total || 0;
-    const rides = result.rides as IRide[];
+    // Keep rides going the rider's way: along the route, the rider's pickup
+    // must come before their drop
+    const pickupPoint = { lat: params.pickupLat, lng: params.pickupLng };
+    const dropPoint = { lat: params.dropoffLat, lng: params.dropoffLng };
+    const routeDistanceKm = new Map<string, number>();
+    const sameDirection = found.filter((ride) => {
+      const path = (ride.routeLine?.coordinates ?? []).map(([lng, lat]) => ({ lat, lng }));
+      const boarding = nearestOnPath(pickupPoint, path);
+      const leaving = nearestOnPath(dropPoint, path);
+      routeDistanceKm.set(ride._id.toString(), boarding.distanceKm);
+      return leaving.alongKm > boarding.alongKm;
+    });
 
-    // Minimum rating filter (post-query since it requires driver lookup)
-    // Fetch drivers once for both filtering and scoring
-    const driverIds = rides.map((r) => r.driver);
+    const driverIds = sameDirection.map((r) => r.driver);
     const drivers = await User.find({ _id: { $in: driverIds } });
     const driverMap = new Map(drivers.map((d) => [d._id.toString(), d]));
 
-    // Minimum rating filter
-    let enrichedRides = rides;
-    if (params.minRating) {
-      enrichedRides = rides.filter((r) => {
-        const driver = driverMap.get(r.driver.toString());
-        return driver && (driver.stats.avgRatingAsDriver || 0) >= params.minRating!;
-      });
-    }
+    // Minimum rating needs the driver, so it is applied here, before paging
+    const matching = sameDirection.filter((r) => {
+      const driver = driverMap.get(r.driver.toString());
+      if (!driver) return false;
+      return !params.minRating || (driver.stats.avgRatingAsDriver || 0) >= params.minRating;
+    });
+    const total = matching.length;
+    const enrichedRides = matching.slice((page - 1) * limit, page * limit);
 
     const candidates = enrichedRides.map((ride) => ({
       ride,
       driver: driverMap.get(ride.driver.toString())!,
-    })).filter((c) => c.driver);
+      pickupDistanceKm: routeDistanceKm.get(ride._id.toString()),
+    }));
 
     const scores = await this.matchingEngine.scoreRides(candidates, params);
     const scoreByRide = new Map(scores.map((s) => [s.rideId, s]));
 
     // Public driver details only: phone numbers are shared after a booking is confirmed
     const items: SearchResultRide[] = candidates.map(({ ride, driver }) => ({
-      ...ride,
+      ...withoutRouteLine(ride),
       driver: {
         _id: driver._id.toString(),
         name: driver.name,

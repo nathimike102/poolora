@@ -369,7 +369,7 @@ export function RideDetailScreen() {
             </Text>
           </View>
           <AnimatedPressable
-            onPress={() => rideId && navigation.navigate('Booking', { rideId })}
+            onPress={() => rideId && navigation.navigate('Booking', { rideId, pickup: route.params?.pickup, dropoff: route.params?.dropoff })}
             style={styles.flex1}
             disabled={!rideId || ride.availableSeats < 1}
           >

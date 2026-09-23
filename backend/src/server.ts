@@ -9,6 +9,7 @@ import { initializeFirebase } from './config/firebase';
 import { SocketGateway } from './sockets/SocketGateway';
 import { EventBridge } from './events';
 import { BookingSweeper } from './jobs/BookingSweeper';
+import { backfillRouteLines } from './jobs/backfillRouteLines';
 import { logger } from './utils/logger';
 
 const server = http.createServer(app);
@@ -58,6 +59,9 @@ async function bootstrap(): Promise<void> {
   try {
     // 1. Connect to MongoDB
     await connectDatabase();
+    backfillRouteLines().catch((error) =>
+      logger.error('Route backfill failed', { error: (error as Error).message }),
+    );
 
     // 2. Connect to Redis
     try {

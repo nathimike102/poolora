@@ -5,7 +5,7 @@
  * record; the fare shown is what the backend charges (price per seat x seats).
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -84,6 +84,27 @@ export function BookingScreen(): React.ReactElement {
     if (ride && seats > maxSeats && maxSeats > 0) setSeats(maxSeats);
   }, [ride, seats, maxSeats]);
   const total = (ride?.pricePerSeat ?? 0) * seats;
+
+  // Where the rider searched from and to (anywhere along the route), or else
+  // the ride's own start and end
+  const riderPickup = route.params.pickup;
+  const riderDropoff = route.params.dropoff;
+  const boardAt = useMemo(
+    () => riderPickup ?? {
+      lat: ride?.pickupLocation.lat ?? 0,
+      lng: ride?.pickupLocation.lng ?? 0,
+      address: ride?.pickupLocation.address ?? '',
+    },
+    [riderPickup, ride],
+  );
+  const leaveAt = useMemo(
+    () => riderDropoff ?? {
+      lat: ride?.dropoffLocation.lat ?? 0,
+      lng: ride?.dropoffLocation.lng ?? 0,
+      address: ride?.dropoffLocation.address ?? '',
+    },
+    [riderDropoff, ride],
+  );
   const walletCovers = walletBalance !== null && walletBalance >= total;
 
   const handleConfirm = useCallback(async () => {
@@ -94,17 +115,8 @@ export function BookingScreen(): React.ReactElement {
       const result = await bookingService.createBooking({
         rideId,
         seatsBooked: seats,
-        // Riders board at the driver's listed pickup point and leave at the listed drop point
-        pickup: {
-          lat: ride.pickupLocation.lat,
-          lng: ride.pickupLocation.lng,
-          address: ride.pickupLocation.address ?? '',
-        },
-        dropoff: {
-          lat: ride.dropoffLocation.lat,
-          lng: ride.dropoffLocation.lng,
-          address: ride.dropoffLocation.address ?? '',
-        },
+        pickup: boardAt,
+        dropoff: leaveAt,
         useWallet: method === 'wallet',
       });
 
@@ -121,14 +133,14 @@ export function BookingScreen(): React.ReactElement {
         orderId: result.razorpayOrder.id,
         keyId: result.razorpayKeyId,
         amount: result.razorpayOrder.amount / 100,
-        summary: `${ride.pickupLocation.address ?? 'Pickup'} to ${ride.dropoffLocation.address ?? 'drop'} · ${seats} ${seats === 1 ? 'seat' : 'seats'}`,
+        summary: `${boardAt.address || 'Pickup'} to ${leaveAt.address || 'drop'} · ${seats} ${seats === 1 ? 'seat' : 'seats'}`,
       });
     } catch (error) {
       setSubmitError(errorHandler.process(error).message);
     } finally {
       setIsSubmitting(false);
     }
-  }, [ride, isSubmitting, rideId, seats, method, navigation]);
+  }, [ride, isSubmitting, rideId, seats, method, navigation, boardAt, leaveAt]);
 
   // ── Booked with wallet ──────────────────────────────────────────
   if (walletBooked) {
@@ -211,10 +223,10 @@ export function BookingScreen(): React.ReactElement {
           <View style={[styles.divider, { backgroundColor: c.border }]} />
 
           <Text style={[styles.routeLabel, { color: c.textSec }]}>Pickup</Text>
-          <Text style={[styles.routePlace, { color: c.text }]}>{ride.pickupLocation.address}</Text>
+          <Text style={[styles.routePlace, { color: c.text }]}>{boardAt.address}</Text>
           <Text style={[styles.routeTime, { color: c.primary }]}>{formatDeparture(ride.scheduledDeparture)}</Text>
           <Text style={[styles.routeLabel, { color: c.textSec, marginTop: 12 }]}>Drop</Text>
-          <Text style={[styles.routePlace, { color: c.text }]}>{ride.dropoffLocation.address}</Text>
+          <Text style={[styles.routePlace, { color: c.text }]}>{leaveAt.address}</Text>
         </View>
 
         <View style={[styles.noteBox, { backgroundColor: c.primaryLight }]}>
