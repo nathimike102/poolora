@@ -8,7 +8,6 @@ import {
   Text,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
   Animated,
   Keyboard,
   Alert,
@@ -24,7 +23,7 @@ import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../components/BackButton';
 import { GradientButton } from '../components/GradientButton';
-import { Typography, Spacing, Radius, Shadow } from '../theme';
+import { Typography, Spacing, Radius } from '../theme';
 import { sendOtpToBackend, verifyOtpWithBackend } from '../services/authService';
 import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';

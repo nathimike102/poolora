@@ -26,8 +26,9 @@ interface GradientButtonProps {
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
-  /** CSS-style gradient string alternative: pass start/end colours */
+  /** Button colour */
   colorStart?: string;
+  /** Accepted for older callers; the button is drawn in one flat colour */
   colorEnd?: string;
   /** Flat colour used when disabled */
   disabledColor?: string;
@@ -43,7 +44,6 @@ export function GradientButton({
   disabled = false,
   loading = false,
   colorStart = '#0B7A75',
-  colorEnd = '#08605C',
   disabledColor = '#E5E7EB',
   height = 56,
   style,

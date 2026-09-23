@@ -25,7 +25,7 @@ describe('GradientButton', () => {
   });
 
   it('renders loading state', () => {
-    const { getByTestId, queryByText } = render(
+    const { queryByText } = render(
       <GradientButton label="Wait" onPress={() => {}} loading={true} />
     );
     expect(queryByText('Wait')).toBeNull();

@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "install:all": "npm install --workspaces",
-    "lint": "npm run lint --workspace backend",
+    "lint": "npm run lint --workspace backend && npm run lint --workspace frontend",
     "typecheck": "npm run typecheck --workspace backend && npm run typecheck --workspace frontend && npm run typecheck --workspace web-landing",
     "test": "npm run test --workspace backend && npm run test --workspace frontend"
   },

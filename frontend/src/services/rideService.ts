@@ -22,6 +22,31 @@ import type {
 
 type BackendPlace = { location?: { coordinates?: [number, number] }; address?: string };
 
+/** A ride as the backend sends it. */
+type BackendRide = Record<string, unknown> & {
+  pickup?: BackendPlace;
+  dropoff?: BackendPlace;
+  pickupLocation?: unknown;
+  departureTime?: string;
+  estimatedArrivalTime?: string;
+  totalSeats?: number;
+  availableSeats?: number;
+  vehicle?: { hasAC?: boolean };
+  preferences?: RidePreferences;
+};
+
+/** One entry of GET /rides/upcoming. */
+type BackendUpcomingRide = {
+  id: string;
+  bookingId: string;
+  pickup?: BackendPlace;
+  dropoff?: BackendPlace;
+  departureTime: UpcomingBooking['departureTime'];
+  pricePerSeat: UpcomingBooking['pricePerSeat'];
+  driver?: { name?: string };
+  status: UpcomingBooking['status'];
+};
+
 function toLocation(place: BackendPlace | undefined): Location {
   const [lng, lat] = place?.location?.coordinates ?? [0, 0];
   return { lat, lng, address: place?.address };
@@ -33,9 +58,9 @@ function toLocation(place: BackendPlace | undefined): Location {
  * render real values instead of falling back to placeholders.
  */
 export function normalizeRide(payload: unknown): Ride {
-  const raw = ((payload as { ride?: unknown })?.ride ?? payload) as Record<string, any>;
-  if (!raw || raw.pickupLocation) return raw as Ride;
-  const preferences = raw.preferences as RidePreferences | undefined;
+  const raw = ((payload as { ride?: unknown })?.ride ?? payload) as BackendRide;
+  if (!raw || raw.pickupLocation) return raw as unknown as Ride;
+  const preferences = raw.preferences;
   return {
     ...raw,
     pickupLocation: toLocation(raw.pickup),
@@ -48,7 +73,7 @@ export function normalizeRide(payload: unknown): Ride {
     hasAC: Boolean(raw.vehicle?.hasAC),
     allowLuggage: preferences ? preferences.luggageSize !== 'none' : false,
     preferences,
-  } as Ride;
+  } as unknown as Ride;
 }
 
 /**
@@ -166,7 +191,7 @@ export const rideService = {
   async getUpcomingRides(): Promise<UpcomingBooking[]> {
     try {
       // Backend responds with { rides: [{ id, bookingId, pickup, dropoff, departureTime, pricePerSeat, driver, status }] }
-      const response = await apiClient.get<ApiResponse<{ rides: Array<Record<string, any>> }>>(API_ENDPOINTS.rides.upcoming);
+      const response = await apiClient.get<ApiResponse<{ rides: BackendUpcomingRide[] }>>(API_ENDPOINTS.rides.upcoming);
       const rides = (response.data.data.rides ?? []).map(r => ({
         rideId: String(r.id),
         bookingId: String(r.bookingId),

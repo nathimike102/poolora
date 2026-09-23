@@ -8,7 +8,7 @@
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';
 import { logger } from '../utils/logger';
-import type { ApiResponse, Payment, PaginatedResponse } from '../types/api';
+import type { Payment, PaginatedResponse } from '../types/api';
 
 /**
  * Service for payment operations

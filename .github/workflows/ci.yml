@@ -44,7 +44,7 @@ jobs:
       - name: Build Project
         run: npm run build
 
-  # ─── Frontend: Typecheck + Test ──────────────────────────────────────────
+  # ─── Frontend: Lint, Typecheck, Test ─────────────────────────────────────
   frontend-checks:
     runs-on: ubuntu-latest
     defaults:
@@ -63,6 +63,9 @@ jobs:
 
       - name: Install Dependencies
         run: npm install
+
+      - name: Run Lint
+        run: npm run lint
 
       - name: Run Typecheck
         run: npm run typecheck

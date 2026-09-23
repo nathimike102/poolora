@@ -21,9 +21,12 @@ export default [
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
-      'react/prop-types': 'off',
-      'react/react-in-jsx-scope': 'off',
       'react-hooks/exhaustive-deps': 'error',
     },
+  },
+  {
+    // Mocks in tests stand in for loosely typed native modules
+    files: ['src/**/__tests__/**', 'src/**/*.test.{ts,tsx}'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
 ];

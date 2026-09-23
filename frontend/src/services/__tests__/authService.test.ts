@@ -31,9 +31,8 @@ jest.mock('@react-native-firebase/auth', () => ({
   GoogleAuthProvider: { credential: jest.fn() },
 }));
 
-import { apiClient, setAuthorizationHeader, clearAuthorizationHeader } from '../../api/axios';
+import { apiClient, setAuthorizationHeader } from '../../api/axios';
 import { tokenStorage } from '../../utils/tokenStorage';
-import { getJwtExpiresAtMs } from '../../utils/jwt';
 
 import {
   verifyOtpWithBackend,
