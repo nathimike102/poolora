@@ -1,9 +1,8 @@
 import crypto from 'crypto';
-import mongoose from 'mongoose';
 import { Payment } from '../models/Payment';
 import { Booking } from '../models/Booking';
 import { config } from '../config';
-import { PaymentStatus, BookingStatus } from '../types';
+import { PaymentStatus } from '../types';
 
 import { logger } from '../utils/logger';
 import { EventBridge } from '../events';
@@ -130,83 +129,64 @@ export class PaymentService {
     });
   }
 
+  /**
+   * Records the capture. It does not confirm the booking: the driver still
+   * accepts the request, and `BookingService.confirmBooking` reserves the seats
+   * atomically. (Razorpay captures automatically, so confirming here skipped the
+   * driver and never took the seats off the ride.)
+   */
   private async handlePaymentCaptured(
     payload: RazorpayWebhookPayload,
   ): Promise<void> {
     const paymentEntity = payload.payload.payment!.entity;
     const orderId = paymentEntity.order_id;
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-      // Update payment record
-      const payment = await Payment.findOneAndUpdate(
-        { razorpayOrderId: orderId },
-        {
-          $set: {
-            status: PaymentStatus.CAPTURED,
-            razorpayPaymentId: paymentEntity.id,
-          },
-        },
-        { session, new: true },
-      );
-
-      if (!payment) {
-        // Payment wasn't previously authorized — create it
-        const booking = await Booking.findOne({ razorpayOrderId: orderId });
-        if (!booking) {
-          logger.error('Booking not found for captured payment', { orderId });
-          await session.abortTransaction();
-          return;
-        }
-
-        const amount = paymentEntity.amount / 100;
-        const platformCommissionRate = config.ride.platformFeeRate;
-        const platformCommission = Math.round(amount * platformCommissionRate * 100) / 100;
-
-        await Payment.create(
-          [{
-            booking: booking._id,
-            rider: booking.rider,
-            driver: booking.driver,
-            amount,
-            currency: paymentEntity.currency,
-            status: PaymentStatus.CAPTURED,
-            method: paymentEntity.method,
-            razorpayOrderId: orderId,
-            razorpayPaymentId: paymentEntity.id,
-            driverPayout: amount - platformCommission,
-            platformCommission,
-            platformCommissionRate,
-            idempotencyKey: `cap_${orderId}`,
-          }],
-          { session },
-        );
-      }
-
-      // Confirm the booking via ACID transaction
-      await Booking.findOneAndUpdate(
-        { razorpayOrderId: orderId, status: BookingStatus.PENDING },
-        { $set: { status: BookingStatus.CONFIRMED } },
-        { session },
-      );
-
-      await session.commitTransaction();
-
-      EventBridge.publish('payment-events', {
-        eventType: 'payment.captured',
-        data: { orderId, paymentId: paymentEntity.id },
-      });
-    } catch (error) {
-      await session.abortTransaction();
-      logger.error('Error processing payment.captured', { error, orderId });
-      throw error;
-    } finally {
-      session.endSession();
+    const booking = await Booking.findOne({ razorpayOrderId: orderId });
+    if (!booking) {
+      logger.error('Booking not found for captured payment', { orderId });
+      return;
     }
+
+    const amount = paymentEntity.amount / 100;
+    const payment = await Payment.findOneAndUpdate(
+      { razorpayOrderId: orderId },
+      { $set: { status: PaymentStatus.CAPTURED, razorpayPaymentId: paymentEntity.id } },
+      { new: true },
+    );
+
+    if (!payment) {
+      // Captured without an earlier payment.authorized webhook
+      const platformCommissionRate = config.ride.platformFeeRate;
+      const platformCommission = Math.round(amount * platformCommissionRate * 100) / 100;
+      await Payment.create({
+        booking: booking._id,
+        rider: booking.rider,
+        driver: booking.driver,
+        amount,
+        currency: paymentEntity.currency,
+        status: PaymentStatus.CAPTURED,
+        method: paymentEntity.method as PaymentMethod,
+        razorpayOrderId: orderId,
+        razorpayPaymentId: paymentEntity.id,
+        driverPayout: amount - platformCommission,
+        platformCommission,
+        platformCommissionRate,
+        idempotencyKey: `cap_${orderId}`,
+      });
+    }
+
+    EventBridge.publish('payment-events', {
+      eventType: 'payment.captured',
+      data: { orderId, paymentId: paymentEntity.id, bookingId: booking._id, userId: booking.rider, amount },
+    });
   }
 
+  /**
+   * A failed attempt is recorded, but the booking stays pending: Razorpay lets
+   * the rider retry on the same order, and the booking sweeper cancels it if
+   * nothing is paid in time. A payment that already went through is never
+   * overwritten.
+   */
   private async handlePaymentFailed(
     payload: RazorpayWebhookPayload,
   ): Promise<void> {
@@ -214,22 +194,20 @@ export class PaymentService {
     const orderId = paymentEntity.order_id;
 
     const payment = await Payment.findOneAndUpdate(
-      { razorpayOrderId: orderId },
+      {
+        razorpayOrderId: orderId,
+        status: { $nin: [PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED, PaymentStatus.REFUNDED] },
+      },
       {
         $set: {
           status: PaymentStatus.FAILED,
           failureReason: paymentEntity.error_description || 'Payment failed',
         },
       },
-      { new: true }
-    );
-    
-    const booking = await Booking.findOneAndUpdate(
-      { razorpayOrderId: orderId },
-      { $set: { status: BookingStatus.PAYMENT_FAILED } },
-      { new: true }
+      { new: true },
     );
 
+    const booking = await Booking.findOne({ razorpayOrderId: orderId });
     if (booking) {
       EventBridge.publish('payment-events', {
         eventType: 'payment.failed',
