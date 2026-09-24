@@ -126,6 +126,19 @@ export class RideController {
   /**
    * POST /api/v1/rides/:id/cancel
    */
+  /**
+   * PATCH /rides/:id — change departure, seats or price (UC-D08)
+   */
+  static async updateRide(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const ride = await rideService.updateRide(String(req.params.id), user.userId, req.body);
+      sendSuccess(res, { ride }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async cancelRide(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;

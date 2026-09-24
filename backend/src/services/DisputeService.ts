@@ -22,6 +22,7 @@ import { audit } from './AuditService';
 import { BookingService, RefundOutcome } from './BookingService';
 import { WalletService } from './WalletService';
 import { NotificationService } from './NotificationService';
+import { emailUser } from './Mailer';
 import { AdminUserService } from './AdminUserService';
 
 /** Disputes can be raised up to this long after the booking was made or the ride ended. */
@@ -34,6 +35,7 @@ async function tell(userId: string, title: string, message: string): Promise<voi
   await Promise.allSettled([
     notifications.createNotification(userId, title, message, 'system'),
     notifications.sendPushNotification(userId, title, message, { type: 'dispute' }),
+    emailUser(userId, title, message),
   ]);
 }
 

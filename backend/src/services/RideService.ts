@@ -438,6 +438,95 @@ export class RideService {
   }
 
   /**
+   * The driver changes a published ride (UC-D08): departure within
+   * ±2 hours, more seats (never fewer), and the price only while nobody has
+   * booked, within ±20%. Allowed until 4 hours before departure. Booked
+   * riders are told, and a changed departure lets them cancel for a full
+   * refund.
+   */
+  async updateRide(
+    rideId: string,
+    driverId: string,
+    changes: { departureTime?: string; totalSeats?: number; pricePerSeat?: number },
+  ): Promise<IRide> {
+    const ride = await Ride.findById(rideId);
+    if (!ride) throw new NotFoundError('Ride');
+    if (ride.driver.toString() !== driverId) throw new AuthorizationError('Only the ride\'s driver can change it');
+    if (ride.status !== RideStatus.SCHEDULED && ride.status !== RideStatus.ACTIVE) {
+      throw new ConflictError('Only rides that have not started can be changed');
+    }
+    const hoursLeft = (ride.departureTime.getTime() - Date.now()) / 3_600_000;
+    if (hoursLeft < config.ride.editCutoffHours) {
+      throw new AppError(`Rides can be changed until ${config.ride.editCutoffHours} hours before departure. Cancel instead if you cannot go.`, 409, 'TOO_LATE_TO_EDIT');
+    }
+
+    const booked = await Booking.find({
+      ride: rideId,
+      status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
+    }).select('_id rider');
+    const changed: string[] = [];
+    let timeChanged = false;
+
+    if (changes.departureTime !== undefined) {
+      const next = new Date(changes.departureTime);
+      if (Number.isNaN(next.getTime())) throw new AppError('Invalid departure time', 422, 'VALIDATION_ERROR');
+      const shiftHours = Math.abs(next.getTime() - ride.departureTime.getTime()) / 3_600_000;
+      if (shiftHours > config.ride.maxDepartureShiftHours) {
+        throw new AppError(`The departure can move by at most ${config.ride.maxDepartureShiftHours} hours. Cancel and post a new ride for a bigger change.`, 409, 'SHIFT_TOO_LARGE');
+      }
+      if (next.getTime() <= Date.now()) throw new AppError('The new departure has already passed', 422, 'VALIDATION_ERROR');
+      if (next.getTime() !== ride.departureTime.getTime()) {
+        const duration = ride.estimatedArrivalTime.getTime() - ride.departureTime.getTime();
+        ride.departureTime = next;
+        ride.estimatedArrivalTime = new Date(next.getTime() + duration);
+        timeChanged = true;
+        changed.push('departure time');
+      }
+    }
+
+    if (changes.totalSeats !== undefined && changes.totalSeats !== ride.totalSeats) {
+      if (changes.totalSeats < ride.totalSeats) {
+        throw new AppError('Seats can only be added. Riders who booked keep their seats.', 409, 'SEATS_ONLY_UP');
+      }
+      if (changes.totalSeats > 8) throw new AppError('At most 8 seats', 422, 'VALIDATION_ERROR');
+      ride.availableSeats += changes.totalSeats - ride.totalSeats;
+      ride.totalSeats = changes.totalSeats;
+      changed.push('seats');
+    }
+
+    if (changes.pricePerSeat !== undefined && changes.pricePerSeat !== ride.pricePerSeat) {
+      if (booked.length > 0) {
+        throw new AppError('The price is fixed once someone has booked or asked for a seat', 409, 'PRICE_LOCKED');
+      }
+      const limit = config.ride.maxPriceChangeRate;
+      if (Math.abs(changes.pricePerSeat - ride.pricePerSeat) > ride.pricePerSeat * limit + 0.001) {
+        throw new AppError(`The price can change by at most ${Math.round(limit * 100)}% (₹${Math.round(ride.pricePerSeat * (1 - limit))} to ₹${Math.round(ride.pricePerSeat * (1 + limit))})`, 409, 'PRICE_CHANGE_TOO_LARGE');
+      }
+      ride.pricePerSeat = changes.pricePerSeat;
+      changed.push('price');
+    }
+
+    if (changed.length === 0) return ride;
+    await ride.save();
+
+    if (timeChanged && booked.length) {
+      await Booking.updateMany({ _id: { $in: booked.map((b) => b._id) } }, { $set: { rideChangedAt: new Date() } });
+    }
+    EventBridge.publish('ride-events', {
+      eventType: 'ride.updated',
+      data: {
+        rideId,
+        driverId,
+        changed,
+        departureTime: ride.departureTime,
+        riderIds: booked.map((b) => b.rider.toString()),
+        freeCancellation: timeChanged,
+      },
+    });
+    return ride;
+  }
+
+  /**
    * Get upcoming rides for a rider (booked but not yet completed/cancelled).
    */
   async getUpcomingRides(riderId: string) {

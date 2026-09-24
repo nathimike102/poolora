@@ -5,7 +5,7 @@ import { when } from '../lib/format';
 import { Badge, ErrorBox, Loading, PageHead } from '../components/ui';
 import { ReasonDialog } from '../components/Dialog';
 
-type Unit = 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'count' | 'weights' | 'tiers';
+type Unit = 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers';
 type Tier = { minHours: number; refundRate: number };
 interface Setting {
   key: string;
@@ -34,7 +34,7 @@ const GROUPS: Array<[Setting['group'], string]> = [
   ['matching', 'Matching and search'],
   ['rules', 'Business rules'],
 ];
-const UNIT_LABEL: Partial<Record<Unit, string>> = { percent: '%', minutes: 'min', hours: 'h', seconds: 's', km: 'km' };
+const UNIT_LABEL: Partial<Record<Unit, string>> = { percent: '%', minutes: 'min', hours: 'h', seconds: 's', km: 'km', meters: 'm' };
 const WEIGHT_LABELS: Record<string, string> = { proximity: 'Distance to route', time: 'Departure time', rating: 'Driver rating', acceptance: 'Acceptance rate', safety: 'Low cancellations' };
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);

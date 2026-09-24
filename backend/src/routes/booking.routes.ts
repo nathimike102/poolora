@@ -18,9 +18,18 @@ router.post('/', requireActiveAccount, validate(createBookingSchema), BookingCon
 
 // Booking actions
 router.get('/:id/cancellation-quote', BookingController.getCancellationQuote);
+router.get('/:id/receipt', BookingController.receipt);
+router.post('/:id/receipt/email', BookingController.emailReceipt);
+router.post('/:id/share', BookingController.share);
 router.post('/:id/confirm', BookingController.confirmBooking);
 router.post('/:id/reject', BookingController.rejectBooking);
 router.post('/:id/cancel', BookingController.cancelBooking);
 router.post('/:id/complete', BookingController.completeBooking);
+
+// Per-rider steps during the ride (UC-D04, UC-D07)
+router.post('/:id/arrived', BookingController.arrived);
+router.post('/:id/picked-up', BookingController.pickedUp);
+router.post('/:id/dropped-off', BookingController.droppedOff);
+router.post('/:id/no-show', BookingController.noShow);
 
 export default router;

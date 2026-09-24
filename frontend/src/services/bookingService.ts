@@ -13,6 +13,7 @@ import type {
   Booking,
   BookingStatus,
   CancellationQuote,
+  Receipt,
   CreateBookingRequest,
   CreateBookingResult,
   PaginatedResponse,
@@ -175,6 +176,29 @@ export const bookingService = {
     const response = await apiClient.get<ApiResponse<CancellationQuote>>(
       API_ENDPOINTS.bookings.cancellationQuote(bookingId),
     );
+    return response.data.data;
+  },
+
+  /** Driver steps during the ride: at the pickup, rider in the car, rider dropped, rider did not come */
+  async driverStep(bookingId: string, step: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow'): Promise<Booking> {
+    const response = await apiClient.post<ApiResponse<{ booking: Booking }>>(API_ENDPOINTS.bookings[step](bookingId));
+    return response.data.data.booking;
+  },
+
+  /** A link trusted contacts can open without the app to follow this trip */
+  async shareTrip(bookingId: string): Promise<{ url: string; expiresAt: string }> {
+    const response = await apiClient.post<ApiResponse<{ url: string; expiresAt: string }>>(API_ENDPOINTS.bookings.share(bookingId));
+    return response.data.data;
+  },
+
+  async getReceipt(bookingId: string): Promise<{ receipt: Receipt; text: string }> {
+    const response = await apiClient.get<ApiResponse<{ receipt: Receipt; text: string }>>(API_ENDPOINTS.bookings.receipt(bookingId));
+    return response.data.data;
+  },
+
+  /** Sends a copy of the receipt to the user's email address */
+  async emailReceipt(bookingId: string): Promise<{ sent: boolean; to?: string }> {
+    const response = await apiClient.post<ApiResponse<{ sent: boolean; to?: string }>>(API_ENDPOINTS.bookings.emailReceipt(bookingId));
     return response.data.data;
   },
 

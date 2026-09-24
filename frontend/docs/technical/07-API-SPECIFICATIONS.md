@@ -111,6 +111,7 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 | GET | `/rides/my-rides` | signed in | The driver's own rides |
 | GET | `/rides/demand-prediction` | signed in | Busy times and routes from the ML service |
 | GET | `/rides/:id` | signed in | One ride |
+| PATCH | `/rides/:id` | verified driver | Change a published ride (UC-D08): `departureTime` (at most 2 hours earlier or later), `totalSeats` (up only), `pricePerSeat` (within 20%, and only while nobody has booked or asked). Allowed until 4 hours before departure. Booked riders are notified; a new departure time lets them cancel for a full refund |
 | POST | `/rides/:id/cancel` | the ride's driver | Cancel the ride. Every pending and confirmed booking is cancelled and refunded in full |
 | POST | `/rides/:id/start` | verified driver | Start the ride. Needs at least one confirmed rider. Riders get a "your driver is on the way" push |
 | POST | `/rides/:id/complete` | verified driver | Finish the ride. Settles every confirmed booking (earnings, platform fee, coins) and unlocks ratings |
@@ -177,6 +178,13 @@ rider requests ──► pending ──(driver accepts, payment in)──► con
 | GET | `/bookings/:id/cancellation-quote` | rider or driver | What cancelling now would refund (section 5.3) |
 | POST | `/bookings/:id/cancel` | rider or driver | Cancel. Body: optional `reason` |
 | POST | `/bookings/:id/complete` | the ride's driver | Complete one booking. Normally done for all bookings by `POST /rides/:id/complete` |
+| POST | `/bookings/:id/arrived` | the ride's driver | At this rider's pickup (the ride must have started). The rider gets a push, and the no-show wait starts |
+| POST | `/bookings/:id/picked-up` | the ride's driver | The rider is in the car. In-ride safety check-ins start |
+| POST | `/bookings/:id/dropped-off` | the ride's driver | The rider has been dropped. Settles this booking as `POST …/complete` does |
+| POST | `/bookings/:id/no-show` | the ride's driver | After waiting 10 minutes at the pickup (`WAIT_FOR_RIDER` before then). Cancels the booking with no refund; the fare goes to the driver less the platform fee (UC-D07) |
+| POST | `/bookings/:id/share` | the booking's rider | A link to `/track/trip/:token` for trusted contacts (UC-R08). Returns `url` and `expiresAt` |
+| GET | `/bookings/:id/receipt` | rider or driver | The receipt: trip, fare, service fee, refund, amount paid and method, plus a plain-text version |
+| POST | `/bookings/:id/receipt/email` | rider or driver | Emails the receipt to the caller's address (`NO_EMAIL` or `EMAIL_UNAVAILABLE` otherwise). Riders also get it automatically when a trip completes, if they have an email address |
 
 Phone numbers of the other party appear only on confirmed bookings.
 
@@ -188,11 +196,13 @@ Phone numbers of the other party appear only on confirmed bookings.
   "seatsBooked": 1,
   "useWallet": false,
   "pickup":  { "lng": 77.6412, "lat": 12.9760, "address": "100 Feet Rd" },
-  "dropoff": { "lng": 77.6950, "lat": 12.9600, "address": "Marathahalli Bridge" }
+  "dropoff": { "lng": 77.6950, "lat": 12.9600, "address": "Marathahalli Bridge" },
+  "note": "I'll wait at the bus stop by the metro exit."
 }
 ```
 
 - With `useWallet: true`, the fare is taken from the wallet at once, and the response has `paidViaWallet: true`.
+- `note` is optional (up to 300 characters) and is shown on the driver's request card.
 - Otherwise the response carries a Razorpay order (`razorpayOrder.id`, amount in paise). The app opens Razorpay Checkout with that order, and the result arrives by webhook (section 7).
 
 Rules:
@@ -312,6 +322,7 @@ Messages also flow over the socket (section 13). Profanity is filtered.
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
+| POST | `/safety/ride-check-in` | the booking's rider | Answer an in-ride "Are you OK?" prompt. Body: `bookingId`, `status` (`ok` or `help`), optional `location`. `help` raises an SOS at once |
 | POST | `/safety/sos` | signed in | Start an SOS. Body: `bookingId`, `location {lng, lat}`. Admins are alerted at once, and emergency contacts get an SMS with a tracking link when Twilio is enabled |
 | GET | `/safety/sos/:id` | participant or admin | SOS state |
 | POST | `/safety/sos/:id/location` | participant | Live position during an SOS |
@@ -329,6 +340,9 @@ Messages also flow over the socket (section 13). Profanity is filtered.
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | GET | `/track/sos/:token` | public, token in the link | A web page with the live SOS position, for emergency contacts without the app. The token is random and expires |
+| GET | `/track/trip/:token` | public, token in the link | A trip a rider shared (UC-R08): first names, the car, the route, the car's latest position and an ETA. Refreshes itself, has no scripts, stops working an hour after the trip ends or when it is cancelled, and logs every visit |
+
+**In-ride safety check-ins (UC-R05).** Every 30 minutes a rider who is in the car gets a push and a `safety:check-in` socket event asking "Are you OK?". An unanswered prompt is repeated after 10 minutes; a second miss raises an SOS automatically. The interval is an admin setting.
 
 ---
 
@@ -487,8 +501,9 @@ Every socket joins the room `user:<userId>`.
 | Event | Purpose |
 |---|---|
 | `driver:location:updated` | New car position, with ETA and distance to pickup |
-| `driver:milestone` | Approach alerts: within 1 km ("~5 mins"), and "Driver has arrived" within 500 m once stopped |
-| `route:deviated` | The car is far from where it should be |
+| `driver:milestone` | Approach alerts before pickup: within 5 km, within 1 km ("~5 mins"), and "Driver has arrived" within 500 m once stopped. "About 5 minutes away" and "arrived" are also sent as pushes, once each |
+| `route:deviated` | The car is more than 500 m (admin setting) from the ride's planned route. Sent to the rider, the driver (with `askReason`) and the `admin:sos` room, with a push to the rider; at most once every 5 minutes per booking |
+| `safety:check-in` | An in-ride "Are you OK?" prompt; answer with `POST /safety/ride-check-in` |
 | `chat:message:receive`, `chat:message:sent`, `chat:messages:read`, `chat:typing:*` | Chat |
 | `sos:triggered`, `sos:alert`, `sos:location:updated` | SOS (alerts go to the `admin:sos` room) |
 | `tracking:error`, `chat:error`, `sos:error` | The request was refused |

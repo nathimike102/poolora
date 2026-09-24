@@ -20,6 +20,7 @@ import { FraudLevel, KYCStatus } from '../types';
 import { AppError, NotFoundError } from '../utils/AppError';
 import { audit } from './AuditService';
 import { NotificationService } from './NotificationService';
+import { emailUser } from './Mailer';
 
 /** Suspensions come in fixed lengths; null is until an admin lifts it (UC-A05). */
 export const SUSPENSION_DAYS = [7, 15, 30, null] as const;
@@ -47,6 +48,7 @@ async function tell(userId: string, title: string, message: string): Promise<voi
   await Promise.allSettled([
     notifications.createNotification(userId, title, message, 'system'),
     notifications.sendPushNotification(userId, title, message, { type: 'account' }),
+    emailUser(userId, title, message),
   ]);
 }
 

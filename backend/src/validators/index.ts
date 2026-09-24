@@ -118,6 +118,14 @@ export const createRideSchema = {
   }),
 };
 
+export const updateRideSchema = {
+  body: Joi.object({
+    departureTime: Joi.date().iso(),
+    totalSeats: Joi.number().integer().min(1).max(8),
+    pricePerSeat: Joi.number().min(0),
+  }).min(1),
+};
+
 export const searchRideSchema = {
   query: Joi.object({
     pickupLng: Joi.number().min(-180).max(180).required(),
@@ -158,6 +166,7 @@ export const createBookingSchema = {
     rideId: Joi.string().hex().length(24).required(),
     seatsBooked: Joi.number().integer().min(1).max(8).default(1),
     useWallet: Joi.boolean().default(false),
+    note: Joi.string().trim().max(300).allow('').optional(),
     pickup: Joi.object({
       lng: Joi.number().min(-180).max(180).required(),
       lat: Joi.number().min(-90).max(90).required(),
@@ -212,6 +221,17 @@ export const triggerSOSSchema = {
 const objectIdParams = Joi.object({
   id: Joi.string().hex().length(24).required(),
 });
+
+export const rideCheckInSchema = {
+  body: Joi.object({
+    bookingId: Joi.string().hex().length(24).required(),
+    status: Joi.string().valid('ok', 'help').required(),
+    location: Joi.object({
+      lng: Joi.number().min(-180).max(180).required(),
+      lat: Joi.number().min(-90).max(90).required(),
+    }).optional(),
+  }),
+};
 
 export const sosLocationSchema = {
   params: objectIdParams,

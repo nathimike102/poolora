@@ -25,7 +25,7 @@ export interface SettingDefinition {
   label: string;
   help: string;
   /** 'percent' values are stored as fractions (0.15) and shown as 15% */
-  unit: 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'count' | 'weights' | 'tiers';
+  unit: 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers';
   min?: number;
   max?: number;
   read: () => unknown;
@@ -36,6 +36,7 @@ export interface SettingDefinition {
 // deliberately changed at runtime, and only here.
 const mutable = config as unknown as {
   ride: Record<string, unknown>;
+  tracking: Record<string, unknown>;
   safety: { checkInSeconds: Record<string, number> };
   matching: { weights: Record<string, number> };
 };
@@ -70,6 +71,9 @@ export const SETTINGS: SettingDefinition[] = [
   numberSetting('paymentTimeoutMins', 'cancellation', 'Payment time limit', 'Card and UPI requests still unpaid after this are cancelled.', 'minutes', 5, 60, mutable.ride, 'paymentTimeoutMins'),
   numberSetting('requestExpiryHours', 'cancellation', 'Driver response time', 'Requests the driver has not answered after this expire with a full refund.', 'hours', 1, 24, mutable.ride, 'requestExpiryHours'),
   numberSetting('emptyRideCancelMins', 'cancellation', 'Cancel empty rides before departure', 'Rides nobody has booked are cancelled this long before they leave.', 'minutes', 15, 240, mutable.ride, 'emptyRideCancelMins'),
+  numberSetting('routeDeviationMeters', 'safety', 'Route deviation alert', 'The rider, driver and admins are alerted when the car is further than this from the planned route.', 'meters', 100, 5000, mutable.tracking, 'routeDeviationMeters'),
+  numberSetting('safetyCheckInMins', 'safety', 'In-ride safety check-in', 'Riders in the car are asked "Are you OK?" this often. Two unanswered prompts raise an SOS.', 'minutes', 10, 120, mutable.ride, 'safetyCheckInMins'),
+  numberSetting('noShowWaitMins', 'cancellation', 'No-show wait', 'How long a driver waits at the pickup before they can report a no-show.', 'minutes', 5, 30, mutable.ride, 'noShowWaitMins'),
   numberSetting('sosCheckInLow', 'safety', 'SOS check-in, low risk', 'Time between check-in prompts during an SOS at low risk.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'low'),
   numberSetting('sosCheckInMedium', 'safety', 'SOS check-in, medium risk', 'Time between check-in prompts at medium risk.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'medium'),
   numberSetting('sosCheckInHigh', 'safety', 'SOS check-in, high risk', 'Time between check-in prompts at high risk.', 'seconds', 15, 300, mutable.safety.checkInSeconds, 'high'),

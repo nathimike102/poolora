@@ -11,6 +11,7 @@ import { EventBridge } from './events';
 import { BookingSweeper } from './jobs/BookingSweeper';
 import { backfillRouteLines } from './jobs/backfillRouteLines';
 import { SettingsService } from './services/SettingsService';
+import { RideCheckInService } from './services/RideCheckInService';
 import { logger } from './utils/logger';
 
 const server = http.createServer(app);
@@ -105,6 +106,8 @@ async function bootstrap(): Promise<void> {
 
     // 6. Time-based booking rules (payment timeout, request expiry, empty rides)
     BookingSweeper.start();
+    // In-ride safety check-ins every 30 minutes (UC-R05)
+    RideCheckInService.start();
 
     // 7. Start HTTP server
     server.listen(config.port, () => {
@@ -132,6 +135,7 @@ async function shutdown(signal: string): Promise<void> {
 
     try {
       BookingSweeper.stop();
+      RideCheckInService.stop();
 
       // Close Socket.io connections
       socketGateway.getIO()?.close();

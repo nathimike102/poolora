@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +34,33 @@ type Coordinate = { latitude: number; longitude: number };
 
 /** How often a moving phone reports its position to riders. */
 const GPS_INTERVAL_MS = 5000;
+
+/** How long the driver waits at a pickup before a no-show can be reported (the server has the final say) */
+const NO_SHOW_WAIT_MS = 10 * 60 * 1000;
+
+type LatLng = { lat: number; lng: number };
+const pointOf = (place?: { location?: { coordinates: [number, number] } }): LatLng | null =>
+  place?.location?.coordinates ? { lng: place.location.coordinates[0], lat: place.location.coordinates[1] } : null;
+
+/**
+ * Google Maps turn-by-turn directions through the stops still to come:
+ * pickups of riders not yet in the car, then drops of those who are, then
+ * the end of the ride (UC-D05).
+ */
+function directionsUrl(riders: Booking[], end: LatLng): string {
+  const stops = [
+    ...riders.filter(b => !b.actualPickupTime).map(b => pointOf(b.pickup)),
+    ...riders.filter(b => b.actualPickupTime).map(b => pointOf(b.dropoff)),
+  ].filter((p): p is LatLng => Boolean(p));
+  const params = new URLSearchParams({ api: '1', destination: `${end.lat},${end.lng}`, travelmode: 'driving' });
+  if (stops.length) params.set('waypoints', stops.map(p => `${p.lat},${p.lng}`).join('|'));
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function waitLabel(ms: number): string {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
 
 /** Send one position to every confirmed rider, over the socket when it is up. */
 function shareLocation(bookingIds: string[], point: Coordinate, speedKmh: number, heading: number, accuracy: number) {
@@ -102,6 +129,15 @@ export function DriverRideDetailsScreen() {
   useEffect(() => {
     simulationService.isEnabled().then(setSimulationEnabled);
   }, []);
+
+  // A clock for the no-show countdown while any rider is being waited for
+  const [now, setNow] = useState(Date.now());
+  const waiting = riders.some(b => b.driverArrivedAt && !b.actualPickupTime);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [waiting]);
 
   const status = ride?.status as string | undefined;
   const inProgress = status === 'in_progress';
@@ -203,6 +239,16 @@ export function DriverRideDetailsScreen() {
     });
 
   const route = useMemo(() => decodePolyline(ride?.routePolyline), [ride?.routePolyline]);
+
+  const step = (bookingId: string, which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow') =>
+    runNow(() => bookingService.driverStep(bookingId, which));
+
+  const openInMaps = () => {
+    if (!ride) return;
+    Linking.openURL(directionsUrl(riders, { lat: ride.dropoffLocation.lat, lng: ride.dropoffLocation.lng })).catch(() =>
+      Alert.alert('Maps did not open', 'Install Google Maps, or open the route in your maps app by hand.'),
+    );
+  };
 
   const runAction = (title: string, message: string, confirmLabel: string, action: () => Promise<unknown>) => {
     Alert.alert(title, message, [
@@ -341,7 +387,31 @@ export function DriverRideDetailsScreen() {
                   <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
                     {b.seatsBooked} {b.seatsBooked === 1 ? 'seat' : 'seats'}
                     {b.pickup?.address ? ` · Pickup: ${b.pickup.address}` : ''}
+                    {b.dropoff?.address ? ` · Drop: ${b.dropoff.address}` : ''}
                   </Text>
+                  {b.note ? (
+                    <Text style={{ fontSize: 13, color: c.text, marginTop: 4, fontStyle: 'italic' }}>“{b.note}”</Text>
+                  ) : null}
+                  {inProgress ? (
+                    <RiderSteps
+                      booking={b}
+                      now={now}
+                      busy={acting}
+                      colors={c}
+                      onStep={which => {
+                        if (which === 'noShow') {
+                          runAction(
+                            'Report a no-show?',
+                            `${b.rider?.name ?? 'The rider'} did not come. Their booking is cancelled and you keep the fare, less the platform fee.`,
+                            'Report no-show',
+                            () => bookingService.driverStep(b._id, 'noShow'),
+                          );
+                        } else {
+                          step(b._id, which);
+                        }
+                      }}
+                    />
+                  ) : null}
                 </View>
               </View>
             ))
@@ -373,6 +443,16 @@ export function DriverRideDetailsScreen() {
                   </Text>
                 )}
               </>
+            )}
+            {inProgress && (
+              <Pressable
+                onPress={openInMaps}
+                accessibilityRole="button"
+                style={[styles.devBtn, { borderColor: c.primary }]}
+              >
+                <Icon name="navigation-variant-outline" size={18} color={c.primary} />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: c.primary }}>Open route in Maps</Text>
+              </Pressable>
             )}
             {inProgress && (
               <Pressable
@@ -421,6 +501,17 @@ export function DriverRideDetailsScreen() {
 
             {notStarted && (
               <Pressable
+                onPress={() => navigation.navigate('EditRide', { rideId })}
+                disabled={acting}
+                accessibilityRole="button"
+                style={[styles.devBtn, { borderColor: c.border }]}
+              >
+                <Icon name="pencil-outline" size={18} color={c.text} />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Change time, seats or price</Text>
+              </Pressable>
+            )}
+            {notStarted && (
+              <Pressable
                 onPress={() =>
                   runAction(
                     'Cancel this ride?',
@@ -439,6 +530,60 @@ export function DriverRideDetailsScreen() {
           </View>
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * The next step for one rider during the ride (UC-D04): at the pickup, in
+ * the car, dropped. While waiting at the pickup a countdown runs; once it
+ * ends the driver can report a no-show (UC-D07).
+ */
+function RiderSteps({
+  booking,
+  now,
+  busy,
+  colors: c,
+  onStep,
+}: {
+  booking: Booking;
+  now: number;
+  busy: boolean;
+  colors: ReturnType<typeof useApp>['c'];
+  onStep: (which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow') => void;
+}) {
+  const button = (label: string, which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow', primary: boolean, disabled = false) => (
+    <Pressable
+      key={which}
+      onPress={() => onStep(which)}
+      disabled={busy || disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy || disabled }}
+      style={[
+        styles.stepBtn,
+        primary ? { backgroundColor: c.primary } : { borderWidth: 1.5, borderColor: disabled ? c.border : c.error },
+      ]}
+    >
+      <Text style={{ fontSize: 13, fontWeight: '700', color: primary ? c.textOnPrimary : disabled ? c.textSec : c.error }}>{label}</Text>
+    </Pressable>
+  );
+
+  if (booking.actualPickupTime) {
+    return <View style={styles.stepRow}>{button('Dropped off', 'droppedOff', true)}</View>;
+  }
+  if (!booking.driverArrivedAt) {
+    return <View style={styles.stepRow}>{button("I'm at the pickup", 'arrived', true)}</View>;
+  }
+  const left = new Date(booking.driverArrivedAt).getTime() + NO_SHOW_WAIT_MS - now;
+  return (
+    <View style={{ marginTop: 8, gap: 6 }}>
+      <Text style={{ fontSize: 12, color: c.textSec }} accessibilityLiveRegion="polite">
+        {left > 0 ? `Waiting for the rider · no-show can be reported in ${waitLabel(left)}` : 'You have waited long enough to report a no-show.'}
+      </Text>
+      <View style={styles.stepRow}>
+        {button('Picked up', 'pickedUp', true)}
+        {button('No-show', 'noShow', false, left > 0)}
+      </View>
     </View>
   );
 }
@@ -479,4 +624,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionBtn: { minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  stepRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  stepBtn: { minHeight: 40, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 });

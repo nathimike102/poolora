@@ -228,6 +228,15 @@ export const rideService = {
   },
 
   /**
+   * Change a published ride: departure within 2 hours, more seats, or the
+   * price while nobody has booked. Booked riders are told.
+   */
+  async updateRide(rideId: string, changes: { departureTime?: string; totalSeats?: number; pricePerSeat?: number }): Promise<Ride> {
+    const response = await apiClient.patch<ApiResponse<{ ride: unknown }>>(API_ENDPOINTS.rides.detail(rideId), changes);
+    return normalizeRide(response.data.data.ride);
+  },
+
+  /**
    * Start a ride: the driver has set off with confirmed riders
    */
   async startRide(rideId: string): Promise<Ride> {

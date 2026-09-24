@@ -177,4 +177,20 @@ export class SafetyController {
       next(error);
     }
   }
+
+  /**
+   * POST /safety/ride-check-in — the rider answers an in-ride "Are you OK?"
+   * prompt. Body: bookingId, status ('ok' or 'help'), optional location.
+   */
+  static async rideCheckIn(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const { bookingId, status, location } = req.body as { bookingId: string; status: 'ok' | 'help'; location?: { lng: number; lat: number } };
+      const { RideCheckInService } = await import('../services/RideCheckInService');
+      const result = await new RideCheckInService().respond(user.userId, bookingId, status, location);
+      sendSuccess(res, result, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

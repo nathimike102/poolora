@@ -278,10 +278,36 @@ export interface Booking {
   /** Set by the backend when the booking is completed */
   driverEarnings?: number;
   finalFare?: number;
-  pickup?: { address?: string };
-  dropoff?: { address?: string };
+  pickup?: { address?: string; location?: { coordinates: [number, number] } };
+  dropoff?: { address?: string; location?: { coordinates: [number, number] } };
+  /** Message from the rider to the driver with the request */
+  note?: string;
+  /** The driver is at this rider's pickup; the no-show wait counts from here */
+  driverArrivedAt?: string;
+  actualPickupTime?: string;
+  actualDropoffTime?: string;
+  noShow?: boolean;
+  refundAmount?: number;
+  /** The driver moved the departure after this booking: cancelling is free */
+  rideChangedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** GET /bookings/:id/receipt */
+export interface Receipt {
+  receiptNumber: string;
+  issuedAt: string;
+  status: 'completed' | 'cancelled' | 'no_show' | 'confirmed';
+  rider: { name: string };
+  driver: { name: string; vehicle?: string };
+  trip: { from: string; to: string; departure: string; seats: number };
+  fare: number;
+  pricePerSeat: number;
+  serviceFee: number;
+  refunded: number;
+  paid: number;
+  paymentMethod: string;
 }
 
 export interface CreateBookingRequest {
@@ -291,6 +317,8 @@ export interface CreateBookingRequest {
   dropoff: { lat: number; lng: number; address: string };
   /** Pay from wallet balance instead of Razorpay */
   useWallet?: boolean;
+  /** Optional message to the driver */
+  note?: string;
 }
 
 export interface RazorpayOrder {

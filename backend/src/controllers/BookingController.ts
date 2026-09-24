@@ -75,6 +75,64 @@ export class BookingController {
     }
   }
 
+  /** GET /bookings/:id/receipt — for the rider or driver (UC-R04 step 11) */
+  static async receipt(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const { ReceiptService } = await import('../services/ReceiptService');
+      const service = new ReceiptService();
+      const receipt = await service.build(String(req.params.id), user.userId);
+      sendSuccess(res, { receipt, text: service.text(receipt) }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /bookings/:id/receipt/email — a copy to the caller's email address */
+  static async emailReceipt(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const { ReceiptService } = await import('../services/ReceiptService');
+      const result = await new ReceiptService().email(String(req.params.id), user.userId);
+      sendSuccess(res, result, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /bookings/:id/share — a link for trusted contacts to follow the trip (UC-R08) */
+  static async share(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const { TripShareService } = await import('../services/TripShareService');
+      const result = await new TripShareService().create(user.userId, String(req.params.id));
+      sendSuccess(res, result, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /bookings/:id/arrived — the driver is at this rider's pickup */
+  static arrived = BookingController.driverStep((id, driverId) => bookingService.markArrived(id, driverId));
+  /** POST /bookings/:id/picked-up */
+  static pickedUp = BookingController.driverStep((id, driverId) => bookingService.markPickedUp(id, driverId));
+  /** POST /bookings/:id/dropped-off — settles this rider's booking */
+  static droppedOff = BookingController.driverStep((id, driverId) => bookingService.markDroppedOff(id, driverId));
+  /** POST /bookings/:id/no-show — after the waiting time at the pickup */
+  static noShow = BookingController.driverStep((id, driverId) => bookingService.reportNoShow(id, driverId));
+
+  private static driverStep(fn: (bookingId: string, driverId: string) => Promise<unknown>) {
+    return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const user = (req as AuthenticatedRequest).user;
+        const booking = await fn(String(req.params.id), user.userId);
+        sendSuccess(res, { booking }, 200, req.requestId);
+      } catch (error) {
+        next(error);
+      }
+    };
+  }
+
   /**
    * GET /bookings/:id/cancellation-quote — refund the caller would get now.
    */

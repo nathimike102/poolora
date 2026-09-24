@@ -11,6 +11,7 @@ import {
   emergencyContactsSchema,
   idParamSchema,
   paginationSchema,
+  rideCheckInSchema,
 } from '../validators';
 
 const router = Router();
@@ -29,6 +30,8 @@ router.get('/sos/:id', validate(idParamSchema), SafetyController.getSOSStatus);
 
 // User SOS actions
 router.post('/sos', validate(triggerSOSSchema), SafetyController.triggerSOS);
+// In-ride "Are you OK?" answers (UC-R05)
+router.post('/ride-check-in', validate(rideCheckInSchema), SafetyController.rideCheckIn);
 router.post('/sos/:id/location', validate(sosLocationSchema), SafetyController.updateSOSLocation);
 router.post('/sos/:id/evidence', validate(sosEvidenceSchema), SafetyController.addEvidence);
 router.post('/sos/:id/check-in', validate(sosCheckInSchema), SafetyController.updateSOSCheckIn);

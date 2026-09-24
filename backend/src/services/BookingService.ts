@@ -67,6 +67,8 @@ export class BookingService {
       dropoff: { lng: number; lat: number; address: string };
       /** If true, pay from wallet balance instead of Razorpay */
       useWallet?: boolean;
+      /** Optional message to the driver (UC-R03 step 6) */
+      note?: string;
     },
   ): Promise<{ booking: IBooking; razorpayOrder: Orders.RazorpayOrder | null; paidViaWallet?: boolean }> {
     const ride = await Ride.findById(data.rideId);
@@ -170,6 +172,7 @@ export class BookingService {
         },
         estimatedFare,
         matchScore: matchResult?.overallScore || 0,
+        note: data.note?.trim() || undefined,
         // No razorpayOrderId — wallet paid
       });
       try {
@@ -226,6 +229,7 @@ export class BookingService {
       },
       estimatedFare,
       matchScore: matchResult?.overallScore || 0,
+      note: data.note?.trim() || undefined,
       razorpayOrderId: razorpayOrder.id,
     });
 
@@ -489,7 +493,8 @@ export class BookingService {
     // departure nears (UC-R09); the rest goes to the driver, less the platform
     // fee (UC-D04 7b). Requests not yet accepted, and anything the driver
     // cancels, are refunded in full.
-    const refundRate = isRider && ride ? riderRefundRate(ride.departureTime) : 1;
+    // Full refund when the driver moved the departure after this booking was made (UC-D08)
+    const refundRate = isRider && ride && !booking.rideChangedAt ? riderRefundRate(ride.departureTime) : 1;
     const refundAmount = Math.round(booking.estimatedFare * refundRate * 100) / 100;
     const cancellationFee = Math.round((booking.estimatedFare - refundAmount) * 100) / 100;
     booking.refundAmount = refundAmount;
@@ -525,7 +530,7 @@ export class BookingService {
       throw new AuthorizationError('You are not part of this booking');
     }
     let refundRate = 1;
-    if (isRider && booking.status === BookingStatus.CONFIRMED) {
+    if (isRider && booking.status === BookingStatus.CONFIRMED && !booking.rideChangedAt) {
       const ride = await Ride.findById(booking.ride).select('departureTime');
       if (ride) refundRate = riderRefundRate(ride.departureTime);
     }
@@ -539,6 +544,100 @@ export class BookingService {
         refundPercent: Math.round(t.refundRate * 100),
       })),
     };
+  }
+
+  /**
+   * The driver is at this rider's pickup (UC-D04 step 4). Starts the
+   * no-show wait (UC-D07) and tells the rider.
+   */
+  async markArrived(bookingId: string, driverId: string): Promise<IBooking> {
+    const booking = await this.driverBookingOnRideUnderWay(bookingId, driverId);
+    if (booking.actualPickupTime) throw new ConflictError('This rider has already been picked up');
+    if (!booking.driverArrivedAt) {
+      booking.driverArrivedAt = new Date();
+      await booking.save();
+      EventBridge.publish('booking-events', {
+        eventType: 'booking.driver_arrived',
+        data: { bookingId: booking._id, riderId: booking.rider.toString(), waitMins: config.ride.noShowWaitMins },
+      });
+    }
+    return booking;
+  }
+
+  /** The rider is in the car (UC-D04 step 5). */
+  async markPickedUp(bookingId: string, driverId: string): Promise<IBooking> {
+    const booking = await this.driverBookingOnRideUnderWay(bookingId, driverId);
+    if (!booking.actualPickupTime) {
+      booking.actualPickupTime = new Date();
+      booking.driverArrivedAt ??= booking.actualPickupTime;
+      booking.driverConfirmedPickup = true;
+      booking.safetyCheck = { missed: 0 };
+      await booking.save();
+      EventBridge.publish('booking-events', {
+        eventType: 'booking.picked_up',
+        data: { bookingId: booking._id, riderId: booking.rider.toString() },
+      });
+    }
+    return booking;
+  }
+
+  /** The rider has been dropped (UC-D04 step 12): settles this booking. */
+  async markDroppedOff(bookingId: string, driverId: string): Promise<IBooking> {
+    const booking = await this.driverBookingOnRideUnderWay(bookingId, driverId);
+    if (!booking.actualPickupTime) throw new ConflictError('Mark the rider as picked up first');
+    booking.driverConfirmedDropoff = true;
+    await booking.save();
+    return this.completeBooking(bookingId, driverId);
+  }
+
+  /**
+   * The rider did not come within the waiting time (UC-D07). The booking is
+   * cancelled with no refund; the fare goes to the driver less the platform fee.
+   */
+  async reportNoShow(bookingId: string, driverId: string): Promise<IBooking> {
+    const booking = await this.driverBookingOnRideUnderWay(bookingId, driverId);
+    if (booking.actualPickupTime) throw new ConflictError('This rider was picked up');
+    if (!booking.driverArrivedAt) throw new ConflictError('Mark that you have arrived first, then wait for the rider');
+    const waitedMins = (Date.now() - booking.driverArrivedAt.getTime()) / 60_000;
+    if (waitedMins < config.ride.noShowWaitMins) {
+      const left = Math.ceil(config.ride.noShowWaitMins - waitedMins);
+      throw new AppError(`Wait ${left} more minute${left === 1 ? '' : 's'} before reporting a no-show`, 409, 'WAIT_FOR_RIDER');
+    }
+
+    const fee = booking.estimatedFare;
+    const platformFee = Math.round(fee * config.ride.platformFeeRate * 100) / 100;
+    booking.status = BookingStatus.CANCELLED;
+    booking.noShow = true;
+    booking.cancelledBy = new Types.ObjectId(driverId);
+    booking.cancellationReason = 'The rider did not come to the pickup';
+    booking.cancelledAt = new Date();
+    booking.refundAmount = 0;
+    booking.cancellationFee = fee;
+    booking.platformFee = platformFee;
+    booking.driverEarnings = fee - platformFee;
+    await booking.save();
+
+    await Promise.all([
+      Ride.findByIdAndUpdate(booking.ride, { $inc: { availableSeats: booking.seatsBooked } }),
+      User.findByIdAndUpdate(driverId, { $inc: { 'stats.totalEarnings': booking.driverEarnings } }),
+    ]);
+
+    EventBridge.publish('booking-events', {
+      eventType: 'booking.no_show',
+      data: { bookingId: booking._id, riderId: booking.rider.toString(), driverId },
+    });
+    return booking;
+  }
+
+  /** A confirmed booking of this driver's, on a ride that has started */
+  private async driverBookingOnRideUnderWay(bookingId: string, driverId: string): Promise<IBooking> {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) throw new NotFoundError('Booking');
+    if (booking.driver.toString() !== driverId) throw new AuthorizationError('Only the ride\'s driver can do this');
+    if (booking.status !== BookingStatus.CONFIRMED) throw new ConflictError('This booking is not active');
+    const ride = await Ride.findById(booking.ride).select('status');
+    if (ride?.status !== RideStatus.IN_PROGRESS) throw new ConflictError('Start the ride first');
+    return booking;
   }
 
   /**
@@ -615,6 +714,11 @@ export class BookingService {
         error: (coinError as Error).message,
       });
     }
+
+    // Receipt by email when the rider has an address and mail is set up
+    import('./ReceiptService')
+      .then(({ ReceiptService }) => new ReceiptService().emailOnCompletion(bookingId, booking.rider.toString()))
+      .catch((error) => logger.warn('Receipt email failed', { bookingId, error: (error as Error).message }));
 
     return booking;
   }

@@ -14,6 +14,7 @@ import {
   Image,
   StyleSheet,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -55,6 +56,7 @@ export function BookingScreen(): React.ReactElement {
   const [loadError, setLoadError] = useState(false);
   const [seats, setSeats] = useState(route.params.seats ?? 1);
   const [method, setMethod] = useState<PayMethod>('razorpay');
+  const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [walletBooked, setWalletBooked] = useState(false);
@@ -118,6 +120,7 @@ export function BookingScreen(): React.ReactElement {
         pickup: boardAt,
         dropoff: leaveAt,
         useWallet: method === 'wallet',
+        note: note.trim() || undefined,
       });
 
       if (result.paidViaWallet) {
@@ -140,7 +143,7 @@ export function BookingScreen(): React.ReactElement {
     } finally {
       setIsSubmitting(false);
     }
-  }, [ride, isSubmitting, rideId, seats, method, navigation, boardAt, leaveAt]);
+  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt]);
 
   // ── Booked with wallet ──────────────────────────────────────────
   if (walletBooked) {
@@ -263,6 +266,21 @@ export function BookingScreen(): React.ReactElement {
               })}
             </View>
           )}
+        </View>
+
+        {/* Message to the driver (UC-R03 step 6) */}
+        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <Text style={[styles.cardTitle, { color: c.text }]}>Message to the driver (optional)</Text>
+          <TextInput
+            value={note}
+            onChangeText={setNote}
+            maxLength={300}
+            multiline
+            placeholder="I'll wait at the bus stop by the metro exit."
+            placeholderTextColor={c.textSec}
+            accessibilityLabel="Message to the driver"
+            style={{ borderWidth: 1, borderColor: c.border, borderRadius: 12, padding: 12, minHeight: 64, color: c.text, fontSize: 15, textAlignVertical: 'top' }}
+          />
         </View>
 
         {/* Payment method */}

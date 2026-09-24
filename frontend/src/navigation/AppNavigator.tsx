@@ -85,6 +85,9 @@ import { KYCScreen } from "../screens/driver/KYCScreen";
 import { DriverProfileScreen } from "../screens/driver/DriverProfileScreen";
 import { UpcomingRidesScreen } from "../screens/driver/UpcomingRidesScreen";
 import { DriverRideDetailsScreen } from "../screens/driver/DriverRideDetailsScreen";
+import { EditRideScreen } from "../screens/driver/EditRideScreen";
+import { ReceiptScreen } from "../screens/rider/ReceiptScreen";
+import { RaiseDisputeScreen } from "../screens/shared/RaiseDisputeScreen";
 import { AddSavedRouteScreen } from "../screens/rider/AddSavedRouteScreen";
 
 // ─── Parcel screens ───────────────────────────────────────────────────────────
@@ -257,6 +260,8 @@ function AppNavigatorStack() {
       <Stack.Screen name="ActiveRide" component={ActiveRideScreen} />
       <Stack.Screen name="RideDetail" component={RideDetailScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
+      <Stack.Screen name="Receipt" component={ReceiptScreen} />
+      <Stack.Screen name="RaiseDispute" component={RaiseDisputeScreen} />
       <Stack.Screen name="AddSavedRoute" component={AddSavedRouteScreen} />
 
       {/* ── Driver detail screens (pushed above tabs) ─────────── */}
@@ -267,6 +272,7 @@ function AppNavigatorStack() {
         name="DriverRideDetails"
         component={DriverRideDetailsScreen}
       />
+      <Stack.Screen name="EditRide" component={EditRideScreen} />
 
       {/* ── Parcel Flow ───────────────────────────────────────── */}
       <Stack.Screen name="ShipParcel" component={ShipParcelScreen} />

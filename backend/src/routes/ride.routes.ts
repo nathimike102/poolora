@@ -4,7 +4,7 @@ import { authenticate } from '../middlewares/auth.middleware';
 import { requireActiveAccount } from '../middlewares/accountStatus.middleware';
 import { requireDriverVerification } from '../middlewares/capability.middleware';
 import { validate } from '../middlewares/validation.middleware';
-import { createRideSchema, searchRideSchema, updateDriverLocationSchema } from '../validators';
+import { createRideSchema, updateRideSchema, searchRideSchema, updateDriverLocationSchema } from '../validators';
 
 const router = Router();
 
@@ -38,6 +38,7 @@ router.post('/', requireDriverVerification(), requireActiveAccount, validate(cre
 router.get('/:id', RideController.getRide);
 
 // Ride actions
+router.patch('/:id', requireDriverVerification(), validate(updateRideSchema), RideController.updateRide);
 router.post('/:id/cancel', RideController.cancelRide);
 router.post('/:id/start', requireDriverVerification(), RideController.startRide);
 router.post('/:id/complete', requireDriverVerification(), RideController.completeRide);

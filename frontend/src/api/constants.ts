@@ -96,6 +96,19 @@ export const API_ENDPOINTS = {
     cancel: (id: string) => `/bookings/${id}/cancel`,
     cancellationQuote: (id: string) => `/bookings/${id}/cancellation-quote`,
     complete: (id: string) => `/bookings/${id}/complete`,
+    arrived: (id: string) => `/bookings/${id}/arrived`,
+    pickedUp: (id: string) => `/bookings/${id}/picked-up`,
+    droppedOff: (id: string) => `/bookings/${id}/dropped-off`,
+    noShow: (id: string) => `/bookings/${id}/no-show`,
+    share: (id: string) => `/bookings/${id}/share`,
+    receipt: (id: string) => `/bookings/${id}/receipt`,
+    emailReceipt: (id: string) => `/bookings/${id}/receipt/email`,
+  },
+
+  // Disputes
+  disputes: {
+    create: '/disputes',
+    mine: '/disputes/mine',
   },
 
   // Payments
@@ -167,6 +180,7 @@ export const API_ENDPOINTS = {
     resolve: (id: string) => `/safety/sos/${id}/resolve`,
     notifyPolice: (id: string) => `/safety/sos/${id}/notify-police`,
     emergencyContacts: '/safety/emergency-contacts',
+    rideCheckIn: '/safety/ride-check-in',
   },
 
   // Admin

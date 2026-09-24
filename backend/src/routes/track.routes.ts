@@ -5,5 +5,6 @@ const router = Router();
 
 // Public: the unguessable token in the SOS text message is the credential.
 router.get('/sos/:token', TrackingController.sosPage);
+router.get('/trip/:token', TrackingController.tripPage);
 
 export default router;

@@ -136,6 +136,14 @@ export const safetyService = {
   },
 
   /**
+   * Answer an in-ride "Are you OK?" prompt. "help" raises an SOS at once.
+   */
+  async answerRideCheckIn(bookingId: string, status: 'ok' | 'help', location?: { lat: number; lng: number }): Promise<{ status: string; emergencyId?: string }> {
+    const response = await apiClient.post<ApiResponse<{ status: string; emergencyId?: string }>>(API_ENDPOINTS.safety.rideCheckIn, { bookingId, status, location });
+    return response.data.data;
+  },
+
+  /**
    * Get SOS status by emergency record ID
    */
   async getSOSStatus(sosId: string): Promise<SOSResponse> {

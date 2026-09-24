@@ -75,6 +75,8 @@ openssl rand -base64 756 | tr -d '\n'
 | `CORS_ORIGIN` | yes | Comma-separated list of allowed origins, including the web admin's. Never `*` in production |
 | `PLATFORM_FEE_RATE` | no | Business setting, default `0.15` |
 | `COIN_TO_INR_RATE` | no | Business setting for wallet coins |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` | for email | Any SMTP provider: Amazon SES, Zoho, Google Workspace, or SendGrid or Mailgun over SMTP. Port `587` with `SMTP_SECURE=false`, or `465` with `true`. Without `SMTP_HOST`, emails (receipts, driver application decisions, account and dispute notices) are skipped |
+| `MAIL_FROM` | for email | Sender, e.g. `Poolora <no-reply@your-domain>`. See "Sending mail without a custom domain" below |
 | `SENTRY_DSN` | no | sentry.io, create a Node.js project, Settings, Client Keys (DSN). Empty disables it |
 | `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `SENTRY_TRACES_SAMPLE_RATE` | no | Labels and sampling for Sentry |
 | `GRAFANA_ADMIN_PASSWORD` | Docker/K8s | Generate (above) |

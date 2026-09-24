@@ -13,7 +13,9 @@ import { haversineDistanceKm } from '../utils/helpers';
 import { AuthorizationError, ConflictError, NotFoundError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 import { EventBridge } from '../events';
-import { BookingStatus, UserCapability } from '../types';
+import { BookingStatus, RideStatus, UserCapability } from '../types';
+import { Ride, rideRoutePath } from '../models/Ride';
+import { nearestOnPath } from '../utils/routeGeometry';
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -294,34 +296,6 @@ export class SocketGateway {
     this.io.to(`user:${riderId}`).emit('driver:location:updated', updatePayload);
     this.io.to(`tracking:${bookingId}`).emit('driver:location:updated', updatePayload);
 
-    const pickupLat = booking.pickup.location.coordinates[1];
-    const pickupLng = booking.pickup.location.coordinates[0];
-    const distanceKm = haversineDistanceKm(lat, lng, pickupLat, pickupLng);
-
-    const milestone = this.calculateMilestone(distanceKm, speed);
-    if (milestone) {
-      const milestonePayload = { bookingId, ...milestone };
-      this.io.to(`user:${riderId}`).emit('driver:milestone', milestonePayload);
-      this.io.to(`tracking:${bookingId}`).emit('driver:milestone', milestonePayload);
-    }
-
-    const routeDeviationKey = `route:deviation:${bookingId}`;
-    if (distanceKm > 10 && redis) {
-      const alreadyNotified = await redis.exists(routeDeviationKey);
-      if (!alreadyNotified) {
-        await redis.setex(routeDeviationKey, 300, '1');
-
-        const deviationPayload = {
-          bookingId,
-          message: 'Driver may have deviated from the expected route',
-          currentLocation: { lng, lat },
-          timestamp,
-        };
-        this.io.to(`user:${riderId}`).emit('route:deviated', deviationPayload);
-        this.io.to(`tracking:${bookingId}`).emit('route:deviated', deviationPayload);
-      }
-    }
-
     EventBridge.publish('location-events', {
       eventType: 'driver.location.updated',
       data: {
@@ -336,9 +310,131 @@ export class SocketGateway {
       },
     });
 
+    // Approach milestones and the deviation check run after the position is
+    // relayed, so a slow lookup never delays the car on the rider's map
+    void this.afterLocationUpdate(booking, riderId, driverId, { lng, lat }, speed, timestamp).catch((error) =>
+      logger.error('Post-location checks failed', { bookingId, error: (error as Error).message }),
+    );
+
     return updatePayload;
   }
 
+
+  private async afterLocationUpdate(
+    booking: IBooking,
+    riderId: string,
+    driverId: string,
+    position: { lng: number; lat: number },
+    speed: number,
+    timestamp: number,
+  ): Promise<void> {
+    const bookingId = booking._id.toString();
+    const { lng, lat } = position;
+    // Approach milestones matter only until the rider is in the car
+    if (!booking.actualPickupTime) {
+      const pickupLat = booking.pickup.location.coordinates[1];
+      const pickupLng = booking.pickup.location.coordinates[0];
+      const distanceKm = haversineDistanceKm(lat, lng, pickupLat, pickupLng);
+      const milestone = this.calculateMilestone(distanceKm, speed);
+      if (milestone) {
+        const milestonePayload = { bookingId, ...milestone };
+        this.io.to(`user:${riderId}`).emit('driver:milestone', milestonePayload);
+        this.io.to(`tracking:${bookingId}`).emit('driver:milestone', milestonePayload);
+        await this.pushMilestoneOnce(bookingId, riderId, milestone);
+      }
+    }
+
+    if (booking.ride) {
+      await this.checkRouteDeviation(booking.ride.toString(), bookingId, riderId, driverId, { lng, lat }, timestamp);
+    }
+  }
+
+  /** Milestones already pushed, when Redis is not available to remember them */
+  private pushedMilestones = new Set<string>();
+
+  /**
+   * "About 5 minutes away" and "arrived" as push notifications, once each per
+   * booking (UC-R05), so riders hear about them with the app closed.
+   */
+  private async pushMilestoneOnce(bookingId: string, riderId: string, milestone: DistanceMilestone): Promise<void> {
+    const kind = milestone.estimatedMins === 0 ? 'arrived' : milestone.estimatedMins <= 5 ? 'near' : null;
+    if (!kind) return;
+    const key = `milestone:${bookingId}:${kind}`;
+    const redis = getRedisClient();
+    const first = redis
+      ? (await redis.set(key, '1', 'EX', 6 * 3600, 'NX').catch(() => null)) === 'OK'
+      : !this.pushedMilestones.has(key) && Boolean(this.pushedMilestones.add(key));
+    if (!first) return;
+    const { NotificationService } = await import('../services/NotificationService');
+    await new NotificationService().sendPushNotification(
+      riderId,
+      kind === 'arrived' ? 'Your driver is here' : 'Your driver is about 5 minutes away',
+      kind === 'arrived' ? 'Head to the pickup point.' : 'Get ready at the pickup point.',
+      { bookingId, type: 'ride' },
+    ).catch(() => undefined);
+  }
+
+  /** Planned routes by ride, so every position update does not reload the ride */
+  private routeCache = new Map<string, { path: Array<{ lat: number; lng: number }>; at: number }>();
+
+  /**
+   * Alerts the rider, the driver and admins when the car is further than the
+   * allowed distance from the planned route (UC-R05, default 500 m). At most
+   * one alert per booking every 5 minutes.
+   */
+  private async checkRouteDeviation(
+    rideId: string,
+    bookingId: string,
+    riderId: string,
+    driverId: string,
+    position: { lng: number; lat: number },
+    timestamp: number,
+  ): Promise<void> {
+    let cached = this.routeCache.get(rideId);
+    if (!cached || Date.now() - cached.at > 5 * 60_000) {
+      const ride = await Ride.findById(rideId).select('routeLine routePolyline pickup dropoff waypoints status').lean();
+      if (!ride || ride.status !== RideStatus.IN_PROGRESS) return;
+      const path = ride.routeLine?.coordinates?.length
+        ? ride.routeLine.coordinates.map(([lng, lat]) => ({ lat, lng }))
+        : rideRoutePath(ride);
+      cached = { path, at: Date.now() };
+      this.routeCache.set(rideId, cached);
+    }
+    if (cached.path.length < 2) return;
+
+    const offMeters = nearestOnPath(position, cached.path).distanceKm * 1000;
+    if (offMeters <= config.tracking.routeDeviationMeters) return;
+
+    const key = `route:deviation:${bookingId}`;
+    const redis = getRedisClient();
+    if (redis) {
+      if ((await redis.set(key, '1', 'EX', 300, 'NX').catch(() => null)) !== 'OK') return;
+    } else if (this.pushedMilestones.has(`${key}:${Math.floor(Date.now() / 300_000)}`)) {
+      return;
+    } else {
+      this.pushedMilestones.add(`${key}:${Math.floor(Date.now() / 300_000)}`);
+    }
+
+    const payload = {
+      bookingId,
+      offRouteMeters: Math.round(offMeters),
+      message: `The car is about ${Math.round(offMeters / 100) * 100} m off the planned route`,
+      currentLocation: position,
+      timestamp,
+    };
+    this.io.to(`user:${riderId}`).emit('route:deviated', payload);
+    this.io.to(`tracking:${bookingId}`).emit('route:deviated', payload);
+    // The driver is asked to explain (UC-R05 6a); admins see it with SOS alerts
+    this.io.to(`user:${driverId}`).emit('route:deviated', { ...payload, askReason: true });
+    this.io.to('admin:sos').emit('route:deviated', { ...payload, riderId, driverId });
+    const { NotificationService } = await import('../services/NotificationService');
+    await new NotificationService().sendPushNotification(
+      riderId,
+      'Your car has left the planned route',
+      `${payload.message}. Open Poolora to follow it, or use SOS if you feel unsafe.`,
+      { bookingId, type: 'safety' },
+    ).catch(() => undefined);
+  }
 
   /**
    * Calculate distance milestones for approach alerts.

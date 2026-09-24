@@ -17,6 +17,8 @@ import {
   Linking,
   Share,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,6 +26,8 @@ import type { RouteProp } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 
 import { rideService } from '../../services/rideService';
+import { bookingService } from '../../services/bookingService';
+import { safetyService } from '../../services/safetyService';
 import { ratingService } from '../../services/ratingService';
 import type { Ride } from '../../types/api';
 import { useApp } from '../../context/AppContext';
@@ -90,6 +94,9 @@ export function ActiveRideScreen() {
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | undefined>();
   const [driverUpdate, setDriverUpdate] = useState<string>('');
   const [deviationMessage, setDeviationMessage] = useState<string>('');
+  // An in-ride "Are you OK?" prompt waiting for an answer (UC-R05)
+  const [checkIn, setCheckIn] = useState<{ repeat: boolean } | null>(null);
+  const [answering, setAnswering] = useState(false);
   const route = useMemo(() => decodePolyline(ride?.routePolyline), [ride?.routePolyline]);
 
   const [rating, setRating] = useState(0);
@@ -119,6 +126,39 @@ export function ActiveRideScreen() {
     };
   }, [rideId]);
 
+  // A prompt may be waiting when the rider opens the app from the push
+  useEffect(() => {
+    if (!bookingId) return;
+    bookingService
+      .getRiderBookings(1, 20, 'confirmed')
+      .then(page => {
+        const mine = (page.data?.items ?? []).find(b => b._id === bookingId) as
+          | { safetyCheck?: { promptedAt?: string; answeredAt?: string; missed?: number } }
+          | undefined;
+        const check = mine?.safetyCheck;
+        if (check?.promptedAt && (!check.answeredAt || check.answeredAt < check.promptedAt)) {
+          setCheckIn({ repeat: (check.missed ?? 0) > 0 });
+        }
+      })
+      .catch(() => undefined);
+  }, [bookingId]);
+
+  const answerCheckIn = async (status: 'ok' | 'help') => {
+    if (!bookingId) return;
+    setAnswering(true);
+    try {
+      await safetyService.answerRideCheckIn(bookingId, status);
+      setCheckIn(null);
+      if (status === 'help') {
+        Alert.alert('Help is on the way', 'The Poolora safety team and your emergency contacts have been alerted with your location.');
+      }
+    } catch (error) {
+      Alert.alert('Not sent', `${errorHandler.process(error).message} If you are in danger, use SOS or call 112.`);
+    } finally {
+      setAnswering(false);
+    }
+  };
+
   // Live driver position and deviation alerts for this booking
   useEffect(() => {
     if (!bookingId) return;
@@ -135,13 +175,18 @@ export function ActiveRideScreen() {
     const onDeviation = (data: { bookingId: string; message: string }) => {
       if (data.bookingId === bookingId) setDeviationMessage(data.message);
     };
+    const onCheckIn = (data: { bookingId: string; repeat: boolean }) => {
+      if (data.bookingId === bookingId) setCheckIn({ repeat: data.repeat });
+    };
 
     if (socket.connected) join();
     socket.on('connect', join);
     socket.on('driver:location:updated', onLocation);
     socket.on('driver:milestone', onMilestone);
     socket.on('route:deviated', onDeviation);
+    socket.on('safety:check-in', onCheckIn);
     return () => {
+      socket.off('safety:check-in', onCheckIn);
       socket.emit('tracking:leave', bookingId);
       socket.off('connect', join);
       socket.off('driver:location:updated', onLocation);
@@ -167,8 +212,20 @@ export function ActiveRideScreen() {
     }
   }, [bookingId, rating, selectedTags, navigation]);
 
-  const shareTrip = () => {
+  const shareTrip = async () => {
     if (!ride) return;
+    // A live link people can open without the app (UC-R08); plain text if that fails
+    if (bookingId) {
+      try {
+        const { url } = await bookingService.shareTrip(bookingId);
+        await Share.share({
+          message: `Follow my Poolora ride from ${ride.pickupLocation.address} to ${ride.dropoffLocation.address} live: ${url}\nThe link stops working an hour after I arrive.`,
+        });
+        return;
+      } catch {
+        // fall through to the text-only message
+      }
+    }
     const plate = ride.vehicle?.plateNumber ? ` (${ride.vehicle.plateNumber})` : '';
     Share.share({
       message:
@@ -244,6 +301,16 @@ export function ActiveRideScreen() {
         {isCompleted ? (
           /* ── Rating ─────────────────────────────────────────────── */
           <View style={styles.ratingWrap}>
+            {bookingId ? (
+              <Pressable
+                onPress={() => navigation.navigate('Receipt', { bookingId })}
+                accessibilityRole="button"
+                style={[styles.shareBtn, { backgroundColor: c.surface, borderColor: c.border }]}
+              >
+                <Icon name="receipt" size={18} color={c.textSec} />
+                <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>View receipt</Text>
+              </Pressable>
+            ) : null}
             <Text style={{ fontSize: 20, fontWeight: '800', color: c.text, textAlign: 'center' }} accessibilityRole="header">
               How was your ride with {driverName}?
             </Text>
@@ -382,12 +449,44 @@ export function ActiveRideScreen() {
                 style={[styles.shareBtn, { backgroundColor: c.surface, borderColor: c.border }]}
               >
                 <Icon name="share-variant" size={18} color={c.textSec} />
-                <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>Share trip details</Text>
+                <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>Share a live trip link</Text>
               </Pressable>
             )}
           </>
         )}
       </ScrollView>
+
+      <Modal visible={Boolean(checkIn)} transparent animationType="fade" onRequestClose={() => undefined}>
+        <View style={styles.checkInScrim}>
+          <View style={[styles.checkInCard, { backgroundColor: c.surface }]} accessibilityViewIsModal>
+            <Icon name="shield-check" size={36} color={c.primary} />
+            <Text style={{ fontSize: 20, fontWeight: '800', color: c.text, textAlign: 'center' }} accessibilityRole="header">
+              {checkIn?.repeat ? 'Please confirm you are OK' : 'Are you OK?'}
+            </Text>
+            <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center' }}>
+              {checkIn?.repeat
+                ? 'We did not hear back. If you do not answer, we will alert the safety team.'
+                : 'A quick safety check during your ride.'}
+            </Text>
+            <Pressable
+              onPress={() => answerCheckIn('ok')}
+              disabled={answering}
+              accessibilityRole="button"
+              style={[styles.checkInBtn, { backgroundColor: c.primary }]}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>I'm OK</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => answerCheckIn('help')}
+              disabled={answering}
+              accessibilityRole="button"
+              style={[styles.checkInBtn, { backgroundColor: c.errorLight }]}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>I need help</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {!isCompleted && !isCancelled && (
         <Pressable
@@ -406,6 +505,9 @@ export function ActiveRideScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex1: { flex: 1 },
+  checkInScrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  checkInCard: { width: '100%', maxWidth: 360, borderRadius: 20, padding: 24, gap: 12, alignItems: 'center' },
+  checkInBtn: { alignSelf: 'stretch', minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   centeredInline: { alignItems: 'center', justifyContent: 'center' },
   mapWrap: { height: 240, position: 'relative' },

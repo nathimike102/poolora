@@ -45,6 +45,8 @@ interface RequestItem {
   aiScore: number | null;
   passengers: Array<{ name: string; gender: string }>;
   status: Status;
+  /** The rider's message with the request */
+  note?: string;
 }
 
 interface TripItem {
@@ -152,6 +154,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                 aiScore: b.matchScore ? Math.round(b.matchScore) : null,
                 passengers: [{ name: b.rider?.name || 'Rider', gender: b.rider?.gender || '' }],
                 status: b.status,
+                note: b.note,
               };
             });
 
@@ -571,8 +574,12 @@ export function ManageRequestsScreen(): React.ReactElement {
                 <Text variant="labelSmall" style={{ color: c.textSec }}>{req.date}</Text>
               </View>
 
-              {/* Message */}
-          
+              {/* Message from the rider */}
+              {req.note ? (
+                <View style={[styles.routeRow, { backgroundColor: c.bg }]}>
+                  <Text variant="bodySmall" style={{ color: c.text, fontStyle: 'italic', flex: 1 }}>“{req.note}”</Text>
+                </View>
+              ) : null}
 
               {/* Action buttons */}
               {req.status === 'pending' && (

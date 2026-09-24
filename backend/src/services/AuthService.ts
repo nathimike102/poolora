@@ -437,6 +437,9 @@ export class AuthService {
 
     await user.save();
 
+    const { emailUser } = await import('./Mailer');
+    void emailUser(userId, 'You are approved to drive on Poolora', 'Your licence and vehicle papers have been checked. You can now post rides from the app.');
+
     // Invalidate existing sessions so user gets updated JWT payload on next login
     await this.invalidateAllSessions(userId);
 
@@ -463,6 +466,9 @@ export class AuthService {
     user.kyc.reviewedAt = new Date();
     user.kyc.rejectionReason = reason;
     await user.save();
+
+    const { emailUser } = await import('./Mailer');
+    void emailUser(userId, 'Your Poolora driver application', `We could not approve your driver application yet: ${reason}\n\nYou can fix this and apply again from the app.`);
 
     EventBridge.publish('user-events', {
       eventType: 'kyc.rejected',

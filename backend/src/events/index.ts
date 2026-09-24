@@ -264,6 +264,20 @@ export class EventBridge {
             { rideId: data.rideId ?? '', type: 'ride' },
           );
         }
+      } else if (event.eventType === 'ride.updated') {
+        const data = event.data as { rideId?: string; changed?: string[]; departureTime?: string; riderIds?: string[]; freeCancellation?: boolean };
+        const { NotificationService } = await import('../services/NotificationService');
+        const notificationService = new NotificationService();
+        const when = data.departureTime
+          ? new Date(data.departureTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', hour: 'numeric', minute: '2-digit' })
+          : '';
+        const body = data.freeCancellation
+          ? `Your driver moved the departure to ${when}. If that no longer works, you can cancel for a full refund.`
+          : `Your driver changed the ${(data.changed ?? []).join(' and ')} of your ride.`;
+        for (const riderId of data.riderIds ?? []) {
+          await notificationService.sendPushNotification(riderId, 'Your ride has changed', body, { rideId: data.rideId ?? '', type: 'ride' });
+          await notificationService.createNotification(riderId, 'Your ride has changed', body, 'ride', { rideId: data.rideId ?? '' });
+        }
       } else if (event.eventType === 'ride.started') {
         const { NotificationService } = await import('../services/NotificationService');
         const notificationService = new NotificationService();
@@ -312,6 +326,21 @@ export class EventBridge {
           data.riderId,
           'Booking Cancelled',
           'Your booking has been cancelled.',
+          { bookingId: data.bookingId || '', type: 'booking' },
+        );
+      } else if (event.eventType === 'booking.driver_arrived' && data.riderId) {
+        const waitMins = (event.data as { waitMins?: number }).waitMins ?? 10;
+        await notificationService.sendPushNotification(
+          data.riderId,
+          'Your driver has arrived',
+          `Your driver is at the pickup and will wait ${waitMins} minutes.`,
+          { bookingId: data.bookingId || '', type: 'ride' },
+        );
+      } else if (event.eventType === 'booking.no_show' && data.riderId) {
+        await notificationService.sendPushNotification(
+          data.riderId,
+          'Marked as a no-show',
+          'Your driver waited at the pickup and left without you. The fare is not refunded; raise a dispute from My rides if this is wrong.',
           { bookingId: data.bookingId || '', type: 'booking' },
         );
       } else if (event.eventType === 'booking.expired' && data.riderId) {

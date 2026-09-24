@@ -98,6 +98,9 @@ export type RootStackParamList = {
   Booking: { rideId: string; seats?: number; pickup?: BookingStop; dropoff?: BookingStop };
   ActiveRide: { rideId: string; bookingId?: string };
   RideDetail: { rideId: string; pickup?: BookingStop; dropoff?: BookingStop };
+  Receipt: { bookingId: string };
+  /** Raise a dispute about a booking; `summary` names the trip on the form */
+  RaiseDispute: { bookingId: string; summary?: string };
   Payment: {
     bookingId: string;
     orderId: string;
@@ -113,6 +116,7 @@ export type RootStackParamList = {
   KYC: undefined;
   UpcomingRides: undefined;
   DriverRideDetails: { rideId: string };
+  EditRide: { rideId: string };
 
   // Parcel flow
   ShipParcel: undefined;

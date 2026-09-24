@@ -38,6 +38,16 @@ export interface IBooking extends Document {
   refundAmount?: number;
   /** What the rider forfeited for a late cancellation; paid to the driver less the platform fee. */
   cancellationFee?: number;
+  /** Optional message from the rider to the driver with the request (UC-R03 step 6) */
+  note?: string;
+  /** When the driver said they were at this rider's pickup (UC-D04, UC-D07) */
+  driverArrivedAt?: Date;
+  /** The rider did not come within the waiting time (UC-D07) */
+  noShow?: boolean;
+  /** The driver moved the departure time after this booking was made; the rider may cancel for a full refund (UC-D08) */
+  rideChangedAt?: Date;
+  /** In-ride safety check-ins (UC-R05): the open prompt and how many went unanswered */
+  safetyCheck?: { promptedAt?: Date; answeredAt?: Date; missed: number };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -94,6 +104,15 @@ const BookingSchema = new Schema<IBooking>(
     cancelledAt: Date,
     refundAmount: { type: Number, min: 0 },
     cancellationFee: { type: Number, min: 0 },
+    note: { type: String, maxlength: 300 },
+    driverArrivedAt: Date,
+    noShow: Boolean,
+    rideChangedAt: Date,
+    safetyCheck: {
+      promptedAt: Date,
+      answeredAt: Date,
+      missed: { type: Number, default: 0 },
+    },
   },
   {
     timestamps: true,

@@ -134,6 +134,8 @@ export const config = {
   tracking: {
     intervalMs: 5_000,
     startBeforePickupMins: 30,
+    /** A car further than this from its planned route raises a deviation alert (UC-R05). Admin-editable. */
+    routeDeviationMeters: 500,
   },
 
   safety: {
@@ -171,6 +173,18 @@ export const config = {
     ],
     /** How often the booking sweeper runs. */
     sweepIntervalMs: 60_000,
+    /** How long a driver waits at a pickup before reporting a no-show (UC-D07). Admin-editable. */
+    noShowWaitMins: 10,
+    /** Rides can be edited until this long before departure (UC-D08) */
+    editCutoffHours: 4,
+    /** How far an edit may move the departure time (UC-D08) */
+    maxDepartureShiftHours: 2,
+    /** Price change allowed on a ride nobody has booked yet (UC-D08) */
+    maxPriceChangeRate: 0.2,
+    /** Minutes between "Are you OK?" prompts during a ride (UC-R05). Admin-editable. */
+    safetyCheckInMins: 30,
+    /** Unanswered prompts are repeated after this, and the second miss raises an SOS */
+    safetyCheckInGraceMins: 10,
   },
 
   otp: {

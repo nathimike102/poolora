@@ -50,6 +50,8 @@ interface RideItem {
   price: number;
   status: Booking['status'];
   reason: string;
+  /** What came back on a cancellation */
+  refunded: number;
 }
 
 /** "Kakinada Beach, Uppada Road, ..." → "Kakinada Beach" */
@@ -75,7 +77,8 @@ function toItem(b: Booking): RideItem {
     driver: b.driver?.name || 'Driver',
     price: b.finalFare ?? b.estimatedFare ?? 0,
     status: b.status,
-    reason: b.status === 'rejected' ? 'Declined by driver' : b.cancellationReason || 'Cancelled',
+    reason: b.noShow ? 'Marked as a no-show' : b.status === 'rejected' ? 'Declined by driver' : b.cancellationReason || 'Cancelled',
+    refunded: b.refundAmount ?? 0,
   };
 }
 
@@ -229,13 +232,34 @@ export function MyRidesScreen() {
     );
   };
 
+  // Receipts and disputes exist only for seats that were confirmed at some point
+  const hadSeat = (r: RideItem) => r.status === 'completed' || (r.status === 'cancelled' && r.price > 0);
+
+  const openHistory = (r: RideItem) => {
+    const options: Array<{ text: string; onPress?: () => void; style?: 'cancel' }> = [];
+    if (hadSeat(r)) {
+      options.push({ text: 'Receipt', onPress: () => navigation.navigate('Receipt', { bookingId: r.id }) });
+      options.push({ text: 'Report a problem', onPress: () => navigation.navigate('RaiseDispute', { bookingId: r.id, summary: `${placeName(r.from)} to ${placeName(r.to)}, ${formatDate(r.departure)}` }) });
+    }
+    options.push({ text: 'Book again', onPress: () => rebook(r) });
+    options.push({ text: 'Close', style: 'cancel' });
+    Alert.alert(placeName(r.to), formatDate(r.departure), options);
+  };
+
+  const priceLine = (r: RideItem) => {
+    if (r.status === 'completed') return `₹${r.price} · Completed`;
+    if (r.refunded > 0 && r.refunded < r.price) return `₹${r.refunded} of ₹${r.price} refunded · ${r.reason}`;
+    if (r.refunded > 0) return `Refunded in full · ${r.reason}`;
+    return r.reason;
+  };
+
   const renderHistory = ({ item: r, index }: { item: RideItem; index: number }) => {
     const completed = r.status === 'completed';
     return (
       <Pressable
-        onPress={() => rebook(r)}
+        onPress={() => openHistory(r)}
         accessibilityRole="button"
-        accessibilityLabel={`${placeName(r.to)}, ${formatDate(r.departure)}, ${completed ? `₹${r.price}, completed` : r.reason}. Book this trip again`}
+        accessibilityLabel={`${placeName(r.to)}, ${formatDate(r.departure)}, ${priceLine(r)}. Receipt, report a problem or book again`}
         style={({ pressed }) => [
           styles.historyRow,
           index < history.length - 1 && { borderBottomColor: c.border, borderBottomWidth: StyleSheet.hairlineWidth },
@@ -249,7 +273,7 @@ export function MyRidesScreen() {
           <Text style={[styles.historyTitle, { color: c.text }]} numberOfLines={1}>{placeName(r.to)}</Text>
           <Text style={[styles.meta, { color: c.textSec }]}>{formatDate(r.departure)}</Text>
           <Text style={[styles.meta, { color: completed ? c.textSec : c.error }]}>
-            {completed ? `₹${r.price} · Completed` : `₹0 · ${r.reason}`}
+            {priceLine(r)}
           </Text>
         </View>
         <Icon name="chevron-right" size={22} color={c.textSec} />

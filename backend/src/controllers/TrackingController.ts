@@ -125,4 +125,62 @@ export class TrackingController {
       next(error);
     }
   }
+
+  /**
+   * GET /track/trip/:token
+   * Public page a rider shares with people they trust (UC-R08). Refreshes
+   * itself; no scripts, and the link dies an hour after the trip.
+   */
+  static async tripPage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+      );
+      const { TripShareService } = await import('../services/TripShareService');
+      const trip = await new TripShareService().publicView(String(req.params.token), req.ip);
+      if (!trip) {
+        res.status(404).type('html').send(
+          page('Trip link expired', `<h1>This trip link is no longer active</h1>
+<p>Links stop working an hour after the trip ends, or when it is cancelled.</p>
+<p>If you think someone is in danger, call <a href="tel:112">112</a>.</p>`),
+        );
+        return;
+      }
+      const rider = escapeHtml(trip.riderFirstName);
+      const statusText: Record<typeof trip.status, string> = {
+        waiting: `${rider}'s ride has not started yet.`,
+        on_the_way: `The driver is on the way to pick ${rider} up${trip.etaMins ? `, about ${trip.etaMins} min away` : ''}.`,
+        in_car: `${rider} is in the car${trip.etaMins ? ` and about ${trip.etaMins} min from the drop` : ''}.`,
+        arrived: `${rider} has arrived.`,
+      };
+      let location = '';
+      if (trip.position) {
+        const { lat, lng } = trip.position;
+        const url = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
+        location = `<a class="button" href="${escapeHtml(url)}" rel="noopener noreferrer">See where the car is on a map</a>
+<p class="muted">Position updated ${escapeHtml(formatTime(trip.position.at))} (IST).</p>`;
+      }
+      const live = trip.status === 'on_the_way' || trip.status === 'in_car';
+      res.status(200).type('html').send(
+        page(
+          `${trip.riderFirstName}'s Poolora trip`,
+          `<h1>${rider} is sharing a Poolora trip</h1>
+<p class="${trip.status === 'arrived' ? 'ok' : ''}">${statusText[trip.status]}</p>
+<p><strong>${escapeHtml(trip.from)}</strong> to <strong>${escapeHtml(trip.to)}</strong><br>
+<span class="muted">Leaves ${escapeHtml(formatTime(trip.departure))} (IST)</span></p>
+<p>Driver ${escapeHtml(trip.driverFirstName)} · ${escapeHtml(trip.vehicle)}</p>
+${location}
+<p>If you think ${rider} is in danger, call <a href="tel:112">112</a>.</p>
+${live ? '<p class="muted">This page refreshes every 20 seconds.</p>' : ''}`,
+          live ? 20 : 60,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
 }
