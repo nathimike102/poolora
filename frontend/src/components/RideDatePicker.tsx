@@ -59,6 +59,8 @@ interface RideDatePickerProps {
   selectedDate: Date | null;
   onSelect: (date: Date) => void;
   onClose: () => void;
+  /** How far ahead a date can be chosen; rides allow 60 days */
+  maxDaysAhead?: number;
 }
 
 // ─── Day Cell ─────────────────────────────────────────────────────────────────
@@ -189,12 +191,13 @@ export function RideDatePicker({
   selectedDate,
   onSelect,
   onClose,
+  maxDaysAhead = 60,
 }: RideDatePickerProps) {
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const today = startOfDay(new Date());
   const maxDate = new Date(today);
-  maxDate.setDate(today.getDate() + 60);
+  maxDate.setDate(today.getDate() + maxDaysAhead);
 
   const [viewYear, setViewYear] = React.useState(
     selectedDate ? selectedDate.getFullYear() : today.getFullYear(),

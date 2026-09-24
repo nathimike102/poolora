@@ -132,8 +132,10 @@ export type RootStackParamList = {
 
   // Trip flow
   PlanTrip: undefined;
-  TripDetail: { tripId: string };
-  TripPartners: { tripId: string };
+  /** `code` opens a private trip someone shared */
+  TripDetail: { tripId: string; code?: string };
+  /** Find travel partners, and the user's own trips */
+  TripPartners: undefined;
 
   // Shared detail screens (pushed above tabs)
   Chat: { chatId: string; recipientName: string };

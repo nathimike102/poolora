@@ -490,6 +490,30 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 
 Settings an admin can change: platform commission, rider cancellation refund tiers, payment time limit, driver response time, empty-ride cancellation, SOS check-in intervals by risk level, match-score weights (must add up to 100%), distance from the route, default search radius and time window, active rides per driver, and open requests per rider. Payment credentials and message templates are deliberately not editable.
 
+### Trips — `/trips` (Phase 4)
+
+Group trips (UC-T01 to UC-T05). Only members see expenses, activities, settlements, the invite code and members' UPI ids.
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/trips` | Plan a trip. Body: `title`, `tripType` (`vacation`, `weekend`, `business`), `startDate`, `endDate` (1 to 90 days), `destinations` (`name`, optional `lat`, `lng`; up to 10), `maxGroupSize` (2 to 8, including the organiser), optional `description`, `budgetPerPerson`, `interests`, `itinerary` (`day`, `title`, `notes`) and `visibility` (`public` or `private`) |
+| GET | `/trips/search` | Public trips still being planned, with room, that the caller is not on. Query: optional `destination`, `from`, `to`, `interests` (comma-separated), `maxBudget`. Ranked by `compatibility` (0 to 100): shared interests 50%, overlapping dates 30%, budget 20%. Each has `spotsLeft` |
+| GET | `/trips/mine` | Trips the caller organises or is on; `pendingRequests` for the organiser |
+| GET | `/trips/invite/:code` | Opens a trip by its invite code, including private ones |
+| GET | `/trips/:id` | One trip. Private trips need `?code=`. Adds `isMember`, `isOrganizer`, `myRequestStatus` and `viewerId` |
+| PATCH | `/trips/:id` | Organiser: change the plan, or `status` (`ongoing`, `completed`, `cancelled`) |
+| POST | `/trips/:id/join` | Ask to join. Body: optional `message`, and `code` for a private trip. `409 TRIP_FULL` when full |
+| POST | `/trips/:id/requests/:requestId` | Organiser answers. Body: `accept` |
+| POST | `/trips/:id/leave` | A member leaves, once their balance is settled |
+| PUT | `/trips/:id/upi` | The caller's UPI id for this trip. Body: `upiId` (empty to remove) |
+| GET, POST | `/trips/:id/expenses` | List, or add: `description`, `amount`, optional `paidBy` (default the caller) and `splitAmong` (default everyone). Split equally, to the paisa |
+| DELETE | `/trips/:id/expenses/:expenseId` | Whoever added it, or the organiser |
+| GET | `/trips/:id/settlement` | `total`, `perPerson`, each member's `paid`, `share` and `balance`, and `transfers`: the fewest payments that settle everyone, each with a `upiLink` when the payee added a UPI id |
+| POST | `/trips/:id/settlements` | The payer or payee marks a payment made. Body: `from`, `to`, `amount` |
+| POST | `/trips/:id/settlement/notify` | Tells each member what they owe or are owed |
+| POST | `/trips/:id/activities` | Propose an activity: `title`, optional `date`, `cost`, `durationMins`, `notes`. The proposer votes yes |
+| POST | `/trips/:id/activities/:activityId/vote` | Body: `vote` (`yes`, `no`, `maybe`). More than half the group voting yes confirms it and adds its cost to the expenses, paid by the proposer; more than half voting no rejects it |
+
 ### Support — `/support`
 
 Help and support requests (UC-X02). The FAQ and the phone line for urgent safety and payment problems are in the app.

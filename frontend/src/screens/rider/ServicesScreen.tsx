@@ -50,12 +50,10 @@ export function ServicesScreen() {
     { key: 'contacts', label: 'SOS contacts', icon: 'account-heart-outline', onPress: () => navigation.navigate('EmergencyContacts') },
     { key: 'messages', label: 'Messages', icon: 'message-text-outline', onPress: () => navigation.navigate('Messages') },
     { key: 'parcels', label: 'Parcels', icon: 'package-variant-closed', onPress: () => navigation.navigate('ShipParcel') },
+    { key: 'trips', label: 'Trips', icon: 'bag-suitcase-outline', onPress: () => navigation.navigate('TripPartners') },
     { key: 'drive', label: 'Drive & earn', icon: 'steering', onPress: switchRole },
   ];
 
-  const soon: { label: string; icon: IconName }[] = [
-    { label: 'Trip planner', icon: 'bag-suitcase-outline' },
-  ];
 
   return (
     <View style={[styles.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
@@ -67,18 +65,6 @@ export function ServicesScreen() {
 
         <Text style={[styles.section, { color: c.textSec }]}>More</Text>
         <Grid items={more} />
-
-        <Text style={[styles.section, { color: c.textSec }]}>Coming soon</Text>
-        <View style={styles.grid}>
-          {soon.map(s => (
-            <View key={s.label} style={styles.cell} accessible accessibilityLabel={`${s.label}, coming soon`}>
-              <View style={[styles.tile, { backgroundColor: c.surfaceVariant, opacity: 0.55 }]}>
-                <Icon name={s.icon} size={34} color={c.textSec} />
-              </View>
-              <Text style={[styles.label, { color: c.textSec }]} numberOfLines={1}>{s.label}</Text>
-            </View>
-          ))}
-        </View>
       </ScrollView>
     </View>
   );

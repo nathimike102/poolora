@@ -18,6 +18,7 @@ import simulationRoutes from './simulation.routes';
 import disputeRoutes from './dispute.routes';
 import rideAlertRoutes from './rideAlert.routes';
 import supportRoutes from './support.routes';
+import tripRoutes from './trip.routes';
 
 const router = Router();
 
@@ -40,6 +41,7 @@ router.use('/dev/simulate', simulationRoutes);
 router.use('/disputes', disputeRoutes);
 router.use('/ride-alerts', rideAlertRoutes);
 router.use('/support', supportRoutes);
+router.use('/trips', tripRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {
