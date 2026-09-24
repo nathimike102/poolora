@@ -431,11 +431,12 @@ Push notifications go through Firebase Cloud Messaging using the service account
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/parcels/create` | signed in | Send a parcel on a ride |
-| POST | `/parcels/:id/accept` | driver | Carry it |
+| POST | `/parcels/create` | signed in | Send a parcel on a ride that has not left, and is not your own (`409 SELF_PARCEL`, `409 RIDE_NOT_AVAILABLE`). With `useWallet: true` the wallet pays at once; otherwise the response has a Razorpay order, and the payment webhook records the payment. The response has the one-time `deliveryOtp` to share with the recipient |
+| POST | `/parcels/:id/accept` | driver | Carry it. Only once it is paid (`409 PARCEL_NOT_PAID`) |
+| POST | `/parcels/:id/reject` | driver | Decline. Body: optional `reason`. The sender is refunded in full |
 | POST | `/parcels/:id/pickup` | driver | Picked up |
-| POST | `/parcels/:id/deliver` | driver | Delivered |
-| POST | `/parcels/:id/cancel` | sender | Cancel |
+| POST | `/parcels/:id/deliver` | driver | Delivered, with the recipient's code. 70% of the cost is counted in the driver's earnings |
+| POST | `/parcels/:id/cancel` | sender | Cancel before pickup, with a full refund to the wallet or card. Refused once the driver has it (`409 PARCEL_PICKED_UP`) |
 | GET | `/parcels/track/:trackingNumber` | signed in | Status by tracking number |
 | GET | `/parcels` | signed in | The caller's parcels |
 

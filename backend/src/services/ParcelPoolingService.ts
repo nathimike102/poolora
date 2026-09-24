@@ -17,8 +17,15 @@ import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
 import { callRazorpay } from '../utils/razorpay';
 import { NotificationService } from './NotificationService';
+import { WalletService } from './WalletService';
+import { User } from '../models/User';
+import { RideStatus } from '../types';
 
 const notificationService = new NotificationService();
+const walletService = new WalletService();
+const round2 = (n: number) => Math.round(n * 100) / 100;
+/** The driver's share of a delivered parcel; the rest is the platform fee */
+const DRIVER_SHARE = 0.7;
 
 const MAX_DELIVERY_OTP_ATTEMPTS = 5;
 
@@ -65,10 +72,18 @@ export class ParcelPoolingService {
       insuranceValue?: number;
       specialInstructions?: string;
       receiverId?: string;
+      /** Pay from the wallet instead of by card or UPI */
+      useWallet?: boolean;
     },
-  ): Promise<{ parcel: IParcelPooling; razorpayOrder: Orders.RazorpayOrder; deliveryOtp: string }> {
+  ): Promise<{ parcel: IParcelPooling; razorpayOrder: Orders.RazorpayOrder | null; deliveryOtp: string }> {
     const ride = await Ride.findById(data.rideId);
     if (!ride) throw new NotFoundError('Ride');
+    if (ride.driver.toString() === senderId) {
+      throw new AppError('You cannot send a parcel on your own ride', 409, 'SELF_PARCEL');
+    }
+    if (![RideStatus.SCHEDULED, RideStatus.ACTIVE].includes(ride.status) || ride.departureTime.getTime() <= Date.now()) {
+      throw new AppError('This ride has already left or is no longer available', 409, 'RIDE_NOT_AVAILABLE');
+    }
 
     // Validate parcel weight doesn't exceed vehicle capacity
     const totalParcelWeight = await ParcelPooling.aggregate([
@@ -98,17 +113,18 @@ export class ParcelPoolingService {
     );
     const weightSurcharge = data.parcelWeight > 5 ? (data.parcelWeight - 5) * 10 : 0;
     const insuranceCost = data.insuranceValue ? data.insuranceValue * 0.01 : 0; // 1% insurance
-    const estimatedCost = basePrice + distance * pricePerKm + weightSurcharge + insuranceCost;
+    const estimatedCost = round2(basePrice + distance * pricePerKm + weightSurcharge + insuranceCost);
 
-    // Create Razorpay order
-    const razorpay = getRazorpayClient();
-    const razorpayOrder = await callRazorpay('create parcel order', () =>
-      razorpay.orders.create({
-        amount: Math.round(estimatedCost * 100), // Convert to paise
-        currency: 'INR',
-        receipt: `parcel_${Date.now()}`,
-      }),
-    );
+    // Card or UPI: a Razorpay order the app pays; the webhook records the payment
+    const razorpayOrder = data.useWallet
+      ? null
+      : await callRazorpay('create parcel order', () =>
+        getRazorpayClient().orders.create({
+          amount: Math.round(estimatedCost * 100), // Convert to paise
+          currency: 'INR',
+          receipt: `parcel_${Date.now()}`,
+        }),
+      );
 
     const trackingNumber = generateTrackingNumber();
     // Shown once to the sender, who shares it with the recipient. The driver
@@ -139,12 +155,26 @@ export class ParcelPoolingService {
       estimatedDeliveryTime: data.estimatedDeliveryTime,
       estimatedCost,
       insuranceValue: data.insuranceValue,
-      insuranceCost,
+      insuranceCost: round2(insuranceCost),
       specialInstructions: data.specialInstructions,
       trackingNumber,
-      razorpayOrderId: razorpayOrder.id,
+      razorpayOrderId: razorpayOrder?.id,
+      paymentMethod: data.useWallet ? 'wallet' : 'razorpay',
       deliveryOtpHash: hashOtp(deliveryOtp),
     });
+
+    if (data.useWallet) {
+      // Keyed to the parcel's id, so it is charged once; undone if the wallet is short
+      try {
+        await walletService.deductForBooking(senderId, parcel._id.toString(), estimatedCost);
+      } catch (error) {
+        await ParcelPooling.deleteOne({ _id: parcel._id });
+        throw error;
+      }
+      parcel.paymentStatus = 'paid';
+      parcel.paidAt = new Date();
+      await parcel.save();
+    }
 
     logger.info('Parcel request created', {
       parcelId: parcel._id,
@@ -177,6 +207,9 @@ export class ParcelPoolingService {
 
     if (parcel.status !== BookingStatus.PENDING) {
       throw new ConflictError('Parcel is not pending acceptance');
+    }
+    if (parcel.paymentStatus !== 'paid' && parcel.paymentStatus !== 'authorized') {
+      throw new AppError('The sender has not paid for this parcel yet', 409, 'PARCEL_NOT_PAID');
     }
 
     parcel.status = BookingStatus.CONFIRMED;
@@ -294,9 +327,11 @@ export class ParcelPoolingService {
     parcel.deliveryOtpHash = undefined;
     parcel.status = BookingStatus.COMPLETED;
     parcel.finalCost = parcel.estimatedCost;
-    parcel.driverEarnings = parcel.estimatedCost * 0.7; // 70% to driver
-    parcel.platformFee = parcel.estimatedCost * 0.3; // 30% platform fee
+    parcel.driverEarnings = round2(parcel.estimatedCost * DRIVER_SHARE);
+    parcel.platformFee = round2(parcel.estimatedCost - parcel.driverEarnings);
     await parcel.save();
+    // Counted with the driver's ride earnings
+    await User.findByIdAndUpdate(driverId, { $inc: { 'stats.totalEarnings': parcel.driverEarnings } });
 
     // Notify all parties
     const notificationTitle = 'Parcel Delivered';
@@ -398,11 +433,58 @@ export class ParcelPoolingService {
     if (parcel.status === BookingStatus.COMPLETED || parcel.status === BookingStatus.CANCELLED) {
       throw new ConflictError('Cannot cancel completed or already cancelled parcel');
     }
+    if (parcel.actualPickupTime) {
+      throw new AppError('The driver already has the parcel. Contact support to stop the delivery.', 409, 'PARCEL_PICKED_UP');
+    }
 
+    return this.cancelAndRefund(parcel, userId, reason);
+  }
+
+  /** The driver turns down a parcel request; the sender is refunded in full */
+  async rejectParcelRequest(parcelId: string, driverId: string, reason = 'The driver could not take this parcel'): Promise<IParcelPooling> {
+    const parcel = await ParcelPooling.findById(parcelId);
+    if (!parcel) throw new NotFoundError('Parcel');
+    if (parcel.driver.toString() !== driverId) throw new AuthorizationError('Only the assigned driver can decline');
+    if (parcel.status !== BookingStatus.PENDING) throw new ConflictError('Parcel is not pending acceptance');
+    const cancelled = await this.cancelAndRefund(parcel, driverId, reason);
+    await notificationService.createNotification(
+      parcel.sender.toString(),
+      'Parcel request declined',
+      `The driver could not take your parcel. ${cancelled.refundAmount ? `₹${cancelled.refundAmount} is on its way back to you.` : ''}`.trim(),
+      'system',
+      { parcelId: parcel._id.toString() },
+    );
+    return cancelled;
+  }
+
+  /** Cancels a parcel that has not been picked up, and returns the sender's money */
+  private async cancelAndRefund(parcel: IParcelPooling, actorId: string, reason: string): Promise<IParcelPooling> {
     parcel.status = BookingStatus.CANCELLED;
-    parcel.cancelledBy = new Types.ObjectId(userId);
+    parcel.cancelledBy = new Types.ObjectId(actorId);
     parcel.cancellationReason = reason;
     parcel.cancelledAt = new Date();
+
+    if (parcel.paymentStatus === 'paid') {
+      const amount = parcel.estimatedCost;
+      try {
+        if (parcel.paymentMethod === 'wallet') {
+          await walletService.refundToWallet(parcel.sender.toString(), parcel._id.toString(), amount, reason);
+        } else if (parcel.razorpayPaymentId) {
+          await getRazorpayClient().payments.refund(parcel.razorpayPaymentId, {
+            amount: Math.round(amount * 100),
+            notes: { parcelId: parcel._id.toString(), reason },
+          });
+        } else {
+          throw new Error('No Razorpay payment id');
+        }
+        parcel.paymentStatus = 'refunded';
+        parcel.refundAmount = amount;
+      } catch (error) {
+        logger.error('Parcel refund failed; needs manual refund', { parcelId: parcel._id, error: (error as Error).message });
+        parcel.paymentStatus = 'refund_failed';
+      }
+    }
+    // An authorization that was never captured is released by Razorpay
     await parcel.save();
 
     EventBridge.publish('ride-events', {
@@ -410,5 +492,25 @@ export class ParcelPoolingService {
       data: { parcelId: parcel._id },
     });
     return parcel;
+  }
+
+  /**
+   * Records a card or UPI payment for a parcel from the Razorpay webhook.
+   * Returns false when the order is not a parcel's.
+   */
+  async recordRazorpayPayment(orderId: string, paymentId: string, captured: boolean): Promise<boolean> {
+    const parcel = await ParcelPooling.findOne({ razorpayOrderId: orderId });
+    if (!parcel) return false;
+    if (parcel.paymentStatus === 'paid' || parcel.paymentStatus === 'refunded') return true;
+    parcel.razorpayPaymentId = paymentId;
+    parcel.paymentStatus = captured ? 'paid' : 'authorized';
+    parcel.paidAt ??= new Date();
+    await parcel.save();
+    if (parcel.status === BookingStatus.PENDING) {
+      await notificationService
+        .createNotification(parcel.driver.toString(), 'New parcel request', `A parcel is waiting for you to accept. Tracking: ${parcel.trackingNumber}`, 'ride', { parcelId: parcel._id.toString() })
+        .catch(() => undefined);
+    }
+    return true;
   }
 }

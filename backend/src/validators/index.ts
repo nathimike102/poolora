@@ -431,6 +431,7 @@ export const createParcelValidator = {
     insuranceValue: Joi.number().min(0).optional(),
     specialInstructions: Joi.string().max(500).optional(),
     receiverId: Joi.string().hex().length(24).optional(),
+    useWallet: Joi.boolean().default(false),
   }),
 };
 

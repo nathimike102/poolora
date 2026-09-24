@@ -36,6 +36,17 @@ export class ParcelPoolingController {
    * POST /api/v1/parcels/:id/accept
    * Accept a parcel delivery request (driver only)
    */
+  /** POST /api/v1/parcels/:id/reject — the driver declines; the sender is refunded */
+  static async rejectParcelRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const parcel = await parcelService.rejectParcelRequest(String(req.params.id), user.userId, req.body?.reason);
+      sendSuccess(res, { parcel }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async acceptParcelRequest(
     req: Request,
     res: Response,

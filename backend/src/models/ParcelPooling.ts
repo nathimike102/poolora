@@ -38,6 +38,11 @@ export interface IParcelPooling extends Document {
   trackingNumber: string;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
+  /** How the sender paid, and whether the money has arrived */
+  paymentMethod?: 'wallet' | 'razorpay';
+  paymentStatus?: 'unpaid' | 'authorized' | 'paid' | 'refunded' | 'refund_failed';
+  paidAt?: Date;
+  refundAmount?: number;
   driverEarnings?: number;
   platformFee?: number;
   cancelledBy?: Types.ObjectId;
@@ -108,6 +113,10 @@ const ParcelPoolingSchema = new Schema<IParcelPooling>(
     trackingNumber: { type: String, required: true, unique: true, index: true },
     razorpayOrderId: { type: String, sparse: true, unique: true },
     razorpayPaymentId: String,
+    paymentMethod: { type: String, enum: ['wallet', 'razorpay'] },
+    paymentStatus: { type: String, enum: ['unpaid', 'authorized', 'paid', 'refunded', 'refund_failed'], default: 'unpaid' },
+    paidAt: Date,
+    refundAmount: Number,
     driverEarnings: Number,
     platformFee: Number,
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },

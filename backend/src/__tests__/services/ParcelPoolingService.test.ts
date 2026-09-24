@@ -11,7 +11,7 @@ jest.mock('../../models/ParcelPooling', () => ({
   ParcelPooling: { findById: jest.fn(), findOne: jest.fn(), updateOne: jest.fn() },
 }));
 jest.mock('../../models/Ride', () => ({ Ride: { findById: jest.fn() } }));
-jest.mock('../../models/User', () => ({ User: { findById: jest.fn() } }));
+jest.mock('../../models/User', () => ({ User: { findById: jest.fn(), findByIdAndUpdate: jest.fn().mockResolvedValue(null) } }));
 jest.mock('../../models/Notification', () => ({ Notification: {} }));
 jest.mock('../../events', () => ({ EventBridge: { publish: jest.fn() } }));
 jest.mock('../../services/NotificationService', () => ({

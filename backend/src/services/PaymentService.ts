@@ -82,6 +82,12 @@ export class PaymentService {
     }
   }
 
+  /** Parcel orders are not bookings; the parcel service records them */
+  private async recordParcelPayment(orderId: string, paymentId: string, captured: boolean): Promise<boolean> {
+    const { ParcelPoolingService } = await import('./ParcelPoolingService');
+    return new ParcelPoolingService().recordRazorpayPayment(orderId, paymentId, captured);
+  }
+
   private async handlePaymentAuthorized(
     payload: RazorpayWebhookPayload,
   ): Promise<void> {
@@ -98,6 +104,7 @@ export class PaymentService {
 
     const booking = await Booking.findOne({ razorpayOrderId: orderId });
     if (!booking) {
+      if (await this.recordParcelPayment(orderId, paymentEntity.id, false)) return;
       logger.error('Booking not found for Razorpay order', { orderId });
       return;
     }
@@ -143,6 +150,7 @@ export class PaymentService {
 
     const booking = await Booking.findOne({ razorpayOrderId: orderId });
     if (!booking) {
+      if (await this.recordParcelPayment(orderId, paymentEntity.id, true)) return;
       logger.error('Booking not found for captured payment', { orderId });
       return;
     }

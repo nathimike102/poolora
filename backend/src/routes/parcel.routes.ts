@@ -36,6 +36,17 @@ router.post(
 );
 
 /**
+ * POST /api/v1/parcels/:id/reject
+ * Decline a parcel request (assigned driver only); the sender is refunded
+ */
+router.post(
+  '/:id/reject',
+  requireCapability(UserCapability.DRIVER),
+  validate(cancelParcelValidator),
+  ParcelPoolingController.rejectParcelRequest,
+);
+
+/**
  * POST /api/v1/parcels/:id/pickup
  * Mark parcel as picked up (assigned driver only)
  */
