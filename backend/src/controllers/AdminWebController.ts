@@ -17,6 +17,7 @@ import { DisputeService } from '../services/DisputeService';
 import { ReportService, REPORT_TYPES, ReportType, parseReportParams } from '../services/ReportService';
 import { SettingsService } from '../services/SettingsService';
 import { RatingService } from '../services/RatingService';
+import { SupportService } from '../services/SupportService';
 import { AppError } from '../utils/AppError';
 
 const overview = new AdminOverviewService();
@@ -25,6 +26,7 @@ const sos = new AdminSosService();
 const disputes = new DisputeService();
 const reports = new ReportService();
 const ratings = new RatingService();
+const support = new SupportService();
 
 type Handler = (req: Request, adminId: string) => Promise<unknown>;
 
@@ -73,6 +75,15 @@ export const AdminWebController = {
   rejectBlock: handle((req, admin) => users.rejectBlock(id(req), admin, req.body?.reason)),
   unblock: handle((req, admin) => users.unblock(id(req), admin, req.body?.reason)),
   addNote: handle((req, admin) => users.addNote(id(req), admin, req.body?.text)),
+
+  // ── Support tickets (UC-X02) ──────────────────────────────────────────────
+  supportQueue: handle((req) => {
+    const status = queryString(req, 'status');
+    return support.queue(status === 'answered' || status === 'closed' ? status : 'open', queryString(req, 'category') || undefined);
+  }),
+  supportTicket: handle((req) => support.adminGet(id(req))),
+  supportReply: handle((req, admin) => support.adminReply(id(req), admin, String(req.body?.text ?? ''), req.body?.close === true)),
+  supportClose: handle((req, admin) => support.close(id(req), admin)),
 
   // ── Review moderation (UC-R06) ────────────────────────────────────────────
   reviews: handle((req) => {

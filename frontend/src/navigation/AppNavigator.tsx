@@ -89,6 +89,8 @@ import { EditRideScreen } from "../screens/driver/EditRideScreen";
 import { ReceiptScreen } from "../screens/rider/ReceiptScreen";
 import { RaiseDisputeScreen } from "../screens/shared/RaiseDisputeScreen";
 import { RateTripScreen } from "../screens/shared/RateTripScreen";
+import { HelpScreen } from "../screens/shared/HelpScreen";
+import { SupportTicketScreen } from "../screens/shared/SupportTicketScreen";
 import { AddSavedRouteScreen } from "../screens/rider/AddSavedRouteScreen";
 
 // ─── Parcel screens ───────────────────────────────────────────────────────────
@@ -264,6 +266,8 @@ function AppNavigatorStack() {
       <Stack.Screen name="Receipt" component={ReceiptScreen} />
       <Stack.Screen name="RaiseDispute" component={RaiseDisputeScreen} />
       <Stack.Screen name="RateTrip" component={RateTripScreen} />
+      <Stack.Screen name="Help" component={HelpScreen} />
+      <Stack.Screen name="SupportTicket" component={SupportTicketScreen} />
       <Stack.Screen name="AddSavedRoute" component={AddSavedRouteScreen} />
 
       {/* ── Driver detail screens (pushed above tabs) ─────────── */}

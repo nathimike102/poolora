@@ -460,6 +460,10 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | POST | `/admin/accounts/:id/block/reject` | Reject a block request. Body: `reason` |
 | POST | `/admin/accounts/:id/unblock` | Body: `reason` |
 | POST | `/admin/accounts/:id/notes` | Internal note, seen only by admins. Body: `text` |
+| GET | `/admin/support` | Support requests. `?status=open` (default: urgent first, then oldest), `answered` or `closed`; optional `category` |
+| GET | `/admin/support/:id` | The request with the user, the trip and the thread |
+| POST | `/admin/support/:id/reply` | Body: `text`, optional `close`. The user is notified in the app, by push and by email |
+| POST | `/admin/support/:id/close` | Close without a reply |
 | GET | `/admin/reviews` | Review moderation (UC-R06). `?status=pending` (default: reviews waiting for approval and unhandled safety reports, safety first), `reported` (every rating that reported a problem) or `done` |
 | POST | `/admin/reviews/:id/moderate` | Body: `decision` (`approve` publishes the review, `reject` keeps it hidden; either marks a report handled) and optional `note`. Recorded in the audit log |
 | GET | `/admin/fraud` | Accounts flagged by the fraud check on failed payments (UC-AI02). `?view=open` (default: waiting, oldest first, `overdue` after 2 hours) or `?view=reviewed` (recent decisions). Each has `fraudLevel` (`flagged` for high risk, `blocked` for critical), `fraudFlags` and `fraudFlaggedAt` |
@@ -483,6 +487,17 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | GET | `/admin/metrics`, `/admin/rides`, `/admin/users`, `/admin/payments`, `/admin/demand-heatmap` | Older summary endpoints used by the app's admin screens |
 
 Settings an admin can change: platform commission, rider cancellation refund tiers, payment time limit, driver response time, empty-ride cancellation, SOS check-in intervals by risk level, match-score weights (must add up to 100%), distance from the route, default search radius and time window, active rides per driver, and open requests per rider. Payment credentials and message templates are deliberately not editable.
+
+### Support — `/support`
+
+Help and support requests (UC-X02). The FAQ and the phone line for urgent safety and payment problems are in the app.
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/support/tickets` | Body: `category` (`account`, `payment`, `dispute`, `technical`, `safety`, `feature`, `feedback`), `subject`, `message`, optional `bookingId` (one of the caller's trips) and `appInfo`. Safety and payment requests are `urgent`; a safety request alerts admins at once (`support:safety` socket event). At most 5 open requests per user (`409 TOO_MANY_TICKETS`) |
+| GET | `/support/tickets` | The caller's requests, newest activity first |
+| GET | `/support/tickets/:id` | One request with its messages |
+| POST | `/support/tickets/:id/reply` | Body: `text`. Adds to the thread; a closed request opens again |
 
 ### Disputes — `/disputes`
 
@@ -547,6 +562,7 @@ Every socket joins the room `user:<userId>`.
 | `safety:check-in` | An in-ride "Are you OK?" prompt; answer with `POST /safety/ride-check-in` |
 | `chat:message:receive`, `chat:message:sent`, `chat:messages:read`, `chat:typing:*` | Chat |
 | `sos:triggered`, `sos:alert`, `sos:location:updated` | SOS (alerts go to the `admin:sos` room) |
+| `support:safety` | A user opened a safety support request; sent to the `admin:sos` room with `ticketId`, `userId` and `subject` |
 | `rating:safety` | A rider reported a safety problem in a rating; sent to the `admin:sos` room with `ratingId`, `bookingId`, `raterId` and `rateeId` |
 | `fraud:flagged` | The fraud check flagged (`action: flagged`) or suspended (`action: suspended`) an account; sent to the `admin:sos` room with `userId` and `flags` |
 | `tracking:error`, `chat:error`, `sos:error` | The request was refused |

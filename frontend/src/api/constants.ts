@@ -117,6 +117,11 @@ export const API_ENDPOINTS = {
   },
 
   // Disputes
+  support: {
+    tickets: '/support/tickets',
+    ticket: (id: string) => `/support/tickets/${id}`,
+    reply: (id: string) => `/support/tickets/${id}/reply`,
+  },
   disputes: {
     create: '/disputes',
     mine: '/disputes/mine',

@@ -65,6 +65,11 @@ router.post('/accounts/:id/block/reject', W.rejectBlock);
 router.post('/accounts/:id/unblock', W.unblock);
 router.post('/accounts/:id/notes', W.addNote);
 
+router.get('/support', W.supportQueue);
+router.get('/support/:id', W.supportTicket);
+router.post('/support/:id/reply', W.supportReply);
+router.post('/support/:id/close', W.supportClose);
+
 router.get('/reviews', W.reviews);
 router.post('/reviews/:id/moderate', validate(moderateReviewSchema), W.moderateReview);
 

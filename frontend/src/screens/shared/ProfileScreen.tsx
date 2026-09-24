@@ -25,15 +25,8 @@ import { realPhone } from '../../utils/phone';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const HELP_ITEMS: { icon: IconName; title: string; sub: string; url: string }[] = [
+  { icon: 'phone-outline', title: 'Call support', sub: `${COMPANY.supportPhoneDisplay}, for urgent safety or payment problems`, url: `tel:${COMPANY.supportPhone}` },
   { icon: 'email-outline', title: 'Email support', sub: COMPANY.supportEmail, url: `mailto:${COMPANY.supportEmail}` },
-  { icon: 'phone-outline', title: 'Call support', sub: COMPANY.supportPhoneDisplay, url: `tel:${COMPANY.supportPhone}` },
-  { icon: 'help-circle-outline', title: 'Frequently asked questions', sub: 'On the Poolora website', url: COMPANY.faqUrl },
-  {
-    icon: 'bug-outline',
-    title: 'Report a problem',
-    sub: 'Tell us what went wrong',
-    url: `mailto:${COMPANY.supportEmail}?subject=${encodeURIComponent('Problem report: Poolora app')}`,
-  },
   { icon: 'shield-lock-outline', title: 'Privacy policy', sub: 'How we handle your data', url: COMPANY.privacyUrl },
   { icon: 'file-document-outline', title: 'Terms of service', sub: 'The rules for using Poolora', url: COMPANY.termsUrl },
 ];
@@ -194,6 +187,21 @@ export function ProfileScreen(): React.ReactElement {
               <Icon name="close" size={18} color={c.textSec} />
             </Pressable>
           </View>
+          <Pressable
+            style={st.helpRow}
+            accessibilityRole="button"
+            onPress={() => {
+              setShowHelp(false);
+              navigation.navigate('Help');
+            }}
+          >
+            <Icon name="help-circle-outline" size={22} color={c.textSec} />
+            <View style={st.flex1}>
+              <Text style={[st.helpTitle, { color: c.text }]}>Help centre</Text>
+              <Text style={[st.helpSub, { color: c.textSec }]}>Answers, and requests to our team</Text>
+            </View>
+            <Icon name="chevron-right" size={20} color={c.textSec} />
+          </Pressable>
           {HELP_ITEMS.map(item => (
             <Pressable key={item.title} style={st.helpRow} accessibilityRole="link" onPress={() => Linking.openURL(item.url)}>
               <Icon name={item.icon} size={22} color={c.textSec} />
