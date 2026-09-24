@@ -12,6 +12,8 @@ import type {
   ApiResponse,
   Ride,
   CreateRideRequest,
+  CreateRideResult,
+  PriceSuggestion,
   SearchRidesRequest,
   PaginatedResponse,
   PaginatedResult,
@@ -125,12 +127,17 @@ export const rideService = {
    * @param rideData - Ride creation data
    * @returns Created ride
    */
-  async createRide(rideData: CreateRideRequest): Promise<Ride> {
+  async createRide(rideData: CreateRideRequest): Promise<CreateRideResult> {
     try {
-      const response = await apiClient.post<ApiResponse<unknown>>(API_ENDPOINTS.rides.create, rideData);
-      const ride = normalizeRide(response.data.data);
+      const response = await apiClient.post<ApiResponse<{ ride: unknown; returnRide?: unknown; returnError?: string }>>(API_ENDPOINTS.rides.create, rideData);
+      const data = response.data.data;
+      const ride = normalizeRide(data.ride ?? data);
       logger.info('Ride created successfully', { rideId: ride._id });
-      return ride;
+      return {
+        ride,
+        returnRide: data.returnRide ? normalizeRide(data.returnRide) : undefined,
+        returnError: data.returnError,
+      };
     } catch (error) {
       logger.error('Failed to create ride', { error });
       throw error;
@@ -227,6 +234,37 @@ export const rideService = {
       logger.error('Failed to cancel ride', { error, rideId });
       throw error;
     }
+  },
+
+  /**
+   * The suggested seat price and the range the driver may choose from, for a
+   * route through optional stops (UC-D02 steps 6-7)
+   */
+  async getPriceSuggestion(params: {
+    pickup: { lat: number; lng: number };
+    dropoff: { lat: number; lng: number };
+    departureTime: string;
+    vehicleType?: string;
+    stops?: Array<{ lat: number; lng: number }>;
+  }): Promise<PriceSuggestion> {
+    const response = await apiClient.get<ApiResponse<PriceSuggestion>>(API_ENDPOINTS.rides.priceSuggestion, {
+      params: {
+        pickupLat: params.pickup.lat,
+        pickupLng: params.pickup.lng,
+        dropoffLat: params.dropoff.lat,
+        dropoffLng: params.dropoff.lng,
+        departureTime: params.departureTime,
+        vehicleType: params.vehicleType,
+        stops: params.stops?.length ? params.stops.map(p => `${p.lat},${p.lng}`).join('|') : undefined,
+      },
+    });
+    return response.data.data;
+  },
+
+  /** One message to every confirmed rider on the ride (UC-D06 step 6) */
+  async messageAllRiders(rideId: string, content: string): Promise<{ sent: number }> {
+    const response = await apiClient.post<ApiResponse<{ sent: number }>>(API_ENDPOINTS.rides.messageRiders(rideId), { content });
+    return response.data.data;
   },
 
   /**

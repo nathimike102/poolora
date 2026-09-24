@@ -12,6 +12,9 @@ router.get('/me', UserController.getMe);
 router.patch('/me', validate(updateMeSchema), UserController.updateMe);
 router.get('/saved-routes', UserController.getSavedRoutes);
 router.get('/kyc/status', UserController.getKYCStatus);
+router.get('/me/statement', UserController.statement);
+router.post('/me/statement/email', UserController.emailStatement);
+router.get('/me/verified-status', UserController.verifiedStatus);
 router.get('/:id', validate(idParamSchema), UserController.getUserProfile);
 
 export default router;

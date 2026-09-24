@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  ActivityIndicator,
+  Alert,
+  Share,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { bookingService } from '../../services/bookingService';
 import { userService } from '../../services/userService';
-import type { Booking } from '../../types/api';
+import type { Booking, EarningsStatement } from '../../types/api';
+import { errorHandler } from '../../utils/errorHandler';
 import { Icon } from '../../components/Icon';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Defs, LinearGradient as SvgGrad, Stop, Polyline, Line } from 'react-native-svg';
@@ -38,6 +42,138 @@ interface CompletedTrip {
 }
 
 const DAY_MS = 86_400_000;
+
+/** 'YYYY-MM' for a month offset from now, in the phone's calendar */
+function monthKey(offset: number, now = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthLabel(key: string): string {
+  const [y, m] = key.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' });
+}
+
+const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+
+/**
+ * A month's statement (UC-D09): fares, platform fees and earnings, shared as
+ * a spreadsheet or emailed to the address on the profile.
+ */
+function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
+  const [offset, setOffset] = useState(0);
+  const [statement, setStatement] = useState<EarningsStatement | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState<'share' | 'email' | null>(null);
+  const month = monthKey(offset);
+
+  useEffect(() => {
+    let active = true;
+    setStatement(null);
+    setFailed(false);
+    userService
+      .getStatement(month)
+      .then(s => active && setStatement(s))
+      .catch(() => active && setFailed(true));
+    return () => {
+      active = false;
+    };
+  }, [month]);
+
+  const share = async () => {
+    setBusy('share');
+    try {
+      const csv = await userService.getStatementCsv(month);
+      await Share.share({ title: `Poolora earnings ${month}`, message: csv });
+    } catch (error) {
+      Alert.alert('Could not share', errorHandler.process(error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const email = async () => {
+    setBusy('email');
+    try {
+      const { to } = await userService.emailStatement(month);
+      Alert.alert('Statement sent', `We emailed the ${monthLabel(month)} statement to ${to}.`);
+    } catch (error) {
+      Alert.alert('Not sent', errorHandler.process(error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const empty = statement && statement.lines.length === 0;
+  return (
+    <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border, gap: 12 }]}>
+      <View style={styles.monthRow}>
+        <Pressable onPress={() => setOffset(o => o - 1)} accessibilityRole="button" accessibilityLabel="Previous month" style={styles.monthBtn}>
+          <Icon name="chevron-left" size={22} color={c.text} />
+        </Pressable>
+        <Text style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: c.text }} accessibilityLiveRegion="polite">
+          {monthLabel(month)}
+        </Text>
+        <Pressable
+          onPress={() => setOffset(o => Math.min(0, o + 1))}
+          disabled={offset === 0}
+          accessibilityRole="button"
+          accessibilityLabel="Next month"
+          accessibilityState={{ disabled: offset === 0 }}
+          style={styles.monthBtn}
+        >
+          <Icon name="chevron-right" size={22} color={offset === 0 ? c.border : c.text} />
+        </Pressable>
+      </View>
+
+      {failed ? (
+        <Text style={{ fontSize: 14, color: c.textSec }}>We couldn't load this month's statement.</Text>
+      ) : !statement ? (
+        <ActivityIndicator color={c.primary} />
+      ) : empty ? (
+        <Text style={{ fontSize: 14, color: c.textSec }}>No trips or cancellation fees this month.</Text>
+      ) : (
+        <View style={{ gap: 6 }}>
+          {[
+            ['Trips', String(statement.totals.trips)],
+            ['Fares', inr(statement.totals.fare)],
+            ['Platform fees', `−${inr(statement.totals.platformFee)}`],
+          ].map(([label, value]) => (
+            <View key={label} style={styles.lineRow}>
+              <Text style={{ fontSize: 14, color: c.textSec }}>{label}</Text>
+              <Text style={{ fontSize: 14, color: c.text }}>{value}</Text>
+            </View>
+          ))}
+          <View style={[styles.lineRow, { borderTopWidth: 1, borderTopColor: c.border, paddingTop: 6 }]}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Your earnings</Text>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: c.success }}>{inr(statement.totals.earnings)}</Text>
+          </View>
+        </View>
+      )}
+
+      {statement && !empty ? (
+        <View style={styles.lineRow}>
+          <Pressable onPress={share} disabled={busy !== null} accessibilityRole="button" style={[styles.stmtBtn, { borderColor: c.primary }]}>
+            {busy === 'share' ? <ActivityIndicator color={c.primary} /> : (
+              <>
+                <Icon name="share-variant-outline" size={18} color={c.primary} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>Share spreadsheet</Text>
+              </>
+            )}
+          </Pressable>
+          <Pressable onPress={email} disabled={busy !== null} accessibilityRole="button" style={[styles.stmtBtn, { borderColor: c.primary }]}>
+            {busy === 'email' ? <ActivityIndicator color={c.primary} /> : (
+              <>
+                <Icon name="email-outline" size={18} color={c.primary} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>Email it to me</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 function startOfDay(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -350,6 +486,12 @@ export function EarningsScreen() {
               </View>
             </View>
 
+            {/* ── Monthly statement ────────────────────────── */}
+            <View style={styles.section}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 12 }}>Monthly statement</Text>
+              <MonthlyStatement c={c} />
+            </View>
+
             {/* ── Lifetime ─────────────────────────────────── */}
             {lifetime && (
               <View style={[styles.section, { marginBottom: 8 }]}>
@@ -415,7 +557,20 @@ const styles = StyleSheet.create({
   xLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 },
   xLabel: { fontSize: 11 },
 
-  /* Achievement */
+  /* Statement */
+  monthRow: { flexDirection: 'row', alignItems: 'center' },
+  monthBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  lineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  stmtBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   /* Transactions */
   txList: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },

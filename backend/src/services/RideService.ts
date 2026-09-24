@@ -20,6 +20,8 @@ import {
 import { toGeoPoint, paginate } from '../utils/helpers';
 import { mlClient } from '../utils/mlClient';
 import { nearestOnPath } from '../utils/routeGeometry';
+import { PricingService } from './PricingService';
+import { verifiedDriverStatus } from './DriverService';
 import { MatchingEngineClient } from './MatchingEngineClient';
 import { getRoute } from './MapsService';
 import { EventBridge } from '../events';
@@ -90,6 +92,11 @@ function withoutRouteLine<T extends { routeLine?: unknown }>(ride: T): Omit<T, '
   return copy;
 }
 
+/** Ride creation rules (UC-D02) */
+const MIN_ADVANCE_HOURS = 2;
+const MAX_RIDE_KM = 300;
+const MAX_STOPS = 3;
+
 export class RideService {
   private matchingEngine = new MatchingEngineClient();
 
@@ -110,7 +117,11 @@ export class RideService {
       recurring: string;
       preferences: IRide['preferences'];
       parcelInfo?: IRide['parcelInfo'];
+      /** Stops on the way, in order (UC-D02 step 9) */
+      waypoints?: Array<{ lng: number; lat: number; address: string }>;
     },
+    /** The ride simulator posts rides that leave in minutes, at a fixed price */
+    options: { skipCreationRules?: boolean } = {},
   ): Promise<IRide> {
     // Verify driver exists and is approved
     const driver = await User.findById(driverId);
@@ -142,6 +153,13 @@ export class RideService {
     }
 
     // Get real route data from Google Directions API
+    const departureTime = new Date(data.departureTime);
+    const stops = (data.waypoints ?? []).slice(0, MAX_STOPS);
+    // Rides are posted at least 2 hours ahead (UC-D02), so riders can plan
+    if (!options.skipCreationRules && departureTime.getTime() < Date.now() + MIN_ADVANCE_HOURS * 3_600_000) {
+      throw new AppError(`Post rides at least ${MIN_ADVANCE_HOURS} hours before they leave, so riders have time to book.`, 422, 'TOO_SOON');
+    }
+
     let estimatedDistanceKm: number;
     let estimatedDurationMins: number;
     let routePolyline: string;
@@ -150,6 +168,7 @@ export class RideService {
       const routeData = await getRoute(
         { lat: data.pickup.lat, lng: data.pickup.lng },
         { lat: data.dropoff.lat, lng: data.dropoff.lng },
+        stops,
       );
       estimatedDistanceKm = routeData.distanceKm;
       estimatedDurationMins = routeData.durationMins;
@@ -167,7 +186,21 @@ export class RideService {
       routePolyline = '';
     }
 
-    const departureTime = new Date(data.departureTime);
+    if (estimatedDistanceKm > MAX_RIDE_KM) {
+      throw new AppError(`Rides can be at most ${MAX_RIDE_KM} km, for safety. This route is ${Math.round(estimatedDistanceKm)} km.`, 422, 'RIDE_TOO_LONG');
+    }
+    // The price must stay within ₹2 to ₹15 a km and ±30% of the suggestion (UC-D02)
+    if (!options.skipCreationRules) {
+      const pricing = new PricingService();
+      const suggestion = await pricing.suggest({
+        distanceKm: estimatedDistanceKm,
+        vehicleType: vehicle.vehicleType,
+        departureTime,
+        pickup: { lat: data.pickup.lat, lng: data.pickup.lng },
+      });
+      pricing.check(data.pricePerSeat, suggestion);
+    }
+
     const estimatedArrivalTime = new Date(
       departureTime.getTime() + estimatedDurationMins * 60 * 1000,
     );
@@ -190,6 +223,7 @@ export class RideService {
         location: toGeoPoint(data.dropoff.lng, data.dropoff.lat),
         address: data.dropoff.address,
       },
+      waypoints: stops.map((p, order) => ({ location: toGeoPoint(p.lng, p.lat), address: p.address, order })),
       departureTime,
       estimatedArrivalTime,
       estimatedDurationMins,
@@ -343,6 +377,8 @@ export class RideService {
           totalRatingsAsDriver: driver.stats?.totalRatingsAsDriver ?? 0,
           totalRidesAsDriver: driver.stats?.totalRidesAsDriver ?? 0,
         },
+        // Verified Driver badge (UC-D10)
+        verified: verifiedDriverStatus(driver).verified,
       },
       matchScore: scoreByRide.get(ride._id.toString())?.overallScore,
     }));

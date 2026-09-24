@@ -106,6 +106,13 @@ export const createRideSchema = {
       luggageSize: Joi.string().valid('none', 'small', 'medium', 'large').default('medium'),
       maxDetourMins: Joi.number().min(0).max(60).default(15),
     }).default(),
+    waypoints: Joi.array().items(Joi.object({
+      lng: Joi.number().min(-180).max(180).required(),
+      lat: Joi.number().min(-90).max(90).required(),
+      address: Joi.string().required(),
+    })).max(3).default([]),
+    // Also post the same ride back the other way (UC-D02 step 2)
+    returnDepartureTime: Joi.date().iso().greater(Joi.ref('departureTime')).optional(),
     parcelInfo: Joi.object({
       maxWeightKg: Joi.number().min(0).required(),
       maxDimensions: Joi.object({
@@ -124,6 +131,19 @@ export const updateRideSchema = {
     totalSeats: Joi.number().integer().min(1).max(8),
     pricePerSeat: Joi.number().min(0),
   }).min(1),
+};
+
+export const priceSuggestionSchema = {
+  query: Joi.object({
+    pickupLat: Joi.number().min(-90).max(90).required(),
+    pickupLng: Joi.number().min(-180).max(180).required(),
+    dropoffLat: Joi.number().min(-90).max(90).required(),
+    dropoffLng: Joi.number().min(-180).max(180).required(),
+    departureTime: Joi.date().iso().required(),
+    vehicleType: Joi.string().valid(...Object.values(VehicleType)).optional(),
+    // Up to three stops as "lat,lng|lat,lng", so the suggestion matches the route that is checked on publish
+    stops: Joi.string().pattern(/^-?\d+(\.\d+)?,-?\d+(\.\d+)?(\|-?\d+(\.\d+)?,-?\d+(\.\d+)?){0,2}$/).optional(),
+  }),
 };
 
 export const searchRideSchema = {

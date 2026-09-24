@@ -21,6 +21,7 @@ import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LiveMap } from '../../components/LiveMap';
 import { Icon, type IconName } from '../../components/Icon';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 import type { RootStackParamList } from '../../navigation/types';
 import { Radius, Shadow } from '../../theme';
 import { rideService } from '../../services/rideService';
@@ -288,6 +289,7 @@ export function RideDetailScreen() {
 
               <View style={styles.flex1}>
                 <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{driverName}</Text>
+                {ride.driverVerified ? <VerifiedBadge /> : null}
                 <View style={styles.driverMeta}>
                   {ratingCount > 0 ? (
                     <View style={styles.ratingRow} accessibilityLabel={`Rated ${stats?.avgRatingAsDriver?.toFixed(1)} from ${ratingCount} ratings`}>

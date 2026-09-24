@@ -71,6 +71,9 @@ export const API_ENDPOINTS = {
     me: '/users/me',
     savedRoutes: '/users/saved-routes',
     detail: (id: string) => `/users/${id}`,
+    statement: '/users/me/statement',
+    emailStatement: '/users/me/statement/email',
+    verifiedStatus: '/users/me/verified-status',
   },
 
   // Rides
@@ -84,6 +87,8 @@ export const API_ENDPOINTS = {
     complete: (id: string) => `/rides/${id}/complete`,
     upcoming: '/rides/upcoming',
     updateLocation: '/rides/driver/location',
+    priceSuggestion: '/rides/price-suggestion',
+    messageRiders: (id: string) => `/rides/${id}/message`,
   },
 
   // Bookings

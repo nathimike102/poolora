@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { LiveMap } from '../../components/LiveMap';
 import { Icon, type IconName } from '../../components/Icon';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Ride as ApiRide, PaginatedResponse } from '../../types/api';
@@ -39,6 +40,7 @@ interface ResultRide {
   id: string;
   category: VehicleCategory;
   driver: string;
+  driverVerified: boolean;
   rating: number;
   ratingCount: number;
   vehicleName: string;
@@ -57,6 +59,7 @@ function toResult(r: ApiRide): ResultRide {
     id: r._id,
     category: vehicleCategory(v?.vehicleType),
     driver: r.driver?.name || 'Driver',
+    driverVerified: Boolean(r.driver?.verified),
     rating: stats?.avgRatingAsDriver ?? 0,
     ratingCount: stats?.totalRatingsAsDriver ?? 0,
     vehicleName: v ? [v.color, v.make, v.model].filter(Boolean).join(' ') : '',
@@ -329,7 +332,7 @@ export function RideResultsScreen() {
                   onPress={() => setSelectedId(r.id)}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: isSelected, disabled: full }}
-                  accessibilityLabel={`${cat.label} with ${r.driver}, ₹${r.price} per seat, ${formatLeaves(r.departureAt)}, ${r.seatsLeft} ${r.seatsLeft === 1 ? 'seat' : 'seats'} left`}
+                  accessibilityLabel={`${cat.label} with ${r.driverVerified ? 'verified driver ' : ''}${r.driver}, ₹${r.price} per seat, ${formatLeaves(r.departureAt)}, ${r.seatsLeft} ${r.seatsLeft === 1 ? 'seat' : 'seats'} left`}
                   style={[
                     styles.ride,
                     { borderColor: isSelected ? c.primary : 'transparent', backgroundColor: c.surface },
@@ -353,11 +356,14 @@ export function RideResultsScreen() {
                         </View>
                       )}
                     </View>
-                    <Text style={[styles.rideMeta, { color: c.textSec }]} numberOfLines={1}>
-                      {r.driver}
-                      {r.ratingCount > 0 ? ` · ★ ${r.rating.toFixed(1)}` : ' · New driver'}
-                      {r.vehicleName ? ` · ${r.vehicleName}` : ''}
-                    </Text>
+                    <View style={styles.driverLine}>
+                      {r.driverVerified ? <VerifiedBadge compact /> : null}
+                      <Text style={[styles.rideMeta, { color: c.textSec, flexShrink: 1 }]} numberOfLines={1}>
+                        {r.driver}
+                        {r.ratingCount > 0 ? ` · ★ ${r.rating.toFixed(1)}` : ' · New driver'}
+                        {r.vehicleName ? ` · ${r.vehicleName}` : ''}
+                      </Text>
+                    </View>
                     <Text style={[styles.rideMeta, { color: full ? c.error : c.textSec }]} numberOfLines={1}>
                       {formatLeaves(r.departureAt)} · {r.seatsLeft} {r.seatsLeft === 1 ? 'seat' : 'seats'} left
                     </Text>
@@ -451,6 +457,7 @@ function Chip({ label, on, onPress, icon }: { label: string; on: boolean; onPres
 }
 
 const styles = StyleSheet.create({
+  driverLine: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   root: { flex: 1 },
   flex1: { flex: 1 },
 

@@ -97,6 +97,9 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 | PATCH | `/users/me` | Update name, email, photo and preferences |
 | GET | `/users/saved-routes` | Routes the rider searches often |
 | GET | `/users/kyc/status` | Driver verification state |
+| GET | `/users/me/statement` | A driver's earnings for a month (UC-D09). `?month=2026-09` (India time; defaults to this month). Returns `lines` (date, `Trip` / `Late cancellation` / `No-show`, route, rider's first name, fare, platform fee, earnings) and `totals`. Add `&format=csv` for a spreadsheet download |
+| POST | `/users/me/statement/email` | Emails that statement to the profile's address with the CSV attached. Body: `month`. `409 NO_EMAIL` without an address, `503 EMAIL_UNAVAILABLE` when SMTP is not set up |
+| GET | `/users/me/verified-status` | Progress towards the Verified Driver badge (UC-D10): `verified` and one `checks` entry per rule (`label`, `met`, `progress`) |
 | GET | `/users/:id` | Public profile of another user (no phone number) |
 
 ---
@@ -110,12 +113,14 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 | GET | `/rides/upcoming` | signed in | Rides the caller has booked that have not finished |
 | GET | `/rides/my-rides` | signed in | The driver's own rides |
 | GET | `/rides/demand-prediction` | signed in | Busy times and routes from the ML service |
+| GET | `/rides/price-suggestion` | signed in | Suggested seat price and the allowed range for a route (UC-D02 steps 6-7). Query: `pickupLat`, `pickupLng`, `dropoffLat`, `dropoffLng`, `departureTime`, optional `vehicleType` and `stops` (`lat,lng\|lat,lng`, up to 3). Returns `suggested`, `min`, `max`, `distanceKm`, `durationMins`, `surge`, `peak` and a plain-language `explanation` |
 | GET | `/rides/:id` | signed in | One ride |
 | PATCH | `/rides/:id` | verified driver | Change a published ride (UC-D08): `departureTime` (at most 2 hours earlier or later), `totalSeats` (up only), `pricePerSeat` (within 20%, and only while nobody has booked or asked). Allowed until 4 hours before departure. Booked riders are notified; a new departure time lets them cancel for a full refund |
 | POST | `/rides/:id/cancel` | the ride's driver | Cancel the ride. Every pending and confirmed booking is cancelled and refunded in full |
 | POST | `/rides/:id/start` | verified driver | Start the ride. Needs at least one confirmed rider. Riders get a "your driver is on the way" push |
 | POST | `/rides/:id/complete` | verified driver | Finish the ride. Settles every confirmed booking (earnings, platform fee, coins) and unlocks ratings |
 | POST | `/rides/:id/optimize` | verified driver | Best pickup order for the confirmed riders |
+| POST | `/rides/:id/message` | the ride's driver | One message to every confirmed rider (UC-D06 step 6). Body: `content`. It lands in each rider's chat for their booking, with a push. Returns `sent`; `409 NO_RIDERS` when nobody is booked |
 | POST | `/rides/driver/location` | verified driver | HTTP fallback for a position update. Body: `bookingId`, `lng`, `lat`, optional `speed`, `heading`, `accuracy`, `timestamp`. The app normally sends positions over the socket (section 13) |
 
 ### 4.1 Publish a ride — `POST /rides`
@@ -130,11 +135,24 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
   "totalSeats": 3,
   "pricePerSeat": 120,
   "recurring": "none",
-  "preferences": { "womenOnly": false, "smokingAllowed": false, "petsAllowed": false, "luggageSize": "medium", "maxDetourMins": 15 }
+  "preferences": { "womenOnly": false, "smokingAllowed": false, "petsAllowed": false, "luggageSize": "medium", "maxDetourMins": 15 },
+  "waypoints": [{ "lng": 77.6387, "lat": 12.9609, "address": "Domlur" }],
+  "returnDepartureTime": "2026-09-24T18:00:00.000Z"
 }
 ```
 
-Rules enforced today: the departure is in the future, 1–8 seats, a price of at least ₹0, and at most 5 active future rides per driver. The backend fetches the driving route and stores its polyline, distance and duration. The price bands and the "2 hours ahead" and "300 km" limits from UC-D02 are not enforced yet (see `planning/11-FEATURE-GAP-ANALYSIS.md`).
+`waypoints` (optional, up to 3) are stops the route passes through, in order. `returnDepartureTime` (optional, after `departureTime`) also publishes the same ride the other way: ends swapped, stops reversed, same seats, price and rules. The response is `{ ride, returnRide?, returnError? }`; if the return ride breaks a rule, the outbound ride is still published and `returnError` says why.
+
+Rules (UC-D02):
+
+- The ride leaves **at least 2 hours** from now (`422 TOO_SOON`).
+- The route, through its stops, is **at most 300 km** (`422 RIDE_TOO_LONG`).
+- The **seat price** is within ±30% of the suggestion from `GET /rides/price-suggestion`, and never below ₹2 or above ₹15 a km (`422 PRICE_OUT_OF_RANGE`, with the allowed range in the message). The suggestion is the route distance times a rate for the vehicle (₹2.5 a km for a bike up to ₹5 for an SUV), plus 10% at commute hours (7–10 am, 5–8 pm India time), plus surge of 20–50% when the demand forecast is high. It is rounded to the nearest ₹5, with a ₹20 minimum.
+- 1–8 seats, and at most 5 active future rides per driver.
+
+The backend fetches the driving route and stores its polyline, distance and duration.
+
+`GET /rides/:id` adds `driverVerified`, whether the driver has the Verified Driver badge; search results carry the same as `driver.verified`. The badge needs approved documents, 20 or more trips, a rating of 4.7 or higher from at least 10 riders, under 5% cancellations, 90 days on Poolora and no warnings or suspensions.
 
 A ride nobody has booked is **cancelled automatically 1 hour before departure**, and the driver gets a push. A ride posted less than an hour before departure is left alone until it has been up for an hour.
 
@@ -533,7 +551,7 @@ With several backend instances, events are shared through the Socket.IO Redis ad
 | 403 | `FORBIDDEN`, `ACCOUNT_BLOCKED`, `ACCOUNT_SUSPENDED`, `SECOND_ADMIN_REQUIRED` | Signed in, but not allowed. A blocked account gets `ACCOUNT_BLOCKED` on every request; a suspended one gets `ACCOUNT_SUSPENDED` when it tries to post a ride, book or send a parcel |
 | 404 | `NOT_FOUND` | No such resource |
 | 409 | `CONFLICT`, `PAYMENT_PENDING` | The state does not allow it, for example a booking already answered |
-| 422 | `VALIDATION_ERROR` | The body or query failed validation; `details` lists the fields |
+| 422 | `VALIDATION_ERROR`, `TOO_SOON`, `RIDE_TOO_LONG`, `PRICE_OUT_OF_RANGE` | The body or query failed validation (`details` lists the fields), or a ride breaks a publishing rule (section 4.1) |
 | 429 | `RATE_LIMITED` | Too many requests |
 | 500 | `INTERNAL_ERROR` | Unexpected failure |
 | 503 | `SERVICE_UNAVAILABLE`, `MAPS_SERVICE_UNAVAILABLE` | A dependency is down or not configured (Razorpay keys, a Google-only map call without a key) |

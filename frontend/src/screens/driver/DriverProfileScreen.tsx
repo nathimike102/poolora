@@ -20,7 +20,7 @@ import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { userService } from '../../services/userService';
 import { ratingService } from '../../services/ratingService';
-import type { Rating, User } from '../../types/api';
+import type { Rating, User, VerifiedStatus } from '../../types/api';
 import { realPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -41,6 +41,7 @@ export function DriverProfileScreen() {
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Rating[]>([]);
+  const [badge, setBadge] = useState<VerifiedStatus | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -53,6 +54,7 @@ export function DriverProfileScreen() {
         })
         .then(r => { if (active) setReviews(r); })
         .catch(() => undefined);
+      userService.getVerifiedStatus().then(b => { if (active) setBadge(b); }).catch(() => undefined);
       return () => { active = false; };
     }, []),
   );
@@ -119,7 +121,7 @@ export function DriverProfileScreen() {
             <View style={s.flex1}>
               <View style={s.nameRow}>
                 <Text style={[s.name, { color: c.text }]} numberOfLines={1}>{name || ' '}</Text>
-                {kycStatus === 'approved' && <Icon name="check-decagram" size={18} color={c.success} label="Verified driver" />}
+                {badge?.verified && <Icon name="check-decagram" size={18} color={c.success} label="Verified driver" />}
               </View>
               <Text style={[s.phone, { color: c.textSec }]}>{contact}</Text>
               {memberSince && <Text style={[s.since, { color: c.textSec }]}>Driving since {memberSince}</Text>}
@@ -165,6 +167,29 @@ export function DriverProfileScreen() {
             </View>
             {kycStatus !== 'pending' && <Icon name="chevron-right" size={22} color={c.textSec} />}
           </Pressable>
+        )}
+
+        {/* ── Verified Driver badge progress (UC-D10) ──────── */}
+        {kycStatus === 'approved' && badge && (
+          <>
+            <Text style={[s.sectionTitle, { color: c.text }]}>{badge.verified ? 'Verified Driver' : 'Earn the Verified badge'}</Text>
+            <Text style={[s.hint, { color: c.textSec, marginBottom: Spacing.sm }]}>
+              {badge.verified
+                ? 'Riders see the badge next to your name. Keep it by keeping these up.'
+                : 'Riders see a Verified badge next to drivers who meet all of these.'}
+            </Text>
+            {badge.checks.map(check => (
+              <View key={check.label} style={s.badgeRow} accessible accessibilityLabel={`${check.label}: ${check.met ? 'met' : 'not yet'}, ${check.progress}`}>
+                <Icon
+                  name={check.met ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                  size={20}
+                  color={check.met ? c.success : c.textSec}
+                />
+                <Text style={[s.flex1, { fontSize: Typography.md, color: c.text }]}>{check.label}</Text>
+                <Text style={{ fontSize: Typography.sm, color: c.textSec }}>{check.progress}</Text>
+              </View>
+            ))}
+          </>
         )}
 
         {/* ── Vehicles ─────────────────────────────────────── */}
@@ -272,6 +297,7 @@ const s = StyleSheet.create({
 
   sectionTitle: { fontSize: Typography['3xl'], fontWeight: Typography.bold, marginTop: Spacing['2xl'], marginBottom: Spacing.sm },
   hint: { fontSize: Typography.md, lineHeight: 20 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 36 },
   dashed: { borderBottomWidth: 1, borderStyle: 'dashed' },
 
   listRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, minHeight: 68, paddingVertical: Spacing.md },

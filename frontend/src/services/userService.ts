@@ -7,7 +7,7 @@
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';
 import { logger } from '../utils/logger';
-import type { ApiResponse, User } from '../types/api';
+import type { ApiResponse, EarningsStatement, User, VerifiedStatus } from '../types/api';
 
 /**
  * Service for user profile operations
@@ -52,6 +52,34 @@ export const userService = {
       logger.error('Failed to get user profile', { error, userId });
       throw error;
     }
+  },
+
+  /** A month's earnings, line by line; month looks like 2026-09 (UC-D09) */
+  async getStatement(month: string): Promise<EarningsStatement> {
+    const response = await apiClient.get<ApiResponse<EarningsStatement>>(API_ENDPOINTS.users.statement, { params: { month } });
+    return response.data.data;
+  },
+
+  /** The same statement as a CSV spreadsheet */
+  async getStatementCsv(month: string): Promise<string> {
+    const response = await apiClient.get<string>(API_ENDPOINTS.users.statement, {
+      params: { month, format: 'csv' },
+      responseType: 'text',
+      transformResponse: r => r,
+    });
+    return response.data;
+  },
+
+  /** Emails the statement to the address on the profile; returns that address */
+  async emailStatement(month: string): Promise<{ to: string }> {
+    const response = await apiClient.post<ApiResponse<{ to: string }>>(API_ENDPOINTS.users.emailStatement, { month });
+    return response.data.data;
+  },
+
+  /** Progress towards the Verified Driver badge (UC-D10) */
+  async getVerifiedStatus(): Promise<VerifiedStatus> {
+    const response = await apiClient.get<ApiResponse<VerifiedStatus>>(API_ENDPOINTS.users.verifiedStatus);
+    return response.data.data;
   },
 
   /**

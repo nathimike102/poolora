@@ -23,10 +23,24 @@ describe('rideService', () => {
     expect(apiClient.get).toHaveBeenCalled();
   });
 
-  test('createRide posts and returns ride', async () => {
-    (apiClient.post as jest.Mock).mockResolvedValue({ data: { data: { _id: 'created' } } });
+  test('createRide posts and returns the ride and any return ride', async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { data: { ride: { _id: 'created' }, returnError: 'Too soon' } } });
     const out = await rideService.createRide({ from: 'A', to: 'B', seats: 2 } as any);
-    expect(out._id).toBe('created');
+    expect(out.ride._id).toBe('created');
+    expect(out.returnRide).toBeUndefined();
+    expect(out.returnError).toBe('Too soon');
+  });
+
+  test('getPriceSuggestion sends stops as lat,lng pairs', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: { data: { suggested: 80, min: 56, max: 104 } } });
+    const s = await rideService.getPriceSuggestion({
+      pickup: { lat: 1, lng: 2 },
+      dropoff: { lat: 3, lng: 4 },
+      departureTime: '2026-10-01T08:00:00.000Z',
+      stops: [{ lat: 5, lng: 6 }, { lat: 7, lng: 8 }],
+    });
+    expect(s.suggested).toBe(80);
+    expect((apiClient.get as jest.Mock).mock.lastCall[1].params.stops).toBe('5,6|7,8');
   });
 
   test('getRide returns ride detail', async () => {

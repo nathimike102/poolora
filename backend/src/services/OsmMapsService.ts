@@ -278,11 +278,13 @@ interface OsrmResponse {
 async function osrmRoute(
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
+  stops: Array<{ lat: number; lng: number }> = [],
 ): Promise<OsrmResponse> {
   let data: OsrmResponse;
+  const coordinates = [origin, ...stops, destination].map((p) => `${p.lng},${p.lat}`).join(';');
   try {
     data = await cachedGet(
-      `${config.maps.osrmUrl}/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}`,
+      `${config.maps.osrmUrl}/route/v1/driving/${coordinates}`,
       { overview: 'full', geometries: 'polyline' },
       CACHE_TTL.route,
     );
@@ -300,18 +302,20 @@ async function osrmRoute(
   return data;
 }
 
+/** Driving route from origin to destination, through `stops` in order */
 export async function getRoute(
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
+  stops: Array<{ lat: number; lng: number }> = [],
 ): Promise<RouteResult> {
-  const data = await osrmRoute(origin, destination);
+  const data = await osrmRoute(origin, destination, stops);
   const route = data.routes![0];
   return {
     distanceKm: Math.round((route.distance / 1000) * 100) / 100,
     durationMins: Math.round(route.duration / 60),
     polyline: route.geometry,
     startAddress: data.waypoints?.[0]?.name ?? '',
-    endAddress: data.waypoints?.[1]?.name ?? '',
+    endAddress: data.waypoints?.[data.waypoints.length - 1]?.name ?? '',
   };
 }
 

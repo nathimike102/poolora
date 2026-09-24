@@ -90,6 +90,8 @@ export interface User {
   dateOfBirth?: string;
   gender?: UserGender;
   profilePhotoUrl?: string;
+  /** On a driver in search results: has the Verified Driver badge */
+  verified?: boolean;
   capabilities: UserCapability[];
   isVerified: boolean;
   stats?: UserStats;
@@ -190,6 +192,8 @@ export interface Ride {
   preferences?: RidePreferences;
   /** 0-100 match score from ride search */
   matchScore?: number;
+  /** The driver has the Verified Driver badge (UC-D10) */
+  driverVerified?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -237,6 +241,43 @@ export interface CreateRideRequest {
     petsAllowed: boolean;
     luggageSize: 'none' | 'small' | 'medium' | 'large';
   };
+  /** Up to three stops on the way, in order */
+  waypoints?: Array<{ lat: number; lng: number; address: string }>;
+  /** Also publish the same ride back the other way at this time */
+  returnDepartureTime?: string;
+}
+
+/** GET /rides/price-suggestion */
+export interface PriceSuggestion {
+  suggested: number;
+  min: number;
+  max: number;
+  distanceKm: number;
+  durationMins: number;
+  surge: number;
+  peak: boolean;
+  explanation: string;
+}
+
+/** POST /rides: the ride, and the return ride when one was asked for */
+export interface CreateRideResult {
+  ride: Ride;
+  returnRide?: Ride;
+  /** Why the return ride could not be published; the outbound ride stands */
+  returnError?: string;
+}
+
+/** GET /users/me/verified-status (UC-D10) */
+export interface VerifiedStatus {
+  verified: boolean;
+  checks: Array<{ label: string; met: boolean; progress: string }>;
+}
+
+/** GET /users/me/statement (UC-D09) */
+export interface EarningsStatement {
+  month: string;
+  lines: Array<{ date: string; kind: 'Trip' | 'Late cancellation' | 'No-show'; route: string; rider: string; fare: number; platformFee: number; earnings: number }>;
+  totals: { fare: number; platformFee: number; earnings: number; trips: number };
 }
 
 export interface SearchRidesRequest {

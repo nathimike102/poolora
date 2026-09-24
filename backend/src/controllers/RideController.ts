@@ -19,8 +19,68 @@ export class RideController {
   static async createRide(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const ride = await rideService.createRide(user.userId, req.body);
-      sendSuccess(res, { ride }, 201, req.requestId);
+      const { returnDepartureTime, ...data } = req.body;
+      const ride = await rideService.createRide(user.userId, data);
+      // The same ride back the other way, stops reversed (UC-D02 step 2)
+      // The outbound ride stands even if the return one breaks a rule; the app says why
+      let returnRide;
+      let returnError: string | undefined;
+      if (returnDepartureTime) {
+        try {
+          returnRide = await rideService.createRide(user.userId, {
+            ...data,
+            pickup: data.dropoff,
+            dropoff: data.pickup,
+            waypoints: [...(data.waypoints ?? [])].reverse(),
+            departureTime: new Date(returnDepartureTime).toISOString(),
+          });
+        } catch (error) {
+          returnError = (error as Error).message;
+        }
+      }
+      sendSuccess(res, { ride, returnRide, returnError }, 201, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /rides/price-suggestion — a suggested seat price and the allowed
+   * range for a route (UC-D02 steps 6-7), including surge when demand is high
+   */
+  static async priceSuggestion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const pickup = { lat: Number(req.query.pickupLat), lng: Number(req.query.pickupLng) };
+      const dropoff = { lat: Number(req.query.dropoffLat), lng: Number(req.query.dropoffLng) };
+      const { getRoute } = await import('../services/MapsService');
+      const { PricingService } = await import('../services/PricingService');
+      const stops = queryString(req, 'stops', '')
+        .split('|')
+        .filter(Boolean)
+        .map((pair) => {
+          const [lat, lng] = pair.split(',').map(Number);
+          return { lat, lng };
+        });
+      const route = await getRoute(pickup, dropoff, stops.length ? stops : undefined);
+      const suggestion = await new PricingService().suggest({
+        distanceKm: route.distanceKm,
+        vehicleType: queryString(req, 'vehicleType'),
+        departureTime: new Date(queryString(req, 'departureTime', '')),
+        pickup,
+      });
+      sendSuccess(res, { ...suggestion, durationMins: route.durationMins }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /rides/:id/message — one message to every confirmed rider (UC-D06 step 6) */
+  static async messageRiders(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const { DriverService } = await import('../services/DriverService');
+      const result = await new DriverService().messageAllRiders(String(req.params.id), user.userId, String(req.body?.content ?? ''));
+      sendSuccess(res, result, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -129,7 +189,13 @@ export class RideController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const ride = await rideService.getRideById(String(req.params.id), user.userId);
-      sendSuccess(res, { ride }, 200, req.requestId);
+      // The Verified Driver badge (UC-D10), without exposing the driver's KYC details
+      const { User } = await import('../models/User');
+      const { verifiedDriverStatus } = await import('../services/DriverService');
+      const driverId = (ride.driver as unknown as { _id?: unknown })?._id ?? ride.driver;
+      const driver = await User.findById(driverId).select('kyc.status stats createdAt warnings isSuspended isBlocked').lean();
+      const driverVerified = driver ? verifiedDriverStatus(driver as never).verified : false;
+      sendSuccess(res, { ride: { ...ride.toJSON(), driverVerified } }, 200, req.requestId);
     } catch (error) {
       next(error);
     }

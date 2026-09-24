@@ -148,7 +148,7 @@ export class RideSimulationService {
       pricePerSeat: 80,
       recurring: RecurringPattern.NONE,
       preferences: {} as IRide['preferences'],
-    });
+    }, { skipCreationRules: true });
 
     // Confirmed straight away: payment is not part of what is being tried out
     const booking = await Booking.create({
@@ -228,7 +228,7 @@ export class RideSimulationService {
         pricePerSeat: 80,
         recurring: RecurringPattern.NONE,
         preferences: {} as IRide['preferences'],
-      });
+      }, { skipCreationRules: true });
     }
     if (ride.availableSeats < 1) throw new ConflictError('That ride has no free seats');
 

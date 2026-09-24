@@ -413,11 +413,13 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
  * Get driving route between origin and destination using Google Directions API.
  * Returns distance, duration, and encoded polyline.
  */
+/** Driving route from origin to destination, through `stops` in order */
 export async function getRoute(
   origin: { lat: number; lng: number },
   destination: { lat: number; lng: number },
+  stops: Array<{ lat: number; lng: number }> = [],
 ): Promise<RouteResult> {
-  if (osmSelected()) return osm.getRoute(origin, destination);
+  if (osmSelected()) return osm.getRoute(origin, destination, stops);
   try {
     const response = await cachedMapsGet<DirectionsResponse>(
       `${GOOGLE_MAPS_BASE}/directions/json`,
@@ -425,6 +427,7 @@ export async function getRoute(
         origin: `${origin.lat},${origin.lng}`,
         destination: `${destination.lat},${destination.lng}`,
         mode: 'driving',
+        ...(stops.length ? { waypoints: stops.map((p) => `${p.lat},${p.lng}`).join('|') } : {}),
       },
       CACHE_TTL.route,
     );
@@ -441,14 +444,16 @@ export async function getRoute(
     }
 
     const route = data.routes[0];
-    const leg = route.legs[0];
+    const legs = route.legs;
+    const metres = legs.reduce((sum, l) => sum + l.distance.value, 0);
+    const seconds = legs.reduce((sum, l) => sum + l.duration.value, 0);
 
     return {
-      distanceKm: Math.round((leg.distance.value / 1000) * 100) / 100,
-      durationMins: Math.round(leg.duration.value / 60),
+      distanceKm: Math.round((metres / 1000) * 100) / 100,
+      durationMins: Math.round(seconds / 60),
       polyline: route.overview_polyline?.points ?? '',
-      startAddress: leg.start_address,
-      endAddress: leg.end_address,
+      startAddress: legs[0].start_address,
+      endAddress: legs[legs.length - 1].end_address,
     };
   } catch (error) {
     if (error instanceof AppError) throw error;

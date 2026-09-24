@@ -4,7 +4,7 @@ import { authenticate } from '../middlewares/auth.middleware';
 import { requireActiveAccount } from '../middlewares/accountStatus.middleware';
 import { requireDriverVerification } from '../middlewares/capability.middleware';
 import { validate } from '../middlewares/validation.middleware';
-import { createRideSchema, updateRideSchema, searchRideSchema, updateDriverLocationSchema } from '../validators';
+import { createRideSchema, updateRideSchema, priceSuggestionSchema, searchRideSchema, updateDriverLocationSchema } from '../validators';
 
 const router = Router();
 
@@ -23,6 +23,9 @@ router.get('/my-rides', RideController.getMyRides);
 // Demand prediction — AI-powered insights for drivers
 router.get('/demand-prediction', RideController.getDemandPrediction);
 
+// Suggested seat price for a route (UC-D02) — MUST be before /:id
+router.get('/price-suggestion', validate(priceSuggestionSchema), RideController.priceSuggestion);
+
 // Driver live tracking updates (recommended every 5 seconds)
 router.post(
 	'/driver/location',
@@ -40,6 +43,7 @@ router.get('/:id', RideController.getRide);
 // Ride actions
 router.patch('/:id', requireDriverVerification(), validate(updateRideSchema), RideController.updateRide);
 router.post('/:id/cancel', RideController.cancelRide);
+router.post('/:id/message', requireDriverVerification(), RideController.messageRiders);
 router.post('/:id/start', requireDriverVerification(), RideController.startRide);
 router.post('/:id/complete', requireDriverVerification(), RideController.completeRide);
 router.post('/:id/optimize', requireDriverVerification(), RideController.optimizeRoute);

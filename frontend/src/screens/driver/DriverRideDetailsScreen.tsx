@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Linking, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -100,6 +100,9 @@ export function DriverRideDetailsScreen() {
   const [simulationEnabled, setSimulationEnabled] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0);
+  const [composing, setComposing] = useState(false);
+  const [broadcast, setBroadcast] = useState('');
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -243,6 +246,23 @@ export function DriverRideDetailsScreen() {
   const step = (bookingId: string, which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow') =>
     runNow(() => bookingService.driverStep(bookingId, which));
 
+  // One message to everyone booked on the ride (UC-D06 step 6)
+  const sendBroadcast = async () => {
+    const text = broadcast.trim();
+    if (!text) return;
+    setSendingBroadcast(true);
+    try {
+      const { sent } = await rideService.messageAllRiders(rideId, text);
+      setComposing(false);
+      setBroadcast('');
+      Alert.alert('Message sent', `Sent to ${sent} ${sent === 1 ? 'rider' : 'riders'}. Replies arrive in your chats.`);
+    } catch (error) {
+      Alert.alert('Not sent', errorHandler.process(error).message);
+    } finally {
+      setSendingBroadcast(false);
+    }
+  };
+
   const openInMaps = () => {
     if (!ride) return;
     Linking.openURL(directionsUrl(riders, { lat: ride.dropoffLocation.lat, lng: ride.dropoffLocation.lng })).catch(() =>
@@ -368,7 +388,20 @@ export function DriverRideDetailsScreen() {
         </View>
 
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.sectionLabel, { color: c.textSec, marginBottom: 12 }]}>Confirmed riders</Text>
+          <View style={styles.statsRow}>
+            <Text style={[styles.sectionLabel, styles.flex1, { color: c.textSec }]}>Confirmed riders</Text>
+            {riders.length > 0 && (notStarted || inProgress) ? (
+              <Pressable
+                onPress={() => setComposing(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Message all riders"
+                style={styles.msgAllBtn}
+              >
+                <Icon name="message-text-outline" size={16} color={c.primary} />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>Message all</Text>
+              </Pressable>
+            ) : null}
+          </View>
           {riders.length === 0 ? (
             <Text style={{ fontSize: 14, color: c.textSec }}>No confirmed riders yet.</Text>
           ) : (
@@ -530,9 +563,64 @@ export function DriverRideDetailsScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal visible={composing} transparent animationType="slide" onRequestClose={() => setComposing(false)}>
+        <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={[styles.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + 16 }]}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">Message all riders</Text>
+            <Text style={{ fontSize: 13, color: c.textSec }}>
+              Goes to each of your {riders.length} {riders.length === 1 ? 'rider' : 'riders'} in their chat with you.
+            </Text>
+            <View style={styles.templateRow}>
+              {BROADCAST_TEMPLATES.map(t => (
+                <Pressable
+                  key={t}
+                  onPress={() => setBroadcast(t)}
+                  accessibilityRole="button"
+                  style={[styles.template, { borderColor: c.border, backgroundColor: c.bg }]}
+                >
+                  <Text style={{ fontSize: 13, color: c.text }}>{t}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <TextInput
+              value={broadcast}
+              onChangeText={setBroadcast}
+              multiline
+              maxLength={2000}
+              autoFocus
+              placeholder="Running 10 minutes late, sorry!"
+              placeholderTextColor={c.textSec}
+              accessibilityLabel="Message"
+              style={[styles.sheetInput, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+            />
+            <View style={styles.statsRow}>
+              <Pressable onPress={() => setComposing(false)} accessibilityRole="button" style={[styles.actionBtn, styles.flex1]}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: c.textSec }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={sendBroadcast}
+                disabled={!broadcast.trim() || sendingBroadcast}
+                accessibilityRole="button"
+                style={[styles.actionBtn, styles.flex1, { backgroundColor: broadcast.trim() ? c.primary : c.border }]}
+              >
+                {sendingBroadcast ? <ActivityIndicator color={c.textOnPrimary} /> : (
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: broadcast.trim() ? c.textOnPrimary : c.textSec }}>Send</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
+
+const BROADCAST_TEMPLATES = [
+  'Running about 10 minutes late, sorry!',
+  'Leaving on time, see you soon.',
+  'Please be at your pickup point 5 minutes early.',
+];
 
 /**
  * The next step for one rider during the ride (UC-D04): at the pickup, in
@@ -625,5 +713,11 @@ const styles = StyleSheet.create({
   },
   actionBtn: { minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   stepRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  msgAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingHorizontal: 8 },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 12 },
+  templateRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  template: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
+  sheetInput: { borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 90, textAlignVertical: 'top', fontSize: 15 },
   stepBtn: { minHeight: 40, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 });

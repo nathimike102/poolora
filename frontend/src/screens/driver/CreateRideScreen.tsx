@@ -1,9 +1,11 @@
 /**
  * screens/driver/CreateRideScreen.tsx
  *
- * Publishes a ride offer. Places come from backend place search, the vehicle
- * must be one of the driver's verified vehicles, and the ride is only shown
- * as published after the API accepts it.
+ * Publishes a ride offer (UC-D02). Places come from backend place search, the
+ * vehicle must be one of the driver's verified vehicles, and the ride is only
+ * shown as published after the API accepts it. The driver can add up to three
+ * stops and a return trip, and picks a seat price within the range around the
+ * suggested one.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -34,14 +36,19 @@ import { errorHandler } from '../../utils/errorHandler';
 import { useCurrentPlace } from '../../hooks/useCurrentPlace';
 import { Radius, Spacing, Typography } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
-import type { Ride, User, Vehicle } from '../../types/api';
+import type { CreateRideResult, PriceSuggestion, User, Vehicle } from '../../types/api';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Field = 'from' | 'to';
+/** 'from', 'to', or the index of a stop */
+type Field = 'from' | 'to' | number;
 type Luggage = 'none' | 'small' | 'medium' | 'large';
 
 const MAX_SEATS = 6;
+const MAX_STOPS = 3;
+/** The backend refuses rides that leave sooner than this */
+const MIN_ADVANCE_HOURS = 2;
 const SUGGESTION_DEBOUNCE_MS = 300;
+const PRICE_DEBOUNCE_MS = 700;
 const LUGGAGE: { value: Luggage; label: string }[] = [
   { value: 'none', label: 'None' },
   { value: 'small', label: 'Small' },
@@ -51,6 +58,13 @@ const LUGGAGE: { value: Luggage; label: string }[] = [
 
 function formatDate(d: Date): string {
   return d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function atTime(day: Date, t: string): Date {
+  const d = new Date(day);
+  const [h, m] = t.split(':').map(Number);
+  d.setHours(h, m, 0, 0);
+  return d;
 }
 
 function formatTime(t: string): string {
@@ -76,10 +90,16 @@ export function CreateRideScreen() {
   // Suggestions near the driver come first
   const { place: here } = useCurrentPlace();
 
+  const [stops, setStops] = useState<string[]>([]);
+
   const [date, setDate] = useState<Date>(() => new Date());
   const [time, setTime] = useState('08:30');
-  const [showDate, setShowDate] = useState(false);
-  const [showTime, setShowTime] = useState(false);
+  // Which trip the date and time pickers are open for
+  const [showDate, setShowDate] = useState<'out' | 'return' | null>(null);
+  const [showTime, setShowTime] = useState<'out' | 'return' | null>(null);
+  const [withReturn, setWithReturn] = useState(false);
+  const [returnDate, setReturnDate] = useState<Date>(() => new Date());
+  const [returnTime, setReturnTime] = useState('18:00');
   const [seats, setSeats] = useState(3);
   const [price, setPrice] = useState('');
   const [vehicleId, setVehicleId] = useState<string>('');
@@ -90,7 +110,14 @@ export function CreateRideScreen() {
 
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
-  const [published, setPublished] = useState<Ride | null>(null);
+  const [published, setPublished] = useState<CreateRideResult | null>(null);
+
+  const [suggestion, setSuggestion] = useState<PriceSuggestion | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const priceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const priceRequest = useRef(0);
+  // Addresses already looked up, so the suggestion and publishing share them
+  const geocoded = useRef(new Map<string, Promise<{ lat: number; lng: number; address: string }>>());
 
   useFocusEffect(
     useCallback(() => {
@@ -107,6 +134,18 @@ export function CreateRideScreen() {
 
   useEffect(() => () => {
     if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    if (priceTimer.current) clearTimeout(priceTimer.current);
+  }, []);
+
+  const locate = useCallback((address: string) => {
+    const key = address.trim();
+    let found = geocoded.current.get(key);
+    if (!found) {
+      found = geocodePlace(key).then(p => ({ lat: p.lat, lng: p.lng, address: p.formattedAddress }));
+      found.catch(() => geocoded.current.delete(key));
+      geocoded.current.set(key, found);
+    }
+    return found;
   }, []);
 
   const requestSuggestions = (text: string) => {
@@ -126,57 +165,97 @@ export function CreateRideScreen() {
     }, SUGGESTION_DEBOUNCE_MS);
   };
 
+  const setField = (field: Field, text: string) => {
+    if (field === 'from') setFrom(text);
+    else if (field === 'to') setTo(text);
+    else setStops(list => list.map((s, i) => (i === field ? text : s)));
+  };
+
   const onChange = (field: Field, text: string) => {
     setActiveField(field);
-    if (field === 'from') setFrom(text);
-    else setTo(text);
+    setField(field, text);
     requestSuggestions(text);
   };
 
   const pick = (place: PlaceSuggestion) => {
-    if (activeField === 'from') setFrom(suggestionLabel(place));
-    else setTo(suggestionLabel(place));
+    if (activeField !== null) setField(activeField, suggestionLabel(place));
     setSuggestions([]);
     setActiveField(null);
   };
 
-  const departure = (() => {
-    const d = new Date(date);
-    const [h, m] = time.split(':').map(Number);
-    d.setHours(h, m, 0, 0);
-    return d;
-  })();
+  const removeStop = (index: number) => {
+    setStops(list => list.filter((_, i) => i !== index));
+    setActiveField(null);
+    setSuggestions([]);
+  };
+
+  const departure = atTime(date, time);
+  const returnDeparture = atTime(returnDate, returnTime);
+  const earliest = Date.now() + MIN_ADVANCE_HOURS * 3_600_000;
+  const filledStops = stops.map(s => s.trim()).filter(s => s.length > 2);
 
   const priceNumber = Number(price);
   const vehicles: Vehicle[] = profile?.vehicles ?? [];
+  const vehicleType = vehicles.find(v => v._id === vehicleId)?.vehicleType;
   const kycApproved = profile?.kyc?.status === 'approved';
+  const routeReady = from.trim().length > 2 && to.trim().length > 2;
+  const priceInRange = !suggestion || (priceNumber >= suggestion.min && priceNumber <= suggestion.max);
+  const returnOk = !withReturn || returnDeparture.getTime() > departure.getTime();
   const canPublish =
     kycApproved &&
-    from.trim().length > 2 &&
-    to.trim().length > 2 &&
+    routeReady &&
     Boolean(vehicleId) &&
     price !== '' &&
     Number.isFinite(priceNumber) &&
-    priceNumber >= 0 &&
-    departure.getTime() > Date.now() &&
+    priceNumber > 0 &&
+    priceInRange &&
+    departure.getTime() >= earliest &&
+    returnOk &&
     !publishing;
+
+  // The suggested price for the route, refreshed when the route, time or vehicle changes
+  const departureIso = departure.toISOString();
+  const stopsKey = filledStops.join('|');
+  useEffect(() => {
+    if (priceTimer.current) clearTimeout(priceTimer.current);
+    if (!routeReady || activeField !== null) return;
+    const id = ++priceRequest.current;
+    priceTimer.current = setTimeout(async () => {
+      setSuggesting(true);
+      try {
+        const [pickup, dropoff, ...via] = await Promise.all([locate(from), locate(to), ...filledStops.map(locate)]);
+        const next = await rideService.getPriceSuggestion({ pickup, dropoff, departureTime: departureIso, vehicleType, stops: via });
+        if (id !== priceRequest.current) return;
+        setSuggestion(next);
+        setPrice(current => (current === '' ? String(next.suggested) : current));
+      } catch {
+        if (id === priceRequest.current) setSuggestion(null);
+      } finally {
+        if (id === priceRequest.current) setSuggesting(false);
+      }
+    }, PRICE_DEBOUNCE_MS);
+    // filledStops is covered by stopsKey
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, stopsKey, departureIso, vehicleType, routeReady, activeField, locate]);
 
   const publish = async () => {
     if (!canPublish) return;
     setPublishing(true);
     setError('');
     try {
-      const [pickup, dropoff] = await Promise.all([geocodePlace(from), geocodePlace(to)]);
-      const ride = await rideService.createRide({
+      const [pickup, dropoff, ...waypoints] = await Promise.all([locate(from), locate(to), ...filledStops.map(locate)]);
+      const result = await rideService.createRide({
         vehicleId,
-        pickup: { lat: pickup.lat, lng: pickup.lng, address: pickup.formattedAddress },
-        dropoff: { lat: dropoff.lat, lng: dropoff.lng, address: dropoff.formattedAddress },
+        pickup,
+        dropoff,
+        waypoints: waypoints.length ? waypoints : undefined,
         departureTime: departure.toISOString(),
+        returnDepartureTime: withReturn ? returnDeparture.toISOString() : undefined,
         totalSeats: seats,
         pricePerSeat: Math.round(priceNumber),
         preferences: { womenOnly, smokingAllowed, petsAllowed, luggageSize: luggage },
       });
-      setPublished(ride);
+      setPublished(result);
     } catch (err) {
       setError(errorHandler.process(err).message);
     } finally {
@@ -188,27 +267,41 @@ export function CreateRideScreen() {
     setPublished(null);
     setFrom('');
     setTo('');
+    setStops([]);
+    setWithReturn(false);
     setPrice('');
+    setSuggestion(null);
   };
 
   // ── Published ────────────────────────────────────────────────────
   if (published) {
+    const { ride, returnRide, returnError } = published;
+    const when = (iso: string) =>
+      `${formatDate(new Date(iso))} at ${new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     return (
       <View style={[styles.centered, { backgroundColor: c.bg, paddingTop: insets.top }]}>
         <View style={[styles.doneBadge, { backgroundColor: c.success }]}>
           <Icon name="check" size={40} color="#FFFFFF" />
         </View>
-        <Text style={[styles.doneTitle, { color: c.text }]} accessibilityLiveRegion="polite">Ride published</Text>
-        <Text style={[styles.doneBody, { color: c.textSec }]}>
-          {published.pickupLocation.address} to {published.dropoffLocation.address}
+        <Text style={[styles.doneTitle, { color: c.text }]} accessibilityLiveRegion="polite">
+          {returnRide ? 'Both rides published' : 'Ride published'}
         </Text>
         <Text style={[styles.doneBody, { color: c.textSec }]}>
-          {formatDate(new Date(published.scheduledDeparture))} at{' '}
-          {new Date(published.scheduledDeparture).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ·{' '}
-          {published.seats} seats · ₹{published.pricePerSeat} per seat
+          {ride.pickupLocation.address} to {ride.dropoffLocation.address}
         </Text>
+        <Text style={[styles.doneBody, { color: c.textSec }]}>
+          {when(ride.scheduledDeparture)} · {ride.seats} seats · ₹{ride.pricePerSeat} per seat
+        </Text>
+        {returnRide ? (
+          <Text style={[styles.doneBody, { color: c.textSec }]}>Return trip: {when(returnRide.scheduledDeparture)}</Text>
+        ) : null}
+        {returnError ? (
+          <Text style={[styles.doneBody, { color: c.error }]} accessibilityLiveRegion="polite">
+            The return trip was not published: {returnError}
+          </Text>
+        ) : null}
         <Pressable
-          onPress={() => navigation.navigate('DriverRideDetails', { rideId: published._id })}
+          onPress={() => navigation.navigate('DriverRideDetails', { rideId: ride._id })}
           accessibilityRole="button"
           style={[styles.primaryBtn, { backgroundColor: c.primary }]}
         >
@@ -284,7 +377,7 @@ export function CreateRideScreen() {
             </Text>
           )}
 
-          {/* Route */}
+          {/* Route, with up to three stops on the way */}
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Text style={[styles.label, { color: c.textSec }]}>Leaving from</Text>
             <TextInput
@@ -297,6 +390,41 @@ export function CreateRideScreen() {
               style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
             />
             {renderSuggestions('from')}
+            {stops.map((stop, i) => (
+              <View key={i}>
+                <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>Stop {i + 1}</Text>
+                <View style={styles.stopRow}>
+                  <TextInput
+                    value={stop}
+                    onChangeText={t => onChange(i, t)}
+                    onFocus={() => setActiveField(i)}
+                    placeholder="A place on the way"
+                    placeholderTextColor={c.textSec}
+                    accessibilityLabel={`Stop ${i + 1}`}
+                    style={[styles.input, { flex: 1, borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+                  />
+                  <Pressable
+                    onPress={() => removeStop(i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove stop ${i + 1}`}
+                    style={styles.iconBtn}
+                  >
+                    <Icon name="close" size={20} color={c.textSec} />
+                  </Pressable>
+                </View>
+                {renderSuggestions(i)}
+              </View>
+            ))}
+            {stops.length < MAX_STOPS && (
+              <Pressable
+                onPress={() => setStops(list => [...list, ''])}
+                accessibilityRole="button"
+                style={styles.addStop}
+              >
+                <Icon name="plus" size={18} color={c.primary} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Add a stop</Text>
+              </Pressable>
+            )}
             <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>Going to</Text>
             <TextInput
               value={to}
@@ -313,7 +441,7 @@ export function CreateRideScreen() {
           {/* When */}
           <View style={[styles.card, styles.row, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Pressable
-              onPress={() => setShowDate(true)}
+              onPress={() => setShowDate('out')}
               accessibilityRole="button"
               accessibilityLabel={`Date, ${formatDate(date)}`}
               style={[styles.pickerBtn, { borderColor: c.border, backgroundColor: c.bg }]}
@@ -322,7 +450,7 @@ export function CreateRideScreen() {
               <Text style={{ fontSize: 15, color: c.text }}>{formatDate(date)}</Text>
             </Pressable>
             <Pressable
-              onPress={() => setShowTime(true)}
+              onPress={() => setShowTime('out')}
               accessibilityRole="button"
               accessibilityLabel={`Time, ${formatTime(time)}`}
               style={[styles.pickerBtn, { borderColor: c.border, backgroundColor: c.bg }]}
@@ -330,6 +458,51 @@ export function CreateRideScreen() {
               <Icon name="clock-outline" size={18} color={c.primary} />
               <Text style={{ fontSize: 15, color: c.text }}>{formatTime(time)}</Text>
             </Pressable>
+          </View>
+
+          {/* Return trip: the same ride back, stops reversed */}
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={styles.switchRow}>
+              <Text style={{ fontSize: 15, color: c.text, flex: 1 }}>Also offer the return trip</Text>
+              <Switch
+                value={withReturn}
+                onValueChange={on => {
+                  setWithReturn(on);
+                  if (on && returnDeparture.getTime() <= departure.getTime()) setReturnDate(new Date(date));
+                }}
+                accessibilityLabel="Also offer the return trip"
+                trackColor={{ false: c.border, true: c.primary }}
+              />
+            </View>
+            {withReturn && (
+              <>
+                <View style={styles.row}>
+                  <Pressable
+                    onPress={() => setShowDate('return')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Return date, ${formatDate(returnDate)}`}
+                    style={[styles.pickerBtn, { borderColor: c.border, backgroundColor: c.bg }]}
+                  >
+                    <Icon name="calendar" size={18} color={c.primary} />
+                    <Text style={{ fontSize: 15, color: c.text }}>{formatDate(returnDate)}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setShowTime('return')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Return time, ${formatTime(returnTime)}`}
+                    style={[styles.pickerBtn, { borderColor: c.border, backgroundColor: c.bg }]}
+                  >
+                    <Icon name="clock-outline" size={18} color={c.primary} />
+                    <Text style={{ fontSize: 15, color: c.text }}>{formatTime(returnTime)}</Text>
+                  </Pressable>
+                </View>
+                <Text style={{ fontSize: 13, color: returnOk ? c.textSec : c.error, marginTop: 6 }}>
+                  {returnOk
+                    ? `${to.split(',')[0] || 'Destination'} to ${from.split(',')[0] || 'start'}, same seats, price and rules.`
+                    : 'The return trip must leave after the outbound one.'}
+                </Text>
+              </>
+            )}
           </View>
 
           {/* Seats and price */}
@@ -353,6 +526,21 @@ export function CreateRideScreen() {
             </View>
 
             <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>Price per seat (₹)</Text>
+            {suggestion ? (
+              <View style={[styles.suggestBox, { backgroundColor: c.primaryLight }]} accessibilityLiveRegion="polite">
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
+                  Suggested ₹{suggestion.suggested} · choose ₹{suggestion.min} to ₹{suggestion.max}
+                </Text>
+                <Text style={{ fontSize: 13, color: c.textSec }}>{suggestion.explanation}</Text>
+                {String(suggestion.suggested) !== price && (
+                  <Pressable onPress={() => setPrice(String(suggestion.suggested))} accessibilityRole="button" style={styles.textBtn}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Use ₹{suggestion.suggested}</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : suggesting ? (
+              <Text style={{ fontSize: 13, color: c.textSec, marginBottom: 6 }}>Working out a fair price for this route…</Text>
+            ) : null}
             <TextInput
               value={price}
               onChangeText={t => setPrice(t.replace(/[^0-9]/g, ''))}
@@ -363,11 +551,15 @@ export function CreateRideScreen() {
               maxLength={5}
               style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
             />
-            {price !== '' && (
+            {price !== '' && !priceInRange && suggestion ? (
+              <Text style={{ fontSize: 13, color: c.error, marginTop: 6 }}>
+                For this route the price must be between ₹{suggestion.min} and ₹{suggestion.max}.
+              </Text>
+            ) : price !== '' ? (
               <Text style={{ fontSize: 13, color: c.textSec, marginTop: 6 }}>
                 ₹{(priceNumber * seats).toLocaleString('en-IN')} if every seat is booked, before the platform fee.
               </Text>
-            )}
+            ) : null}
           </View>
 
           {/* Vehicle */}
@@ -441,8 +633,10 @@ export function CreateRideScreen() {
             </View>
           </View>
 
-          {departure.getTime() <= Date.now() && (
-            <Text style={{ color: c.error, fontSize: 14 }}>Choose a departure time in the future.</Text>
+          {departure.getTime() < earliest && (
+            <Text style={{ color: c.error, fontSize: 14 }}>
+              Rides must be offered at least {MIN_ADVANCE_HOURS} hours before they leave, so riders have time to book.
+            </Text>
           )}
           {error ? (
             <Text style={{ color: c.error, fontSize: 14 }} accessibilityLiveRegion="polite">{error}</Text>
@@ -464,12 +658,22 @@ export function CreateRideScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <RideDatePicker visible={showDate} selectedDate={date} onSelect={setDate} onClose={() => setShowDate(false)} />
+      <RideDatePicker
+        visible={showDate !== null}
+        selectedDate={showDate === 'return' ? returnDate : date}
+        onSelect={d => (showDate === 'return' ? setReturnDate(d) : setDate(d))}
+        onClose={() => setShowDate(null)}
+      />
       <ClockTimePicker
-        visible={showTime}
-        initialTime={time}
-        onConfirm={t => { setTime(t); setShowTime(false); }}
-        onDismiss={() => setShowTime(false)}
+        key={showTime ?? 'closed'}
+        visible={showTime !== null}
+        initialTime={showTime === 'return' ? returnTime : time}
+        onConfirm={t => {
+          if (showTime === 'return') setReturnTime(t);
+          else setTime(t);
+          setShowTime(null);
+        }}
+        onDismiss={() => setShowTime(null)}
       />
     </View>
   );
@@ -509,6 +713,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   switchRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48 },
+  stopRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  addStop: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, marginTop: Spacing.sm },
+  suggestBox: { borderRadius: Radius.sm, padding: Spacing.md, gap: 2, marginBottom: Spacing.sm },
   chip: { minHeight: 40, paddingHorizontal: 14, borderRadius: Radius.sm, borderWidth: 1.5, justifyContent: 'center' },
   primaryBtn: {
     minHeight: 52,
