@@ -32,6 +32,9 @@ export interface IUser extends Document {
   isSuspended: boolean;
   suspendedUntil?: Date;
   fraudLevel: FraudLevel;
+  /** What the last automatic fraud check found, for the admin review (UC-AI02) */
+  fraudFlags?: string[];
+  fraudFlaggedAt?: Date;
   blockReason?: string;
   isBlocked: boolean;
   /** Why the account is suspended, shown to admins */
@@ -151,6 +154,8 @@ const UserSchema = new Schema<IUser>(
     isSuspended: { type: Boolean, default: false },
     suspendedUntil: Date,
     fraudLevel: { type: String, enum: Object.values(FraudLevel), default: FraudLevel.CLEAR },
+    fraudFlags: { type: [String], default: undefined },
+    fraudFlaggedAt: { type: Date },
     blockReason: String,
     isBlocked: { type: Boolean, default: false },
     otpAttempts: { type: Number, default: 0 },

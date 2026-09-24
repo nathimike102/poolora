@@ -383,7 +383,7 @@ export class EventBridge {
           const result = await fraudService.analyzePaymentFailure(data.userId, data);
           
           if (result.shouldBlock) {
-            logger.error('User blocked after fraud analysis', { userId: data.userId, flags: result.flags });
+            logger.error('User suspended for fraud review', { userId: data.userId, flags: result.flags });
           } else if (result.riskLevel === 'high') {
             logger.warn('User flagged for review after fraud analysis', { userId: data.userId, flags: result.flags });
           }

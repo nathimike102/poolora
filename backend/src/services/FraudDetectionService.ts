@@ -5,6 +5,9 @@ import { Booking } from '../models/Booking';
 import { logger } from '../utils/logger';
 import { FraudLevel, KYCStatus } from '../types';
 
+/** Suspensions the fraud check places start with this, so a review can lift exactly those */
+export const FRAUD_SUSPENSION_PREFIX = 'Automatic fraud check';
+
 interface FraudCheckResult {
   userId: string;
   riskScore: number;
@@ -79,10 +82,12 @@ export class FraudDetectionService {
       }
 
       // 4. Act on the results
-      if (mlResult.should_block || mlResult.risk_level === 'critical') {
-        await this.blockUser(userId, mlResult.flags);
-      } else if (mlResult.risk_level === 'high') {
-        await this.flagUser(userId, mlResult.flags);
+      const level = mlResult.risk_level ?? mlResult.riskLevel;
+      const flags: string[] = Array.isArray(mlResult.flags) ? mlResult.flags : [];
+      if (mlResult.should_block || mlResult.shouldBlock || level === 'critical') {
+        await this.suspendForReview(userId, flags);
+      } else if (level === 'high') {
+        await this.flagUser(userId, flags);
       }
 
       return {
@@ -125,21 +130,44 @@ export class FraudDetectionService {
     };
   }
 
-  private async blockUser(userId: string, flags: string[]) {
-    logger.warn('Blocking user due to fraudulent activity', { userId, flags });
-    await User.findByIdAndUpdate(userId, {
-      $set: { 
-        fraudLevel: FraudLevel.BLOCKED,
-        isBlocked: true,
-        blockReason: `Fraudulent activity detected: ${flags.join(', ')}`
-      }
-    });
+  /**
+   * High risk (UC-AI02 step 4): suspend until an admin reviews it, and alert
+   * the admins. A permanent block needs two admins (UC-A05 3b), so the check
+   * never blocks by itself.
+   */
+  private async suspendForReview(userId: string, flags: string[]) {
+    logger.warn('Suspending user for fraud review', { userId, flags });
+    const reason = `${FRAUD_SUSPENSION_PREFIX}: ${flags.join(', ') || 'unusual payment activity'}`;
+    // An admin's own suspension or block is left as it is
+    const user = await User.findOneAndUpdate(
+      { _id: userId, isBlocked: { $ne: true }, isSuspended: { $ne: true } },
+      { $set: { fraudLevel: FraudLevel.BLOCKED, fraudFlags: flags, fraudFlaggedAt: new Date(), isSuspended: true, suspensionReason: reason }, $unset: { suspendedUntil: 1 } },
+    );
+    if (!user) {
+      await User.updateOne({ _id: userId }, { $set: { fraudLevel: FraudLevel.BLOCKED, fraudFlags: flags, fraudFlaggedAt: new Date() } });
+    } else {
+      const { NotificationService } = await import('./NotificationService');
+      const message = 'We paused your account while our team checks some unusual payment activity. This usually takes a few hours. Contact support if you think this is a mistake.';
+      await new NotificationService().createNotification(userId, 'Account paused for a check', message, 'system').catch(() => undefined);
+    }
+    await this.alertAdmins(userId, 'suspended', flags);
   }
 
   private async flagUser(userId: string, flags: string[]) {
     logger.info('Flagging user for manual review', { userId, flags });
     await User.findByIdAndUpdate(userId, {
-      $set: { fraudLevel: FraudLevel.FLAGGED }
+      $set: { fraudLevel: FraudLevel.FLAGGED, fraudFlags: flags, fraudFlaggedAt: new Date() },
     });
+    await this.alertAdmins(userId, 'flagged', flags);
+  }
+
+  /** Admins on the web dashboard see it at once (UC-AI02: alert admin immediately) */
+  private async alertAdmins(userId: string, action: 'flagged' | 'suspended', flags: string[]) {
+    try {
+      const { SocketGateway } = await import('../sockets/SocketGateway');
+      SocketGateway.getInstance()?.getIO()?.to('admin:sos').emit('fraud:flagged', { userId, action, flags, at: new Date().toISOString() });
+    } catch (error) {
+      logger.debug('Could not alert admins about a fraud flag', { error: (error as Error).message });
+    }
   }
 }
