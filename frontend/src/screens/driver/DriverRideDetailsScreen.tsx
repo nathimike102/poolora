@@ -19,6 +19,7 @@ import * as Location from 'expo-location';
 import { useApp } from '../../context/AppContext';
 import { BackButton } from '../../components/BackButton';
 import { Icon } from '../../components/Icon';
+import { RideParcels } from '../../components/RideParcels';
 import { LiveMap } from '../../components/LiveMap';
 import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
@@ -450,6 +451,8 @@ export function DriverRideDetailsScreen() {
             ))
           )}
         </View>
+
+        <RideParcels rideId={rideId} />
 
         {(notStarted || inProgress) && (
           <View style={styles.actions}>

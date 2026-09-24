@@ -43,6 +43,18 @@ function getRazorpayClient(): Razorpay {
   });
 }
 
+/** What sending a parcel costs: ₹50, ₹5 a km, ₹10 a kg over 5 kg, and 1% of any insured value */
+export function parcelCost(input: { pickup: { lat: number; lng: number }; delivery: { lat: number; lng: number }; weightKg: number; insuranceValue?: number }) {
+  const distanceKm = haversineDistanceKm(input.pickup.lat, input.pickup.lng, input.delivery.lat, input.delivery.lng);
+  const weightSurcharge = input.weightKg > 5 ? (input.weightKg - 5) * 10 : 0;
+  const insuranceCost = input.insuranceValue ? input.insuranceValue * 0.01 : 0;
+  return {
+    distanceKm: round2(distanceKm),
+    insuranceCost: round2(insuranceCost),
+    total: round2(50 + distanceKm * 5 + weightSurcharge + insuranceCost),
+  };
+}
+
 export class ParcelPoolingService {
   /**
    * Create a parcel pooling request
@@ -102,18 +114,9 @@ export class ParcelPoolingService {
       throw new AppError('Parcel weight exceeds vehicle capacity', 400, 'WEIGHT_EXCEEDED');
     }
 
-    // Calculate estimated cost
-    const basePrice = 50; // Base price in INR
-    const pricePerKm = 5; // Price per km
-    const distance = haversineDistanceKm(
-      data.pickupLocation.lat,
-      data.pickupLocation.lng,
-      data.deliveryLocation.lat,
-      data.deliveryLocation.lng,
-    );
-    const weightSurcharge = data.parcelWeight > 5 ? (data.parcelWeight - 5) * 10 : 0;
-    const insuranceCost = data.insuranceValue ? data.insuranceValue * 0.01 : 0; // 1% insurance
-    const estimatedCost = round2(basePrice + distance * pricePerKm + weightSurcharge + insuranceCost);
+    const cost = parcelCost({ pickup: data.pickupLocation, delivery: data.deliveryLocation, weightKg: data.parcelWeight, insuranceValue: data.insuranceValue });
+    const estimatedCost = cost.total;
+    const insuranceCost = cost.insuranceCost;
 
     // Card or UPI: a Razorpay order the app pays; the webhook records the payment
     const razorpayOrder = data.useWallet
@@ -394,19 +397,24 @@ export class ParcelPoolingService {
     role: 'sender' | 'driver' | 'receiver',
     skip = 0,
     limit = 20,
+    /** Only parcels on this ride, for the driver's ride screen */
+    rideId?: string,
   ): Promise<{ parcels: IParcelPooling[]; total: number }> {
-    const query = role === 'sender' 
-      ? { sender: userId } 
-      : role === 'driver' 
-        ? { driver: userId } 
+    const query: Record<string, unknown> = role === 'sender'
+      ? { sender: userId }
+      : role === 'driver'
+        ? { driver: userId }
         : { receiver: userId };
+    if (rideId) query.ride = rideId;
+    // Drivers see a request only once it is paid
+    if (role === 'driver') query.paymentStatus = { $in: ['authorized', 'paid', 'refunded', 'refund_failed'] };
 
     const [parcels, total] = await Promise.all([
       ParcelPooling.find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('ride', 'pickup dropoff scheduledTime')
+        .populate('ride', 'pickup.address dropoff.address departureTime status')
         .populate('driver', 'name phone profilePicture'),
       ParcelPooling.countDocuments(query),
     ]);

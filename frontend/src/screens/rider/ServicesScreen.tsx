@@ -49,11 +49,11 @@ export function ServicesScreen() {
     { key: 'sos', label: 'Safety', icon: 'shield-check-outline', onPress: () => navigation.navigate('SOS') },
     { key: 'contacts', label: 'SOS contacts', icon: 'account-heart-outline', onPress: () => navigation.navigate('EmergencyContacts') },
     { key: 'messages', label: 'Messages', icon: 'message-text-outline', onPress: () => navigation.navigate('Messages') },
+    { key: 'parcels', label: 'Parcels', icon: 'package-variant-closed', onPress: () => navigation.navigate('ShipParcel') },
     { key: 'drive', label: 'Drive & earn', icon: 'steering', onPress: switchRole },
   ];
 
   const soon: { label: string; icon: IconName }[] = [
-    { label: 'Parcels', icon: 'package-variant-closed' },
     { label: 'Trip planner', icon: 'bag-suitcase-outline' },
   ];
 

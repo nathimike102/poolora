@@ -20,6 +20,7 @@ import { Icon } from '../../components/Icon';
 import { Radius, Spacing, Typography } from '../../theme';
 import { logger } from '../../utils/logger';
 import { bookingService } from '../../services/bookingService';
+import { parcelService } from '../../services/parcelService';
 import { realPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -41,15 +42,20 @@ export function PaymentScreen() {
   const cancelRequest = useCallback(async () => {
     setCancelling(true);
     try {
-      await bookingService.cancelBooking(params.bookingId, 'Rider cancelled before paying');
-      navigation.navigate('RiderTabs', { screen: 'MyRides' });
+      if (params.parcelId) {
+        await parcelService.cancel(params.parcelId, 'Sender cancelled before paying');
+        navigation.goBack();
+      } else {
+        await bookingService.cancelBooking(params.bookingId, 'Rider cancelled before paying');
+        navigation.navigate('RiderTabs', { screen: 'MyRides' });
+      }
     } catch {
       setFailureReason('The request could not be cancelled.');
       setPayState('failed');
     } finally {
       setCancelling(false);
     }
-  }, [params.bookingId, navigation]);
+  }, [params.bookingId, params.parcelId, navigation]);
 
   const pay = useCallback(async () => {
     setPayState('processing');
@@ -85,15 +91,16 @@ export function PaymentScreen() {
         </View>
         <Text style={[styles.title, { color: c.text }]} accessibilityLiveRegion="polite">Payment received</Text>
         <Text style={[styles.body, { color: c.textSec }]}>
-          Your request has been sent to the driver. We'll notify you when they confirm your seat. If they
-          decline, the full amount is refunded to your original payment method.
+          {params.parcelId
+            ? "Your parcel request has been sent to the driver. We'll notify you when they accept it. If they decline, the full amount is refunded to your original payment method."
+            : "Your request has been sent to the driver. We'll notify you when they confirm your seat. If they decline, the full amount is refunded to your original payment method."}
         </Text>
         <Pressable
-          onPress={() => navigation.navigate('RiderTabs', { screen: 'MyRides' })}
+          onPress={() => (params.parcelId ? navigation.goBack() : navigation.navigate('RiderTabs', { screen: 'MyRides' }))}
           accessibilityRole="button"
           style={[styles.primaryBtn, { backgroundColor: c.primary }]}
         >
-          <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>View my rides</Text>
+          <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>{params.parcelId ? 'Track the parcel' : 'View my rides'}</Text>
         </Pressable>
       </View>
     );

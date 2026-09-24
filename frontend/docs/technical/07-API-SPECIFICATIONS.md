@@ -427,10 +427,11 @@ Push notifications go through Firebase Cloud Messaging using the service account
 |---|---|---|
 | POST | `/uploads/kyc` | Presigned S3 upload for one KYC document. The app uploads directly to S3, then sends the `s3://` reference in `POST /auth/kyc` |
 
-### Parcels — `/parcels` (Phase 4, backend only)
+### Parcels — `/parcels` (Phase 4)
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
+| GET | `/parcels/quote` | signed in | Price before sending. Query: `pickupLat`, `pickupLng`, `deliveryLat`, `deliveryLng`, `weight` (kg), optional `insuranceValue`. ₹50, plus ₹5 a km, ₹10 a kg over 5 kg, and 1% of the insured value. Returns `total` and `distanceKm` |
 | POST | `/parcels/create` | signed in | Send a parcel on a ride that has not left, and is not your own (`409 SELF_PARCEL`, `409 RIDE_NOT_AVAILABLE`). With `useWallet: true` the wallet pays at once; otherwise the response has a Razorpay order, and the payment webhook records the payment. The response has the one-time `deliveryOtp` to share with the recipient |
 | POST | `/parcels/:id/accept` | driver | Carry it. Only once it is paid (`409 PARCEL_NOT_PAID`) |
 | POST | `/parcels/:id/reject` | driver | Decline. Body: optional `reason`. The sender is refunded in full |
@@ -438,9 +439,9 @@ Push notifications go through Firebase Cloud Messaging using the service account
 | POST | `/parcels/:id/deliver` | driver | Delivered, with the recipient's code. 70% of the cost is counted in the driver's earnings |
 | POST | `/parcels/:id/cancel` | sender | Cancel before pickup, with a full refund to the wallet or card. Refused once the driver has it (`409 PARCEL_PICKED_UP`) |
 | GET | `/parcels/track/:trackingNumber` | signed in | Status by tracking number |
-| GET | `/parcels` | signed in | The caller's parcels |
+| GET | `/parcels` | signed in | The caller's parcels. `role` (`sender`, `driver`, `receiver`), optional `rideId`. Drivers see only paid requests |
 
-The app's parcel screens are not connected yet.
+In the app: Services > Parcels. The sender describes the parcel and picks a ride on the route, pays from the wallet or by card, and gets the delivery code once to pass to the recipient. The driver accepts or declines, marks the pickup and hands the parcel over with the code, from the ride screen.
 
 ### Admin — `/admin` (admin only)
 

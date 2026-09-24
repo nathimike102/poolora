@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ParcelPoolingService } from '../services/ParcelPoolingService';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
+import { config } from '../config';
 
 const parcelService = new ParcelPoolingService();
 
@@ -23,7 +24,7 @@ export class ParcelPoolingController {
       );
       sendSuccess(
         res,
-        { parcel, razorpayOrder, deliveryOtp },
+        { parcel, razorpayOrder, razorpayKeyId: razorpayOrder ? config.razorpay.keyId : undefined, deliveryOtp },
         201,
         req.requestId,
       );
@@ -36,6 +37,23 @@ export class ParcelPoolingController {
    * POST /api/v1/parcels/:id/accept
    * Accept a parcel delivery request (driver only)
    */
+  /** GET /api/v1/parcels/quote — what a parcel would cost, before sending */
+  static async quote(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { parcelCost } = await import('../services/ParcelPoolingService');
+      const q = req.query as unknown as { pickupLat: number; pickupLng: number; deliveryLat: number; deliveryLng: number; weight: number; insuranceValue?: number };
+      const cost = parcelCost({
+        pickup: { lat: Number(q.pickupLat), lng: Number(q.pickupLng) },
+        delivery: { lat: Number(q.deliveryLat), lng: Number(q.deliveryLng) },
+        weightKg: Number(q.weight),
+        insuranceValue: q.insuranceValue ? Number(q.insuranceValue) : undefined,
+      });
+      sendSuccess(res, cost, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /** POST /api/v1/parcels/:id/reject — the driver declines; the sender is refunded */
   static async rejectParcelRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -133,10 +151,11 @@ export class ParcelPoolingController {
   ): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { role, skip, limit } = req.query as unknown as {
+      const { role, skip, limit, rideId } = req.query as unknown as {
         role: 'sender' | 'driver' | 'receiver';
         skip: number;
         limit: number;
+        rideId?: string;
       };
 
       const { parcels, total } = await parcelService.listUserParcels(
@@ -144,6 +163,7 @@ export class ParcelPoolingController {
         role,
         skip,
         limit,
+        rideId,
       );
 
       sendSuccess(

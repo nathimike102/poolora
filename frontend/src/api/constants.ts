@@ -117,6 +117,17 @@ export const API_ENDPOINTS = {
   },
 
   // Disputes
+  parcels: {
+    list: '/parcels',
+    create: '/parcels/create',
+    quote: '/parcels/quote',
+    track: (trackingNumber: string) => `/parcels/track/${trackingNumber}`,
+    cancel: (id: string) => `/parcels/${id}/cancel`,
+    accept: (id: string) => `/parcels/${id}/accept`,
+    reject: (id: string) => `/parcels/${id}/reject`,
+    pickup: (id: string) => `/parcels/${id}/pickup`,
+    deliver: (id: string) => `/parcels/${id}/deliver`,
+  },
   support: {
     tickets: '/support/tickets',
     ticket: (id: string) => `/support/tickets/${id}`,

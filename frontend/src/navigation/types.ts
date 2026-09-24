@@ -13,6 +13,7 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { Ride, PaginatedResponse } from '../types/api';
 import type { VehicleCategory } from '../utils/vehicles';
+import type { ParcelDraft } from '../services/parcelService';
 
 type LatLng = { lat: number; lng: number };
 
@@ -106,6 +107,8 @@ export type RootStackParamList = {
   SupportTicket: { ticketId?: string; bookingId?: string };
   Payment: {
     bookingId: string;
+    /** Paying for a parcel instead of a seat; cancelling cancels the parcel */
+    parcelId?: string;
     orderId: string;
     keyId: string;
     /** Rupees */
@@ -123,8 +126,9 @@ export type RootStackParamList = {
 
   // Parcel flow
   ShipParcel: undefined;
-  ParcelResults: undefined;
-  ParcelTracking: { parcelId: string };
+  ParcelResults: { draft: ParcelDraft };
+  /** `deliveryCode` is passed only right after sending, the one time it is known */
+  ParcelTracking: { trackingNumber: string; deliveryCode?: string };
 
   // Trip flow
   PlanTrip: undefined;

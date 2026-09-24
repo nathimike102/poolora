@@ -435,6 +435,17 @@ export const createParcelValidator = {
   }),
 };
 
+export const parcelQuoteValidator = {
+  query: Joi.object({
+    pickupLat: Joi.number().min(-90).max(90).required(),
+    pickupLng: Joi.number().min(-180).max(180).required(),
+    deliveryLat: Joi.number().min(-90).max(90).required(),
+    deliveryLng: Joi.number().min(-180).max(180).required(),
+    weight: Joi.number().min(0.1).max(50).required(),
+    insuranceValue: Joi.number().min(0).optional(),
+  }),
+};
+
 export const acceptParcelValidator = {
   params: Joi.object({
     id: Joi.string().hex().length(24).required(),
@@ -469,6 +480,7 @@ export const trackParcelValidator = {
 export const listParcelsValidator = {
   query: Joi.object({
     role: Joi.string().valid('sender', 'driver', 'receiver').default('sender'),
+    rideId: Joi.string().hex().length(24).optional(),
     skip: Joi.number().integer().min(0).default(0),
     limit: Joi.number().integer().min(1).max(50).default(20),
   }),

@@ -6,6 +6,7 @@ import { requireCapability } from '../middlewares/capability.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import {
   createParcelValidator,
+  parcelQuoteValidator,
   acceptParcelValidator,
   deliverParcelValidator,
   cancelParcelValidator,
@@ -22,6 +23,7 @@ router.use(authenticate);
  * POST /api/v1/parcels/create
  * Create a new parcel pooling request
  */
+router.get('/quote', validate(parcelQuoteValidator), ParcelPoolingController.quote);
 router.post('/create', requireActiveAccount, validate(createParcelValidator), ParcelPoolingController.createParcelRequest);
 
 /**
