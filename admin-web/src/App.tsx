@@ -13,6 +13,7 @@ import { UsersPage, UserDetailPage } from './pages/Users';
 import { ReportsPage } from './pages/Reports';
 import { SettingsPage } from './pages/Settings';
 import { AuditPage } from './pages/Audit';
+import { FraudPage } from './pages/Fraud';
 
 const AdminContext = createContext<AdminUser | null>(null);
 export const useAdmin = () => useContext(AdminContext)!;
@@ -42,6 +43,7 @@ export function App() {
             <Route path="disputes/:id" element={<DisputeDetailPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="users/:id" element={<UserDetailPage />} />
+            <Route path="fraud" element={<FraudPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="audit" element={<AuditPage />} />

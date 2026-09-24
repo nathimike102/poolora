@@ -88,6 +88,47 @@ describe('account moderation', () => {
   });
 });
 
+describe('fraud flag review', () => {
+  const flagAsCritical = () =>
+    User.updateOne({ _id: riderId }, {
+      $set: {
+        fraudLevel: 'blocked', fraudFlags: ['High booking velocity'], fraudFlaggedAt: new Date(Date.now() - 3 * 3_600_000),
+        isSuspended: true, suspensionReason: 'Automatic fraud check: High booking velocity',
+      },
+    });
+
+  it('lists open flags, oldest first, marking those over 2 hours', async () => {
+    await flagAsCritical();
+    const { accounts } = await users.fraudQueue('open');
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]).toMatchObject({ name: 'Asha Rider', fraudFlags: ['High booking velocity'], overdue: true });
+  });
+
+  it('clears a false positive and lifts the suspension the check placed', async () => {
+    await flagAsCritical();
+    await expect(users.reviewFraud(riderId.toString(), adminA, 'cleared', '')).rejects.toThrow('reason');
+    const result = await users.reviewFraud(riderId.toString(), adminA, 'cleared', 'Payments were a bank outage');
+    expect(result.suspensionLifted).toBe(true);
+    const rider = await User.findById(riderId).lean();
+    expect(rider).toMatchObject({ fraudLevel: 'clear', isSuspended: false, fraudReview: { decision: 'cleared', note: 'Payments were a bank outage' } });
+    expect((await users.fraudQueue('open')).accounts).toHaveLength(0);
+    expect((await users.fraudQueue('reviewed')).accounts).toHaveLength(1);
+    expect(await AdminAuditLog.countDocuments({ action: 'fraud.clear', targetId: riderId.toString() })).toBe(1);
+    await expect(users.reviewFraud(riderId.toString(), adminB, 'confirmed', 'Second look')).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('keeps an admin suspension when clearing, and keeps everything when confirming', async () => {
+    await User.updateOne({ _id: driverId }, { $set: { fraudLevel: 'flagged', fraudFlags: ['Card testing'], fraudFlaggedAt: new Date(), isSuspended: true, suspensionReason: 'Rude to riders' } });
+    await users.reviewFraud(driverId.toString(), adminA, 'cleared', 'Card was fine');
+    expect(await User.findById(driverId).lean()).toMatchObject({ fraudLevel: 'clear', isSuspended: true, suspensionReason: 'Rude to riders' });
+
+    await flagAsCritical();
+    await users.reviewFraud(riderId.toString(), adminA, 'confirmed', 'Twelve cards in an hour');
+    expect(await User.findById(riderId).lean()).toMatchObject({ fraudLevel: 'blocked', isSuspended: true, fraudReview: { decision: 'confirmed' } });
+    expect((await User.findById(riderId).lean())?.isBlocked).toBeFalsy();
+  });
+});
+
 describe('dispute decisions', () => {
   async function cancelledWalletBooking() {
     // The rider paid ₹400 from the wallet and got ₹200 back on a late cancellation

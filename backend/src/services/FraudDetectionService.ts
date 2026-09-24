@@ -141,10 +141,10 @@ export class FraudDetectionService {
     // An admin's own suspension or block is left as it is
     const user = await User.findOneAndUpdate(
       { _id: userId, isBlocked: { $ne: true }, isSuspended: { $ne: true } },
-      { $set: { fraudLevel: FraudLevel.BLOCKED, fraudFlags: flags, fraudFlaggedAt: new Date(), isSuspended: true, suspensionReason: reason }, $unset: { suspendedUntil: 1 } },
+      { $set: { fraudLevel: FraudLevel.BLOCKED, fraudFlags: flags, fraudFlaggedAt: new Date(), isSuspended: true, suspensionReason: reason }, $unset: { suspendedUntil: 1, fraudReview: 1 } },
     );
     if (!user) {
-      await User.updateOne({ _id: userId }, { $set: { fraudLevel: FraudLevel.BLOCKED, fraudFlags: flags, fraudFlaggedAt: new Date() } });
+      await User.updateOne({ _id: userId }, { $set: { fraudLevel: FraudLevel.BLOCKED, fraudFlags: flags, fraudFlaggedAt: new Date() }, $unset: { fraudReview: 1 } });
     } else {
       const { NotificationService } = await import('./NotificationService');
       const message = 'We paused your account while our team checks some unusual payment activity. This usually takes a few hours. Contact support if you think this is a mistake.';
@@ -157,6 +157,7 @@ export class FraudDetectionService {
     logger.info('Flagging user for manual review', { userId, flags });
     await User.findByIdAndUpdate(userId, {
       $set: { fraudLevel: FraudLevel.FLAGGED, fraudFlags: flags, fraudFlaggedAt: new Date() },
+      $unset: { fraudReview: 1 },
     });
     await this.alertAdmins(userId, 'flagged', flags);
   }

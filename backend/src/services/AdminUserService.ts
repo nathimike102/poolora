@@ -21,6 +21,7 @@ import { AppError, NotFoundError } from '../utils/AppError';
 import { audit } from './AuditService';
 import { NotificationService } from './NotificationService';
 import { emailUser } from './Mailer';
+import { FRAUD_SUSPENSION_PREFIX } from './FraudDetectionService';
 
 /** Suspensions come in fixed lengths; null is until an admin lifts it (UC-A05). */
 export const SUSPENSION_DAYS = [7, 15, 30, null] as const;
@@ -260,6 +261,60 @@ export class AdminUserService {
     await audit(adminId, 'kyc.request_changes', 'kyc', userId, why, { documents: docs });
     await tell(userId, 'Driver application: documents needed', `Please upload your ${list} again. ${why}`);
     return user;
+  }
+
+  /**
+   * Accounts the fraud check flagged (UC-AI02). `open` lists those waiting
+   * for a decision, oldest first, since high-risk flags are due within 2 hours;
+   * `reviewed` lists recent decisions, which double as labels for retraining.
+   */
+  async fraudQueue(view: 'open' | 'reviewed' = 'open'): Promise<{ accounts: Array<Record<string, unknown>> }> {
+    const flagged = { fraudLevel: { $in: [FraudLevel.FLAGGED, FraudLevel.BLOCKED] } };
+    const filter = view === 'open'
+      ? { ...flagged, fraudReview: { $exists: false } }
+      : { fraudReview: { $exists: true } };
+    const accounts = await User.find(filter)
+      .select('name phone email capabilities fraudLevel fraudFlags fraudFlaggedAt fraudReview isSuspended suspensionReason isBlocked stats warnings createdAt')
+      .populate('fraudReview.by', 'name')
+      .sort(view === 'open' ? { fraudFlaggedAt: 1 } : { 'fraudReview.at': -1 })
+      .limit(200)
+      .lean();
+    const dueMs = 2 * 3_600_000;
+    return {
+      accounts: accounts.map((u) => ({
+        ...u,
+        overdue: view === 'open' && Boolean(u.fraudFlaggedAt) && Date.now() - new Date(u.fraudFlaggedAt as Date).getTime() > dueMs,
+      })),
+    };
+  }
+
+  /**
+   * An admin's decision on a fraud flag. Clearing it is a false positive:
+   * the flag goes and a suspension the check placed is lifted. Confirming
+   * keeps the account as it is; blocking it still takes two admins.
+   */
+  async reviewFraud(userId: string, adminId: string, decision: unknown, note: unknown) {
+    if (decision !== 'cleared' && decision !== 'confirmed') {
+      throw new AppError('Decision must be cleared or confirmed', 422, 'VALIDATION_ERROR');
+    }
+    const why = requireReason(note);
+    const user = await User.findById(userId);
+    if (!user) throw new NotFoundError('User');
+    if (user.fraudLevel === FraudLevel.CLEAR) throw new AppError('This account has no fraud flag', 409, 'CONFLICT');
+    if (user.fraudReview) throw new AppError('This flag has already been reviewed', 409, 'CONFLICT');
+
+    const review = { decision, by: new Types.ObjectId(adminId), at: new Date(), note: why };
+    const liftSuspension = decision === 'cleared' && user.isSuspended && (user.suspensionReason ?? '').startsWith(FRAUD_SUSPENSION_PREFIX);
+    const update: Record<string, unknown> = {
+      $set: { fraudReview: review, ...(decision === 'cleared' ? { fraudLevel: FraudLevel.CLEAR } : {}), ...(liftSuspension ? { isSuspended: false } : {}) },
+      ...(liftSuspension ? { $unset: { suspendedUntil: 1, suspensionReason: 1 } } : {}),
+    };
+    const updated = await User.findByIdAndUpdate(userId, update, { new: true });
+    await audit(adminId, decision === 'cleared' ? 'fraud.clear' : 'fraud.confirm', 'user', userId, why, { flags: user.fraudFlags ?? [] });
+    if (liftSuspension) {
+      await tell(userId, 'Account active again', 'We finished checking your account and everything is in order. You can post and book rides again. Sorry for the wait.');
+    }
+    return { user: updated, suspensionLifted: liftSuspension };
   }
 
   /** Admin audit log, filterable (UC-A05 step 5). */

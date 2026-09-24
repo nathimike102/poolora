@@ -106,7 +106,7 @@ export function DashboardPage() {
               <tr><td>Blocks waiting for a second admin</td><td className="num"><Link to="/users?status=pending_block">{num(safety.pendingBlocks)}</Link></td></tr>
               <tr><td>Suspended accounts</td><td className="num"><Link to="/users?status=suspended">{num(safety.suspendedUsers)}</Link></td></tr>
               <tr><td>Blocked accounts</td><td className="num"><Link to="/users?status=blocked">{num(safety.blockedUsers)}</Link></td></tr>
-              <tr><td>Flagged by fraud checks</td><td className="num">{num(safety.fraudFlagged)}</td></tr>
+              <tr><td><Link to="/fraud">Fraud flags waiting for review</Link></td><td className="num">{num(safety.fraudFlagged)}</td></tr>
             </tbody>
           </table>
         </section>

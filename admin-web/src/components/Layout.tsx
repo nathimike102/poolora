@@ -6,7 +6,7 @@ import { subscribeSos } from '../lib/socket';
 import { useApi } from '../lib/useApi';
 
 interface Counts {
-  safety: { activeSos: number; openDisputes: number; pendingBlocks: number };
+  safety: { activeSos: number; openDisputes: number; pendingBlocks: number; fraudFlagged: number };
   users: { pendingApplications: number };
 }
 
@@ -57,6 +57,7 @@ export function Layout({ onSignedOut }: { onSignedOut: () => void }) {
     ['/applications', 'Driver applications', data?.users.pendingApplications ?? 0],
     ['/disputes', 'Disputes', data?.safety.openDisputes ?? 0],
     ['/users', 'Users', data?.safety.pendingBlocks ?? 0],
+    ['/fraud', 'Fraud flags', data?.safety.fraudFlagged ?? 0],
     ['/reports', 'Reports', 0],
     ['/settings', 'Settings', 0],
     ['/audit', 'Audit log', 0],

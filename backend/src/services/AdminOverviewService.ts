@@ -94,7 +94,7 @@ export class AdminOverviewService {
       User.countDocuments({ isBlocked: true }),
       User.countDocuments({ isSuspended: true, isBlocked: { $ne: true } }),
       User.countDocuments({ 'pendingBlock.requestedAt': { $exists: true } }),
-      User.countDocuments({ fraudLevel: { $in: [FraudLevel.FLAGGED, FraudLevel.BLOCKED] } }),
+      User.countDocuments({ fraudLevel: { $in: [FraudLevel.FLAGGED, FraudLevel.BLOCKED] }, fraudReview: { $exists: false } }),
     ]);
 
     const [volumeToday, volumeWeek, volumeMonth] = await Promise.all([
@@ -184,7 +184,7 @@ export class AdminOverviewService {
       Booking.countDocuments({ createdAt: { $gte: weekAgo, $lt: today } }),
       Booking.countDocuments({ status: BookingStatus.CANCELLED, cancelledAt: { $gte: today } }),
       Booking.countDocuments({ status: BookingStatus.CANCELLED, cancelledAt: { $gte: weekAgo, $lt: today } }),
-      User.countDocuments({ fraudLevel: { $in: [FraudLevel.FLAGGED, FraudLevel.BLOCKED] }, updatedAt: { $gte: today } }),
+      User.countDocuments({ fraudLevel: { $in: [FraudLevel.FLAGGED, FraudLevel.BLOCKED] }, fraudFlaggedAt: { $gte: today } }),
     ]);
     // Expected so far today, pro rata from the weekly daily average
     const expectedBookings = (bookingsWeek / 7) * (hoursIntoDay / 24);
@@ -219,7 +219,16 @@ export class AdminOverviewService {
       });
     }
     if (fraudToday >= 3) {
-      out.push({ severity: 'warning', title: 'Several fraud flags today', detail: `${fraudToday} accounts flagged or blocked by fraud checks today.`, link: '/users?status=blocked' });
+      out.push({ severity: 'warning', title: 'Several fraud flags today', detail: `${fraudToday} accounts flagged or blocked by fraud checks today.`, link: '/fraud' });
+    }
+    // High-risk flags are due for review within 2 hours (UC-AI02)
+    const fraudOverdue = await User.countDocuments({
+      fraudLevel: { $in: [FraudLevel.FLAGGED, FraudLevel.BLOCKED] },
+      fraudReview: { $exists: false },
+      fraudFlaggedAt: { $lt: new Date(now.getTime() - 2 * 3_600_000) },
+    });
+    if (fraudOverdue > 0) {
+      out.push({ severity: 'warning', title: 'Fraud flags overdue', detail: `${fraudOverdue} waiting more than 2 hours for review.`, link: '/fraud' });
     }
     if (summary.safety.pendingBlocks > 0) {
       out.push({ severity: 'warning', title: 'Blocks waiting for approval', detail: summary.safety.pendingBlocks === 1 ? '1 account block needs a second admin.' : `${summary.safety.pendingBlocks} account blocks need a second admin.`, link: '/users?status=pending_block' });

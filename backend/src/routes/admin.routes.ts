@@ -65,6 +65,9 @@ router.post('/accounts/:id/block/reject', W.rejectBlock);
 router.post('/accounts/:id/unblock', W.unblock);
 router.post('/accounts/:id/notes', W.addNote);
 
+router.get('/fraud', W.fraudQueue);
+router.post('/fraud/:id/review', W.reviewFraud);
+
 router.get('/disputes', W.listDisputes);
 router.get('/disputes/:id', W.disputeDetail);
 router.post('/disputes/:id/assign', W.assignDispute);

@@ -71,6 +71,10 @@ export const AdminWebController = {
   rejectBlock: handle((req, admin) => users.rejectBlock(id(req), admin, req.body?.reason)),
   unblock: handle((req, admin) => users.unblock(id(req), admin, req.body?.reason)),
   addNote: handle((req, admin) => users.addNote(id(req), admin, req.body?.text)),
+
+  // ── Fraud flags (UC-AI02) ─────────────────────────────────────────────────
+  fraudQueue: handle((req) => users.fraudQueue(queryString(req, 'view') === 'reviewed' ? 'reviewed' : 'open')),
+  reviewFraud: handle((req, admin) => users.reviewFraud(id(req), admin, req.body?.decision, req.body?.note)),
   auditLog: handle((req) =>
     users.auditLog({
       actor: queryString(req, 'actor'),

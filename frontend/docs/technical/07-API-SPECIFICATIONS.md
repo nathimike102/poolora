@@ -316,7 +316,7 @@ The webhook checks `X-Razorpay-Signature` against the raw body with `RAZORPAY_WE
 
 - `payment.authorized`: records the payment. The driver can now accept the booking.
 - `payment.captured`: marks the payment captured. It does **not** confirm the booking; only the driver's accept does, because that is what reserves the seats.
-- `payment.failed`: records the failure for fraud checks. The booking stays pending so the rider can retry, and a payment that already went through is never overwritten.
+- `payment.failed`: records the failure for fraud checks. The booking stays pending so the rider can retry, and a payment that already went through is never overwritten. The fraud check then scores the rider: high risk flags the account for admin review, and critical risk suspends it until an admin reviews it (see `/admin/fraud`). The check never blocks an account by itself.
 
 In the Razorpay dashboard, the webhook URL is `<APP_BASE_URL>/payments/webhook`, with events `payment.authorized`, `payment.captured` and `payment.failed`.
 
@@ -453,6 +453,8 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | POST | `/admin/accounts/:id/block/reject` | Reject a block request. Body: `reason` |
 | POST | `/admin/accounts/:id/unblock` | Body: `reason` |
 | POST | `/admin/accounts/:id/notes` | Internal note, seen only by admins. Body: `text` |
+| GET | `/admin/fraud` | Accounts flagged by the fraud check on failed payments (UC-AI02). `?view=open` (default: waiting, oldest first, `overdue` after 2 hours) or `?view=reviewed` (recent decisions). Each has `fraudLevel` (`flagged` for high risk, `blocked` for critical), `fraudFlags` and `fraudFlaggedAt` |
+| POST | `/admin/fraud/:id/review` | Body: `decision` (`cleared` for a false positive, `confirmed`) and `note`. Clearing sets the level back to `clear` and lifts a suspension the check placed; confirming changes nothing else. A block still needs two admins |
 | GET | `/admin/disputes` | Query: `status` (`open`, `in_review`, `resolved`), `category`, `page`, `limit` (UC-A04) |
 | GET | `/admin/disputes/:id` | The case file: both parties, booking, payments, chat, ratings, SOS, earlier disputes, and `refundable` (what can still be refunded) |
 | POST | `/admin/disputes/:id/assign` | Take the case |
@@ -536,6 +538,7 @@ Every socket joins the room `user:<userId>`.
 | `safety:check-in` | An in-ride "Are you OK?" prompt; answer with `POST /safety/ride-check-in` |
 | `chat:message:receive`, `chat:message:sent`, `chat:messages:read`, `chat:typing:*` | Chat |
 | `sos:triggered`, `sos:alert`, `sos:location:updated` | SOS (alerts go to the `admin:sos` room) |
+| `fraud:flagged` | The fraud check flagged (`action: flagged`) or suspended (`action: suspended`) an account; sent to the `admin:sos` room with `userId` and `flags` |
 | `tracking:error`, `chat:error`, `sos:error` | The request was refused |
 
 With several backend instances, events are shared through the Socket.IO Redis adapter.

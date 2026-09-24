@@ -8,6 +8,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   signInWithPopup,
+  sendPasswordResetEmail,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   type Auth,
@@ -82,6 +83,21 @@ export async function signInWithGoogle(): Promise<AdminUser> {
     const cred = await signInWithPopup(auth(), new GoogleAuthProvider());
     return await exchange(await cred.user.getIdToken());
   } catch (error) {
+    friendly(error);
+  }
+}
+
+/**
+ * Emails a password reset link. Firebase does not say whether the address
+ * has an account, so the caller shows the same message either way.
+ */
+export async function resetPassword(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth(), email.trim());
+  } catch (error) {
+    const code = (error as { code?: string }).code ?? '';
+    if (code.includes('user-not-found')) return;
+    if (code.includes('invalid-email')) throw new ApiError('Enter a valid email address.', 422);
     friendly(error);
   }
 }

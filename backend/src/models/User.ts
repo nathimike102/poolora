@@ -35,6 +35,8 @@ export interface IUser extends Document {
   /** What the last automatic fraud check found, for the admin review (UC-AI02) */
   fraudFlags?: string[];
   fraudFlaggedAt?: Date;
+  /** An admin's decision on the last flag; absent while it waits for review */
+  fraudReview?: { decision: 'cleared' | 'confirmed'; by: Types.ObjectId; at: Date; note: string };
   blockReason?: string;
   isBlocked: boolean;
   /** Why the account is suspended, shown to admins */
@@ -156,6 +158,13 @@ const UserSchema = new Schema<IUser>(
     fraudLevel: { type: String, enum: Object.values(FraudLevel), default: FraudLevel.CLEAR },
     fraudFlags: { type: [String], default: undefined },
     fraudFlaggedAt: { type: Date },
+    fraudReview: {
+      type: new Schema(
+        { decision: { type: String, enum: ['cleared', 'confirmed'] }, by: { type: Schema.Types.ObjectId, ref: 'User' }, at: Date, note: String },
+        { _id: false },
+      ),
+      default: undefined,
+    },
     blockReason: String,
     isBlocked: { type: Boolean, default: false },
     otpAttempts: { type: Number, default: 0 },
