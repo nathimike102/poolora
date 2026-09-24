@@ -279,7 +279,7 @@ export const emergencyContactsSchema = {
         phone: Joi.string().replace(/[\s()-]/g, '').pattern(/^\+[1-9]\d{7,14}$/).required(),
         relation: Joi.string().trim().max(50).required(),
       }),
-    ).max(5).required(),
+    ).max(3).required(),
   }),
 };
 

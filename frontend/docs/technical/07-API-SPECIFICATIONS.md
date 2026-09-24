@@ -363,7 +363,7 @@ Messages also flow over the socket (section 13). Profanity is filtered.
 | POST | `/safety/sos/:id/resolve` | admin | Close it, optionally as a false alarm |
 | POST | `/safety/sos/:id/notify-police` | admin | Record that police were called |
 | GET | `/safety/emergency-contacts` | signed in | The caller's contacts |
-| PUT | `/safety/emergency-contacts` | signed in | Replace the list. Each contact has `name`, `phone` (E.164) and `relation`. The API accepts up to 5; the app limits it to 3 |
+| PUT | `/safety/emergency-contacts` | signed in | Replace the list. Each contact has `name`, `phone` (E.164) and `relation`. At most 3 (UC-R10) |
 
 ### 10.1 Public tracking page — `/track`
 
