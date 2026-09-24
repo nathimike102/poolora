@@ -143,7 +143,8 @@ export class SafetyController {
   static async getEmergencyContacts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const contacts = await safetyService.getEmergencyContacts(user.userId);
+      const { EmergencyContactService } = await import('../services/EmergencyContactService');
+      const contacts = await new EmergencyContactService().list(user.userId);
       sendSuccess(res, { contacts }, 200, req.requestId);
     } catch (error) {
       next(error);
@@ -157,8 +158,24 @@ export class SafetyController {
   static async updateEmergencyContacts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const contacts = await safetyService.updateEmergencyContacts(user.userId, req.body.contacts);
+      const { EmergencyContactService } = await import('../services/EmergencyContactService');
+      const contacts = await new EmergencyContactService().replace(user.userId, req.body.contacts);
       sendSuccess(res, { contacts }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/safety/emergency-contacts/:contactId/verify
+   * Texts the contact a link to confirm (UC-R10 steps 6-7).
+   */
+  static async verifyEmergencyContact(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const { EmergencyContactService } = await import('../services/EmergencyContactService');
+      const result = await new EmergencyContactService().sendVerification(user.userId, String(req.params.contactId));
+      sendSuccess(res, result, 200, req.requestId);
     } catch (error) {
       next(error);
     }

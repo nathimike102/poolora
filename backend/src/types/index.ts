@@ -135,9 +135,19 @@ export interface IKYCData {
 }
 
 export interface IEmergencyContact {
+  _id?: import('mongoose').Types.ObjectId;
   name: string;
   phone: string;
   relation: string;
+  email?: string;
+  /** The first person to call (UC-R10 step 4); exactly one contact is primary */
+  primary?: boolean;
+  /** Whether this contact gets the SOS text; the user chooses */
+  notifyOnSos?: boolean;
+  /** Set when the contact confirmed by the link in the verification text */
+  verifiedAt?: Date;
+  verifyTokenHash?: string;
+  verifySentAt?: Date;
 }
 
 export interface IUserStats {

@@ -87,8 +87,14 @@ const EmergencyContactSchema = new Schema<IEmergencyContact>(
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, trim: true },
     relation: { type: String, required: true, trim: true },
+    email: { type: String, trim: true, lowercase: true },
+    primary: { type: Boolean, default: false },
+    notifyOnSos: { type: Boolean, default: true },
+    verifiedAt: { type: Date },
+    // Never sent to clients; the link in the text carries the token itself
+    verifyTokenHash: { type: String, select: false },
+    verifySentAt: { type: Date },
   },
-  { _id: false },
 );
 
 const UserStatsSchema = new Schema<IUserStats>(

@@ -333,31 +333,6 @@ describe('SafetyService', () => {
     });
   });
 
-  describe('getEmergencyContacts', () => {
-    it('should return user emergency contacts', async () => {
-      const mockUser = {
-        emergencyContacts: [
-          { name: 'Mom', phone: '+911234567890', relation: 'mother' },
-        ],
-      };
-      (User.findById as jest.Mock).mockReturnValue({
-        select: jest.fn().mockResolvedValue(mockUser),
-      });
-
-      const contacts = await safetyService.getEmergencyContacts('user123');
-      expect(contacts).toHaveLength(1);
-      expect(contacts[0].name).toBe('Mom');
-    });
-
-    it('should throw if user not found', async () => {
-      (User.findById as jest.Mock).mockReturnValue({
-        select: jest.fn().mockResolvedValue(null),
-      });
-
-      await expect(safetyService.getEmergencyContacts('nonexistent')).rejects.toThrow();
-    });
-  });
-
   describe('updateSOSLocation', () => {
     it('should push location to history and refresh monitoring', async () => {
       (EmergencyRecord.findById as jest.Mock).mockResolvedValue({

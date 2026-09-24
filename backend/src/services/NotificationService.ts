@@ -184,6 +184,11 @@ export class NotificationService {
     }
   }
 
+  /** Whether text messages can actually be sent (Twilio enabled and set up) */
+  smsAvailable(): boolean {
+    return Boolean(config.twilio.enabled && this.twilioClient);
+  }
+
   /**
    * Send SMS via Twilio
    */

@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Switch,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,6 +19,7 @@ import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
 import { safetyService, type EmergencyContact } from '../../services/safetyService';
+import { errorHandler } from '../../utils/errorHandler';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -40,7 +42,9 @@ export function EmergencyContactsScreen() {
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newRelation, setNewRelation] = useState('');
+  const [newEmail, setNewEmail] = useState('');
   const [formError, setFormError] = useState('');
+  const [verifying, setVerifying] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoadError(false);
@@ -75,16 +79,39 @@ export function EmergencyContactsScreen() {
       setFormError('This number is already one of your contacts.');
       return;
     }
+    const email = newEmail.trim();
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+      setFormError('Check the email address, or leave it empty.');
+      return;
+    }
     setFormError('');
     const ok = await save([
       ...(contacts ?? []),
-      { name: newName.trim(), phone, relation: newRelation.trim() },
+      { name: newName.trim(), phone, relation: newRelation.trim(), email: email || undefined, notifyOnSos: true },
     ]);
     if (ok) {
       setNewName('');
       setNewPhone('');
       setNewRelation('');
+      setNewEmail('');
       setShowAdd(false);
+    }
+  };
+
+  const update = (contact: EmergencyContact, change: Partial<EmergencyContact>) =>
+    save((contacts ?? []).map(ct => (ct.phone === contact.phone ? { ...ct, ...change } : change.primary ? { ...ct, primary: false } : ct)));
+
+  const verify = async (contact: EmergencyContact) => {
+    if (!contact._id) return;
+    setVerifying(contact._id);
+    try {
+      await safetyService.verifyEmergencyContact(contact._id);
+      Alert.alert('Text sent', `${contact.name} will get a text with a link to confirm. We'll let you know when they do.`);
+      load();
+    } catch (error) {
+      Alert.alert('Not sent', errorHandler.process(error).message);
+    } finally {
+      setVerifying(null);
     }
   };
 
@@ -138,7 +165,8 @@ export function EmergencyContactsScreen() {
           <Icon name="shield-alert" size={16} color={c.error} />
           <Text style={{ fontSize: 13, color: c.text, lineHeight: 18, flex: 1 }}>
             When you raise an SOS during a ride, these people get a text message with a link to your
-            live location. Add up to {MAX_CONTACTS} people you trust.
+            live location. Add up to {MAX_CONTACTS} people you trust, and ask each to confirm so you know
+            the number is right.
           </Text>
         </View>
 
@@ -164,6 +192,18 @@ export function EmergencyContactsScreen() {
                 <Text style={{ fontSize: 14, fontWeight: '600', color: c.text, marginTop: 2 }}>
                   {contact.phone}
                 </Text>
+                {contact.email ? <Text style={{ fontSize: 13, color: c.textSec }}>{contact.email}</Text> : null}
+                <View style={s.tags}>
+                  {contact.primary ? (
+                    <View style={[s.tag, { backgroundColor: c.primaryLight }]}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: c.primary }}>Primary</Text>
+                    </View>
+                  ) : null}
+                  <View style={[s.tag, { backgroundColor: contact.verified ? c.successLight : c.surfaceVariant }]}>
+                    <Icon name={contact.verified ? 'check-decagram' : 'help-circle-outline'} size={14} color={contact.verified ? c.success : c.textSec} />
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.text }}>{contact.verified ? 'Confirmed' : 'Not confirmed'}</Text>
+                  </View>
+                </View>
               </View>
               <Pressable
                 onPress={() => remove(contact)}
@@ -175,8 +215,48 @@ export function EmergencyContactsScreen() {
                 <Text style={{ fontSize: 13, fontWeight: '600', color: c.error }}>Remove</Text>
               </Pressable>
             </View>
+            <View style={[s.cardFoot, { borderTopColor: c.border }]}>
+              <View style={s.switchRow}>
+                <Text style={{ flex: 1, fontSize: 14, color: c.text }}>Gets my SOS text</Text>
+                <Switch
+                  value={contact.notifyOnSos !== false}
+                  onValueChange={on => { void update(contact, { notifyOnSos: on }); }}
+                  disabled={saving}
+                  accessibilityLabel={`${contact.name} gets my SOS text`}
+                  trackColor={{ false: c.border, true: c.primary }}
+                />
+              </View>
+              <View style={s.footBtns}>
+                {!contact.primary && (
+                  <Pressable onPress={() => update(contact, { primary: true })} disabled={saving} accessibilityRole="button" style={s.linkBtn}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Make primary</Text>
+                  </Pressable>
+                )}
+                {!contact.verified && contact._id && (
+                  <Pressable
+                    onPress={() => verify(contact)}
+                    disabled={verifying !== null}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Ask ${contact.name} to confirm by text`}
+                    style={s.linkBtn}
+                  >
+                    {verifying === contact._id ? <ActivityIndicator color={c.primary} /> : (
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>
+                        {contact.verificationSentAt ? 'Send the text again' : 'Ask them to confirm'}
+                      </Text>
+                    )}
+                  </Pressable>
+                )}
+              </View>
+            </View>
           </View>
         ))}
+
+        {contacts && count > 0 && contacts.every(ct => ct.notifyOnSos === false) && (
+          <Text style={{ fontSize: 13, color: c.error }} accessibilityLiveRegion="polite">
+            Nobody will get a text if you raise an SOS. Turn on "Gets my SOS text" for at least one contact.
+          </Text>
+        )}
 
         {contacts && count === 0 && !showAdd && (
           <Pressable
@@ -199,6 +279,7 @@ export function EmergencyContactsScreen() {
               { label: 'Name', value: newName, setter: setNewName, placeholder: 'Their name', kb: 'default' as const, ac: 'name' as const },
               { label: 'Mobile number', value: newPhone, setter: setNewPhone, placeholder: '10-digit mobile number', kb: 'phone-pad' as const, ac: 'tel' as const },
               { label: 'Relationship', value: newRelation, setter: setNewRelation, placeholder: 'For example, sister', kb: 'default' as const, ac: 'off' as const },
+              { label: 'Email (optional)', value: newEmail, setter: setNewEmail, placeholder: 'name@example.com', kb: 'email-address' as const, ac: 'email' as const },
             ].map(f => (
               <View key={f.label} style={{ marginBottom: 12 }}>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: c.textSec, marginBottom: 6 }}>
@@ -294,6 +375,12 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   actionBtn: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 8 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  cardFoot: { borderTopWidth: 1, paddingHorizontal: 16, paddingVertical: 8 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+  footBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  linkBtn: { minHeight: 44, justifyContent: 'center' },
 
   /* Empty slot */
   emptySlot: {

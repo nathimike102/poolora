@@ -140,9 +140,18 @@ export interface Vehicle {
 }
 
 export interface EmergencyContact {
+  _id?: string;
   name: string;
   phone: string;
   relation: string;
+  email?: string;
+  /** The first person to call; exactly one contact is primary */
+  primary?: boolean;
+  /** Gets the SOS text (default true) */
+  notifyOnSos?: boolean;
+  /** Confirmed by the link in the verification text (UC-R10) */
+  verified?: boolean;
+  verificationSentAt?: string;
 }
 
 // ─── Ride Types ────────────────────────────────────────────────────────────

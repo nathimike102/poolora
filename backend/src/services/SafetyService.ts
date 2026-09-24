@@ -231,7 +231,8 @@ export class SafetyService {
       !config.twilio.phoneNumber.includes('XXXXXXXXXX'),
     );
 
-    const contacts = user.emergencyContacts ?? [];
+    // The user chooses which contacts get the SOS text (UC-R10)
+    const contacts = (user.emergencyContacts ?? []).filter((c) => c.notifyOnSos !== false);
     let notifiedCount = 0;
     if (twilioConfigured) {
       for (const contact of contacts) {
@@ -594,31 +595,5 @@ export class SafetyService {
       lastUpdatedAt: last?.timestamp ?? null,
       resolvedAt: record.resolvedAt ?? null,
     };
-  }
-
-  /**
-   * Get emergency contacts for a user.
-   */
-  async getEmergencyContacts(userId: string) {
-    const user = await User.findById(userId).select('emergencyContacts');
-    if (!user) throw new NotFoundError('User');
-    return user.emergencyContacts;
-  }
-
-  /**
-   * Update emergency contacts for a user.
-   */
-  async updateEmergencyContacts(
-    userId: string,
-    contacts: Array<{ name: string; phone: string; relation: string }>,
-  ) {
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { $set: { emergencyContacts: contacts } },
-      { new: true, runValidators: true },
-    ).select('emergencyContacts');
-
-    if (!user) throw new NotFoundError('User');
-    return user.emergencyContacts;
   }
 }

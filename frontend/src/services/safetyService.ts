@@ -75,9 +75,18 @@ function toIncident(record: EmergencyRecordResponse): IncidentData {
 }
 
 export interface EmergencyContact {
+  _id?: string;
   name: string;
   phone: string;
   relation: string;
+  email?: string;
+  /** The first person to call; exactly one contact is primary */
+  primary?: boolean;
+  /** Gets the SOS text (default true) */
+  notifyOnSos?: boolean;
+  /** Confirmed by the link in the verification text (UC-R10) */
+  verified?: boolean;
+  verificationSentAt?: string;
 }
 
 /**
@@ -242,9 +251,13 @@ export const safetyService = {
    */
   async updateEmergencyContacts(contacts: EmergencyContact[]): Promise<EmergencyContact[]> {
     try {
+      // Only what the user edits; verification is kept by the server for unchanged numbers
+      const body = contacts.map(({ name, phone, relation, email, primary, notifyOnSos }) => ({
+        name, phone, relation, email: email || undefined, primary: Boolean(primary), notifyOnSos: notifyOnSos !== false,
+      }));
       const response = await apiClient.put<ApiResponse<{ contacts: EmergencyContact[] }>>(
         API_ENDPOINTS.safety.emergencyContacts,
-        { contacts },
+        { contacts: body },
       );
       logger.info('Emergency contacts updated');
       return response.data.data.contacts;
@@ -252,5 +265,11 @@ export const safetyService = {
       logger.error('Failed to update emergency contacts', { error });
       throw error;
     }
+  },
+
+  /** Texts the contact a link to confirm they agree to be called (UC-R10) */
+  async verifyEmergencyContact(contactId: string): Promise<{ sentTo: string }> {
+    const response = await apiClient.post<ApiResponse<{ sentTo: string }>>(API_ENDPOINTS.safety.verifyEmergencyContact(contactId), {});
+    return response.data.data;
   },
 };

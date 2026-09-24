@@ -191,6 +191,7 @@ export const API_ENDPOINTS = {
     resolve: (id: string) => `/safety/sos/${id}/resolve`,
     notifyPolice: (id: string) => `/safety/sos/${id}/notify-police`,
     emergencyContacts: '/safety/emergency-contacts',
+    verifyEmergencyContact: (id: string) => `/safety/emergency-contacts/${id}/verify`,
     rideCheckIn: '/safety/ride-check-in',
   },
 

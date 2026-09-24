@@ -362,13 +362,16 @@ Messages also flow over the socket (section 13). Profanity is filtered.
 | POST | `/safety/sos/:id/acknowledge` | admin | Take the incident |
 | POST | `/safety/sos/:id/resolve` | admin | Close it, optionally as a false alarm |
 | POST | `/safety/sos/:id/notify-police` | admin | Record that police were called |
-| GET | `/safety/emergency-contacts` | signed in | The caller's contacts |
-| PUT | `/safety/emergency-contacts` | signed in | Replace the list. Each contact has `name`, `phone` (E.164) and `relation`. At most 3 (UC-R10) |
+| GET | `/safety/emergency-contacts` | signed in | The caller's contacts, each with `_id`, `name`, `phone`, `relation`, `email`, `primary`, `notifyOnSos`, `verified` and `verificationSentAt` |
+| PUT | `/safety/emergency-contacts` | signed in | Replace the list (UC-R10). Each contact has `name`, `phone` (E.164), `relation`, optional `email`, `primary` and `notifyOnSos` (default true). At most 3, each with a different number. Exactly one is primary: the one marked, or the first. A contact whose number is unchanged stays verified. Only contacts with `notifyOnSos` get the SOS text |
+| POST | `/safety/emergency-contacts/:contactId/verify` | signed in | Texts the contact a link to confirm. The link works for 7 days. At most one text every 10 minutes per contact (`429 VERIFY_RATE_LIMITED`). Returns `503 SMS_UNAVAILABLE` when Twilio is not set up. An unconfirmed contact still gets SOS texts |
 
 ### 10.1 Public tracking page — `/track`
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
+| GET | `/track/contact/:token` | public, token in the link | The page an emergency contact opens from their verification text. It shows who added them and has a Confirm button. Opening it changes nothing, so link previews cannot confirm |
+| POST | `/track/contact/:token` | public, token in the link | Confirms the contact. The user gets a notification |
 | GET | `/track/sos/:token` | public, token in the link | A web page with the live SOS position, for emergency contacts without the app. The token is random and expires |
 | GET | `/track/trip/:token` | public, token in the link | A trip a rider shared (UC-R08): first names, the car, the route, the car's latest position and an ETA. Refreshes itself, has no scripts, stops working an hour after the trip ends or when it is cancelled, and logs every visit |
 

@@ -9,6 +9,7 @@ import {
   sosLocationSchema,
   sosEvidenceSchema,
   emergencyContactsSchema,
+  contactIdParamSchema,
   idParamSchema,
   paginationSchema,
   rideCheckInSchema,
@@ -24,6 +25,7 @@ router.get('/sos/active', requireAdmin(), validate(paginationSchema), SafetyCont
 // Emergency contacts (user)
 router.get('/emergency-contacts', SafetyController.getEmergencyContacts);
 router.put('/emergency-contacts', validate(emergencyContactsSchema), SafetyController.updateEmergencyContacts);
+router.post('/emergency-contacts/:contactId/verify', validate(contactIdParamSchema), SafetyController.verifyEmergencyContact);
 
 // SOS status
 router.get('/sos/:id', validate(idParamSchema), SafetyController.getSOSStatus);

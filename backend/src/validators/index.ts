@@ -278,9 +278,20 @@ export const emergencyContactsSchema = {
         name: Joi.string().trim().min(1).max(100).required(),
         phone: Joi.string().replace(/[\s()-]/g, '').pattern(/^\+[1-9]\d{7,14}$/).required(),
         relation: Joi.string().trim().max(50).required(),
-      }),
+        email: Joi.string().trim().email().max(200).allow('').optional(),
+        primary: Joi.boolean().optional(),
+        notifyOnSos: Joi.boolean().default(true),
+        // Sent back by the app with the rest of the contact; contacts are matched by phone
+        _id: Joi.string().hex().length(24).optional(),
+        verified: Joi.boolean().optional(),
+        verificationSentAt: Joi.any().strip(),
+      }).options({ stripUnknown: false }),
     ).max(3).required(),
   }),
+};
+
+export const contactIdParamSchema = {
+  params: Joi.object({ contactId: Joi.string().hex().length(24).required() }),
 };
 
 export const idParamSchema = {

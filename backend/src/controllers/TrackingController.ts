@@ -54,7 +54,73 @@ ${refreshSeconds ? `<meta http-equiv="refresh" content="${refreshSeconds}">` : '
 </html>`;
 }
 
+function contactHeaders(res: Response): void {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  );
+}
+
+const CONTACT_LINK_EXPIRED = page(
+  'Link expired',
+  `<h1>This link is no longer active</h1>
+<p>Confirmation links work for 7 days. Ask the person who added you to send a new one from the Poolora app.</p>`,
+);
+
 export class TrackingController {
+  /**
+   * GET /track/contact/:token
+   * The page an emergency contact opens from their verification text. It
+   * only shows who added them; confirming is a button (a POST), so link
+   * previews cannot confirm on their behalf.
+   */
+  static async contactPage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      contactHeaders(res);
+      const { EmergencyContactService } = await import('../services/EmergencyContactService');
+      const found = await new EmergencyContactService().peek(String(req.params.token));
+      if (!found) {
+        res.status(404).type('html').send(CONTACT_LINK_EXPIRED);
+        return;
+      }
+      const who = escapeHtml(found.userFirstName);
+      if (found.verified) {
+        res.status(200).type('html').send(page('Already confirmed', `<h1>You're already confirmed</h1>
+<p class="ok">You are ${who}'s emergency contact on Poolora. Nothing more to do.</p>`));
+        return;
+      }
+      res.status(200).type('html').send(page(`${found.userFirstName} added you as an emergency contact`, `<h1>${who} added you as an emergency contact</h1>
+<p>Hi ${escapeHtml(found.contactName)}. ${who} uses Poolora to share rides. If they raise an SOS during a ride, you will get a text with a link to their live location.</p>
+<p class="muted">Poolora does not use your number for anything else.</p>
+<form method="post"><button type="submit" style="width:100%;padding:12px 16px;border:0;border-radius:6px;background:var(--link);color:#fff;font:inherit;font-weight:600;cursor:pointer">Confirm I'm ${who}'s contact</button></form>
+<p class="muted">If you don't know ${who}, you can ignore this message.</p>`));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /track/contact/:token: the contact pressed Confirm */
+  static async confirmContact(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      contactHeaders(res);
+      const { EmergencyContactService } = await import('../services/EmergencyContactService');
+      const done = await new EmergencyContactService().confirm(String(req.params.token));
+      if (!done) {
+        res.status(404).type('html').send(CONTACT_LINK_EXPIRED);
+        return;
+      }
+      const who = escapeHtml(done.userFirstName);
+      res.status(200).type('html').send(page('Confirmed', `<h1>Thank you</h1>
+<p class="ok">You are now ${who}'s emergency contact. We have let ${who} know.</p>
+<p>If you ever get an SOS text from Poolora, open the link to see where ${who} is, and call <a href="tel:112">112</a> if they may be in danger.</p>`));
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * GET /track/sos/:token
    * Public page linked from the SOS text message sent to emergency contacts.
