@@ -24,6 +24,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { bookingService } from '../../services/bookingService';
+import { ratingService, type PendingRating } from '../../services/ratingService';
 import { logger } from '../../utils/logger';
 import type { Booking, CancellationQuote } from '../../types/api';
 import { useApp } from '../../context/AppContext';
@@ -108,12 +109,18 @@ export function MyRidesScreen() {
   const [history, setHistory] = useState<RideItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // Finished trips still open for a rating (UC-R06), by booking id
+  const [toRate, setToRate] = useState<Map<string, PendingRating>>(new Map());
 
   const load = useCallback(async (isActive: () => boolean = () => true) => {
     try {
       setLoading(true);
-      const res = await bookingService.getRiderBookings(1, 50);
+      const [res, pending] = await Promise.all([
+        bookingService.getRiderBookings(1, 50),
+        ratingService.getPending().catch(() => [] as PendingRating[]),
+      ]);
       if (!isActive()) return;
+      setToRate(new Map(pending.filter(p => p.role === 'rider').map(p => [p.bookingId, p])));
       const items = (res.data?.items || []).map(toItem);
       setUpcoming(
         items
@@ -237,6 +244,13 @@ export function MyRidesScreen() {
 
   const openHistory = (r: RideItem) => {
     const options: Array<{ text: string; onPress?: () => void; style?: 'cancel' }> = [];
+    const pending = toRate.get(r.id);
+    if (pending) {
+      options.push({
+        text: 'Rate this trip',
+        onPress: () => navigation.navigate('RateTrip', { bookingId: r.id, rateeName: pending.rateeName, summary: `${placeName(r.from)} to ${placeName(r.to)}, ${formatDate(r.departure)}` }),
+      });
+    }
     if (hadSeat(r)) {
       options.push({ text: 'Receipt', onPress: () => navigation.navigate('Receipt', { bookingId: r.id }) });
       options.push({ text: 'Report a problem', onPress: () => navigation.navigate('RaiseDispute', { bookingId: r.id, summary: `${placeName(r.from)} to ${placeName(r.to)}, ${formatDate(r.departure)}` }) });
@@ -259,7 +273,7 @@ export function MyRidesScreen() {
       <Pressable
         onPress={() => openHistory(r)}
         accessibilityRole="button"
-        accessibilityLabel={`${placeName(r.to)}, ${formatDate(r.departure)}, ${priceLine(r)}. Receipt, report a problem or book again`}
+        accessibilityLabel={`${placeName(r.to)}, ${formatDate(r.departure)}, ${priceLine(r)}. ${toRate.has(r.id) ? "Not rated yet. " : ""}Receipt, report a problem or book again`}
         style={({ pressed }) => [
           styles.historyRow,
           index < history.length - 1 && { borderBottomColor: c.border, borderBottomWidth: StyleSheet.hairlineWidth },
@@ -276,6 +290,11 @@ export function MyRidesScreen() {
             {priceLine(r)}
           </Text>
         </View>
+        {toRate.has(r.id) ? (
+          <View style={[styles.rateChip, { backgroundColor: c.primaryLight }]}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: c.primary }}>Rate</Text>
+          </View>
+        ) : null}
         <Icon name="chevron-right" size={22} color={c.textSec} />
       </Pressable>
     );
@@ -433,6 +452,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: Typography['3xl'], fontWeight: Typography.bold },
   meta: { fontSize: Typography.md, marginTop: 3 },
   actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg },
+  rateChip: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
   actionBtn: { flex: 1, flexDirection: 'row', gap: 6, minHeight: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   actionOutline: { borderWidth: 1 },
   actionText: { fontSize: Typography.lg, fontWeight: Typography.bold },

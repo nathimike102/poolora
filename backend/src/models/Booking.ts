@@ -31,6 +31,8 @@ export interface IBooking extends Document {
   driverConfirmedDropoff: boolean;
   actualPickupTime?: Date;
   actualDropoffTime?: Date;
+  /** When the rider was reminded to rate (UC-R06 3a), so it happens once */
+  ratingReminderSentAt?: Date;
   cancelledBy?: Types.ObjectId;
   cancellationReason?: string;
   cancelledAt?: Date;
@@ -99,6 +101,7 @@ const BookingSchema = new Schema<IBooking>(
     driverConfirmedDropoff: { type: Boolean, default: false },
     actualPickupTime: Date,
     actualDropoffTime: Date,
+    ratingReminderSentAt: Date,
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
     cancellationReason: String,
     cancelledAt: Date,

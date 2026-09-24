@@ -10,6 +10,16 @@ export interface IRating extends Document {
   score: number;
   tags: string[];
   comment?: string;
+  /** Star ratings per category (UC-R06 step 3); `score` is the overall one */
+  categories?: { behavior?: number; cleanliness?: number; punctuality?: number };
+  /** Problems reported with the rating (step 5); private, never shown publicly */
+  issues?: Array<'safety' | 'route' | 'payment'>;
+  issueDetails?: string;
+  /** A written review is public only after an admin approves it */
+  commentStatus?: 'pending' | 'approved' | 'rejected';
+  moderatedBy?: Types.ObjectId;
+  moderatedAt?: Date;
+  moderationNote?: string;
   isValidated: boolean;
   isFlagged: boolean;
   flagReason?: string;
@@ -39,6 +49,19 @@ const RatingSchema = new Schema<IRating>(
     score: { type: Number, required: true, min: 1, max: 5 },
     tags: [{ type: String, enum: ALLOWED_TAGS }],
     comment: { type: String, maxlength: 500 },
+    categories: {
+      type: new Schema(
+        { behavior: { type: Number, min: 1, max: 5 }, cleanliness: { type: Number, min: 1, max: 5 }, punctuality: { type: Number, min: 1, max: 5 } },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    issues: { type: [{ type: String, enum: ['safety', 'route', 'payment'] }], default: undefined },
+    issueDetails: { type: String, maxlength: 1000 },
+    commentStatus: { type: String, enum: ['pending', 'approved', 'rejected'] },
+    moderatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    moderatedAt: Date,
+    moderationNote: String,
     isValidated: { type: Boolean, default: false },
     isFlagged: { type: Boolean, default: false },
     flagReason: String,
@@ -53,5 +76,6 @@ const RatingSchema = new Schema<IRating>(
 RatingSchema.index({ booking: 1, rater: 1 }, { unique: true });
 RatingSchema.index({ ratee: 1, isValidated: 1 });
 RatingSchema.index({ ride: 1 });
+RatingSchema.index({ commentStatus: 1, createdAt: 1 });
 
 export const Rating = mongoose.model<IRating>('Rating', RatingSchema);

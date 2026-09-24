@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { AdminController, getKycDocuments } from '../controllers/AdminController';
 import { AdminWebController as W } from '../controllers/AdminWebController';
 import { validate } from '../middlewares/validation.middleware';
-import { kycReviewParamsSchema } from '../validators';
+import { kycReviewParamsSchema, moderateReviewSchema } from '../validators';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requireAdmin } from '../middlewares/capability.middleware';
 
@@ -64,6 +64,9 @@ router.post('/accounts/:id/block/approve', W.approveBlock);
 router.post('/accounts/:id/block/reject', W.rejectBlock);
 router.post('/accounts/:id/unblock', W.unblock);
 router.post('/accounts/:id/notes', W.addNote);
+
+router.get('/reviews', W.reviews);
+router.post('/reviews/:id/moderate', validate(moderateReviewSchema), W.moderateReview);
 
 router.get('/fraud', W.fraudQueue);
 router.post('/fraud/:id/review', W.reviewFraud);

@@ -140,6 +140,7 @@ export const API_ENDPOINTS = {
   ratings: {
     create: '/ratings',
     byUser: (userId: string) => `/ratings/user/${userId}`,
+    pending: '/ratings/pending',
   },
 
   // Wallet

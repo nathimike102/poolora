@@ -22,6 +22,26 @@ export class RatingController {
     }
   }
 
+  /** GET /api/v1/ratings/pending — trips the caller can still rate (within 7 days) */
+  static async pending(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      sendSuccess(res, { trips: await ratingService.pending(user.userId) }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** GET /api/v1/ratings/user/:userId/summary?as=driver|rider — average overall and category scores */
+  static async summary(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const as = req.query.as === 'rider' ? 'rider' : 'driver';
+      sendSuccess(res, await ratingService.summary(String(req.params.userId), as), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * GET /api/v1/ratings/user/:userId?as=driver|rider
    * Get ratings for a specific user, optionally only those received in one role.

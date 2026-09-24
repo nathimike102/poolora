@@ -212,7 +212,21 @@ export const createRatingSchema = {
         'communication', 'safety', 'comfort', 'navigation', 'vehicle_condition',
       ),
     ).default([]),
-    comment: Joi.string().max(500).optional(),
+    comment: Joi.string().trim().max(500).allow('').optional(),
+    categories: Joi.object({
+      behavior: Joi.number().integer().min(1).max(5),
+      cleanliness: Joi.number().integer().min(1).max(5),
+      punctuality: Joi.number().integer().min(1).max(5),
+    }).optional(),
+    issues: Joi.array().items(Joi.string().valid('safety', 'route', 'payment')).unique().max(3).default([]),
+    issueDetails: Joi.string().trim().max(1000).allow('').optional(),
+  }),
+};
+
+export const moderateReviewSchema = {
+  body: Joi.object({
+    decision: Joi.string().valid('approve', 'reject').required(),
+    note: Joi.string().trim().max(500).allow('').optional(),
   }),
 };
 

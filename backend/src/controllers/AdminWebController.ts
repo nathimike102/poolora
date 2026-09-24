@@ -16,6 +16,7 @@ import { AdminSosService } from '../services/AdminSosService';
 import { DisputeService } from '../services/DisputeService';
 import { ReportService, REPORT_TYPES, ReportType, parseReportParams } from '../services/ReportService';
 import { SettingsService } from '../services/SettingsService';
+import { RatingService } from '../services/RatingService';
 import { AppError } from '../utils/AppError';
 
 const overview = new AdminOverviewService();
@@ -23,6 +24,7 @@ const users = new AdminUserService();
 const sos = new AdminSosService();
 const disputes = new DisputeService();
 const reports = new ReportService();
+const ratings = new RatingService();
 
 type Handler = (req: Request, adminId: string) => Promise<unknown>;
 
@@ -71,6 +73,13 @@ export const AdminWebController = {
   rejectBlock: handle((req, admin) => users.rejectBlock(id(req), admin, req.body?.reason)),
   unblock: handle((req, admin) => users.unblock(id(req), admin, req.body?.reason)),
   addNote: handle((req, admin) => users.addNote(id(req), admin, req.body?.text)),
+
+  // ── Review moderation (UC-R06) ────────────────────────────────────────────
+  reviews: handle((req) => {
+    const status = queryString(req, 'status');
+    return ratings.moderationQueue(status === 'reported' || status === 'done' ? status : 'pending');
+  }),
+  moderateReview: handle((req, admin) => ratings.moderate(id(req), admin, req.body.decision, req.body.note)),
 
   // ── Fraud flags (UC-AI02) ─────────────────────────────────────────────────
   fraudQueue: handle((req) => users.fraudQueue(queryString(req, 'view') === 'reviewed' ? 'reviewed' : 'open')),

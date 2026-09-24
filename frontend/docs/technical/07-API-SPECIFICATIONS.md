@@ -328,8 +328,12 @@ There are no `/payments/orders` or `/payments/verify` endpoints: booking orders 
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/ratings` | Body: `bookingId`, `score` 1–5, optional `tags` (`cleanliness`, `punctuality`, `driving`, `politeness`, `communication`, `safety`, `comfort`, `navigation`, `vehicle_condition`) and `comment` (up to 500 characters). Only for a completed booking you were part of |
-| GET | `/ratings/user/:userId` | Ratings a user has received |
+| POST | `/ratings` | Body: `bookingId`, `score` 1–5 (overall), optional `categories` (`behavior`, `cleanliness`, `punctuality`, each 1–5), `tags` (`cleanliness`, `punctuality`, `driving`, `politeness`, `communication`, `safety`, `comfort`, `navigation`, `vehicle_condition`), `comment` (up to 500 characters), `issues` (any of `safety`, `route`, `payment`) and `issueDetails`. Only for a completed booking you were part of, within 7 days of the drop (`422 RATING_WINDOW_CLOSED`). The score counts at once; the comment is public only after an admin approves it. Issues are private, and a safety issue alerts admins at once (`rating:safety` socket event) |
+| GET | `/ratings/pending` | Trips the caller finished in the last 7 days and has not rated: `bookingId`, `role`, `rateeName`, `from`, `to`, `completedAt`, `closesAt` |
+| GET | `/ratings/user/:userId` | Ratings a user has received. Comments waiting for approval or rejected are left out, and reported issues are never included |
+| GET | `/ratings/user/:userId/summary` | `?as=driver` (default) or `rider`. `count`, `overall` and `categories` averages |
+
+A rider who has not rated gets one push reminder a day after the trip (UC-R06 3a).
 
 ---
 
@@ -456,6 +460,8 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | POST | `/admin/accounts/:id/block/reject` | Reject a block request. Body: `reason` |
 | POST | `/admin/accounts/:id/unblock` | Body: `reason` |
 | POST | `/admin/accounts/:id/notes` | Internal note, seen only by admins. Body: `text` |
+| GET | `/admin/reviews` | Review moderation (UC-R06). `?status=pending` (default: reviews waiting for approval and unhandled safety reports, safety first), `reported` (every rating that reported a problem) or `done` |
+| POST | `/admin/reviews/:id/moderate` | Body: `decision` (`approve` publishes the review, `reject` keeps it hidden; either marks a report handled) and optional `note`. Recorded in the audit log |
 | GET | `/admin/fraud` | Accounts flagged by the fraud check on failed payments (UC-AI02). `?view=open` (default: waiting, oldest first, `overdue` after 2 hours) or `?view=reviewed` (recent decisions). Each has `fraudLevel` (`flagged` for high risk, `blocked` for critical), `fraudFlags` and `fraudFlaggedAt` |
 | POST | `/admin/fraud/:id/review` | Body: `decision` (`cleared` for a false positive, `confirmed`) and `note`. Clearing sets the level back to `clear` and lifts a suspension the check placed; confirming changes nothing else. A block still needs two admins |
 | GET | `/admin/disputes` | Query: `status` (`open`, `in_review`, `resolved`), `category`, `page`, `limit` (UC-A04) |
@@ -541,6 +547,7 @@ Every socket joins the room `user:<userId>`.
 | `safety:check-in` | An in-ride "Are you OK?" prompt; answer with `POST /safety/ride-check-in` |
 | `chat:message:receive`, `chat:message:sent`, `chat:messages:read`, `chat:typing:*` | Chat |
 | `sos:triggered`, `sos:alert`, `sos:location:updated` | SOS (alerts go to the `admin:sos` room) |
+| `rating:safety` | A rider reported a safety problem in a rating; sent to the `admin:sos` room with `ratingId`, `bookingId`, `raterId` and `rateeId` |
 | `fraud:flagged` | The fraud check flagged (`action: flagged`) or suspended (`action: suspended`) an account; sent to the `admin:sos` room with `userId` and `flags` |
 | `tracking:error`, `chat:error`, `sos:error` | The request was refused |
 

@@ -62,6 +62,10 @@ export class BookingSweeper {
     if (result.unpaidCancelled || result.requestsExpired || result.emptyRidesCancelled) {
       logger.info('Booking sweep', result);
     }
+    // Riders who have not rated a day after the trip get one reminder (UC-R06 3a)
+    const { RatingService } = await import('../services/RatingService');
+    const reminded = await new RatingService().sendReminders();
+    if (reminded) logger.info('Rating reminders sent', { reminded });
   }
 
   static async runOnce(now = new Date()): Promise<SweepResult> {

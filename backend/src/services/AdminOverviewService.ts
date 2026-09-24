@@ -12,6 +12,7 @@ import { Ride } from '../models/Ride';
 import { Booking } from '../models/Booking';
 import { EmergencyRecord } from '../models/EmergencyRecord';
 import { Dispute } from '../models/Dispute';
+import { Rating } from '../models/Rating';
 import { getRedisClient } from '../config/redis';
 import { BookingStatus, FraudLevel, KYCStatus, RideStatus, SOSStatus } from '../types';
 import { requestStats } from '../utils/requestStats';
@@ -64,7 +65,7 @@ export class AdminOverviewService {
       liveRides, upcomingRides, ridesCreatedToday, ridesCompletedToday, ridesCancelledToday,
       weekCompletedRides, weekCancelledRides, occupancy,
       revenueToday, revenueWeek, revenueMonth, pendingSettlement, refundsWeek,
-      activeSos, openDisputes, blocked, suspended, pendingBlocks, fraudFlagged,
+      activeSos, openDisputes, blocked, suspended, pendingBlocks, fraudFlagged, reviewsWaiting, safetyReports,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ createdAt: { $gte: today } }),
@@ -95,6 +96,8 @@ export class AdminOverviewService {
       User.countDocuments({ isSuspended: true, isBlocked: { $ne: true } }),
       User.countDocuments({ 'pendingBlock.requestedAt': { $exists: true } }),
       User.countDocuments({ fraudLevel: { $in: [FraudLevel.FLAGGED, FraudLevel.BLOCKED] }, fraudReview: { $exists: false } }),
+      Rating.countDocuments({ $or: [{ commentStatus: 'pending' }, { issues: 'safety', moderatedAt: { $exists: false } }] }),
+      Rating.countDocuments({ issues: 'safety', moderatedAt: { $exists: false } }),
     ]);
 
     const [volumeToday, volumeWeek, volumeMonth] = await Promise.all([
@@ -135,7 +138,7 @@ export class AdminOverviewService {
         pendingSettlement: pendingSettlement.total,
         refunds7d: { total: refundsWeek.total, count: refundsWeek.count },
       },
-      safety: { activeSos, openDisputes, blockedUsers: blocked, suspendedUsers: suspended, pendingBlocks, fraudFlagged },
+      safety: { activeSos, openDisputes, blockedUsers: blocked, suspendedUsers: suspended, pendingBlocks, fraudFlagged, reviewsWaiting, safetyReports },
       system,
     };
     return { ...summary, anomalies: await this.anomalies(now, summary) };
@@ -174,7 +177,7 @@ export class AdminOverviewService {
    */
   private async anomalies(
     now: Date,
-    summary: { safety: { activeSos: number; pendingBlocks: number; fraudFlagged: number }; users: { pendingApplications: number }; system: { requests: { requests: number; errorRate: number } } },
+    summary: { safety: { activeSos: number; pendingBlocks: number; fraudFlagged: number; safetyReports?: number }; users: { pendingApplications: number }; system: { requests: { requests: number; errorRate: number } } },
   ): Promise<Anomaly[]> {
     const today = startOfToday(now);
     const weekAgo = new Date(today.getTime() - 7 * DAY);
@@ -229,6 +232,9 @@ export class AdminOverviewService {
     });
     if (fraudOverdue > 0) {
       out.push({ severity: 'warning', title: 'Fraud flags overdue', detail: `${fraudOverdue} waiting more than 2 hours for review.`, link: '/fraud' });
+    }
+    if (summary.safety.safetyReports) {
+      out.push({ severity: 'critical', title: 'Safety reports in ratings', detail: `${summary.safety.safetyReports} waiting for the safety team.`, link: '/reviews' });
     }
     if (summary.safety.pendingBlocks > 0) {
       out.push({ severity: 'warning', title: 'Blocks waiting for approval', detail: summary.safety.pendingBlocks === 1 ? '1 account block needs a second admin.' : `${summary.safety.pendingBlocks} account blocks need a second admin.`, link: '/users?status=pending_block' });

@@ -19,7 +19,7 @@ import { Icon, type IconName } from '../../components/Icon';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { userService } from '../../services/userService';
-import { ratingService } from '../../services/ratingService';
+import { ratingService, type RatingSummary } from '../../services/ratingService';
 import type { Rating, User, VerifiedStatus } from '../../types/api';
 import { realPhone } from '../../utils/phone';
 
@@ -42,6 +42,7 @@ export function DriverProfileScreen() {
   const [profile, setProfile] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Rating[]>([]);
   const [badge, setBadge] = useState<VerifiedStatus | null>(null);
+  const [summary, setSummary] = useState<RatingSummary | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,6 +51,7 @@ export function DriverProfileScreen() {
         .getMyProfile()
         .then(user => {
           if (active) setProfile(user);
+          ratingService.getSummary(user._id, 'driver').then(s => { if (active) setSummary(s); }).catch(() => undefined);
           return ratingService.getUserRatings(user._id, 1, 5, 'driver');
         })
         .then(r => { if (active) setReviews(r); })
@@ -140,6 +142,14 @@ export function DriverProfileScreen() {
               </Text>
             )}
           </View>
+          {summary && Object.values(summary.categories).some(v => v !== null) ? (
+            <Text style={[s.hint, { color: c.textSec, paddingBottom: Spacing.md }]}>
+              {([['Behaviour', summary.categories.behavior], ['Cleanliness', summary.categories.cleanliness], ['Punctuality', summary.categories.punctuality]] as const)
+                .filter(([, v]) => v !== null)
+                .map(([label, v]) => `${label} ${v?.toFixed(1)}`)
+                .join(' · ')}
+            </Text>
+          ) : null}
         </View>
 
         {/* ── Verification callout ─────────────────────────── */}

@@ -23,12 +23,12 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import Svg, { Path } from 'react-native-svg';
 
 import { rideService } from '../../services/rideService';
 import { bookingService } from '../../services/bookingService';
 import { safetyService } from '../../services/safetyService';
-import { ratingService } from '../../services/ratingService';
+import { ratingService, type RatingInput } from '../../services/ratingService';
+import { RatingForm } from '../../components/RatingForm';
 import type { Ride } from '../../types/api';
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,42 +45,9 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const POLL_MS = 15_000;
 
-/** UI labels mapped to the rating tags the backend accepts. */
-const RATING_TAGS: { label: string; value: string }[] = [
-  { label: 'On time', value: 'punctuality' },
-  { label: 'Safe driving', value: 'driving' },
-  { label: 'Clean car', value: 'cleanliness' },
-  { label: 'Polite', value: 'politeness' },
-  { label: 'Good communication', value: 'communication' },
-];
-const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
-
 function formatTime(iso?: string): string {
   if (!iso) return '';
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return (
-    <View style={styles.starRow} accessibilityRole="adjustable" accessibilityValue={{ min: 0, max: 5, now: value }}>
-      {[1, 2, 3, 4, 5].map(s => (
-        <Pressable
-          key={s}
-          onPress={() => onChange(s)}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={`${s} ${s === 1 ? 'star' : 'stars'}`}
-        >
-          <Svg width={36} height={36} viewBox="0 0 24 24">
-            <Path
-              d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-              fill={s <= value ? '#FFB300' : '#D1D5DB'}
-            />
-          </Svg>
-        </Pressable>
-      ))}
-    </View>
-  );
 }
 
 export function ActiveRideScreen() {
@@ -99,10 +66,6 @@ export function ActiveRideScreen() {
   const [answering, setAnswering] = useState(false);
   const route = useMemo(() => decodePolyline(ride?.routePolyline), [ride?.routePolyline]);
 
-  const [rating, setRating] = useState(0);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [submittingRating, setSubmittingRating] = useState(false);
-  const [ratingError, setRatingError] = useState('');
 
   // Poll the ride so status changes (started, completed, cancelled) show up
   useEffect(() => {
@@ -195,22 +158,11 @@ export function ActiveRideScreen() {
     };
   }, [bookingId]);
 
-  const toggleTag = (tag: string) =>
-    setSelectedTags(prev => (prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]));
-
-  const submitRating = useCallback(async () => {
-    if (!bookingId || rating === 0) return;
-    setSubmittingRating(true);
-    setRatingError('');
-    try {
-      await ratingService.submitRating(bookingId, rating, undefined, selectedTags);
-      navigation.navigate('RiderTabs', { screen: 'MyRides' });
-    } catch (error) {
-      setRatingError(errorHandler.process(error).message);
-    } finally {
-      setSubmittingRating(false);
-    }
-  }, [bookingId, rating, selectedTags, navigation]);
+  const submitRating = useCallback(async (input: RatingInput) => {
+    if (!bookingId) return;
+    await ratingService.submitRating(bookingId, input);
+    navigation.navigate('RiderTabs', { screen: 'MyRides' });
+  }, [bookingId, navigation]);
 
   const shareTrip = async () => {
     if (!ride) return;
@@ -311,63 +263,13 @@ export function ActiveRideScreen() {
                 <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>View receipt</Text>
               </Pressable>
             ) : null}
-            <Text style={{ fontSize: 20, fontWeight: '800', color: c.text, textAlign: 'center' }} accessibilityRole="header">
-              How was your ride with {driverName}?
-            </Text>
-            <View style={[styles.ratingCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <StarRating value={rating} onChange={setRating} />
-              {rating > 0 && (
-                <Text style={{ fontSize: 14, color: c.textSec, marginTop: 8 }}>{RATING_LABELS[rating]}</Text>
-              )}
-            </View>
-            <View style={styles.tagsWrap}>
-              {RATING_TAGS.map(tag => {
-                const selected = selectedTags.includes(tag.value);
-                return (
-                  <Pressable
-                    key={tag.value}
-                    onPress={() => toggleTag(tag.value)}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: selected }}
-                    style={[
-                      styles.tagChip,
-                      { backgroundColor: selected ? c.primaryLight : c.surface, borderColor: selected ? c.primary : c.border },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 13, color: selected ? c.primary : c.text, fontWeight: selected ? '600' : '400' }}>
-                      {tag.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {ratingError ? (
-              <Text style={{ color: c.error, textAlign: 'center' }} accessibilityLiveRegion="polite">{ratingError}</Text>
-            ) : null}
             {bookingId ? (
-              <Pressable
-                onPress={submitRating}
-                disabled={rating === 0 || submittingRating}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: rating === 0 || submittingRating }}
-                style={[styles.primaryCta, { backgroundColor: rating === 0 ? c.border : c.primary }]}
-              >
-                {submittingRating ? (
-                  <ActivityIndicator color={c.textOnPrimary} />
-                ) : (
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: rating === 0 ? c.textSec : c.textOnPrimary }}>
-                    Submit rating
-                  </Text>
-                )}
-              </Pressable>
+              <RatingForm
+                rateeName={driverName}
+                onSubmit={submitRating}
+                onSkip={() => navigation.navigate('RiderTabs', { screen: 'MyRides' })}
+              />
             ) : null}
-            <Pressable
-              onPress={() => navigation.navigate('RiderTabs', { screen: 'MyRides' })}
-              accessibilityRole="button"
-              style={styles.textBtn}
-            >
-              <Text style={{ fontSize: 14, color: c.textSec }}>Skip for now</Text>
-            </Pressable>
           </View>
         ) : (
           <>
@@ -569,11 +471,6 @@ const styles = StyleSheet.create({
     borderColor: '#FDBA74',
   },
   ratingWrap: { gap: 16 },
-  ratingCard: { alignItems: 'center', padding: 20, borderRadius: Radius.xl, borderWidth: 1 },
-  starRow: { flexDirection: 'row', gap: 8 },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tagChip: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 8, borderWidth: 1.5 },
-  primaryCta: { minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   textBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   sosFab: {
     position: 'absolute',
