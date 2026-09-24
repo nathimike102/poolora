@@ -284,12 +284,21 @@ function mapsFailure(
 /**
  * Autocomplete a place search input using Google Places API (or Photon on OSM).
  */
-export async function autocomplete(input: string): Promise<AutocompleteResult[]> {
-  if (osmSelected()) return osm.autocomplete(input);
+/**
+ * Place suggestions. `near` (the user's position, rounded to about 1 km so
+ * nearby users share cached results) ranks nearby places first.
+ */
+export async function autocomplete(input: string, near?: { lat: number; lng: number }): Promise<AutocompleteResult[]> {
+  const bias = near ? { lat: Math.round(near.lat * 100) / 100, lng: Math.round(near.lng * 100) / 100 } : undefined;
+  if (osmSelected()) return osm.autocomplete(input, bias);
   try {
     const response = await cachedMapsGet<AutocompleteResponse>(
       `${GOOGLE_MAPS_BASE}/place/autocomplete/json`,
-      { input: input.trim().toLowerCase(), components: 'country:in' },
+      {
+        input: input.trim().toLowerCase(),
+        components: 'country:in',
+        ...(bias ? { location: `${bias.lat},${bias.lng}`, radius: '50000' } : {}),
+      },
       CACHE_TTL.autocomplete,
     );
 

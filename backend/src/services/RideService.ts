@@ -203,6 +203,11 @@ export class RideService {
       parcelInfo: data.parcelInfo,
     });
 
+    // Riders waiting for a ride on this route (UC-R02 6a)
+    import('./RideAlertService')
+      .then(({ RideAlertService }) => new RideAlertService().notifyMatches(ride))
+      .catch((error) => logger.warn('Ride alert matching failed', { rideId: ride._id, error: (error as Error).message }));
+
     // Publish ride.created event for proactive rider notification
     EventBridge.publish('ride-events', {
       eventType: 'ride.created',

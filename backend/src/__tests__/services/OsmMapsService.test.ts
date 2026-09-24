@@ -53,6 +53,13 @@ describe('OpenStreetMap maps provider', () => {
     expect(mockedGet.mock.calls[0][1].headers['User-Agent']).toBe('Poolora tests');
   });
 
+  it('ranks places near the user first, with the position rounded for caching', async () => {
+    mockedGet.mockReset();
+    mockedGet.mockResolvedValue({ data: { features: [] } });
+    await autocomplete('Indiranagar', { lat: 12.97194, lng: 77.64117 });
+    expect(mockedGet.mock.calls[0][1].params).toMatchObject({ q: 'indiranagar', lat: '12.97', lon: '77.64' });
+  });
+
   it('geocodes with Nominatim and reports an unknown address plainly', async () => {
     mockedGet.mockResolvedValueOnce({
       data: [{ lat: '12.97', lon: '77.59', display_name: 'MG Road, Bengaluru', osm_type: 'way', osm_id: 42 }],

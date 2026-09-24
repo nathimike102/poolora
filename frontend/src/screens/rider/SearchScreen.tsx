@@ -186,7 +186,7 @@ export function SearchScreen() {
     suggestTimer.current = setTimeout(async () => {
       const requestId = ++suggestRequest.current;
       try {
-        const results = await fetchPlaceSuggestions(text);
+        const results = await fetchPlaceSuggestions(text, here ? { lat: here.lat, lng: here.lng } : undefined);
         if (requestId !== suggestRequest.current) return;
         setSuggestions(results);
         setSuggestState('idle');

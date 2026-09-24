@@ -22,6 +22,8 @@ export interface PaginatedResult<T = unknown> {
   totalPages: number;
   hasNext: boolean;
   hasPrev: boolean;
+  /** Ride search only: rides found with a wider window and radius when nothing matched */
+  alternatives?: { items: T[]; total: number; radiusKm: number; timeDeviationMins: number };
 }
 
 // Backward-compatible alias used across screens/services.

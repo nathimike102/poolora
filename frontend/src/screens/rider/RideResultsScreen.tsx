@@ -7,7 +7,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions, Alert } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,8 @@ import { Icon, type IconName } from '../../components/Icon';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Ride as ApiRide, PaginatedResponse } from '../../types/api';
+import { rideAlertService } from '../../services/rideAlertService';
+import { errorHandler } from '../../utils/errorHandler';
 import { VEHICLE_CATEGORIES, vehicleCategory, type VehicleCategory } from '../../utils/vehicles';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'RideResults'>;
@@ -96,10 +98,45 @@ export function RideResultsScreen() {
   };
   const incoming = route.params?.rides as PaginatedResponse<ApiRide> | ApiRide[] | undefined;
 
-  const all = useMemo<ResultRide[]>(() => {
-    const list = Array.isArray(incoming) ? incoming : incoming?.data?.items ?? [];
-    return list.map(toResult);
-  }, [incoming]);
+  // Nothing matched exactly: the server looked again with a wider window and radius
+  const widened = Array.isArray(incoming) ? undefined : incoming?.data?.alternatives;
+  const exact = useMemo(() => (Array.isArray(incoming) ? incoming : incoming?.data?.items ?? []), [incoming]);
+  const showingAlternatives = exact.length === 0 && Boolean(widened?.items.length);
+  const all = useMemo<ResultRide[]>(
+    () => (showingAlternatives ? widened!.items : exact).map(toResult),
+    [exact, widened, showingAlternatives],
+  );
+
+  // "Tell me when a ride appears on this route" (UC-R02 6a)
+  const [alertState, setAlertState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const canAlert = Boolean(searched?.pickup && searched?.dropoff);
+  const saveAlert = async () => {
+    if (!searched?.pickup || !searched?.dropoff) return;
+    setAlertState('saving');
+    try {
+      await rideAlertService.create(
+        { ...searched.pickup, address: searched.from },
+        { ...searched.dropoff, address: searched.to },
+        searched.when,
+      );
+      setAlertState('saved');
+    } catch (error) {
+      setAlertState('idle');
+      Alert.alert('Alert not set', errorHandler.process(error).message);
+    }
+  };
+  const alertButton = canAlert ? (
+    <Pressable
+      onPress={saveAlert}
+      disabled={alertState !== 'idle'}
+      accessibilityRole="button"
+      style={[styles.emptyBtn, { borderColor: c.primary, opacity: alertState === 'saving' ? 0.6 : 1 }]}
+    >
+      <Text style={[styles.emptyBtnText, { color: c.primary }]}>
+        {alertState === 'saved' ? "We'll tell you when one appears" : 'Tell me when a ride appears'}
+      </Text>
+    </Pressable>
+  ) : null;
 
   const counts = useMemo(() => {
     const n: Record<VehicleCategory, number> = { bike: 0, auto: 0, cab: 0 };
@@ -244,6 +281,15 @@ export function RideResultsScreen() {
 
         {/* Rides */}
         <ScrollView style={styles.flex1} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          {showingAlternatives && rides.length > 0 ? (
+            <View style={[styles.altBanner, { backgroundColor: c.surfaceVariant }]}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>No exact matches</Text>
+              <Text style={{ fontSize: 13, color: c.textSec }}>
+                These leave within {Math.round((widened?.timeDeviationMins ?? 180) / 60)} hours of your time or start up to {widened?.radiusKm} km away.
+              </Text>
+              {alertButton}
+            </View>
+          ) : null}
           {rides.length === 0 ? (
             <View style={styles.empty}>
               <Icon name="car-clock" size={48} color={c.textSec} />
@@ -256,9 +302,12 @@ export function RideResultsScreen() {
                   : 'Turn off a filter to see more rides.'}
               </Text>
               {all.length === 0 ? (
-                <Pressable onPress={() => changeSearch(true)} accessibilityRole="button" style={[styles.emptyBtn, { borderColor: c.primary }]}>
-                  <Text style={[styles.emptyBtnText, { color: c.primary }]}>Try another time</Text>
-                </Pressable>
+                <>
+                  <Pressable onPress={() => changeSearch(true)} accessibilityRole="button" style={[styles.emptyBtn, { borderColor: c.primary }]}>
+                    <Text style={[styles.emptyBtnText, { color: c.primary }]}>Try another time</Text>
+                  </Pressable>
+                  {alertButton}
+                </>
               ) : filtersOn || category !== 'all' ? (
                 <Pressable
                   onPress={() => { setWomenOnly(false); setAcOnly(false); setSortBy('best'); setCategory('all'); }}
@@ -452,6 +501,7 @@ const styles = StyleSheet.create({
   price: { fontSize: Typography['3xl'], fontWeight: Typography.extrabold },
   perSeat: { fontSize: Typography.xs },
 
+  altBanner: { borderRadius: Radius.lg, padding: Spacing.md, gap: 4, marginBottom: Spacing.sm },
   empty: { alignItems: 'center', paddingHorizontal: Spacing['2xl'], paddingTop: Spacing['2xl'], gap: Spacing.sm },
   emptyTitle: { fontSize: Typography['2xl'], fontWeight: Typography.bold, textAlign: 'center', marginTop: Spacing.sm },
   emptySub: { fontSize: Typography.md, lineHeight: 20, textAlign: 'center' },

@@ -153,6 +153,18 @@ A ride matches when its **route** passes within `radiusKm` of the rider's pickup
 
 The app books a matched ride from the rider's own search points, not from the ride's start and end.
 
+When nothing matches (UC-R02 6a), the response carries `alternatives`: rides found with the radius doubled (up to 50 km) and a window of at least ±3 hours, with the `radiusKm` and `timeDeviationMins` used. The app shows them as "no exact matches" and offers a ride alert.
+
+### 4.3 Ride alerts — `/ride-alerts`
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/ride-alerts` | "Tell me when a ride appears". Body: `pickup` and `dropoff` (`lng`, `lat`, `address`), optional `departureTime`. With a time, rides leaving within ±3 hours match and the alert ends then; without one it lasts 30 days. Up to 10 open alerts per rider |
+| GET | `/ride-alerts` | The caller's open alerts |
+| DELETE | `/ride-alerts/:id` | Remove one |
+
+Every new ride is checked against open alerts: when its route passes the rider's pickup and then their drop (within the usual 2 km), the rider gets one push for that ride.
+
 Results are ranked by the in-process matching score in `MatchingEngineClient`: distance from the rider's pickup to the route 40%, closeness of departure time 30%, driver rating 15%, driver acceptance rate 10%, and a low driver cancellation rate 5%. The Python ML service's `/api/match` endpoint is not called.
 
 ---
@@ -356,7 +368,7 @@ Results are cached in Redis.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/maps/autocomplete?input=` | Place suggestions (2–200 characters) |
+| GET | `/maps/autocomplete?input=&lat=&lng=` | Place suggestions (2–200 characters). Optional `lat`/`lng` (the user's position) ranks nearby places first |
 | GET | `/maps/geocode?address=` | Address to position |
 | GET | `/maps/reverse-geocode?lat=&lng=` | Position to address |
 | GET | `/maps/directions` | Route with polyline, distance and duration |

@@ -307,7 +307,10 @@ export const reverseGeocodeSchema = {
 export const autocompleteSchema = {
   query: Joi.object({
     input: Joi.string().trim().min(2).max(200).required(),
-  }),
+    // Where the user is, so nearby places come first
+    lat: Joi.number().min(-90).max(90),
+    lng: Joi.number().min(-180).max(180),
+  }).and('lat', 'lng'),
 };
 
 // ─── Pagination (reusable) ───────────────────────────────────────────────────

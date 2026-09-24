@@ -107,12 +107,19 @@ function photonSubtitle(p: PhotonFeature['properties'], title: string): string {
   return [...new Set(parts)].join(', ');
 }
 
-export async function autocomplete(input: string): Promise<AutocompleteResult[]> {
+export async function autocomplete(input: string, near?: { lat: number; lng: number }): Promise<AutocompleteResult[]> {
   let data: { features?: PhotonFeature[] };
   try {
     data = await cachedGet(
       `${config.maps.photonUrl}/api/`,
-      { q: input.trim().toLowerCase(), limit: '10', bbox: INDIA_BBOX, lang: 'en' },
+      {
+        q: input.trim().toLowerCase(),
+        limit: '10',
+        bbox: INDIA_BBOX,
+        lang: 'en',
+        // Photon ranks places near this point higher
+        ...(near ? { lat: String(near.lat), lon: String(near.lng) } : {}),
+      },
       CACHE_TTL.autocomplete,
     );
   } catch (error) {

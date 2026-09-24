@@ -57,7 +57,10 @@ export class MapsController {
    */
   static async autocomplete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const results = await autocomplete(String(req.query.input));
+      const lat = Number(req.query.lat);
+      const lng = Number(req.query.lng);
+      const near = Number.isFinite(lat) && Number.isFinite(lng) && req.query.lat !== undefined ? { lat, lng } : undefined;
+      const results = await autocomplete(String(req.query.input), near);
       sendSuccess(res, { results }, 200, (req as AuthenticatedRequest).requestId);
     } catch (error) {
       next(error);

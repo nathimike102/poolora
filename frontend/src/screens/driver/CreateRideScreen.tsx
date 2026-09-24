@@ -31,6 +31,7 @@ import { fetchPlaceSuggestions, geocodePlace, suggestionLabel, type PlaceSuggest
 import { rideService } from '../../services/rideService';
 import { userService } from '../../services/userService';
 import { errorHandler } from '../../utils/errorHandler';
+import { useCurrentPlace } from '../../hooks/useCurrentPlace';
 import { Radius, Spacing, Typography } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Ride, User, Vehicle } from '../../types/api';
@@ -72,6 +73,8 @@ export function CreateRideScreen() {
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestRequest = useRef(0);
+  // Suggestions near the driver come first
+  const { place: here } = useCurrentPlace();
 
   const [date, setDate] = useState<Date>(() => new Date());
   const [time, setTime] = useState('08:30');
@@ -115,7 +118,7 @@ export function CreateRideScreen() {
     suggestTimer.current = setTimeout(async () => {
       const id = ++suggestRequest.current;
       try {
-        const results = await fetchPlaceSuggestions(text);
+        const results = await fetchPlaceSuggestions(text, here ? { lat: here.lat, lng: here.lng } : undefined);
         if (id === suggestRequest.current) setSuggestions(results);
       } catch {
         if (id === suggestRequest.current) setSuggestions([]);

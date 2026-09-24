@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { config } from '../config';
 import { RideService } from '../services/RideService';
 import { AuthenticatedRequest, RideSearchParams, RideStatus, RideType, VehicleType } from '../types';
 import { sendSuccess, sendPaginated } from '../utils/helpers';
@@ -56,6 +57,16 @@ export class RideController {
 
       const result = await rideService.searchRides(user.userId, params, page, limit);
 
+      // Nothing matched (UC-R02 6a): look again with a wider window and radius
+      // and offer those as alternatives
+      let alternatives: { items: unknown[]; total: number; radiusKm: number; timeDeviationMins: number } | undefined;
+      if (result.total === 0 && page === 1) {
+        const radiusKm = Math.min(50, (params.radiusKm ?? config.ride.defaultSearchRadiusKm) * 2);
+        const timeDeviationMins = Math.max(180, params.timeDeviationMins ?? config.ride.defaultTimeDeviationMins);
+        const wider = await rideService.searchRides(user.userId, { ...params, radiusKm, timeDeviationMins }, 1, limit);
+        if (wider.total > 0) alternatives = { items: wider.items, total: wider.total, radiusKm, timeDeviationMins };
+      }
+
       sendSuccess(
         res,
         {
@@ -65,6 +76,7 @@ export class RideController {
           page,
           limit,
           totalPages: Math.ceil(result.total / limit),
+          alternatives,
         },
         200,
         req.requestId,

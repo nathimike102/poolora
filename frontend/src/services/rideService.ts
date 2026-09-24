@@ -108,9 +108,11 @@ export const rideService = {
       );
 
       const items = (response.data.data.items ?? []).map(normalizeRide);
-      logger.info('Rides searched successfully', { count: items.length, total: response.data.data.total });
+      const found = response.data.data.alternatives;
+      const alternatives = found ? { ...found, items: found.items.map(normalizeRide) } : undefined;
+      logger.info('Rides searched successfully', { count: items.length, total: response.data.data.total, alternatives: alternatives?.total ?? 0 });
 
-      return { ...response.data, data: { ...response.data.data, items } };
+      return { ...response.data, data: { ...response.data.data, items, alternatives } };
     } catch (error) {
       logger.error('Failed to search rides', { error });
       throw error;

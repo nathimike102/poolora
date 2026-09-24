@@ -24,14 +24,15 @@ export interface GeocodedPlace {
 
 /**
  * Fetch up to 5 place suggestions in India. Callers should debounce input.
+ * `near` (the user's position) ranks nearby places first.
  */
-export async function fetchPlaceSuggestions(input: string): Promise<PlaceSuggestion[]> {
+export async function fetchPlaceSuggestions(input: string, near?: { lat: number; lng: number }): Promise<PlaceSuggestion[]> {
   if (input.trim().length < 2) return [];
 
   const response = await apiClient.get<
     ApiResponse<{ results: Array<{ placeId: string; mainText: string; secondaryText: string }> }>
   >(API_ENDPOINTS.maps.autocomplete, {
-    params: { input },
+    params: near ? { input, lat: near.lat, lng: near.lng } : { input },
     // The next keystroke supersedes this request, so a retry is pointless.
     noRetry: true,
   });

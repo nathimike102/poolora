@@ -16,6 +16,7 @@ import trackRoutes from './track.routes';
 import uploadRoutes from './upload.routes';
 import simulationRoutes from './simulation.routes';
 import disputeRoutes from './dispute.routes';
+import rideAlertRoutes from './rideAlert.routes';
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.use('/track', trackRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/dev/simulate', simulationRoutes);
 router.use('/disputes', disputeRoutes);
+router.use('/ride-alerts', rideAlertRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {

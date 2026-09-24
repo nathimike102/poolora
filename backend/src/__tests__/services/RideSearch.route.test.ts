@@ -14,12 +14,18 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 
 jest.mock('../../events', () => ({ EventBridge: { publish: jest.fn() } }));
 jest.mock('../../services/MapsService', () => ({ getRoute: jest.fn() }));
+const mockPush = jest.fn().mockResolvedValue(undefined);
+jest.mock('../../services/NotificationService', () => ({
+  NotificationService: jest.fn().mockImplementation(() => ({ sendPushNotification: mockPush, createNotification: jest.fn().mockResolvedValue(undefined) })),
+}));
 
 import { Ride } from '../../models/Ride';
 import { User } from '../../models/User';
 import { RideService } from '../../services/RideService';
 import { backfillRouteLines } from '../../jobs/backfillRouteLines';
 import { RideStatus } from '../../types';
+import { RideAlertService } from '../../services/RideAlertService';
+import { RideAlert } from '../../models/RideAlert';
 
 jest.setTimeout(60_000);
 
@@ -161,3 +167,33 @@ describe('search along the route', () => {
     expect(total).toBe(0);
   });
 });
+
+describe('ride alerts (UC-R02 6a)', () => {
+  const alerts = new RideAlertService();
+  const stop = (p: [number, number], address: string) => ({ lat: p[0], lng: p[1], address });
+
+  beforeEach(async () => {
+    mockPush.mockClear();
+    await RideAlert.deleteMany({});
+    await RideAlert.init();
+  });
+
+  it('tells a waiting rider once when a ride on their route is posted', async () => {
+    await alerts.create(riderId.toString(), { pickup: stop([12.91, 77.59], 'Near C, Bengaluru'), dropoff: stop([12.99, 77.61], 'Near D, Bengaluru'), departureTime: departure.toISOString() });
+    const ride = await Ride.create(rideDoc());
+
+    expect(await alerts.notifyMatches(ride)).toBe(1);
+    expect(mockPush).toHaveBeenCalledWith(riderId.toString(), 'A ride on your route', expect.stringContaining('Near C to Near D'), expect.anything());
+    expect(await alerts.notifyMatches(ride)).toBe(0); // never twice for the same ride
+  });
+
+  it('ignores rides going the other way, or at a very different time', async () => {
+    await alerts.create(riderId.toString(), { pickup: stop([12.99, 77.61], 'D'), dropoff: stop([12.91, 77.59], 'C') });
+    await alerts.create(riderId.toString(), {
+      pickup: stop([12.91, 77.59], 'C'), dropoff: stop([12.99, 77.61], 'D'),
+      departureTime: new Date(departure.getTime() + 6 * 3_600_000).toISOString(),
+    });
+    expect(await alerts.notifyMatches(await Ride.create(rideDoc()))).toBe(0);
+  });
+});
+

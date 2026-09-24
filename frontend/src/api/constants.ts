@@ -105,6 +105,12 @@ export const API_ENDPOINTS = {
     emailReceipt: (id: string) => `/bookings/${id}/receipt/email`,
   },
 
+  // Ride alerts
+  rideAlerts: {
+    base: '/ride-alerts',
+    one: (id: string) => `/ride-alerts/${id}`,
+  },
+
   // Disputes
   disputes: {
     create: '/disputes',
