@@ -291,6 +291,134 @@ async function icon(Comp, color, size = 256) {
     footer(s, n);
   }
 
+  // ── App walkthrough: real screens, clickable in Slide Show ─────────────
+  // Screens come from Doc/presentation/screens/clean (see ui.py, prep_screens.py).
+  // Each link is [label on the phone, target screen, what it does]; the
+  // label's position on the phone becomes a click target.
+  {
+    const fs = require('fs');
+    const SHOTS = path.join(__dirname, '..', 'screens', 'clean');
+    const SCREENS = [
+      ['01-welcome', 'Rider', 'Sign in', 'Google, phone OTP or email through Firebase. The backend swaps the Firebase token for its own session.',
+        [['Continue with Google', '02-rider-home', 'Signs in and opens the home screen']]],
+      ['02-rider-home', 'Rider', 'Home', 'Live map of where you are, a search box, favourite places and quick links. Everything starts here.',
+        [['Where are you going?', '03-search', 'Search for a ride'], ['Safety', '08-safety', 'Safety and SOS'],
+          ['Services', '05-services', 'All services'], ['My Rides', '09-myrides', 'Your bookings'], ['Profile', '10-profile', 'Your profile']]],
+      ['03-search', 'Rider', 'Search', 'Pickup, drop, seats and time. Place suggestions come from OpenStreetMap, nearest first.',
+        [['Kakinada Beach', '04-results', 'Search rides to a favourite place'], ['Go back', '02-rider-home', 'Back to home']]],
+      ['04-results', 'Rider', 'Results', 'Rides whose route passes your pickup and then your drop. When none match, it suggests other times and offers a ride alert.',
+        [['Tell me when a ride appears', null, 'Creates a ride alert'], ['Go back', '03-search', 'Back to search']]],
+      ['14-active-ride', 'Rider', 'Live ride', 'The car moves on the map every 5 seconds over Socket.IO, with the driver, ETA, trip sharing and SOS.',
+        [['Share trip', null, 'Sends a public live-location link']]],
+      ['15-rate-trip', 'Rider', 'Rate the trip', 'Overall and category stars, a review that admins approve before it goes public, and a private problem report.',
+        []],
+      ['05-services', 'Rider', 'All services', 'Rides, scheduling, saved routes, safety, messages, parcels and group trips.',
+        [['Parcels', '06-parcel', 'Send a parcel'], ['Trips', '07-trips', 'Plan a group trip'], ['Safety', '08-safety', 'Safety and SOS'],
+          ['Ride', '02-rider-home', 'Home'], ['My Rides', '09-myrides', 'Your bookings'], ['Profile', '10-profile', 'Your profile']]],
+      ['06-parcel', 'Rider', 'Send a parcel', 'Pickup, drop, time, type and weight, who hands it over and who receives it. Next, pick a driver on the route.',
+        [['Go back', '05-services', 'Back to services']]],
+      ['07-trips', 'Rider', 'Group trips', 'Plan a trip, open one with an invite code, or find travel partners ranked by compatibility.',
+        [['Go back', '05-services', 'Back to services']]],
+      ['08-safety', 'Rider', 'Safety and SOS', 'Hold SOS for 3 seconds to alert the safety desk and your contacts. Call 112 and share your location.',
+        [['Manage', '12-contacts', 'Emergency contacts'], ['Go back', '05-services', 'Back']]],
+      ['09-myrides', 'Rider', 'My rides', 'Upcoming bookings and history, with receipts, "Report a problem" and "Rate" on past trips.',
+        [['Ride', '02-rider-home', 'Home'], ['Services', '05-services', 'All services'], ['Profile', '10-profile', 'Your profile']]],
+      ['10-profile', 'Rider', 'Profile', 'Account, help, wallet, rides, safety, trusted contacts, messages and saved routes.',
+        [['Help', '11-help', 'Help centre'], ['Trusted contacts', '12-contacts', 'Emergency contacts'], ['Wallet and payments', '13-settings', 'Settings'],
+          ['Ride', '02-rider-home', 'Home'], ['My Rides', '09-myrides', 'Your bookings']]],
+      ['11-help', 'Rider', 'Help centre', 'Searchable answers, an urgent line for safety and payment problems, and support requests with replies.',
+        [['Go back', '10-profile', 'Back to profile']]],
+      ['12-contacts', 'Rider', 'Emergency contacts', 'Up to three people who get a text with your live location during an SOS; each confirms by a link.',
+        [['Go back', '10-profile', 'Back to profile']]],
+      ['13-settings', 'Rider', 'Settings', 'Profile, switch to driver, wallet, emergency contacts, and the ride simulator used for testing.',
+        [['Switch to Driver', '16-driver-home', 'Driver mode'], ['Go back', '10-profile', 'Back to profile']]],
+      ['16-driver-home', 'Driver', 'Driver home', 'Offer a ride, see requests and upcoming rides, earnings, verification and safety.',
+        [['Offer', '17-create-ride', 'Offer a ride'], ['Earnings', '18-earnings', 'Earnings'], ['Create Ride', '17-create-ride', 'Offer a ride']]],
+      ['17-create-ride', 'Driver', 'Offer a ride', 'Route with up to three stops, time, seats, a suggested fair price, vehicle, rules and an optional return trip.',
+        [['Go back', '16-driver-home', 'Back']]],
+      ['18-earnings', 'Driver', 'Earnings', 'Earnings by day, week and month, recent trips, and monthly statements to share or email.',
+        [['Go back', '16-driver-home', 'Back']]],
+    ].filter(([name]) => fs.existsSync(path.join(SHOTS, name + '.png')));
+
+    if (SCREENS.length) {
+      const hotspot = 'image/png;base64,' + (await sharp({ create: { width: 4, height: 4, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer()).toString('base64');
+      const meta = Object.fromEntries(SCREENS.map(([name]) => [name, JSON.parse(fs.readFileSync(path.join(SHOTS, name + '.json'), 'utf8'))]));
+      const mapSlide = n + 1;
+      const slideOf = Object.fromEntries(SCREENS.map(([name], i) => [name, mapSlide + 1 + i]));
+      const link = (target) => (slideOf[target] ? { slide: slideOf[target], tooltip: 'Open this screen' } : undefined);
+      const find = (name, label) => meta[name].nodes.find((nd) => nd.label === label) || meta[name].nodes.find((nd) => nd.label.startsWith(label));
+
+      // Screen map
+      {
+        const s = pres.addSlide(); n++;
+        title(s, 'App walkthrough');
+        sub(s, 'Real screens from the Android app. In Slide Show, click a screen, then tap the outlined buttons to move around the app.');
+        const per = Math.min(9, SCREENS.length);
+        const tw = 1.18, gap = (W - 1.2 - per * tw) / Math.max(1, per - 1);
+        SCREENS.forEach(([name, group, label], i) => {
+          const row = Math.floor(i / per), col = i % per;
+          const m = meta[name];
+          const th = Math.min(2.2, tw * m.height / m.width);
+          const x = 0.6 + col * (tw + gap), y = 1.95 + row * 2.62;
+          s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: x - 0.05, y: y - 0.05, w: tw + 0.1, h: th + 0.1, rectRadius: 0.08, fill: { color: C.navy }, line: { color: C.navy } });
+          s.addImage({ path: path.join(SHOTS, name + '.png'), x, y, w: tw, h: th, hyperlink: link(name) });
+          text(s, [{ text: label, options: { hyperlink: link(name), bold: true, color: C.navy } }], x - 0.1, y + th + 0.08, tw + 0.2, 0.3, { fontSize: 10.5, align: 'center' });
+          text(s, group, x - 0.1, y + th + 0.34, tw + 0.2, 0.22, { fontSize: 9, align: 'center', color: group === 'Driver' ? C.pink : C.teal });
+        });
+        footer(s, n);
+        s.addNotes('Start the demo from here in Slide Show mode. Click any screen to open it; on each screen, click the outlined buttons to follow the app the way a user would. Screen map (top right of each slide) brings you back.');
+      }
+
+      // One slide per screen
+      SCREENS.forEach(([name, group, label, desc, links], i) => {
+        const s = pres.addSlide(); n++;
+        const m = meta[name];
+        const ph = 6.5, pw = ph * m.width / m.height, px = 0.95, py = 0.5, scale = pw / m.width;
+        // phone
+        s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: px - 0.13, y: py - 0.13, w: pw + 0.26, h: ph + 0.26, rectRadius: 0.32, fill: { color: C.navy }, line: { color: C.navy },
+          shadow: { type: 'outer', color: '000000', opacity: 0.25, blur: 10, offset: 4, angle: 90 } });
+        s.addImage({ path: path.join(SHOTS, name + '.png'), x: px, y: py, w: pw, h: ph });
+        // click targets
+        const live = [];
+        links.forEach(([lbl, target, what]) => {
+          const nd = find(name, lbl);
+          if (!nd) { console.warn(`  ${name}: no "${lbl}" on screen`); return; }
+          live.push([lbl, target, what]);
+          if (!slideOf[target]) return;
+          const [x1, y1, x2, y2] = nd.bounds;
+          const pad = 4;
+          const hx = px + (x1 - pad) * scale, hy = py + (y1 - pad) * scale, hw = (x2 - x1 + 2 * pad) * scale, hh = (y2 - y1 + 2 * pad) * scale;
+          s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: hx, y: hy, w: hw, h: hh, rectRadius: Math.min(0.08, hh / 2), fill: { color: C.pink, transparency: 88 }, line: { color: C.pink, width: 1.25, dashType: 'dash' } });
+          s.addImage({ data: hotspot, x: hx, y: hy, w: hw, h: hh, hyperlink: link(target) });
+        });
+        // right panel
+        const rx = px + pw + 0.9, rw = W - rx - 0.6;
+        s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: rx, y: 0.55, w: 1.1, h: 0.36, rectRadius: 0.18, fill: { color: group === 'Driver' ? C.pink : C.teal }, line: { color: group === 'Driver' ? C.pink : C.teal } });
+        text(s, group.toUpperCase(), rx, 0.55, 1.1, 0.36, { fontSize: 11, bold: true, color: C.white, align: 'center', valign: 'middle' });
+        text(s, [{ text: 'Screen map', options: { hyperlink: { slide: mapSlide, tooltip: 'All screens' }, color: C.teal, bold: true } }], W - 2.6, 0.58, 2.0, 0.3, { fontSize: 12, align: 'right' });
+        text(s, label, rx, 1.1, rw, 0.8, { fontFace: HEAD, fontSize: 32, bold: true, color: C.navy });
+        text(s, desc, rx, 1.95, rw, 1.2, { fontSize: 16, color: C.muted });
+        const clickable = live.filter(([, t]) => slideOf[t]);
+        if (clickable.length) {
+          text(s, 'Try it: click on the phone', rx, 3.3, rw, 0.4, { fontFace: HEAD, fontSize: 14, bold: true, color: C.tealDark });
+          text(s, clickable.map(([lbl, t, what], k) => ({
+            text: `${lbl}  →  ${what}`, options: { hyperlink: link(t), bullet: true, breakLine: k < clickable.length - 1, color: C.ink },
+          })), rx, 3.75, rw, 2.4, { fontSize: 14, paraSpaceAfter: 6 });
+        }
+        const other = live.filter(([, t]) => !slideOf[t]);
+        if (other.length) text(s, other.map(([lbl, , what]) => `${lbl}: ${what}`).join('   ·   '), rx, 6.2, rw, 0.4, { fontSize: 12, italic: true, color: C.muted });
+        // previous / next
+        const prev = SCREENS[i - 1], next = SCREENS[i + 1];
+        const nav = [];
+        if (prev) nav.push({ text: `‹ ${prev[2]}`, options: { hyperlink: link(prev[0]), color: C.teal } });
+        if (prev && next) nav.push({ text: '     ' });
+        if (next) nav.push({ text: `${next[2]} ›`, options: { hyperlink: link(next[0]), color: C.teal } });
+        if (nav.length) text(s, nav, rx, 6.75, rw, 0.35, { fontSize: 12, bold: true });
+        s.addImage({ path: MARK, x: W - 0.95, y: 6.9, w: 0.38, h: 0.38 });
+      });
+    }
+  }
+
   // 9 ── Route matching ───────────────────────────────────────────────────
   {
     const s = pres.addSlide(); n++;

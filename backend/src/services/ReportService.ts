@@ -17,6 +17,7 @@ import { EmergencyRecord } from '../models/EmergencyRecord';
 import { Dispute } from '../models/Dispute';
 import { BookingStatus, RideStatus, SOSStatus } from '../types';
 import { AppError } from '../utils/AppError';
+import { istDay } from './ReportExport';
 
 export const REPORT_TYPES = ['users', 'rides', 'financial', 'performance', 'safety'] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
@@ -368,7 +369,7 @@ export class ReportService {
     };
     const line = (cells: unknown[]) => cells.map(cell).join(',');
     const out: string[] = [
-      line([`Poolora ${report.type} report`, `${report.from.slice(0, 10)} to ${report.to.slice(0, 10)}`, `by ${report.groupBy}`]),
+      line([`Poolora ${report.type} report`, `${istDay(report.from)} to ${istDay(report.to)}`, `by ${report.groupBy}`]),
       '',
       line(['Summary', 'Value']),
       ...report.summary.map((s) => line([s.label, s.format === 'percent' ? `${Math.round(s.value * 1000) / 10}%` : s.value])),
@@ -376,7 +377,7 @@ export class ReportService {
     ];
     const keys = Object.keys(report.series[0] ?? { period: '' });
     out.push(line(keys.map((k) => (k === 'period' ? 'Period start' : k))));
-    for (const row of report.series) out.push(line(keys.map((k) => (k === 'period' ? String(row[k]).slice(0, 10) : row[k]))));
+    for (const row of report.series) out.push(line(keys.map((k) => (k === 'period' ? istDay(String(row[k])) : row[k]))));
     for (const table of report.tables) {
       out.push('', line([table.title]), line(table.columns), ...table.rows.map(line));
     }

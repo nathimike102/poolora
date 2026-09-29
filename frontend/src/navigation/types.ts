@@ -104,6 +104,7 @@ export type RootStackParamList = {
   RaiseDispute: { bookingId: string; summary?: string };
   RateTrip: { bookingId: string; rateeName: string; summary?: string };
   Help: undefined;
+  Appeal: undefined;
   SupportTicket: { ticketId?: string; bookingId?: string };
   Payment: {
     bookingId: string;

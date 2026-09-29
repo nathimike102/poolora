@@ -480,7 +480,12 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | POST | `/admin/sos/:id/log` | Add a call or action to the timeline. Body: `text` |
 | POST | `/admin/sos/:id/police` | Record that police were called. Body: optional `notes` |
 | POST | `/admin/sos/:id/resolve` | Body: `notes`, `isFalseAlarm` |
-| GET | `/admin/reports/:type` | `type`: `users`, `rides`, `financial`, `performance`, `safety`. Query: `from`, `to` (at most two years apart; default the last 30 days), `groupBy` (`day`, `week`, `month`), `format=csv` for a download. Periods are in India time (UC-A06) |
+| GET | `/admin/reports/:type` | `type`: `users`, `rides`, `financial`, `performance`, `safety`. Query: `from`, `to` (at most two years apart; default the last 30 days), `groupBy` (`day`, `week`, `month`), `format=csv`, `xlsx` or `pdf` for a download. Periods are in India time (UC-A06) |
+| GET | `/admin/report-schedules` | Scheduled report emails, and `emailEnabled` (false when the server has no SMTP) |
+| POST | `/admin/report-schedules` | `{ name, types[], frequency: daily\|weekly\|monthly, format?: xlsx\|pdf\|csv, recipients }` (up to 10 addresses, as an array or comma-separated). Sent at 07:00 India time: daily covers yesterday, weekly (Mondays) the last seven days, monthly (the 1st) last month |
+| PATCH | `/admin/report-schedules/:id` | Any of the fields above, or `active`. A new frequency or resuming starts from the next send time |
+| DELETE | `/admin/report-schedules/:id` | Stops and removes a schedule |
+| POST | `/admin/report-schedules/:id/send` | Sends it now for the period just ended, without moving the schedule. 503 `EMAIL_UNAVAILABLE` without SMTP |
 | GET | `/admin/settings` | Every editable setting with its value, default and limits (UC-A07) |
 | PUT | `/admin/settings` | Body: `changes` (key to value) and `reason`. All values are validated first; nothing changes unless all are valid. Applies at once, and on other servers within a minute |
 | GET | `/admin/settings/history` | Recent changes with before and after values |

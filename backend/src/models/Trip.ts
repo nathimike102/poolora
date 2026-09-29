@@ -46,6 +46,8 @@ export interface ITrip extends Document {
   }>;
   /** Payments members say they made to each other (UC-T05 step 5) */
   settlements: Array<{ _id: Types.ObjectId; from: Types.ObjectId; to: Types.ObjectId; amount: number; markedBy: Types.ObjectId; at: Date }>;
+  /** Members' ratings of the organizer after the trip (UC-T02); comments are private */
+  organizerRatings: Array<{ user: Types.ObjectId; score: number; comment?: string; at: Date }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -102,6 +104,15 @@ const TripSchema = new Schema<ITrip>(
         to: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         amount: { type: Number, required: true, min: 0.01 },
         markedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        at: { type: Date, default: Date.now },
+      },
+    ],
+    organizerRatings: [
+      {
+        _id: false,
+        user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        score: { type: Number, min: 1, max: 5, required: true },
+        comment: { type: String, trim: true, maxlength: 500 },
         at: { type: Date, default: Date.now },
       },
     ],

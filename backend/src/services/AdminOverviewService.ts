@@ -54,6 +54,23 @@ export interface Anomaly {
   link?: string;
 }
 
+/** Items waiting for an admin's decision: appeals, merges and held settings changes */
+async function secondAdminQueues() {
+  const [{ Appeal }, { AccountMerge }, { SettingsChangeRequest }, { ParcelClaim }] = await Promise.all([
+    import('../models/Appeal'),
+    import('../models/AccountMerge'),
+    import('../models/SettingsChangeRequest'),
+    import('../models/ParcelClaim'),
+  ]);
+  const [appealsOpen, mergesPending, settingsPending, parcelClaimsOpen] = await Promise.all([
+    Appeal.countDocuments({ status: 'open' }),
+    AccountMerge.countDocuments({ status: { $in: ['pending', 'running'] } }),
+    SettingsChangeRequest.countDocuments({ status: 'pending', expiresAt: { $gt: new Date() } }),
+    ParcelClaim.countDocuments({ status: { $in: ['submitted', 'with_insurer'] } }),
+  ]);
+  return { appealsOpen, mergesPending, settingsPending, parcelClaimsOpen };
+}
+
 export class AdminOverviewService {
   async overview(now = new Date()) {
     const today = startOfToday(now);
@@ -141,10 +158,17 @@ export class AdminOverviewService {
         pendingSettlement: pendingSettlement.total,
         refunds7d: { total: refundsWeek.total, count: refundsWeek.count },
       },
-      safety: { activeSos, openDisputes, blockedUsers: blocked, suspendedUsers: suspended, pendingBlocks, fraudFlagged, reviewsWaiting, safetyReports, supportOpen, supportUrgent },
+      safety: { activeSos, openDisputes, blockedUsers: blocked, suspendedUsers: suspended, pendingBlocks, fraudFlagged, reviewsWaiting, safetyReports, supportOpen, supportUrgent, ...(await secondAdminQueues()) },
       system,
     };
-    return { ...summary, anomalies: await this.anomalies(now, summary) };
+    const { AlertRuleService } = await import('./AlertRuleService');
+    const firing = (await new AlertRuleService().firing()).map((r): Anomaly => ({
+      severity: 'warning',
+      title: `Alert rule: ${r.name}`,
+      detail: `Now ${r.lastValue}, ${r.comparator} ${r.threshold}.`,
+      link: '/alerts',
+    }));
+    return { ...summary, anomalies: [...(await this.anomalies(now, summary)), ...firing] };
   }
 
   private async systemHealth() {

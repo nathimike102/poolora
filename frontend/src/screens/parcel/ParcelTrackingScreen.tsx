@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { BackButton } from '../../components/BackButton';
 import { Icon } from '../../components/Icon';
+import { ParcelEvidence } from '../../components/ParcelEvidence';
 import { parcelService, parcelStage, type Parcel } from '../../services/parcelService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
@@ -138,6 +139,7 @@ export function ParcelTrackingScreen() {
               </View>
             ) : null}
 
+            {isSender ? <ParcelEvidence parcel={parcel} /> : null}
             {canCancel ? (
               <Pressable onPress={cancel} disabled={cancelling} accessibilityRole="button" style={[styles.btn, { backgroundColor: c.errorLight }]}>
                 {cancelling ? <ActivityIndicator color={c.error} /> : <Text style={{ fontSize: 15, fontWeight: '700', color: c.error }}>Cancel parcel</Text>}

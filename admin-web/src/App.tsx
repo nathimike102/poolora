@@ -16,6 +16,9 @@ import { AuditPage } from './pages/Audit';
 import { FraudPage } from './pages/Fraud';
 import { ReviewsPage } from './pages/Reviews';
 import { SupportPage, SupportDetailPage } from './pages/Support';
+import { AppealsPage } from './pages/Appeals';
+import { ParcelClaimsPage } from './pages/ParcelClaims';
+import { AlertsPage } from './pages/Alerts';
 
 const AdminContext = createContext<AdminUser | null>(null);
 export const useAdmin = () => useContext(AdminContext)!;
@@ -46,6 +49,9 @@ export function App() {
             <Route path="users" element={<UsersPage />} />
             <Route path="users/:id" element={<UserDetailPage />} />
             <Route path="fraud" element={<FraudPage />} />
+            <Route path="appeals" element={<AppealsPage />} />
+            <Route path="parcel-claims" element={<ParcelClaimsPage />} />
+            <Route path="alerts" element={<AlertsPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="support" element={<SupportPage />} />
             <Route path="support/:id" element={<SupportDetailPage />} />

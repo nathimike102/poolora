@@ -11,10 +11,13 @@ import { Types } from 'mongoose';
 import { Trip, ITrip, TRIP_LIMITS, TripVote } from '../models/Trip';
 import { TripExpense } from '../models/TripExpense';
 import { User } from '../models/User';
+import { config } from '../config';
 import { AppError, AuthorizationError, ConflictError, NotFoundError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 
 const DAY_MS = 86_400_000;
+/** Members can rate the organizer for this long after the trip ends */
+const RATING_WINDOW_DAYS = 30;
 const toPaise = (rupees: number) => Math.round(rupees * 100);
 const toRupees = (paise: number) => Math.round(paise) / 100;
 const idOf = (v: unknown) => String((v as { _id?: unknown })?._id ?? v);
@@ -85,6 +88,83 @@ function checkPlan(input: Pick<TripInput, 'startDate' | 'endDate' | 'maxGroupSiz
   return days;
 }
 
+/** Whether members may rate the organizer now: the trip is over, not cancelled, and ended within the window */
+function ratingOpen(trip: Pick<ITrip, 'status' | 'endDate'>): boolean {
+  if (trip.status === 'cancelled') return false;
+  const end = new Date(trip.endDate).getTime() + DAY_MS; // endDate is the last day of the trip
+  const now = Date.now();
+  return (trip.status === 'completed' || now >= end) && now <= end + RATING_WINDOW_DAYS * DAY_MS;
+}
+
+/** `<userId>.<signature>`: identifies the member without a login, for calendar apps */
+function calendarToken(tripId: string, userId: string): string {
+  const sig = crypto.createHmac('sha256', config.jwt.accessSecret).update(`trip-calendar:${tripId}:${userId}`).digest('base64url').slice(0, 32);
+  return `${userId}.${sig}`;
+}
+
+const IST_MS = 5.5 * 3_600_000;
+/** 20260924 for an all-day date, in India time */
+const icsDate = (d: Date) => new Date(d.getTime() + IST_MS).toISOString().slice(0, 10).replace(/-/g, '');
+/** 20260924T083000Z */
+const icsTime = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+
+/** Lines longer than 75 octets are folded, as RFC 5545 requires */
+function fold(line: string): string {
+  const out: string[] = [];
+  let rest = Buffer.from(line, 'utf8');
+  while (rest.length > 75) {
+    let cut = out.length ? 74 : 75;
+    while (cut > 0 && (rest[cut] & 0xc0) === 0x80) cut--; // do not split a UTF-8 character
+    out.push(rest.subarray(0, cut).toString('utf8'));
+    rest = rest.subarray(cut);
+  }
+  out.push(rest.toString('utf8'));
+  return out.join('\r\n ');
+}
+
+/** The trip and its confirmed activities as an iCalendar feed */
+export function tripCalendar(trip: ITrip): string {
+  const stamp = icsTime(new Date());
+  const place = trip.destinations.map((d) => d.name).join(', ');
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Poolora//Trips//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${icsText(trip.title)}`,
+    'X-WR-TIMEZONE:Asia/Kolkata',
+    'BEGIN:VEVENT',
+    `UID:trip-${trip._id}@poolora.app`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${icsDate(new Date(trip.startDate))}`,
+    `DTEND;VALUE=DATE:${icsDate(new Date(new Date(trip.endDate).getTime() + DAY_MS))}`,
+    `SUMMARY:${icsText(trip.title)}`,
+    ...(place ? [`LOCATION:${icsText(place)}`] : []),
+    ...(trip.status === 'cancelled' ? ['STATUS:CANCELLED'] : []),
+    'END:VEVENT',
+  ];
+  for (const a of trip.activities ?? []) {
+    if (a.status !== 'confirmed' || !a.date) continue;
+    const start = new Date(a.date);
+    const timed = Boolean(a.durationMins);
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:activity-${a._id}@poolora.app`,
+      `DTSTAMP:${stamp}`,
+      timed ? `DTSTART:${icsTime(start)}` : `DTSTART;VALUE=DATE:${icsDate(start)}`,
+      timed ? `DTEND:${icsTime(new Date(start.getTime() + a.durationMins! * 60_000))}` : `DTEND;VALUE=DATE:${icsDate(new Date(start.getTime() + DAY_MS))}`,
+      `SUMMARY:${icsText(a.title)}`,
+      ...(a.notes || a.cost ? [`DESCRIPTION:${icsText([a.notes, a.cost ? `Cost: ₹${a.cost}` : ''].filter(Boolean).join('\n'))}`] : []),
+      ...(place ? [`LOCATION:${icsText(place)}`] : []),
+      'END:VEVENT',
+    );
+  }
+  lines.push('END:VCALENDAR');
+  return lines.map(fold).join('\r\n') + '\r\n';
+}
+
 export class TripService {
   // ── Plan (UC-T01) ─────────────────────────────────────────────────────────
 
@@ -136,8 +216,8 @@ export class TripService {
     if (to) filter.startDate = { $lte: to };
 
     const trips = await Trip.find(filter)
-      .select('-joinRequests -settlements -inviteCode -activities')
-      .populate('organizer', 'name profilePhotoUrl stats.avgRatingAsDriver stats.avgRatingAsRider stats.totalRatingsAsRider')
+      .select('-joinRequests -settlements -inviteCode -activities -organizerRatings')
+      .populate('organizer', 'name profilePhotoUrl stats.avgRatingAsDriver stats.avgRatingAsRider stats.totalRatingsAsRider stats.avgRatingAsOrganizer stats.totalRatingsAsOrganizer')
       .populate('members.user', 'name profilePhotoUrl')
       .limit(100)
       .lean();
@@ -179,7 +259,7 @@ export class TripService {
    */
   async get(tripId: string, userId: string, inviteCode?: string): Promise<TripView> {
     const trip = await Trip.findById(tripId)
-      .populate('organizer', 'name profilePhotoUrl')
+      .populate('organizer', 'name profilePhotoUrl stats.avgRatingAsOrganizer stats.totalRatingsAsOrganizer')
       .populate('members.user', 'name profilePhotoUrl')
       .populate('joinRequests.user', 'name profilePhotoUrl stats')
       .lean();
@@ -190,8 +270,12 @@ export class TripService {
 
     const isOrganizer = idOf(trip.organizer) === userId;
     const myRequest = trip.joinRequests.find((r) => idOf(r.user) === userId);
+    const { organizerRatings = [], ...rest } = trip;
+    const myRating = organizerRatings.find((r) => idOf(r.user) === userId);
     const base = {
-      ...trip,
+      ...rest,
+      myOrganizerRating: myRating ? { score: myRating.score, comment: myRating.comment } : undefined,
+      canRateOrganizer: member && !isOrganizer && !myRating && ratingOpen(trip),
       joinRequests: isOrganizer ? trip.joinRequests.filter((r) => r.status === 'pending') : [],
       inviteCode: member ? trip.inviteCode : undefined,
       settlements: member ? trip.settlements : [],
@@ -459,6 +543,61 @@ export class TripService {
       await trip.save();
     }
     return activity;
+  }
+
+  // ── Organizer rating (UC-T02) ─────────────────────────────────────────────
+
+  /**
+   * A member rates the organizer once, after the trip and within 30 days.
+   * The organizer's average shows on their trips in search; comments are
+   * kept private.
+   */
+  async rateOrganizer(tripId: string, userId: string, score: number, comment?: string) {
+    const trip = await this.memberTrip(tripId, userId);
+    if (trip.organizer.toString() === userId) throw new AppError('You cannot rate yourself', 422, 'VALIDATION_ERROR');
+    if (!ratingOpen(trip)) {
+      throw new ConflictError(trip.status === 'cancelled' ? 'This trip was cancelled' : `You can rate the organizer after the trip, for ${RATING_WINDOW_DAYS} days`);
+    }
+    const saved = await Trip.findOneAndUpdate(
+      { _id: trip._id, 'organizerRatings.user': { $ne: new Types.ObjectId(userId) } },
+      { $push: { organizerRatings: { user: new Types.ObjectId(userId), score, comment: comment?.trim() || undefined, at: new Date() } } },
+    );
+    if (!saved) throw new ConflictError('You have already rated this organizer');
+    // Running average, updated in one step from the stored values
+    const n = { $ifNull: ['$stats.totalRatingsAsOrganizer', 0] };
+    const avg = { $ifNull: ['$stats.avgRatingAsOrganizer', 0] };
+    await User.updateOne({ _id: trip.organizer }, [
+      {
+        $set: {
+          'stats.avgRatingAsOrganizer': { $round: [{ $divide: [{ $add: [{ $multiply: [avg, n] }, score] }, { $add: [n, 1] }] }, 2] },
+          'stats.totalRatingsAsOrganizer': { $add: [n, 1] },
+        },
+      },
+    ]);
+    return { rated: true, score };
+  }
+
+  // ── Shared calendar (UC-T04) ──────────────────────────────────────────────
+
+  /**
+   * A private calendar link for a member: the trip and its confirmed
+   * activities, as an .ics feed calendar apps can subscribe to, so changes
+   * show up on their own. The link stops working if the member leaves.
+   */
+  async calendarLink(tripId: string, userId: string) {
+    await this.memberTrip(tripId, userId);
+    const url = `${config.app.baseUrl}/trips/${tripId}/calendar.ics?token=${calendarToken(tripId, userId)}`;
+    return { url, webcalUrl: url.replace(/^https?:/, 'webcal:') };
+  }
+
+  async calendarIcs(tripId: string, token: string): Promise<string> {
+    const [userId, sig] = String(token ?? '').split('.');
+    if (!userId || !sig || !Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(tripId)) throw new NotFoundError('Calendar');
+    const expected = calendarToken(tripId, userId).split('.')[1];
+    if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) throw new NotFoundError('Calendar');
+    const trip = await Trip.findById(tripId).lean();
+    if (!trip || !trip.members.some((m) => m.user.toString() === userId)) throw new NotFoundError('Calendar');
+    return tripCalendar(trip as unknown as ITrip);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

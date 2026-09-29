@@ -14,6 +14,7 @@ jest.mock('../../services/NotificationService', () => ({
 
 import { User } from '../../models/User';
 import { TripService, settlementPlan } from '../../services/TripService';
+import { Trip } from '../../models/Trip';
 
 jest.setTimeout(60_000);
 
@@ -138,4 +139,55 @@ it('confirms an activity on a majority yes and adds its cost to the expenses', a
   const skipped = await service.proposeActivity(id, bob, { title: 'Casino night' });
   await service.vote(id, alice, skipped._id.toString(), 'no');
   expect((await service.vote(id, carol, skipped._id.toString(), 'no')).status).toBe('rejected');
+});
+
+describe('organizer ratings (UC-T02)', () => {
+  it('lets each member rate the organizer once, after the trip', async () => {
+    const id = await groupTrip();
+    await expect(service.rateOrganizer(id, bob, 5)).rejects.toThrow('after the trip');
+
+    await Trip.updateOne({ _id: id }, { startDate: new Date(Date.now() - 5 * DAY), endDate: new Date(Date.now() - 3 * DAY) });
+    await expect(service.rateOrganizer(id, alice, 5)).rejects.toThrow('cannot rate yourself');
+    await service.rateOrganizer(id, bob, 5, 'Great planning');
+    await service.rateOrganizer(id, carol, 4);
+    await expect(service.rateOrganizer(id, bob, 1)).rejects.toThrow('already rated');
+
+    const organizer = await User.findById(alice).lean();
+    expect(organizer?.stats).toMatchObject({ avgRatingAsOrganizer: 4.5, totalRatingsAsOrganizer: 2 });
+    const view = await service.get(id, bob);
+    expect(view).toMatchObject({ canRateOrganizer: false, myOrganizerRating: { score: 5, comment: 'Great planning' } });
+    expect(view.organizerRatings).toBeUndefined(); // other members' comments stay private
+  });
+
+  it('closes rating 30 days after the trip, and for cancelled trips', async () => {
+    const id = await groupTrip();
+    await Trip.updateOne({ _id: id }, { startDate: new Date(Date.now() - 40 * DAY), endDate: new Date(Date.now() - 35 * DAY) });
+    await expect(service.rateOrganizer(id, bob, 5)).rejects.toThrow('for 30 days');
+    await Trip.updateOne({ _id: id }, { endDate: new Date(Date.now() - 2 * DAY), status: 'cancelled' });
+    await expect(service.rateOrganizer(id, bob, 5)).rejects.toThrow('cancelled');
+  });
+});
+
+describe('shared calendar (UC-T04)', () => {
+  it('serves confirmed activities to members through a signed link', async () => {
+    const id = await groupTrip();
+    const when = new Date(Date.now() + 11 * DAY);
+    const kayak = await service.proposeActivity(id, bob, { title: 'Kayaking, north beach; sunrise', date: when.toISOString(), durationMins: 90, cost: 1200 });
+    await service.vote(id, carol, kayak._id.toString(), 'yes');
+    await service.proposeActivity(id, carol, { title: 'Casino night', date: when.toISOString() }); // still being voted on
+
+    const { url, webcalUrl } = await service.calendarLink(id, bob);
+    expect(webcalUrl.startsWith('webcal:')).toBe(true);
+    const token = new URL(url).searchParams.get('token')!;
+    const ics = await service.calendarIcs(id, token);
+    expect(ics).toContain('BEGIN:VCALENDAR');
+    expect(ics).toContain('SUMMARY:Goa long weekend');
+    expect(ics).toContain('SUMMARY:Kayaking\\, north beach\\; sunrise');
+    expect(ics).not.toContain('Casino night');
+    expect(ics.split('\r\n').every((line) => Buffer.byteLength(line) <= 75)).toBe(true);
+
+    await expect(service.calendarIcs(id, `${bob}.forged-signature-forged-signatu`)).rejects.toThrow();
+    await Trip.updateOne({ _id: id }, { $pull: { members: { user: new Types.ObjectId(bob) } } });
+    await expect(service.calendarIcs(id, token)).rejects.toThrow(); // leaving the group ends access
+  });
 });

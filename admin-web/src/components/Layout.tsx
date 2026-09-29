@@ -6,7 +6,7 @@ import { subscribeSos } from '../lib/socket';
 import { useApi } from '../lib/useApi';
 
 interface Counts {
-  safety: { activeSos: number; openDisputes: number; pendingBlocks: number; fraudFlagged: number; reviewsWaiting?: number; supportOpen?: number };
+  safety: { activeSos: number; openDisputes: number; pendingBlocks: number; fraudFlagged: number; reviewsWaiting?: number; supportOpen?: number; appealsOpen?: number; parcelClaimsOpen?: number; mergesPending?: number; settingsPending?: number };
   users: { pendingApplications: number };
 }
 
@@ -58,10 +58,13 @@ export function Layout({ onSignedOut }: { onSignedOut: () => void }) {
     ['/disputes', 'Disputes', data?.safety.openDisputes ?? 0],
     ['/users', 'Users', data?.safety.pendingBlocks ?? 0],
     ['/fraud', 'Fraud flags', data?.safety.fraudFlagged ?? 0],
+    ['/appeals', 'Appeals and merges', (data?.safety.appealsOpen ?? 0) + (data?.safety.mergesPending ?? 0)],
     ['/reviews', 'Reviews', data?.safety.reviewsWaiting ?? 0],
     ['/support', 'Support requests', data?.safety.supportOpen ?? 0],
+    ['/parcel-claims', 'Parcel claims', data?.safety.parcelClaimsOpen ?? 0],
     ['/reports', 'Reports', 0],
-    ['/settings', 'Settings', 0],
+    ['/alerts', 'Alerts', 0],
+    ['/settings', 'Settings', data?.safety.settingsPending ?? 0],
     ['/audit', 'Audit log', 0],
   ];
 

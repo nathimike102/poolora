@@ -255,6 +255,8 @@ export function UserDetailPage() {
           {data.disputes.map((d) => <div key={d._id}><Link to={`/disputes/${d._id}`}>{titleCase(d.category)} dispute</Link> · {titleCase(d.status)} · {day(d.createdAt)}</div>)}
           {data.sos.map((s) => <div key={s._id}><Link to={`/sos/${s._id}`}>SOS</Link> · {titleCase(s.status)} · {day(s.createdAt)}</div>)}
         </div>
+        <CallsCard userId={u._id} />
+        {!self && !u.isBlocked ? <DuplicateAccounts keepId={u._id} keepName={u.name} /> : null}
         <HistoryTable title="Admin actions on this account" empty="None." head={['When', 'Action', 'By', 'Reason']}
           rows={data.auditLog.map((a) => [when(a.createdAt), titleCase(a.action.split('.').slice(1).join(' ')), a.actor?.name ?? '—', a.reason ?? ''])} />
       </div>
@@ -287,6 +289,83 @@ export function UserDetailPage() {
       />
       <ReasonDialog open={action === 'rejectBlock'} title="Reject the block request" confirmLabel="Reject request" onConfirm={(reason) => post('block/reject', { reason })} onClose={() => setAction(null)} />
       <ReasonDialog open={action === 'unblock'} title="Unblock this account" confirmLabel="Unblock" onConfirm={(reason) => post('unblock', { reason })} onClose={() => setAction(null)} />
+    </div>
+  );
+}
+
+/** Masked calls on this user's bookings, with recordings for safety reviews (UC-D06, UC-A03) */
+function CallsCard({ userId }: { userId: string }) {
+  const { data } = useApi<{ calls: Array<{ _id: string; createdAt: string; status: string; durationSec?: number; hasRecording: boolean; caller?: { name: string }; callee?: { name: string } }> }>(`/admin/accounts/${userId}/calls`);
+  const [audio, setAudio] = useState<Record<string, string>>({});
+  const [loadError, setLoadError] = useState('');
+  useEffect(() => () => Object.values(audio).forEach((u) => URL.revokeObjectURL(u)), [audio]);
+  const play = async (id: string) => {
+    setLoadError('');
+    try {
+      const url = await api.objectUrl(`/admin/calls/${id}/recording`);
+      setAudio((a) => ({ ...a, [id]: url }));
+    } catch (e) {
+      setLoadError((e as Error).message);
+    }
+  };
+  if (!data?.calls.length) return null;
+  return (
+    <div className="card">
+      <h2>Calls</h2>
+      <p className="faint">Calls through Poolora between this person and their riders or drivers. Recordings are for safety reviews only.</p>
+      {loadError ? <div className="error-text">{loadError}</div> : null}
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>When</th><th>From</th><th>To</th><th>Result</th><th>Recording</th></tr></thead>
+          <tbody>
+            {data.calls.map((c) => (
+              <tr key={c._id}>
+                <td>{when(c.createdAt)}</td>
+                <td>{c.caller?.name ?? '—'}</td>
+                <td>{c.callee?.name ?? '—'}</td>
+                <td>{titleCase(c.status)}{c.durationSec ? `, ${Math.round(c.durationSec / 60)} min` : ''}</td>
+                <td>{audio[c._id] ? <audio controls src={audio[c._id]} /> : c.hasRecording ? <button className="btn small" onClick={() => play(c._id)}>Play</button> : <span className="faint">None</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Accounts that look like this person's; merge one into this account (UC-A05) */
+function DuplicateAccounts({ keepId, keepName }: { keepId: string; keepName: string }) {
+  const { data, error, reload } = useApi<{ candidates: Array<{ _id: string; name: string; phone: string; email?: string; sameDevice: boolean; sameName: boolean; isBlocked?: boolean; createdAt: string; stats?: { totalRidesAsRider?: number; totalRidesAsDriver?: number } }> }>(`/admin/accounts/${keepId}/duplicates`);
+  const [merging, setMerging] = useState<{ _id: string; name: string; phone: string } | null>(null);
+  const [done, setDone] = useState('');
+  return (
+    <div className="card">
+      <h2>Duplicate accounts</h2>
+      <ErrorBox error={error} onRetry={reload} />
+      {done ? <div className="muted" role="status">{done}</div> : null}
+      {data && !data.candidates.length ? <p className="faint">No accounts with the same name or phone.</p> : null}
+      {data?.candidates.map((c) => (
+        <div key={c._id} className="spread" style={{ padding: '6px 0', borderTop: '1px solid var(--grid)' }}>
+          <div>
+            <Link to={`/users/${c._id}`}>{c.name}</Link> · {c.phone}
+            <div className="faint">
+              {[c.sameDevice ? 'Same phone handset' : '', c.sameName ? 'Same name' : '', `${(c.stats?.totalRidesAsRider ?? 0) + (c.stats?.totalRidesAsDriver ?? 0)} trips`, `joined ${day(c.createdAt)}`].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+          {c.isBlocked ? <Badge>Blocked</Badge> : <button className="btn small" onClick={() => setMerging(c)}>Merge into this account</button>}
+        </div>
+      ))}
+      <ReasonDialog
+        open={merging !== null}
+        title={`Merge ${merging?.name} into ${keepName}`}
+        intro={`${merging?.name} (${merging?.phone}) is closed, and its history, wallet and coins move to this account. A second admin must approve it under Appeals and merges.`}
+        confirmLabel="Ask for the merge"
+        tone="danger"
+        placeholder="Same person: confirmed on a support call from both numbers."
+        onConfirm={(reason) => api.post(`/admin/accounts/${merging!._id}/merge`, { targetId: keepId, reason }).then(() => setDone('Merge requested. Another admin must approve it.'))}
+        onClose={() => setMerging(null)}
+      />
     </div>
   );
 }

@@ -183,13 +183,42 @@ describe('platform settings', () => {
     await SettingsService.load(); // back to defaults: the database was dropped
   });
 
-  it('applies a valid change at once and reverts it', async () => {
-    await SettingsService.update({ platformFeeRate: 0.18 }, adminA, 'Pilot a higher commission');
-    expect(config.ride.platformFeeRate).toBe(0.18);
+  it('applies an ordinary change at once and reverts it', async () => {
+    await SettingsService.update({ maxActivePerDriver: 8 }, adminA, 'Busy season');
+    expect(config.ride.maxActivePerDriver).toBe(8);
 
     const [change] = await SettingsService.history();
-    await SettingsService.revert(change._id.toString(), adminB, 'Pilot ended');
+    await SettingsService.revert(change._id.toString(), adminB, 'Season over');
+    expect(config.ride.maxActivePerDriver).toBe(5);
+  });
+
+  it('holds a fee change until a second admin approves it', async () => {
+    await SettingsService.update({ platformFeeRate: 0.18, maxActivePerDriver: 6 }, adminA, 'Pilot a higher commission');
     expect(config.ride.platformFeeRate).toBe(original);
+    expect(config.ride.maxActivePerDriver).toBe(6); // the ordinary part applies at once
+
+    const [request] = await SettingsService.pending();
+    expect(request.changes).toEqual({ platformFeeRate: 0.18 });
+    await expect(SettingsService.update({ platformFeeRate: 0.2 }, adminB, 'Other idea')).rejects.toMatchObject({ errorId: 'CHANGE_PENDING' });
+    await expect(SettingsService.approve(request._id.toString(), adminA)).rejects.toMatchObject({ errorId: 'SECOND_ADMIN_REQUIRED' });
+
+    await SettingsService.approve(request._id.toString(), adminB);
+    expect(config.ride.platformFeeRate).toBe(0.18);
+    expect(await SettingsService.pending()).toHaveLength(0);
+    await expect(SettingsService.approve(request._id.toString(), adminB)).rejects.toThrow('already approved');
+  });
+
+  it('drops a rejected or lapsed fee change', async () => {
+    await SettingsService.update({ keepPlatformFeeOnCancel: true }, adminA, 'Keep the fee, as UC-R09 says');
+    const [request] = await SettingsService.pending();
+    await SettingsService.reject(request._id.toString(), adminB, 'Not yet');
+    expect(config.ride.keepPlatformFeeOnCancel).toBe(false);
+
+    await SettingsService.update({ keepPlatformFeeOnCancel: true }, adminA, 'Try again');
+    const { SettingsChangeRequest } = await import('../../models/SettingsChangeRequest');
+    await SettingsChangeRequest.updateMany({}, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+    expect(await SettingsService.pending()).toHaveLength(0);
+    await expect(SettingsService.update({ keepPlatformFeeOnCancel: 'yes' }, adminA, 'Typo')).rejects.toThrow('on or off');
   });
 
   it('rejects the whole change when one value is invalid', async () => {

@@ -96,7 +96,16 @@ export const api = {
     send(path, { method: 'POST', body: JSON.stringify(body ?? {}) }).then(parse<T>),
   put: <T>(path: string, body?: unknown) =>
     send(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }).then(parse<T>),
-  /** Downloads a file the API returns (a CSV report) */
+  patch: <T>(path: string, body?: unknown) =>
+    send(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) }).then(parse<T>),
+  del: <T>(path: string) => send(path, { method: 'DELETE' }).then(parse<T>),
+  /** A private image (parcel photo) as a local object URL for an <img>; revoke it when done */
+  async objectUrl(path: string): Promise<string> {
+    const res = await send(path, { method: 'GET' });
+    if (!res.ok) await parse(res);
+    return URL.createObjectURL(await res.blob());
+  },
+  /** Downloads a file the API returns (a report as CSV, Excel or PDF) */
   async download(path: string, filename: string): Promise<void> {
     const res = await send(path, { method: 'GET' });
     if (!res.ok) await parse(res);

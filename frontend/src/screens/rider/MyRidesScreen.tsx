@@ -84,19 +84,33 @@ function toItem(b: Booking): RideItem {
 }
 
 
-const POLICY_TEXT =
+const DEFAULT_POLICY_TEXT =
   'Full refund more than 24 hours before departure, 50% from 12 hours, 25% from 6 hours, and nothing after that.';
+
+/** The refund tiers in words, from the policy the server sent */
+function policyText(quote: CancellationQuote | null): string {
+  if (!quote?.policy?.length) return DEFAULT_POLICY_TEXT;
+  const parts = quote.policy.map((t) =>
+    t.minHoursBeforeDeparture > 0
+      ? `${t.refundPercent}% from ${t.minHoursBeforeDeparture} hours before departure`
+      : `${t.refundPercent ? `${t.refundPercent}%` : 'nothing'} after that`,
+  );
+  const fee = quote.platformFeeRefundable === false ? ' The platform fee is not refunded.' : '';
+  return `Refunds: ${parts.join(', ')}.${fee}`;
+}
 
 /** What the rider gets back, in words, for the cancel sheet. */
 function refundMessage(quote: CancellationQuote | null): string {
-  if (!quote) return `Refunds depend on how soon the ride leaves. ${POLICY_TEXT}`;
-  if (quote.refundPercent >= 100) {
+  const policy = policyText(quote);
+  if (!quote) return `Refunds depend on how soon the ride leaves. ${policy}`;
+  if (quote.refundAmount >= quote.fare) {
     return `You get the full ₹${quote.refundAmount} back to your wallet or original payment method.`;
   }
   if (quote.refundAmount <= 0) {
-    return `The ride leaves in under 6 hours, so this cancellation is not refunded. ${POLICY_TEXT}`;
+    return `This cancellation is not refunded. ${policy}`;
   }
-  return `You get ₹${quote.refundAmount} back (${quote.refundPercent}% of ₹${quote.fare}). ${POLICY_TEXT}`;
+  const fee = quote.platformFeeKept ? ` The ₹${quote.platformFeeKept} platform fee is not refunded.` : '';
+  return `You get ₹${quote.refundAmount} back of ₹${quote.fare}.${fee} ${policy}`;
 }
 
 export function MyRidesScreen() {

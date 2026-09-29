@@ -131,7 +131,7 @@ export class AdminUserService {
     await tell(
       userId,
       'Account suspended',
-      `Your account is suspended${until ? ` until ${until.toDateString()}` : ''}: ${why}. You can still see your rides but cannot post or book. Contact support to appeal.`,
+      `Your account is suspended${until ? ` until ${until.toDateString()}` : ''}: ${why}. You can still see your rides but cannot post or book. You can appeal within 30 days from Help > Appeal a decision.`,
     );
     return user;
   }
@@ -230,6 +230,8 @@ export class AdminUserService {
       if (!u.kyc?.drivingLicenseUrl) risks.push('No driving licence uploaded');
       if (!vehicle?.registrationDocUrl) risks.push('No registration uploaded');
       if (!vehicle?.insuranceDocUrl) risks.push('No insurance uploaded');
+      for (const c of u.kyc?.autoChecks ?? []) if (c.result === 'fail') risks.push(`${c.check}: ${c.detail}`);
+      if (u.kyc?.backgroundCheck?.status === 'consider') risks.push('Background check needs a look');
       const waitingHours = u.kyc?.submittedAt ? (now - new Date(u.kyc.submittedAt).getTime()) / 3_600_000 : 0;
       return {
         ...u,

@@ -13,6 +13,8 @@
 import { config } from '../config';
 import { PlatformSettings } from '../models/PlatformSettings';
 import { AdminAuditLog } from '../models/AdminAuditLog';
+import { SettingsChangeRequest } from '../models/SettingsChangeRequest';
+import { Types } from 'mongoose';
 import { AppError, NotFoundError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 import { audit } from './AuditService';
@@ -25,7 +27,9 @@ export interface SettingDefinition {
   label: string;
   help: string;
   /** 'percent' values are stored as fractions (0.15) and shown as 15% */
-  unit: 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers';
+  unit: 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers' | 'boolean';
+  /** Money settings: a change applies only after a second admin approves it */
+  critical?: boolean;
   min?: number;
   max?: number;
   read: () => unknown;
@@ -58,13 +62,24 @@ function numberSetting(
 const WEIGHT_KEYS = ['proximity', 'time', 'rating', 'acceptance', 'safety'] as const;
 
 export const SETTINGS: SettingDefinition[] = [
-  numberSetting('platformFeeRate', 'fees', 'Platform commission', 'Share of each fare the platform keeps. Applies to rides completed after the change.', 'percent', 0, 0.3, mutable.ride, 'platformFeeRate'),
+  { ...numberSetting('platformFeeRate', 'fees', 'Platform commission', 'Share of each fare the platform keeps. Applies to rides completed after the change.', 'percent', 0, 0.3, mutable.ride, 'platformFeeRate'), critical: true },
+  {
+    key: 'keepPlatformFeeOnCancel',
+    group: 'fees',
+    label: 'Keep the platform fee when a rider cancels',
+    help: 'On: a rider who cancels a confirmed seat never gets the platform fee back, even inside the full-refund window. Off: the fee is refunded along with the fare. Cancellations by drivers, and requests not yet accepted, are always refunded in full.',
+    unit: 'boolean',
+    critical: true,
+    read: () => mutable.ride.keepPlatformFeeOnCancel,
+    write: (v) => { mutable.ride.keepPlatformFeeOnCancel = v; },
+  },
   {
     key: 'riderCancellationRefunds',
     group: 'cancellation',
     label: 'Rider cancellation refunds',
     help: 'Share of the fare returned when a rider cancels a confirmed seat, by hours left before departure. The first tier whose hours are met applies.',
     unit: 'tiers',
+    critical: true,
     read: () => mutable.ride.riderCancellationRefunds,
     write: (v) => { mutable.ride.riderCancellationRefunds = v; },
   },
@@ -114,6 +129,10 @@ function validate(def: SettingDefinition, value: unknown): unknown {
     if (Math.abs(sum - 1) > 0.001) fail(`the weights add up to ${Math.round(sum * 100)}%, not 100%`);
     return clean;
   }
+  if (def.unit === 'boolean') {
+    if (typeof value !== 'boolean') fail('expected on or off');
+    return value;
+  }
   if (def.unit === 'tiers') {
     if (!Array.isArray(value) || value.length < 1 || value.length > 6) fail('expected 1 to 6 tiers');
     const tiers = (value as Array<Record<string, unknown>>).map((t) => ({
@@ -142,6 +161,9 @@ function validate(def: SettingDefinition, value: unknown): unknown {
 
 let refreshTimer: NodeJS.Timeout | null = null;
 
+/** How long a held change waits for a second admin */
+const APPROVAL_WINDOW_MS = 24 * 3_600_000;
+
 export class SettingsService {
   /** Current value, default and limits of every setting. */
   static list() {
@@ -151,6 +173,7 @@ export class SettingsService {
       label: s.label,
       help: s.help,
       unit: s.unit,
+      critical: Boolean(s.critical),
       min: s.min,
       max: s.max,
       value: s.read(),
@@ -180,19 +203,79 @@ export class SettingsService {
   }
 
   /**
-   * Validates and applies several changes at once. Nothing is changed unless
-   * every value is valid. The audit entry keeps the old values for revert.
+   * Validates several changes at once. Nothing is changed unless every value
+   * is valid. Changes to critical settings (fees and refunds) are held for a
+   * second admin; the rest apply immediately. The audit entry keeps the old
+   * values for revert.
    */
   static async update(changes: Record<string, unknown>, adminId: string, reason: string) {
     if (!reason?.trim()) throw new AppError('Say why the settings are changing', 422, 'VALIDATION_ERROR');
+    const cleaned = SettingsService.clean(changes);
+    const critical = Object.keys(cleaned).filter((k) => byKey.get(k)!.critical);
+    if (critical.length) {
+      await SettingsService.expireOld();
+      const open = await SettingsChangeRequest.findOne({ status: 'pending', ...Object.fromEntries(critical.map((k) => [`changes.${k}`, { $exists: true }])) }).lean();
+      if (open) throw new AppError('A change to these settings is already waiting for approval', 409, 'CHANGE_PENDING');
+      const pending = await SettingsChangeRequest.create({
+        changes: Object.fromEntries(critical.map((k) => [k, cleaned[k]])),
+        reason: reason.trim(),
+        requestedBy: new Types.ObjectId(adminId),
+        expiresAt: new Date(Date.now() + APPROVAL_WINDOW_MS),
+      });
+      await audit(adminId, 'settings.request', 'settings', pending._id.toString(), reason, { changes: pending.changes });
+      for (const k of critical) delete cleaned[k];
+    }
+    if (Object.keys(cleaned).length) await SettingsService.apply(cleaned, adminId, reason);
+    return SettingsService.list();
+  }
+
+  /** Changes waiting for a second admin */
+  static async pending() {
+    await SettingsService.expireOld();
+    return SettingsChangeRequest.find({ status: 'pending' })
+      .sort({ createdAt: -1 })
+      .populate('requestedBy', 'name email phone')
+      .lean();
+  }
+
+  /** A second admin approves a held change; it is checked again and applied. */
+  static async approve(requestId: string, adminId: string, note?: string) {
+    const request = await SettingsService.openRequest(requestId);
+    if (request.requestedBy.toString() === adminId) {
+      throw new AppError('Another admin must approve this change', 403, 'SECOND_ADMIN_REQUIRED');
+    }
+    const cleaned = SettingsService.clean(request.changes);
+    const claimed = await SettingsChangeRequest.findOneAndUpdate(
+      { _id: request._id, status: 'pending' },
+      { $set: { status: 'approved', decidedBy: new Types.ObjectId(adminId), decidedAt: new Date(), decisionNote: note } },
+    );
+    if (!claimed) throw new AppError('This change has already been decided', 409, 'CONFLICT');
+    await SettingsService.apply(cleaned, adminId, request.reason, { requestedBy: request.requestedBy.toString(), requestId });
+    return SettingsService.list();
+  }
+
+  static async reject(requestId: string, adminId: string, note?: string) {
+    const request = await SettingsService.openRequest(requestId);
+    await SettingsChangeRequest.updateOne(
+      { _id: request._id, status: 'pending' },
+      { $set: { status: 'rejected', decidedBy: new Types.ObjectId(adminId), decidedAt: new Date(), decisionNote: note } },
+    );
+    await audit(adminId, 'settings.reject', 'settings', requestId, note, { changes: request.changes });
+    return { rejected: true };
+  }
+
+  private static clean(changes: Record<string, unknown>): Record<string, unknown> {
     const cleaned: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(changes)) {
+    for (const [key, value] of Object.entries(changes ?? {})) {
       const def = byKey.get(key);
       if (!def) throw new AppError(`Unknown setting: ${key}`, 422, 'VALIDATION_ERROR');
       cleaned[key] = validate(def, value);
     }
     if (Object.keys(cleaned).length === 0) throw new AppError('Nothing to change', 422, 'VALIDATION_ERROR');
+    return cleaned;
+  }
 
+  private static async apply(cleaned: Record<string, unknown>, adminId: string, reason: string, extra: Record<string, unknown> = {}) {
     const before: Record<string, unknown> = {};
     for (const key of Object.keys(cleaned)) before[key] = structuredClone(byKey.get(key)!.read());
 
@@ -200,13 +283,25 @@ export class SettingsService {
     await PlatformSettings.updateOne({ _id: 'platform' }, { $set: set }, { upsert: true });
     for (const [key, value] of Object.entries(cleaned)) byKey.get(key)!.write(value);
 
-    await audit(adminId, 'settings.update', 'settings', 'platform', reason, { before, after: cleaned });
-    return SettingsService.list();
+    await audit(adminId, 'settings.update', 'settings', 'platform', reason, { before, after: cleaned, ...extra });
+  }
+
+  private static async openRequest(requestId: string) {
+    if (!Types.ObjectId.isValid(requestId)) throw new NotFoundError('Settings change');
+    await SettingsService.expireOld();
+    const request = await SettingsChangeRequest.findById(requestId).lean();
+    if (!request) throw new NotFoundError('Settings change');
+    if (request.status !== 'pending') throw new AppError(`This change was already ${request.status}`, 409, 'CONFLICT');
+    return request;
+  }
+
+  private static async expireOld() {
+    await SettingsChangeRequest.updateMany({ status: 'pending', expiresAt: { $lte: new Date() } }, { $set: { status: 'expired' } });
   }
 
   /** Recent changes, newest first. */
   static async history(limit = 50) {
-    return AdminAuditLog.find({ targetType: 'settings' })
+    return AdminAuditLog.find({ targetType: 'settings', action: 'settings.update' })
       .sort({ createdAt: -1 })
       .limit(limit)
       .populate('actor', 'name email phone')
@@ -215,7 +310,7 @@ export class SettingsService {
 
   /** Puts back the values a change replaced, within 24 hours of it. */
   static async revert(auditId: string, adminId: string, reason: string) {
-    const entry = await AdminAuditLog.findOne({ _id: auditId, targetType: 'settings' }).lean();
+    const entry = await AdminAuditLog.findOne({ _id: auditId, targetType: 'settings', action: 'settings.update' }).lean();
     if (!entry) throw new NotFoundError('Settings change');
     if (Date.now() - new Date(entry.createdAt).getTime() > 24 * 3600_000) {
       throw new AppError('Changes can only be reverted within 24 hours', 409, 'REVERT_TOO_LATE');

@@ -13,6 +13,7 @@ import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
 import { parcelService, parcelStage, type Parcel } from '../services/parcelService';
 import { errorHandler } from '../utils/errorHandler';
+import { takeParcelPhoto } from '../utils/parcelPhoto';
 
 export function RideParcels({ rideId }: { rideId: string }) {
   const { c } = useApp();
@@ -21,6 +22,8 @@ export function RideParcels({ rideId }: { rideId: string }) {
   const [delivering, setDelivering] = useState<Parcel | null>(null);
   const [code, setCode] = useState('');
   const [receivedBy, setReceivedBy] = useState('');
+  /** The handover photo is taken before the code is confirmed (UC-P03) */
+  const [handoverPhoto, setHandoverPhoto] = useState(false);
 
   const load = useCallback(() => {
     parcelService.list('driver', rideId).then(setParcels).catch(() => undefined);
@@ -47,6 +50,22 @@ export function RideParcels({ rideId }: { rideId: string }) {
       { text: 'Decline', style: 'destructive', onPress: () => act(p, () => parcelService.reject(p._id)) },
     ]);
 
+  /** Photo of the parcel first, then the pickup (UC-P03) */
+  const pickUp = async (p: Parcel) => {
+    setBusy(p._id);
+    const photo = await takeParcelPhoto(p._id, 'pickup');
+    setBusy(null);
+    if (photo) await act(p, () => parcelService.pickup(p._id));
+  };
+
+  const photographHandover = async () => {
+    if (!delivering) return;
+    setBusy(delivering._id);
+    const photo = await takeParcelPhoto(delivering._id, 'delivery');
+    setBusy(null);
+    if (photo) setHandoverPhoto(true);
+  };
+
   const deliver = async () => {
     if (!delivering) return;
     const ok = await act(delivering, () => parcelService.deliver(delivering._id, code.trim(), receivedBy.trim()));
@@ -54,6 +73,7 @@ export function RideParcels({ rideId }: { rideId: string }) {
       setDelivering(null);
       setCode('');
       setReceivedBy('');
+      setHandoverPhoto(false);
     }
   };
 
@@ -103,8 +123,8 @@ export function RideParcels({ rideId }: { rideId: string }) {
                     <Pressable onPress={() => Linking.openURL(`tel:${p.pickupLocation.contactPhone}`)} accessibilityRole="button" accessibilityLabel={`Call ${p.pickupLocation.contactPerson}`} style={[styles.btn, { borderWidth: 1, borderColor: c.border }]}>
                       <Icon name="phone" size={16} color={c.text} />
                     </Pressable>
-                    <Pressable onPress={() => act(p, () => parcelService.pickup(p._id))} accessibilityRole="button" style={[styles.btn, { backgroundColor: c.primary }]}>
-                      <Text style={{ fontWeight: '700', color: c.textOnPrimary }}>Picked up</Text>
+                    <Pressable onPress={() => pickUp(p)} disabled={busy !== null} accessibilityRole="button" accessibilityHint="Opens the camera to photograph the parcel, then marks it picked up" style={[styles.btn, { backgroundColor: c.primary }]}>
+                      {busy === p._id ? <ActivityIndicator color={c.textOnPrimary} /> : <Text style={{ fontWeight: '700', color: c.textOnPrimary }}>Photo and pick up</Text>}
                     </Pressable>
                   </>
                 ) : null}
@@ -128,7 +148,10 @@ export function RideParcels({ rideId }: { rideId: string }) {
         <View style={styles.backdrop}>
           <View style={[styles.sheet, { backgroundColor: c.surface }]}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">Hand over the parcel</Text>
-            <Text style={{ fontSize: 14, color: c.textSec }}>Ask the recipient for the 6-digit delivery code the sender gave them.</Text>
+            <Text style={{ fontSize: 14, color: c.textSec }}>Photograph the parcel with the recipient, then ask them for the 6-digit delivery code the sender gave them.</Text>
+            <Pressable onPress={photographHandover} disabled={busy !== null} accessibilityRole="button" style={[styles.btn, { borderWidth: 1, borderColor: handoverPhoto ? c.success : c.primary }]}>
+              <Text style={{ fontWeight: '700', color: handoverPhoto ? c.success : c.primary }}>{handoverPhoto ? 'Photo taken' : 'Take the handover photo'}</Text>
+            </Pressable>
             <TextInput
               value={code}
               onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, 6))}
@@ -147,14 +170,14 @@ export function RideParcels({ rideId }: { rideId: string }) {
               style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
             />
             <View style={styles.actions}>
-              <Pressable onPress={() => setDelivering(null)} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1, borderColor: c.border }]}>
+              <Pressable onPress={() => { setDelivering(null); setHandoverPhoto(false); }} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1, borderColor: c.border }]}>
                 <Text style={{ color: c.text }}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={deliver}
-                disabled={code.length !== 6 || receivedBy.trim().length < 2 || busy !== null}
+                disabled={!handoverPhoto || code.length !== 6 || receivedBy.trim().length < 2 || busy !== null}
                 accessibilityRole="button"
-                style={[styles.btn, styles.grow, { backgroundColor: code.length === 6 && receivedBy.trim().length >= 2 ? c.primary : c.border }]}
+                style={[styles.btn, styles.grow, { backgroundColor: handoverPhoto && code.length === 6 && receivedBy.trim().length >= 2 ? c.primary : c.border }]}
               >
                 {busy ? <ActivityIndicator color={c.textOnPrimary} /> : <Text style={{ fontWeight: '700', color: c.textOnPrimary }}>Confirm delivery</Text>}
               </Pressable>

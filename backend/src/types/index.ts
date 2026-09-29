@@ -132,6 +132,11 @@ export interface IKYCData {
   submittedAt?: Date;
   reviewedAt?: Date;
   rejectionReason?: string;
+  /** Automatic checks run when the application arrives (UC-A01); advisory for the admin */
+  autoChecks?: Array<{ check: string; result: 'pass' | 'warn' | 'fail'; detail: string }>;
+  autoCheckedAt?: Date;
+  /** The background-check vendor's answer, when one is connected (KYC_VERIFY_URL) */
+  backgroundCheck?: { status: 'pending' | 'clear' | 'consider' | 'error'; reference?: string; summary?: string; checkedAt?: Date };
 }
 
 export interface IEmergencyContact {
@@ -159,6 +164,8 @@ export interface IUserStats {
   avgRatingAsRider: number;
   totalRatingsAsDriver: number;
   totalRatingsAsRider: number;
+  avgRatingAsOrganizer?: number;
+  totalRatingsAsOrganizer?: number;
   cancellationRate: number;
   acceptanceRate: number;
 }
@@ -172,7 +179,7 @@ export interface JWTPayload {
   driverVerified: boolean;
   sessionId: string;
   /** Suspended accounts can read but not post or book (see requireActiveAccount) */
-  accountStatus?: 'active' | 'suspended';
+  accountStatus?: 'active' | 'suspended' | 'blocked';
   suspendedUntil?: Date;
 }
 
@@ -299,6 +306,9 @@ export enum WalletTransactionType {
   DEBIT = 'debit',
   REFUND = 'refund',
   COIN_CONVERSION = 'coin_conversion',
+  /** Balance moved between accounts when a duplicate is merged (UC-A05) */
+  MERGE_IN = 'merge_in',
+  MERGE_OUT = 'merge_out',
 }
 
 export enum WalletTransactionStatus {
@@ -315,6 +325,9 @@ export enum CoinTransactionType {
   CONVERTED = 'converted',
   EXPIRED = 'expired',
   BONUS = 'bonus',
+  /** Coins moved between accounts when a duplicate is merged (UC-A05) */
+  MERGE_IN = 'merge_in',
+  MERGE_OUT = 'merge_out',
 }
 
 export enum RewardTier {

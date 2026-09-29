@@ -148,6 +148,9 @@ export function TripPartnersScreen() {
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={{ fontSize: 18, fontWeight: '800', color: c.primary }}>{t.compatibility}%</Text>
                 <Text style={{ fontSize: 11, color: c.textSec }}>match</Text>
+                {typeof t.organizer === 'object' && t.organizer.stats?.totalRatingsAsOrganizer ? (
+                  <Text style={{ fontSize: 11, color: c.textSec }} accessibilityLabel={`Organiser rated ${t.organizer.stats.avgRatingAsOrganizer?.toFixed(1)} out of 5`}>★ {t.organizer.stats.avgRatingAsOrganizer?.toFixed(1)} organiser</Text>
+                ) : null}
               </View>
             )),
           )

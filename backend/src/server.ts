@@ -9,6 +9,8 @@ import { initializeFirebase } from './config/firebase';
 import { SocketGateway } from './sockets/SocketGateway';
 import { EventBridge } from './events';
 import { BookingSweeper } from './jobs/BookingSweeper';
+import { ReportScheduler } from './jobs/ReportScheduler';
+import { AlertMonitor } from './jobs/AlertMonitor';
 import { backfillRouteLines } from './jobs/backfillRouteLines';
 import { SettingsService } from './services/SettingsService';
 import { RideCheckInService } from './services/RideCheckInService';
@@ -108,6 +110,10 @@ async function bootstrap(): Promise<void> {
     BookingSweeper.start();
     // In-ride safety check-ins every 30 minutes (UC-R05)
     RideCheckInService.start();
+    // Scheduled admin report emails (UC-A06)
+    ReportScheduler.start();
+    // Admins' alert rules: dashboard, email and SMS (UC-A02)
+    AlertMonitor.start();
 
     // 7. Start HTTP server
     server.listen(config.port, () => {
@@ -136,6 +142,8 @@ async function shutdown(signal: string): Promise<void> {
     try {
       BookingSweeper.stop();
       RideCheckInService.stop();
+      ReportScheduler.stop();
+      AlertMonitor.stop();
 
       // Close Socket.io connections
       socketGateway.getIO()?.close();

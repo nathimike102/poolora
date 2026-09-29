@@ -10,7 +10,7 @@ export type TripType = 'vacation' | 'weekend' | 'business';
 export type TripVote = 'yes' | 'no' | 'maybe';
 export const TRIP_INTERESTS = ['hiking', 'culture', 'food', 'beach', 'adventure', 'nightlife', 'shopping', 'photography', 'wildlife', 'spiritual', 'relaxation'] as const;
 
-type Person = { _id: string; name?: string; profilePhotoUrl?: string };
+type Person = { _id: string; name?: string; profilePhotoUrl?: string; stats?: { avgRatingAsOrganizer?: number; totalRatingsAsOrganizer?: number } };
 
 export interface Trip {
   _id: string;
@@ -45,6 +45,9 @@ export interface Trip {
   isOrganizer?: boolean;
   myRequestStatus?: 'pending' | 'accepted' | 'declined';
   viewerId?: string;
+  /** After the trip: whether the viewer can still rate the organiser, and their rating */
+  canRateOrganizer?: boolean;
+  myOrganizerRating?: { score: number; comment?: string };
   /** Search results only */
   compatibility?: number;
   spotsLeft?: number;
@@ -99,6 +102,10 @@ export const tripService = {
     data<{ activity: Trip['activities'][number] }>(apiClient.post(API_ENDPOINTS.trips.activities(id), a)).then(d => d.activity),
   vote: (id: string, activityId: string, vote: TripVote) =>
     data<{ activity: Trip['activities'][number] }>(apiClient.post(API_ENDPOINTS.trips.vote(id, activityId), { vote })).then(d => d.activity),
+  rateOrganizer: (id: string, score: number, comment?: string) =>
+    data<{ rated: boolean }>(apiClient.post(API_ENDPOINTS.trips.rateOrganizer(id), { score, comment })),
+  /** A private calendar feed of the trip and its confirmed activities */
+  calendarLink: (id: string) => data<{ url: string; webcalUrl: string }>(apiClient.get(API_ENDPOINTS.trips.calendarLink(id))),
 };
 
 export const tripDays = (t: Pick<Trip, 'startDate' | 'endDate'>) =>

@@ -5,7 +5,7 @@ import { when } from '../lib/format';
 import { Badge, ErrorBox, Loading, PageHead } from '../components/ui';
 import { ReasonDialog } from '../components/Dialog';
 
-type Unit = 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers';
+type Unit = 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers' | 'boolean';
 type Tier = { minHours: number; refundRate: number };
 interface Setting {
   key: string;
@@ -13,6 +13,8 @@ interface Setting {
   label: string;
   help: string;
   unit: Unit;
+  /** Needs a second admin's approval */
+  critical?: boolean;
   min?: number;
   max?: number;
   value: unknown;
@@ -25,6 +27,14 @@ interface HistoryEntry {
   createdAt: string;
   actor?: { name: string };
   details?: { before?: Record<string, unknown>; after?: Record<string, unknown> };
+}
+interface PendingChange {
+  _id: string;
+  changes: Record<string, unknown>;
+  reason: string;
+  createdAt: string;
+  expiresAt: string;
+  requestedBy?: { name: string };
 }
 
 const GROUPS: Array<[Setting['group'], string]> = [
@@ -42,6 +52,7 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 function describe(s: Setting, v: unknown): string {
   if (s.unit === 'percent') return `${Math.round(Number(v) * 1000) / 10}%`;
   if (s.unit === 'weights') return Object.entries(v as Record<string, number>).map(([k, w]) => `${WEIGHT_LABELS[k] ?? k} ${Math.round(w * 100)}%`).join(', ');
+  if (s.unit === 'boolean') return v ? 'On' : 'Off';
   if (s.unit === 'tiers') return (v as Tier[]).map((t) => `${t.minHours}h+: ${Math.round(t.refundRate * 100)}%`).join(', ');
   return `${v} ${UNIT_LABEL[s.unit] ?? ''}`.trim();
 }
@@ -107,6 +118,8 @@ function TiersEditor({ value, onChange }: { value: Tier[]; onChange: (v: Tier[])
 export function SettingsPage() {
   const { data, error, loading, reload } = useApi<{ settings: Setting[] }>('/admin/settings');
   const history = useApi<{ history: HistoryEntry[] }>('/admin/settings/history');
+  const pending = useApi<{ pending: PendingChange[] }>('/admin/settings/pending');
+  const [decision, setDecision] = useState<{ id: string; approve: boolean } | null>(null);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const [revertId, setRevertId] = useState<string | null>(null);
@@ -128,13 +141,15 @@ export function SettingsPage() {
   const refresh = async () => {
     await reload();
     await history.reload();
+    await pending.reload();
   };
+  const criticalChanged = changed.filter((s) => s.critical);
 
   return (
     <div className="stack">
       <PageHead
         title="Settings"
-        sub="Changes apply to every server within a minute and are logged. Payment keys and message templates are not editable here."
+        sub="Changes apply to every server within a minute and are logged. Fee and refund changes wait for a second admin's approval. Payment keys and message templates are not editable here."
         actions={
           <>
             {changed.length ? <button className="btn" onClick={() => setDraft(Object.fromEntries(data.settings.map((s) => [s.key, s.value])))}>Discard</button> : null}
@@ -143,6 +158,28 @@ export function SettingsPage() {
         }
       />
 
+      {pending.data?.pending.length ? (
+        <section className="card stack">
+          <h2 style={{ margin: 0 }}>Waiting for a second admin</h2>
+          <p className="faint" style={{ margin: 0 }}>Fee and refund changes apply only when an admin other than the one who asked approves them. Requests lapse after 24 hours.</p>
+          {pending.data.pending.map((p) => (
+            <div key={p._id} className="spread" style={{ borderTop: '1px solid var(--grid)', paddingTop: 10 }}>
+              <div>
+                {Object.entries(p.changes).map(([k, v]) => {
+                  const s = data.settings.find((x) => x.key === k);
+                  return <div key={k}><strong>{s?.label ?? k}</strong>: {s ? describe(s, s.value) : ''} → {s ? describe(s, v) : String(v)}</div>;
+                })}
+                <div className="faint">Asked by {p.requestedBy?.name ?? 'an admin'} {when(p.createdAt)}: {p.reason}. Lapses {when(p.expiresAt)}.</div>
+              </div>
+              <div className="row" style={{ gap: 6 }}>
+                <button className="btn primary" onClick={() => setDecision({ id: p._id, approve: true })}>Approve</button>
+                <button className="btn" onClick={() => setDecision({ id: p._id, approve: false })}>Reject</button>
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
       {GROUPS.map(([group, title]) => (
         <section key={group} className="card">
           <h2>{title}</h2>
@@ -150,12 +187,17 @@ export function SettingsPage() {
             {data.settings.filter((s) => s.group === group).map((s) => (
               <div key={s.key} style={{ paddingBottom: 12, borderBottom: '1px solid var(--grid)' }}>
                 <div className="spread">
-                  <strong>{s.label}</strong>
+                  <strong>{s.label} {s.critical ? <Badge tone="info">Needs a second admin</Badge> : null}</strong>
                   {!same(s.value, valueOf(s)) ? <Badge tone="warn">Changed</Badge> : !same(s.value, s.defaultValue) ? <Badge tone="info">Not the default</Badge> : null}
                 </div>
                 <p className="faint">{s.help} Default: {describe(s, s.defaultValue)}.</p>
                 {s.unit === 'weights' ? (
                   <WeightsEditor value={valueOf(s) as Record<string, number>} onChange={(v) => setDraft((d) => ({ ...d, [s.key]: v }))} />
+                ) : s.unit === 'boolean' ? (
+                  <label className="check">
+                    <input type="checkbox" checked={Boolean(valueOf(s))} onChange={(e) => setDraft((d) => ({ ...d, [s.key]: e.target.checked }))} />
+                    {valueOf(s) ? 'On' : 'Off'}
+                  </label>
                 ) : s.unit === 'tiers' ? (
                   <TiersEditor value={valueOf(s) as Tier[]} onChange={(v) => setDraft((d) => ({ ...d, [s.key]: v }))} />
                 ) : (
@@ -201,8 +243,13 @@ export function SettingsPage() {
       <ReasonDialog
         open={saving}
         title="Save settings"
-        intro={<div>{changed.map((s) => <div key={s.key}><strong>{s.label}</strong>: {describe(s, s.value)} → {describe(s, draft[s.key])}</div>)}</div>}
-        confirmLabel="Save and apply"
+        intro={
+          <div>
+            {changed.map((s) => <div key={s.key}><strong>{s.label}</strong>: {describe(s, s.value)} → {describe(s, draft[s.key])}</div>)}
+            {criticalChanged.length ? <p className="faint">{criticalChanged.map((s) => s.label).join(', ')} will wait for a second admin; anything else applies now.</p> : null}
+          </div>
+        }
+        confirmLabel={criticalChanged.length ? 'Save' : 'Save and apply'}
         placeholder="Trial a lower commission for the festival week."
         onConfirm={(reason) => api.put('/admin/settings', { changes: Object.fromEntries(changed.map((s) => [s.key, draft[s.key]])), reason }).then(refresh)}
         onClose={() => setSaving(false)}
@@ -214,6 +261,15 @@ export function SettingsPage() {
         confirmLabel="Revert"
         onConfirm={(reason) => api.post(`/admin/settings/revert/${revertId}`, { reason }).then(refresh)}
         onClose={() => setRevertId(null)}
+      />
+      <ReasonDialog
+        open={decision !== null}
+        title={decision?.approve ? 'Approve this change' : 'Reject this change'}
+        intro={decision?.approve ? 'The change applies to every server within a minute.' : 'The change is dropped; nothing is applied.'}
+        confirmLabel={decision?.approve ? 'Approve and apply' : 'Reject'}
+        tone={decision?.approve ? 'primary' : 'danger'}
+        onConfirm={(note) => api.post(`/admin/settings/pending/${decision!.id}/${decision!.approve ? 'approve' : 'reject'}`, { note }).then(refresh)}
+        onClose={() => setDecision(null)}
       />
     </div>
   );

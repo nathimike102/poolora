@@ -156,6 +156,9 @@ export function HelpScreen() {
         <Pressable onPress={() => Linking.openURL(`mailto:${COMPANY.supportEmail}`)} accessibilityRole="link" style={styles.link}>
           <Text style={{ fontSize: 14, color: c.primary }}>Or email {COMPANY.supportEmail}</Text>
         </Pressable>
+        <Pressable onPress={() => navigation.navigate('Appeal')} accessibilityRole="button" style={styles.link}>
+          <Text style={{ fontSize: 14, color: c.primary }}>Appeal a suspension or block</Text>
+        </Pressable>
 
         <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">Your requests</Text>
         {tickets === null ? <ActivityIndicator color={c.primary} /> : tickets.length === 0 ? (

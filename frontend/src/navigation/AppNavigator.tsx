@@ -41,7 +41,7 @@
  *   guaranteeing the correct tab navigator renders immediately.
  */
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -91,6 +91,8 @@ import { RaiseDisputeScreen } from "../screens/shared/RaiseDisputeScreen";
 import { RateTripScreen } from "../screens/shared/RateTripScreen";
 import { HelpScreen } from "../screens/shared/HelpScreen";
 import { SupportTicketScreen } from "../screens/shared/SupportTicketScreen";
+import { AppealScreen } from "../screens/shared/AppealScreen";
+import { onAccountRestricted, type AccountRestriction } from "../utils/accountRestriction";
 import { AddSavedRouteScreen } from "../screens/rider/AddSavedRouteScreen";
 
 // ─── Parcel screens ───────────────────────────────────────────────────────────
@@ -268,6 +270,7 @@ function AppNavigatorStack() {
       <Stack.Screen name="RateTrip" component={RateTripScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
       <Stack.Screen name="SupportTicket" component={SupportTicketScreen} />
+      <Stack.Screen name="Appeal" component={AppealRoute} />
       <Stack.Screen name="AddSavedRoute" component={AddSavedRouteScreen} />
 
       {/* ── Driver detail screens (pushed above tabs) ─────────── */}
@@ -315,12 +318,33 @@ function AppNavigatorStack() {
 
 // ─── Root navigator ───────────────────────────────────────────────────────────
 
+/** The appeal screen as a pushed route, opened from Help */
+function AppealRoute() {
+  return <AppealScreen />;
+}
+
 export function AppNavigator() {
-  const { role } = useApp();
+  const { role, logout } = useApp();
+  // Set when the server says this account is blocked or merged (UC-A05)
+  const [restriction, setRestriction] = useState<AccountRestriction | null>(null);
+
+  useEffect(() => {
+    onAccountRestricted(setRestriction);
+    return () => onAccountRestricted(null);
+  }, []);
+  useEffect(() => {
+    if (role === null) setRestriction(null);
+  }, [role]);
 
   return (
     <NavigationContainer key={role ?? "auth"}>
-      {role === null ? <AuthNavigator /> : <AppNavigatorStack />}
+      {role === null ? (
+        <AuthNavigator />
+      ) : restriction ? (
+        <AppealScreen restriction={restriction} onSignOut={() => { setRestriction(null); logout(); }} />
+      ) : (
+        <AppNavigatorStack />
+      )}
     </NavigationContainer>
   );
 }

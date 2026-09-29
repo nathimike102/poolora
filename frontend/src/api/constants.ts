@@ -127,6 +127,8 @@ export const API_ENDPOINTS = {
     reject: (id: string) => `/parcels/${id}/reject`,
     pickup: (id: string) => `/parcels/${id}/pickup`,
     deliver: (id: string) => `/parcels/${id}/deliver`,
+    photos: (id: string) => `/parcels/${id}/photos`,
+    claims: (id: string) => `/parcels/${id}/claims`,
   },
   trips: {
     base: '/trips',
@@ -145,6 +147,15 @@ export const API_ENDPOINTS = {
     notify: (id: string) => `/trips/${id}/settlement/notify`,
     activities: (id: string) => `/trips/${id}/activities`,
     vote: (id: string, activityId: string) => `/trips/${id}/activities/${activityId}/vote`,
+    rateOrganizer: (id: string) => `/trips/${id}/rate-organizer`,
+    calendarLink: (id: string) => `/trips/${id}/calendar-link`,
+  },
+  calls: {
+    start: '/calls',
+  },
+  appeals: {
+    base: '/appeals',
+    mine: '/appeals/mine',
   },
   support: {
     tickets: '/support/tickets',

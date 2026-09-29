@@ -62,6 +62,40 @@ export const config = {
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
   },
 
+  /**
+   * Background checks and licence/registration verification by a vendor
+   * (UC-A01). Set KYC_VERIFY_URL to the vendor's endpoint, or to a small
+   * adapter in front of it, and KYC_VERIFY_API_KEY. Without it, only the
+   * automatic checks in DocumentCheckService run.
+   */
+  kycVerify: {
+    url: process.env.KYC_VERIFY_URL || '',
+    apiKey: process.env.KYC_VERIFY_API_KEY || '',
+  },
+
+  admin: {
+    /** Where the web admin is served, for links in alert emails */
+    webUrl: (process.env.ADMIN_WEB_URL || '').replace(/\/$/, ''),
+  },
+
+  parcel: {
+    /** Drivers must photograph the parcel at pickup and at delivery (UC-P03). PARCEL_PHOTO_PROOF=optional turns it off. */
+    photoProofRequired: process.env.PARCEL_PHOTO_PROOF !== 'optional',
+    /** Days after delivery a damage claim can be filed (UC-P05) */
+    claimWindowDays: 7,
+    /** Hours past the expected delivery time before a parcel can be claimed as lost */
+    lostAfterHours: 24,
+  },
+
+  /**
+   * Parcel insurance claims (UC-P05). With INSURANCE_CLAIMS_URL set, each
+   * claim is also sent to the insurer's API; otherwise admins decide claims.
+   */
+  insurance: {
+    claimsUrl: process.env.INSURANCE_CLAIMS_URL || '',
+    apiKey: process.env.INSURANCE_API_KEY || '',
+  },
+
   aws: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
@@ -74,6 +108,13 @@ export const config = {
     accountSid: process.env.TWILIO_ACCOUNT_SID || '',
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
     phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
+    /**
+     * Masked calls between riders and drivers (UC-D06) go through this number,
+     * so neither side sees the other's. Falls back to TWILIO_PHONE_NUMBER.
+     */
+    voiceNumber: process.env.TWILIO_VOICE_NUMBER || process.env.TWILIO_PHONE_NUMBER || '',
+    /** Record masked calls for safety reviews (UC-A03); both sides hear a notice */
+    recordCalls: process.env.CALL_RECORDING !== 'false',
   },
 
   maps: {
@@ -146,6 +187,8 @@ export const config = {
   matching: {
     /** Weights of the ride match score; they sum to 1. Admin-editable. */
     weights: { proximity: 0.4, time: 0.3, rating: 0.15, acceptance: 0.1, safety: 0.05 },
+    /** Score search results with the ML service's /api/match (falls back to local scoring) */
+    useMlService: process.env.ML_MATCHING === 'true',
   },
 
   ride: {
@@ -155,6 +198,12 @@ export const config = {
     defaultSearchRadiusKm: 5,
     defaultTimeDeviationMins: 120,
     platformFeeRate: parseFloat(process.env.PLATFORM_FEE_RATE || '0.15'), // 15% default
+    /**
+     * When a rider cancels a confirmed seat, keep the platform fee on the whole
+     * fare instead of refunding it with the fare (UC-R09 "platform fee is
+     * non-refundable"). Off by default. Admin-editable, with a second admin's approval.
+     */
+    keepPlatformFeeOnCancel: process.env.KEEP_PLATFORM_FEE_ON_CANCEL === 'true',
     /** Card/UPI requests still unpaid after this are cancelled (UC-R04). */
     paymentTimeoutMins: 15,
     /** Requests the driver has not answered after this expire (UC-D03). */

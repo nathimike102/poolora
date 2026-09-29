@@ -57,7 +57,9 @@ export async function authenticate(
     }
 
     const result = await unifiedAuth.authenticate(token);
-    const accountStatus = await checkAccountStatus(result.user);
+    // Blocked accounts reach only the appeal endpoints
+    const appealPath = /^\/(api\/v1\/)?appeals(\/|$|\?)/.test(req.originalUrl);
+    const accountStatus = await checkAccountStatus(result.user, { allowBlocked: appealPath });
 
     // Build a JWTPayload-compatible object so downstream code is unaffected
     const payload: JWTPayload = {

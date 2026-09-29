@@ -19,9 +19,16 @@ import { Ride } from '../../models/Ride';
 import { Wallet } from '../../models/Wallet';
 import { ParcelPooling } from '../../models/ParcelPooling';
 import { ParcelPoolingService } from '../../services/ParcelPoolingService';
+import { ParcelEvidenceService } from '../../services/ParcelEvidenceService';
+import { config } from '../../config';
 
 jest.setTimeout(60_000);
 
+const evidence = new ParcelEvidenceService();
+// Photos go to the database here, never to S3
+(config.aws as { accessKeyId: string }).accessKeyId = '';
+/** The smallest JPEG header the photo check accepts */
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46]).toString('base64');
 let mongo: MongoMemoryServer;
 const service = new ParcelPoolingService();
 const senderId = new Types.ObjectId();
@@ -108,8 +115,11 @@ it('counts the driver share on delivery and refuses cancelling once picked up', 
   const { parcel, deliveryOtp } = await service.createParcelRequest(senderId.toString(), request());
   const id = parcel._id.toString();
   await service.acceptParcelRequest(id, driverId.toString());
+  await expect(service.pickupParcel(id, driverId.toString())).rejects.toMatchObject({ errorId: 'PHOTO_REQUIRED' });
+  await evidence.addPhoto(id, driverId.toString(), { stage: 'pickup', data: JPEG });
   await service.pickupParcel(id, driverId.toString());
   await expect(service.cancelParcel(id, senderId.toString(), 'Too late')).rejects.toMatchObject({ errorId: 'PARCEL_PICKED_UP' });
+  await evidence.addPhoto(id, driverId.toString(), { stage: 'delivery', data: JPEG });
 
   const done = await service.completeDelivery(id, driverId.toString(), { signature: 'signed', otp: deliveryOtp });
   expect(done.driverEarnings! + done.platformFee!).toBeCloseTo(parcel.estimatedCost, 2);

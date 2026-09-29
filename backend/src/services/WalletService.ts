@@ -361,6 +361,28 @@ export class WalletService {
         });
     }
 
+    /**
+     * Credits the wallet for something other than a booking (a parcel claim
+     * payout). Idempotent by key.
+     */
+    async credit(userId: string, amount: number, description: string, idempotencyKey: string): Promise<boolean> {
+        if (await WalletTransaction.exists({ idempotencyKey })) return false;
+        const wallet = await this.getOrCreateWallet(userId);
+        const updated = await Wallet.findOneAndUpdate({ _id: wallet._id }, { $inc: { balance: amount } }, { new: true });
+        await WalletTransaction.create({
+            wallet: wallet._id,
+            userId,
+            type: WalletTransactionType.REFUND,
+            amount,
+            balanceBefore: Math.round((updated!.balance - amount) * 100) / 100,
+            balanceAfter: updated!.balance,
+            status: WalletTransactionStatus.COMPLETED,
+            description: description.slice(0, 255),
+            idempotencyKey,
+        });
+        return true;
+    }
+
     // ── Coin award (called after ride completion) ─────────────────────────────
 
     /**

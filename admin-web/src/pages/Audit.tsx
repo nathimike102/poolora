@@ -22,6 +22,13 @@ const ACTIONS: Record<string, string> = {
   'user.block.reject': 'Rejected a block',
   'user.unblock': 'Unblocked an account',
   'user.note': 'Added a note',
+  'user.merge.request': 'Asked to merge a duplicate account',
+  'user.merge.approve': 'Merged a duplicate account',
+  'user.merge.reject': 'Rejected a merge',
+  'appeal.uphold': 'Upheld an appeal',
+  'parcel_claim.approve': 'Approved a parcel claim',
+  'parcel_claim.reject': 'Rejected a parcel claim',
+  'appeal.overturn': 'Overturned a decision on appeal',
   'kyc.approve': 'Approved a driver',
   'kyc.reject': 'Rejected a driver',
   'kyc.request_changes': 'Asked a driver for new documents',
@@ -33,12 +40,22 @@ const ACTIONS: Record<string, string> = {
   'sos.resolve': 'Resolved an SOS',
   'sos.false_alarm': 'Closed an SOS as a false alarm',
   'settings.update': 'Changed settings',
+  'settings.request': 'Asked to change a fee or refund setting',
+  'settings.reject': 'Rejected a settings change',
+  'alert_rule.create': 'Added an alert rule',
+  'alert_rule.update': 'Changed an alert rule',
+  'alert_rule.delete': 'Deleted an alert rule',
+  'alert_rule.test': 'Sent a test alert',
+  'report_schedule.create': 'Scheduled a report email',
+  'report_schedule.update': 'Changed a scheduled report',
+  'report_schedule.delete': 'Deleted a scheduled report',
+  'report_schedule.send_now': 'Sent a scheduled report now',
 };
 
 function target(e: Entry) {
   if (!e.targetId) return '—';
-  const to = e.targetType === 'user' || e.targetType === 'kyc' ? `/users/${e.targetId}` : e.targetType === 'dispute' ? `/disputes/${e.targetId}` : e.targetType === 'sos' ? `/sos/${e.targetId}` : '/settings';
-  return <Link to={to}>{e.targetType === 'settings' ? 'Settings' : 'Open'}</Link>;
+  const to = e.targetType === 'user' || e.targetType === 'kyc' ? `/users/${e.targetId}` : e.targetType === 'dispute' ? `/disputes/${e.targetId}` : e.targetType === 'sos' ? `/sos/${e.targetId}` : e.targetType === 'report' ? '/reports' : e.targetType === 'parcel' ? '/parcel-claims?status=all' : '/settings';
+  return <Link to={to}>{e.targetType === 'settings' ? 'Settings' : e.targetType === 'report' ? 'Reports' : e.targetType === 'parcel' ? 'Claims' : 'Open'}</Link>;
 }
 
 export function AuditPage() {

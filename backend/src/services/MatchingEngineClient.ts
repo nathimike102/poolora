@@ -5,14 +5,24 @@ import { haversineDistanceKm, minutesBetween } from '../utils/helpers';
 import { logger } from '../utils/logger';
 import { config } from '../config';
 
+type Candidate = { ride: IRide; driver: IUser; pickupDistanceKm?: number };
+
+/** After the ML service fails, search scores locally for this long before trying it again */
+const ML_RETRY_AFTER_MS = 60_000;
+
 /**
- * Matching Engine — applies the 5-Factor Weighted Score:
+ * Matching Engine (UC-AI01): the 5-factor weighted score
  *   Proximity 40%, Time 30%, Rating 15%, Acceptance 10%, Safety 5%
+ * (weights are admin-editable).
  *
- * In production, this would call out to a Python/FastAPI ML service.
- * This implementation provides the deterministic scoring locally.
+ * With ML_MATCHING=true and ML_SERVICE_API_KEY set, candidates are scored by
+ * the ML service's /api/match, which also credits verified and experienced
+ * drivers in the safety factor. If the service is slow or down, the same
+ * score is computed here, so search never waits on it or fails because of it.
  */
 export class MatchingEngineClient {
+  private static mlDownUntil = 0;
+
   /** Admin-editable (UC-A07), so read on every score */
   private static get WEIGHTS() {
     return config.matching.weights;
@@ -21,10 +31,73 @@ export class MatchingEngineClient {
   /**
    * Score a list of candidate rides against a rider's search parameters.
    */
-  async scoreRides(
-    candidates: Array<{ ride: IRide; driver: IUser; pickupDistanceKm?: number }>,
-    params: RideSearchParams,
-  ): Promise<MatchScore[]> {
+  async scoreRides(candidates: Candidate[], params: RideSearchParams): Promise<MatchScore[]> {
+    if (candidates.length && config.matching.useMlService && config.services.mlServiceApiKey && Date.now() >= MatchingEngineClient.mlDownUntil) {
+      const scored = await this.scoreWithMl(candidates, params);
+      if (scored) return scored;
+    }
+    return this.scoreLocally(candidates, params);
+  }
+
+  /** Scores from the ML service, or null when it is unavailable */
+  private async scoreWithMl(candidates: Candidate[], params: RideSearchParams): Promise<MatchScore[] | null> {
+    try {
+      const { mlClient } = await import('../utils/mlClient');
+      const { data } = await mlClient.post<Array<Record<string, number | string>>>(
+        '/api/match',
+        {
+          weights: MatchingEngineClient.WEIGHTS,
+          search_params: {
+            pickup_lat: params.pickupLat,
+            pickup_lng: params.pickupLng,
+            drop_lat: params.dropoffLat,
+            drop_lng: params.dropoffLng,
+            departure_time: new Date(params.departureTime).toISOString(),
+            radius_km: Math.min(50, Math.max(0.5, params.radiusKm || 5)),
+            time_deviation_mins: Math.min(480, Math.max(15, params.timeDeviationMins || 120)),
+          },
+          candidates: candidates.map(({ ride, driver, pickupDistanceKm }) => ({
+            ride_id: ride._id.toString(),
+            driver_id: driver._id.toString(),
+            pickup_location: { lat: ride.pickup.location.coordinates[1], lng: ride.pickup.location.coordinates[0] },
+            drop_location: { lat: ride.dropoff.location.coordinates[1], lng: ride.dropoff.location.coordinates[0] },
+            departure_time: new Date(ride.departureTime).toISOString(),
+            price_per_seat: ride.pricePerSeat,
+            available_seats: ride.availableSeats,
+            driver_rating: Math.min(5, Math.max(0, driver.stats?.avgRatingAsDriver || 3)),
+            acceptance_rate: Math.min(1, Math.max(0, driver.stats?.acceptanceRate ?? 0.5)),
+            cancellation_rate: Math.min(1, Math.max(0, driver.stats?.cancellationRate ?? 0)),
+            total_rides: Math.max(0, driver.stats?.totalRidesAsDriver ?? 0),
+            is_verified: driver.kyc?.status === 'approved',
+            route_distance_km: pickupDistanceKm,
+          })),
+        },
+        { timeout: 1500 },
+      );
+      if (!Array.isArray(data)) throw new Error('Unexpected response');
+      const known = new Set(candidates.map((c) => c.ride._id.toString()));
+      return data
+        .filter((d) => known.has(String(d.ride_id)))
+        .map((d) => ({
+          rideId: String(d.ride_id),
+          overallScore: Number(d.overall_score),
+          proximityScore: Number(d.proximity_score),
+          timeScore: Number(d.time_score),
+          ratingScore: Number(d.rating_score),
+          acceptanceScore: Number(d.acceptance_score),
+          safetyScore: Number(d.safety_score),
+          estimatedFare: Number(d.estimated_fare),
+          estimatedETA: Number(d.estimated_eta),
+          distanceKm: Number(d.distance_km),
+        }));
+    } catch (error) {
+      MatchingEngineClient.mlDownUntil = Date.now() + ML_RETRY_AFTER_MS;
+      logger.warn('ML matching unavailable; scoring locally', { error: (error as Error).message });
+      return null;
+    }
+  }
+
+  private scoreLocally(candidates: Candidate[], params: RideSearchParams): MatchScore[] {
     const scores: MatchScore[] = [];
 
     for (const { ride, driver, pickupDistanceKm } of candidates) {

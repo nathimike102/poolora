@@ -14,6 +14,10 @@ jest.mock('../../models/Ride', () => ({ Ride: { findById: jest.fn() } }));
 jest.mock('../../models/User', () => ({ User: { findById: jest.fn(), findByIdAndUpdate: jest.fn().mockResolvedValue(null) } }));
 jest.mock('../../models/Notification', () => ({ Notification: {} }));
 jest.mock('../../events', () => ({ EventBridge: { publish: jest.fn() } }));
+// Photo proof is covered in ParcelEvidence.test.ts
+jest.mock('../../services/ParcelEvidenceService', () => ({
+  ParcelEvidenceService: jest.fn().mockImplementation(() => ({ requirePhoto: jest.fn().mockResolvedValue(undefined) })),
+}));
 jest.mock('../../services/NotificationService', () => ({
   NotificationService: jest.fn().mockImplementation(() => ({
     createNotification: jest.fn().mockResolvedValue(undefined),

@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 
 import { useApp } from '../../context/AppContext';
+import { callOnBooking } from '../../services/callService';
 import { BackButton } from '../../components/BackButton';
 import { Icon } from '../../components/Icon';
 import { RideParcels } from '../../components/RideParcels';
@@ -425,6 +426,16 @@ export function DriverRideDetailsScreen() {
                   </Text>
                   {b.note ? (
                     <Text style={{ fontSize: 13, color: c.text, marginTop: 4, fontStyle: 'italic' }}>“{b.note}”</Text>
+                  ) : null}
+                  {notStarted || inProgress ? (
+                    <Pressable
+                      onPress={() => callOnBooking(b._id, b.rider?.name ?? 'your rider')}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Call ${b.rider?.name ?? 'rider'}`}
+                      style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>Call</Text>
+                    </Pressable>
                   ) : null}
                   {inProgress ? (
                     <RiderSteps

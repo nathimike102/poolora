@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, Linking, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, Linking, Share, Platform } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { BackButton } from '../../components/BackButton';
 import { Icon } from '../../components/Icon';
+import { StarRating } from '../../components/RatingForm';
 import { tripService, tripDates, tripDays, type Trip, type TripExpense, type Settlement, type TripVote } from '../../services/tripService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
@@ -42,6 +43,7 @@ export function TripDetailScreen() {
   const [activity, setActivity] = useState({ title: '', cost: '', notes: '' });
   const [expense, setExpense] = useState({ description: '', amount: '', paidBy: '', split: [] as string[] });
   const [upi, setUpi] = useState('');
+  const [rating, setRating] = useState({ score: 0, comment: '' });
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +91,7 @@ export function TripDetailScreen() {
   const nameOf = (id: string) => trip.members.find(m => m.user._id === id)?.user.name ?? 'Member';
   const memberIds = trip.members.map(m => m.user._id);
   const organizerName = typeof trip.organizer === 'object' ? trip.organizer.name : undefined;
+  const organizerStats = typeof trip.organizer === 'object' ? trip.organizer.stats : undefined;
   const splitNow = expense.split.length ? expense.split : memberIds;
   const amountNum = Number(expense.amount);
 
@@ -102,6 +105,7 @@ export function TripDetailScreen() {
         {cap(trip.tripType)} · {trip.members.length} of {trip.maxGroupSize} going
         {trip.budgetPerPerson ? ` · about ${inr(trip.budgetPerPerson)} each` : ''}
         {organizerName ? ` · organised by ${organizerName}` : ''}
+        {organizerStats?.totalRatingsAsOrganizer ? ` (★ ${organizerStats.avgRatingAsOrganizer?.toFixed(1)} from ${organizerStats.totalRatingsAsOrganizer} ${organizerStats.totalRatingsAsOrganizer === 1 ? 'trip rating' : 'trip ratings'})` : ''}
       </Text>
       {trip.status !== 'planning' ? <Text style={{ fontSize: 13, fontWeight: '700', color: trip.status === 'cancelled' ? c.error : c.primary }}>{cap(trip.status)}</Text> : null}
       {trip.interests.length ? (
@@ -165,8 +169,29 @@ export function TripDetailScreen() {
   const votesOf = (a: Trip['activities'][number], v: TripVote) => a.votes.filter(x => x.vote === v).length;
   const myVote = (a: Trip['activities'][number]) => a.votes.find(x => x.user === me)?.vote;
 
+  const addToCalendar = () =>
+    act(async () => {
+      const link = await tripService.calendarLink(tripId);
+      // iOS subscribes to webcal links; Android hands the .ics file to the calendar app
+      await Linking.openURL(Platform.OS === 'ios' ? link.webcalUrl : link.url);
+    });
+
+  const rateCard = trip.canRateOrganizer ? (
+    <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <Text style={[styles.cardTitle, { color: c.text }]}>How was {organizerName ?? 'the organiser'} as organiser?</Text>
+      <StarRating value={rating.score} onChange={score => setRating(r => ({ ...r, score }))} label="Organiser rating" />
+      <TextInput value={rating.comment} onChangeText={comment => setRating(r => ({ ...r, comment }))} multiline maxLength={500} placeholder="Anything to add? Only Poolora sees this." placeholderTextColor={c.textSec} accessibilityLabel="Comment" style={[styles.input, styles.multi, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
+      <Pressable onPress={() => act(() => tripService.rateOrganizer(tripId, rating.score, rating.comment.trim() || undefined), 'Thanks for rating')} disabled={!rating.score || busy} accessibilityRole="button" style={[styles.primary, { backgroundColor: rating.score ? c.primary : c.border }]}>
+        <Text style={[styles.primaryText, { color: c.textOnPrimary }]}>Send rating</Text>
+      </Pressable>
+    </View>
+  ) : trip.myOrganizerRating ? (
+    <Text style={{ color: c.textSec, textAlign: 'center' }}>You rated the organiser {trip.myOrganizerRating.score} of 5. Thank you.</Text>
+  ) : null;
+
   const planTab = (
     <>
+      {rateCard}
       {itinerary}
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
         <Text style={[styles.cardTitle, { color: c.text }]}>Activities</Text>
@@ -210,6 +235,13 @@ export function TripDetailScreen() {
           style={[styles.secondary, { borderColor: c.primary }]}
         >
           <Text style={{ color: c.primary, fontWeight: '700' }}>Propose</Text>
+        </Pressable>
+      </View>
+      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <Text style={[styles.cardTitle, { color: c.text }]}>Calendar</Text>
+        <Text style={{ fontSize: 13, color: c.textSec }}>Add the trip and every confirmed activity to your phone's calendar. New activities appear there as the group confirms them.</Text>
+        <Pressable onPress={addToCalendar} disabled={busy} accessibilityRole="button" style={[styles.secondary, { borderColor: c.primary }]}>
+          <Text style={{ color: c.primary, fontWeight: '700' }}>Add to my calendar</Text>
         </Pressable>
       </View>
     </>

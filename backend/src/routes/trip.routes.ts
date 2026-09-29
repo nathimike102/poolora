@@ -11,6 +11,23 @@ import type { AuthenticatedRequest } from '../types';
 /** Group trips (Phase 4, UC-T01 to UC-T05) */
 const router = Router();
 const trips = new TripService();
+
+/**
+ * GET /trips/:id/calendar.ics?token=… — a member's calendar feed (UC-T04).
+ * No login: calendar apps fetch it with the signed token from /calendar-link.
+ */
+router.get('/:id/calendar.ics', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ics = await trips.calendarIcs(String(req.params.id), String(req.query.token ?? ''));
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline; filename="poolora-trip.ics"');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.status(200).send(ics);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.use(authenticate);
 
 const userId = (req: Request) => (req as AuthenticatedRequest).user.userId;
@@ -172,5 +189,18 @@ router.post(
   validate({ params: Joi.object({ id: objectId.required(), activityId: objectId.required() }), body: Joi.object({ vote: Joi.string().valid('yes', 'no', 'maybe').required() }) }),
   run(async (req) => ({ activity: await trips.vote(String(req.params.id), userId(req), String(req.params.activityId), req.body.vote) })),
 );
+
+// ── Organizer rating and calendar ───────────────────────────────────────────
+
+router.post(
+  '/:id/rate-organizer',
+  validate({
+    ...tripParam,
+    body: Joi.object({ score: Joi.number().integer().min(1).max(5).required(), comment: Joi.string().trim().max(500).allow('') }),
+  }),
+  run((req) => trips.rateOrganizer(String(req.params.id), userId(req), req.body.score, req.body.comment)),
+);
+
+router.get('/:id/calendar-link', validate(tripParam), run((req) => trips.calendarLink(String(req.params.id), userId(req))));
 
 export default router;

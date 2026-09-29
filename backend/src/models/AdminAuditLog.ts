@@ -8,7 +8,7 @@ export interface IAdminAuditLog extends Document {
   _id: Types.ObjectId;
   actor: Types.ObjectId;
   action: string;
-  targetType: 'user' | 'kyc' | 'dispute' | 'sos' | 'settings' | 'support';
+  targetType: 'user' | 'kyc' | 'dispute' | 'sos' | 'settings' | 'support' | 'report' | 'parcel';
   targetId?: string;
   reason?: string;
   details?: Record<string, unknown>;
@@ -19,7 +19,7 @@ const AdminAuditLogSchema = new Schema<IAdminAuditLog>(
   {
     actor: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     action: { type: String, required: true, index: true },
-    targetType: { type: String, enum: ['user', 'kyc', 'dispute', 'sos', 'settings', 'support'], required: true },
+    targetType: { type: String, enum: ['user', 'kyc', 'dispute', 'sos', 'settings', 'support', 'report', 'parcel'], required: true },
     targetId: { type: String, index: true },
     reason: String,
     details: Schema.Types.Mixed,

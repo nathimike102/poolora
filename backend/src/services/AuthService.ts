@@ -403,6 +403,8 @@ export class AuthService {
       eventType: 'kyc.submitted',
       data: { userId },
     });
+    // Automatic document checks and the vendor's background check (UC-A01); not awaited
+    void import('./DocumentCheckService').then(({ DocumentCheckService }) => new DocumentCheckService().onSubmitted(userId));
 
     return user;
   }

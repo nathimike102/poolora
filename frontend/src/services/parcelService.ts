@@ -31,6 +31,8 @@ export interface Parcel {
   actualPickupTime?: string;
   actualDeliveryTime?: string;
   estimatedCost: number;
+  /** Declared value when the sender insured it */
+  insuranceValue?: number;
   specialInstructions?: string;
   trackingNumber: string;
   paymentMethod?: 'wallet' | 'razorpay';
@@ -70,6 +72,25 @@ export function parcelStage(p: Parcel): { label: string; step: number } {
   if (p.status === 'confirmed') return { label: 'Accepted, waiting for pickup', step: 1 };
   if (p.paymentStatus === 'unpaid') return { label: 'Waiting for payment', step: 0 };
   return { label: 'Waiting for the driver to accept', step: 0 };
+}
+
+export interface ParcelPhoto {
+  id: string;
+  stage: 'pickup' | 'delivery' | 'claim';
+  takenAt: string;
+  /** API path of the image; needs the signed-in user's token */
+  path: string;
+}
+
+export interface ParcelClaim {
+  _id: string;
+  kind: 'damaged' | 'lost';
+  amountClaimed: number;
+  coverLimit: number;
+  status: 'submitted' | 'with_insurer' | 'approved' | 'rejected';
+  payout?: number;
+  decisionNote?: string;
+  createdAt: string;
 }
 
 export const parcelService = {
@@ -123,6 +144,27 @@ export const parcelService = {
   async pickup(id: string): Promise<Parcel> {
     const response = await apiClient.post<ApiResponse<{ parcel: Parcel }>>(API_ENDPOINTS.parcels.pickup(id), {});
     return response.data.data.parcel;
+  },
+
+  /** A photo as evidence: the driver at pickup or delivery (UC-P03), or for a claim (UC-P05) */
+  async addPhoto(id: string, stage: 'pickup' | 'delivery' | 'claim', base64: string, at?: { lat: number; lng: number }): Promise<ParcelPhoto> {
+    const response = await apiClient.post<ApiResponse<{ photo: ParcelPhoto }>>(API_ENDPOINTS.parcels.photos(id), { stage, data: base64, ...at }, { timeout: 60_000 });
+    return response.data.data.photo;
+  },
+
+  async photos(id: string): Promise<ParcelPhoto[]> {
+    const response = await apiClient.get<ApiResponse<{ photos: ParcelPhoto[] }>>(API_ENDPOINTS.parcels.photos(id));
+    return response.data.data.photos;
+  },
+
+  async claims(id: string): Promise<ParcelClaim[]> {
+    const response = await apiClient.get<ApiResponse<{ claims: ParcelClaim[] }>>(API_ENDPOINTS.parcels.claims(id));
+    return response.data.data.claims;
+  },
+
+  async fileClaim(id: string, claim: { kind: 'damaged' | 'lost'; description: string; amount: number; photoIds: string[] }): Promise<ParcelClaim> {
+    const response = await apiClient.post<ApiResponse<{ claim: ParcelClaim }>>(API_ENDPOINTS.parcels.claims(id), claim);
+    return response.data.data.claim;
   },
 
   /** `signature` is the recipient's name as they confirm receipt */

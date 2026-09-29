@@ -213,6 +213,9 @@ export interface CancellationQuote {
   fare: number;
   refundAmount: number;
   refundPercent: number;
+  /** Platform fee kept from this cancellation, when the fee is non-refundable */
+  platformFeeKept?: number;
+  platformFeeRefundable?: boolean;
   policy: Array<{ minHoursBeforeDeparture: number; refundPercent: number }>;
 }
 

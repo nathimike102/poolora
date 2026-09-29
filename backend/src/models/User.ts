@@ -45,6 +45,10 @@ export interface IUser extends Document {
   warnings: number;
   /** A block waits for a second admin to approve it (UC-A05 3b) */
   pendingBlock?: { requestedBy: Types.ObjectId; reason: string; requestedAt: Date };
+  /** Set on a duplicate account after it was merged into this one (UC-A05) */
+  mergedInto?: Types.ObjectId;
+  /** Duplicate accounts merged into this one, with the phone numbers they used */
+  mergedFrom?: Array<{ user: Types.ObjectId; phone: string; at: Date }>;
   otpAttempts: number;
   otpLastAttemptAt?: Date;
   isActive: boolean;
@@ -78,6 +82,12 @@ const KYCSchema = new Schema<IKYCData>(
     submittedAt: Date,
     reviewedAt: Date,
     rejectionReason: String,
+    autoChecks: { type: [{ _id: false, check: String, result: { type: String, enum: ['pass', 'warn', 'fail'] }, detail: String }], default: undefined },
+    autoCheckedAt: Date,
+    backgroundCheck: {
+      type: new Schema({ status: { type: String, enum: ['pending', 'clear', 'consider', 'error'] }, reference: String, summary: String, checkedAt: Date }, { _id: false }),
+      default: undefined,
+    },
   },
   { _id: false },
 );
@@ -107,6 +117,9 @@ const UserStatsSchema = new Schema<IUserStats>(
     avgRatingAsRider: { type: Number, default: 0 },
     totalRatingsAsDriver: { type: Number, default: 0 },
     totalRatingsAsRider: { type: Number, default: 0 },
+    /** From trip members after a group trip (UC-T02) */
+    avgRatingAsOrganizer: { type: Number, default: 0 },
+    totalRatingsAsOrganizer: { type: Number, default: 0 },
     cancellationRate: { type: Number, default: 0 },
     acceptanceRate: { type: Number, default: 1 },
   },
@@ -181,6 +194,11 @@ const UserSchema = new Schema<IUser>(
       requestedBy: { type: Schema.Types.ObjectId, ref: 'User' },
       reason: String,
       requestedAt: Date,
+    },
+    mergedInto: { type: Schema.Types.ObjectId, ref: 'User' },
+    mergedFrom: {
+      type: [{ _id: false, user: { type: Schema.Types.ObjectId, ref: 'User' }, phone: String, at: Date }],
+      default: undefined,
     },
     isActive: { type: Boolean, default: true },
   },

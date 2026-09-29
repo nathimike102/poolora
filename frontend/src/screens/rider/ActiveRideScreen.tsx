@@ -31,6 +31,7 @@ import { ratingService, type RatingInput } from '../../services/ratingService';
 import { RatingForm } from '../../components/RatingForm';
 import type { Ride } from '../../types/api';
 import { useApp } from '../../context/AppContext';
+import { callOnBooking } from '../../services/callService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LiveMap } from '../../components/LiveMap';
 import { Icon } from '../../components/Icon';
@@ -321,10 +322,10 @@ export function ActiveRideScreen() {
                 ) : null}
               </View>
               <View style={styles.actionBtns}>
-                {driverPhone ? (
+                {driverPhone || bookingId ? (
                   <Pressable
                     style={[styles.iconBtn, { backgroundColor: c.successLight }]}
-                    onPress={() => Linking.openURL(`tel:${driverPhone}`)}
+                    onPress={() => (bookingId ? callOnBooking(bookingId, driverName, driverPhone) : Linking.openURL(`tel:${driverPhone}`))}
                     accessibilityRole="button"
                     accessibilityLabel={`Call ${driverName}`}
                   >

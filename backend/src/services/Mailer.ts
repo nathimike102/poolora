@@ -16,7 +16,7 @@ export interface Mail {
   /** Plain text is always sent; HTML is optional */
   text: string;
   html?: string;
-  attachments?: Array<{ filename: string; content: string; contentType: string }>;
+  attachments?: Array<{ filename: string; content: string | Buffer; contentType: string }>;
 }
 
 let transporter: Transporter | null = null;

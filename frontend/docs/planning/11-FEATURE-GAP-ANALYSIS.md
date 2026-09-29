@@ -64,6 +64,13 @@ These blocked the core ride flow and are now in the code:
 | Parcel pooling (Phase 4) | Placeholder screens. | Send a parcel, choose a driver on the route, pay, track, and share the delivery code; drivers accept, pick up and hand over with the code from the ride screen. |
 | Trip pooling (Phase 4) | Nothing. | UC-T01 to UC-T05: plan a trip, find partners by compatibility, join by request or invite code, split expenses, vote on activities, and settle up with UPI links. |
 
+### 1.3 Closed on 25 September 2026
+
+| Area | Before | Now |
+|---|---|---|
+| Scheduled report emails (UC-A06) | Reports could only be viewed or downloaded as CSV. | The web admin's Reports page schedules emails: any reports, daily (yesterday), weekly (Mondays, the last seven days) or monthly (the 1st, last month), at 07:00 India time, to up to 10 addresses, with the full reports attached. Schedules can be paused, edited, sent now and deleted, and each change is in the audit log. A failed run shows its reason on the page. `backend/src/jobs/ReportScheduler.ts` checks every five minutes; each run is claimed atomically, so several backend instances never send it twice, and runs missed during downtime are skipped rather than sent late. Needs SMTP. |
+| Excel and PDF export (UC-A06) | CSV only. | Every report downloads, or is attached, as Excel (a summary sheet, a sheet per period and a sheet per table) or PDF, as well as CSV. Dates in file names and exports are India-time days. |
+
 ---
 
 ## 2. Still open
@@ -77,7 +84,7 @@ These need a paid outside service, a business decision, or more design:
 | Platform fee on refunds | UC-R09 calls it non-refundable | The fee is part of the fare, so full refunds return it. Keeping it is a business decision. |
 | Merging duplicate accounts, appeals | UC-A05 | Needs a policy; merging moves money and history. Appeals go through support requests for now. |
 | Chatbot | UC-X02 | Needs a language-model service. The FAQ and support requests cover the other channels. |
-| Scheduled and emailed reports, PDF and Excel export; SMS alerts to admins; custom alert rules | UC-A02, UC-A06 | Email exists now, so scheduled reports can be built on it. SMS alerts need Twilio set up. Anomalies are rule-based. |
+| SMS alerts to admins; custom alert rules | UC-A02 | SMS alerts need Twilio set up. Anomalies are rule-based. |
 | Dual approval for critical settings | UC-A07 | A 24-hour revert is used instead. |
 | Parcel photo proof and insurance claims | UC-P03, UC-P05 | Delivery uses the recipient's code and name. Photos need upload handling on the driver's side; claims need an insurer. |
 | ML matching | UC-AI01 | Matching is a weighted score in the backend; the ML service's `/api/match` is not called. Demand prediction feeds price suggestions and surge. |
@@ -104,11 +111,10 @@ Code hygiene: ~~frontend linting could not run~~ fixed; `npm run lint` passes an
 
 ## 4. Suggested order
 
-Everything in the earlier plan is done: background jobs, refunds and route search, per-rider pickup and no-shows, trip sharing and check-ins, price rules, admin tools, and the parcel and trip screens. What remains (section 2) depends on vendors or decisions. If one is chosen:
+Everything in the earlier plan is done: background jobs, scheduled report emails, refunds and route search, per-rider pickup and no-shows, trip sharing and check-ins, price rules, admin tools, and the parcel and trip screens. What remains (section 2) depends on vendors or decisions. If one is chosen:
 
-1. Scheduled and emailed admin reports, since email now works.
-2. Parcel photo proof at pickup and delivery.
-3. A call-proxy vendor for masked calls, if privacy requires it.
+1. Parcel photo proof at pickup and delivery.
+2. A call-proxy vendor for masked calls, if privacy requires it.
 
 ---
 

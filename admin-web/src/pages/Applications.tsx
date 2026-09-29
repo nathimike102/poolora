@@ -11,7 +11,15 @@ interface Application {
   name: string;
   phone: string;
   email?: string;
-  kyc: { status: string; submittedAt?: string; licenseNumber?: string; rejectionReason?: string };
+  kyc: {
+    status: string;
+    submittedAt?: string;
+    licenseNumber?: string;
+    rejectionReason?: string;
+    autoChecks?: Array<{ check: string; result: 'pass' | 'warn' | 'fail'; detail: string }>;
+    autoCheckedAt?: string;
+    backgroundCheck?: { status: 'pending' | 'clear' | 'consider' | 'error'; reference?: string; summary?: string; checkedAt?: string };
+  };
   vehicles?: Array<{ make: string; model: string; year: number; plateNumber: string }>;
   documents: { licence: boolean; registration: boolean; insurance: boolean };
   risks: string[];
@@ -88,6 +96,57 @@ const CHECKS = [
   'No expired documents, mismatched details or unreadable images',
 ];
 
+const BACKGROUND: Record<string, { label: string; tone: 'good' | 'warn' | 'danger' | 'neutral' }> = {
+  clear: { label: 'Clear', tone: 'good' },
+  consider: { label: 'Needs a look', tone: 'danger' },
+  pending: { label: 'Waiting for the vendor', tone: 'neutral' },
+  error: { label: 'Vendor not reachable', tone: 'warn' },
+};
+
+/** Results of the automatic document checks and the vendor background check (UC-A01) */
+function AutomaticChecks({ app, userId, onDone }: { app?: Application; userId: string; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const rerun = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await api.post(`/admin/applications/${userId}/recheck`);
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const checks = app?.kyc.autoChecks ?? [];
+  const bg = app?.kyc.backgroundCheck;
+  return (
+    <div className="card">
+      <div className="spread">
+        <h2 style={{ margin: 0 }}>Automatic checks</h2>
+        <button className="btn small" onClick={rerun} disabled={busy}>{busy ? 'Checking…' : 'Run again'}</button>
+      </div>
+      <p className="faint">Formats, dates, reused licences and old vehicles, checked by the system. They inform your decision; they do not replace looking at the documents.{app?.kyc.autoCheckedAt ? ` Last run ${when(app.kyc.autoCheckedAt)}.` : ''}</p>
+      {error ? <div className="error-text">{error}</div> : null}
+      {checks.length === 0 ? <p className="faint">Not run yet.</p> : (
+        <table><tbody>
+          {checks.map((c) => (
+            <tr key={c.check}>
+              <td style={{ width: 90 }}><Badge tone={c.result === 'pass' ? 'good' : c.result === 'warn' ? 'warn' : 'danger'}>{c.result === 'pass' ? 'OK' : c.result === 'warn' ? 'Check' : 'Problem'}</Badge></td>
+              <td><strong>{c.check}</strong> <span className="muted">{c.detail}</span></td>
+            </tr>
+          ))}
+        </tbody></table>
+      )}
+      <p style={{ marginTop: 10, marginBottom: 0 }}>
+        <strong>Background check: </strong>
+        {bg ? <><Badge tone={BACKGROUND[bg.status]?.tone ?? 'neutral'}>{BACKGROUND[bg.status]?.label ?? bg.status}</Badge> {bg.summary ?? ''}{bg.reference ? <span className="faint"> (ref {bg.reference})</span> : null}</> : <span className="faint">No vendor connected (KYC_VERIFY_URL). Check the licence on Parivahan/Sarathi by hand.</span>}
+      </p>
+    </div>
+  );
+}
+
 export function ApplicationDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -160,6 +219,7 @@ export function ApplicationDetailPage() {
           ))}
         </div>
       </div>
+      <AutomaticChecks app={app} userId={id} onDone={list.reload} />
       {pending ? (
         <div className="card">
           <h2>Checks before approval</h2>

@@ -38,6 +38,25 @@ export function riderRefundRate(departureTime: Date, now = new Date()): number {
   return tier ? tier.refundRate : 0;
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * How a cancelled fare splits: what goes back to the rider, and what the
+ * platform and the driver keep of the rest. `byPolicy` is true when the rider
+ * cancelled a confirmed seat and the tiered policy applies; then, with
+ * keepPlatformFeeOnCancel on, the platform fee on the whole fare is kept.
+ */
+export function cancellationSplit(fare: number, refundRate: number, byPolicy: boolean) {
+  const fullFee = round2(fare * config.ride.platformFeeRate);
+  let refund = round2(fare * refundRate);
+  if (byPolicy && config.ride.keepPlatformFeeOnCancel) refund = Math.min(refund, round2(fare - fullFee));
+  const retained = round2(fare - refund);
+  const platformFee = byPolicy && config.ride.keepPlatformFeeOnCancel
+    ? Math.min(fullFee, retained)
+    : round2(retained * config.ride.platformFeeRate);
+  return { refund, retained, platformFee, driverEarnings: round2(retained - platformFee) };
+}
+
 function getRazorpayClient(): Razorpay {
   if (!config.razorpay.keyId) {
     throw new AppError('Online payments are unavailable right now. Please pay from your wallet.', 503, 'SERVICE_UNAVAILABLE');
@@ -494,17 +513,20 @@ export class BookingService {
     // fee (UC-D04 7b). Requests not yet accepted, and anything the driver
     // cancels, are refunded in full.
     // Full refund when the driver moved the departure after this booking was made (UC-D08)
-    const refundRate = isRider && ride && !booking.rideChangedAt ? riderRefundRate(ride.departureTime) : 1;
-    const refundAmount = Math.round(booking.estimatedFare * refundRate * 100) / 100;
-    const cancellationFee = Math.round((booking.estimatedFare - refundAmount) * 100) / 100;
+    const byPolicy = Boolean(isRider && ride && !booking.rideChangedAt);
+    const split = cancellationSplit(booking.estimatedFare, byPolicy ? riderRefundRate(ride!.departureTime) : 1, byPolicy);
+    const refundAmount = split.refund;
+    const cancellationFee = split.retained;
     booking.refundAmount = refundAmount;
     booking.cancellationFee = cancellationFee;
     if (cancellationFee > 0) {
-      booking.platformFee = Math.round(cancellationFee * config.ride.platformFeeRate * 100) / 100;
-      booking.driverEarnings = cancellationFee - booking.platformFee;
-      await User.findByIdAndUpdate(booking.driver, {
-        $inc: { 'stats.totalEarnings': booking.driverEarnings },
-      });
+      booking.platformFee = split.platformFee;
+      booking.driverEarnings = split.driverEarnings;
+      if (split.driverEarnings > 0) {
+        await User.findByIdAndUpdate(booking.driver, {
+          $inc: { 'stats.totalEarnings': booking.driverEarnings },
+        });
+      }
     }
     await booking.save();
 
@@ -530,15 +552,23 @@ export class BookingService {
       throw new AuthorizationError('You are not part of this booking');
     }
     let refundRate = 1;
+    let byPolicy = false;
     if (isRider && booking.status === BookingStatus.CONFIRMED && !booking.rideChangedAt) {
       const ride = await Ride.findById(booking.ride).select('departureTime');
-      if (ride) refundRate = riderRefundRate(ride.departureTime);
+      if (ride) {
+        refundRate = riderRefundRate(ride.departureTime);
+        byPolicy = true;
+      }
     }
-    const refundAmount = Math.round(booking.estimatedFare * refundRate * 100) / 100;
+    const { refund: refundAmount, platformFee } = cancellationSplit(booking.estimatedFare, refundRate, byPolicy);
+    const feeKept = byPolicy && config.ride.keepPlatformFeeOnCancel;
     return {
       fare: booking.estimatedFare,
       refundAmount,
-      refundPercent: Math.round(refundRate * 100),
+      refundPercent: booking.estimatedFare ? Math.round((refundAmount / booking.estimatedFare) * 100) : 0,
+      /** The platform fee kept from this cancellation when the fee is non-refundable */
+      platformFeeKept: feeKept ? platformFee : 0,
+      platformFeeRefundable: !config.ride.keepPlatformFeeOnCancel,
       policy: config.ride.riderCancellationRefunds.map((t) => ({
         minHoursBeforeDeparture: t.minHours,
         refundPercent: Math.round(t.refundRate * 100),

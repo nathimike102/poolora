@@ -252,6 +252,9 @@ export class ParcelPoolingService {
     if (parcel.status !== BookingStatus.CONFIRMED) {
       throw new ConflictError('Parcel must be confirmed before pickup');
     }
+    if (parcel.actualPickupTime) throw new ConflictError('The parcel has already been picked up');
+    // Photo proof at pickup (UC-P03)
+    await new (await import('./ParcelEvidenceService')).ParcelEvidenceService().requirePhoto(parcel, 'pickup');
 
     parcel.actualPickupTime = new Date();
     await parcel.save();
@@ -309,6 +312,7 @@ export class ParcelPoolingService {
     if (!parcel.deliveryOtpHash) {
       throw new AppError('This parcel has no delivery code', 409, 'DELIVERY_OTP_MISSING');
     }
+    await new (await import('./ParcelEvidenceService')).ParcelEvidenceService().requirePhoto(parcel, 'delivery');
 
     if ((parcel.deliveryOtpAttempts ?? 0) >= MAX_DELIVERY_OTP_ATTEMPTS) {
       throw new AppError(

@@ -109,6 +109,8 @@ app.use(['/payments/webhook', '/api/v1/payments/webhook'], express.raw({ type: '
   next();
 });
 // Tighter body limits — 1 MB is ample for API payloads; prevents abuse
+// Parcel photos arrive as base64 JSON (UC-P03, UC-P05): a larger limit on that route only
+app.use(/^\/(api\/v1\/)?parcels\/[a-f0-9]{24}\/photos$/, express.json({ limit: '8mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());

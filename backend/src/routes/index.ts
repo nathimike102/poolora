@@ -19,6 +19,9 @@ import disputeRoutes from './dispute.routes';
 import rideAlertRoutes from './rideAlert.routes';
 import supportRoutes from './support.routes';
 import tripRoutes from './trip.routes';
+import appealRoutes from './appeal.routes';
+import callRoutes from './call.routes';
+import kycVerifyRoutes from './kycVerify.routes';
 
 const router = Router();
 
@@ -42,6 +45,9 @@ router.use('/disputes', disputeRoutes);
 router.use('/ride-alerts', rideAlertRoutes);
 router.use('/support', supportRoutes);
 router.use('/trips', tripRoutes);
+router.use('/appeals', appealRoutes);
+router.use('/calls', callRoutes);
+router.use('/kyc-verify', kycVerifyRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {

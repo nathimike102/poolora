@@ -80,6 +80,9 @@ class DriverCandidate(BaseModel):
     total_rides: int = Field(default=0, ge=0)
     is_verified: bool = False
     gender: Optional[str] = None
+    # Distance from the rider's pickup to the ride's route, when the caller
+    # measured it; otherwise the distance to the ride's start is used
+    route_distance_km: Optional[float] = Field(default=None, ge=0)
 
 
 class RideSearchParams(BaseModel):
@@ -93,9 +96,19 @@ class RideSearchParams(BaseModel):
     prefer_women_only: bool = False
 
 
+class MatchWeights(BaseModel):
+    proximity: float = Field(..., ge=0, le=1)
+    time: float = Field(..., ge=0, le=1)
+    rating: float = Field(..., ge=0, le=1)
+    acceptance: float = Field(..., ge=0, le=1)
+    safety: float = Field(..., ge=0, le=1)
+
+
 class MatchRequest(BaseModel):
     candidates: List[DriverCandidate]
     search_params: RideSearchParams
+    # The admin-set weights from the backend; the defaults below otherwise
+    weights: Optional[MatchWeights] = None
 
 
 class MatchScore(BaseModel):
@@ -212,11 +225,12 @@ WEIGHTS = {
 }
 
 
-def compute_match_score(candidate: DriverCandidate, params: RideSearchParams) -> MatchScore:
+def compute_match_score(candidate: DriverCandidate, params: RideSearchParams, weights: Optional[dict] = None) -> MatchScore:
     """Compute the 5-factor weighted match score for a ride candidate."""
+    w = weights or WEIGHTS
 
     # ── Proximity Score (40%) ──
-    pickup_dist_km = haversine_km(
+    pickup_dist_km = candidate.route_distance_km if candidate.route_distance_km is not None else haversine_km(
         params.pickup_lat, params.pickup_lng,
         candidate.pickup_location.lat, candidate.pickup_location.lng,
     )
@@ -240,11 +254,11 @@ def compute_match_score(candidate: DriverCandidate, params: RideSearchParams) ->
 
     # ── Weighted Overall ──
     overall = (
-        WEIGHTS["proximity"] * proximity_score
-        + WEIGHTS["time"] * time_score
-        + WEIGHTS["rating"] * rating_score
-        + WEIGHTS["acceptance"] * acceptance_score
-        + WEIGHTS["safety"] * safety_score
+        w["proximity"] * proximity_score
+        + w["time"] * time_score
+        + w["rating"] * rating_score
+        + w["acceptance"] * acceptance_score
+        + w["safety"] * safety_score
     )
 
     # ── ETA estimate (40 km/h avg city speed) ──
@@ -273,10 +287,11 @@ async def match_rides(request: MatchRequest):
     if not request.candidates:
         raise HTTPException(status_code=400, detail="No candidates provided")
 
+    weights = request.weights.model_dump() if request.weights else None
     scores = []
     for candidate in request.candidates:
         try:
-            score = compute_match_score(candidate, request.search_params)
+            score = compute_match_score(candidate, request.search_params, weights)
             # Filter by women-only preference
             if request.search_params.prefer_women_only and candidate.gender != "female":
                 continue

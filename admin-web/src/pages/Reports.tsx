@@ -5,6 +5,7 @@ import { useApi } from '../lib/useApi';
 import { money, num, pct, short } from '../lib/format';
 import { ErrorBox, Field, Loading, PageHead, StatTile } from '../components/ui';
 import { LineChart } from '../components/LineChart';
+import { FORMAT_NAMES, ReportSchedules } from '../components/ReportSchedules';
 
 type Format = 'count' | 'money' | 'percent' | 'decimal' | 'minutes';
 interface Report {
@@ -81,10 +82,12 @@ export function ReportsPage() {
     setParams(next);
   };
 
+  const [format, setFormat] = useState<keyof typeof FORMAT_NAMES>('xlsx');
+
   const download = async () => {
     setDownloadError('');
     try {
-      await api.download(`/admin/reports/${type}${query}&format=csv`, `poolora-${type}-${isoDay(from)}-to-${isoDay(to)}.csv`);
+      await api.download(`/admin/reports/${type}${query}&format=${format}`, `poolora-${type}-${isoDay(from)}-to-${isoDay(to)}.${format}`);
     } catch (e) {
       setDownloadError((e as Error).message);
     }
@@ -94,7 +97,14 @@ export function ReportsPage() {
 
   return (
     <div className="stack">
-      <PageHead title="Reports" sub="All times in India time. Data up to two years back." actions={<button className="btn" onClick={download} disabled={!data}>Download CSV</button>} />
+      <PageHead title="Reports" sub="All times in India time. Data up to two years back." actions={
+        <div className="row" style={{ gap: 6 }}>
+          <select className="input" aria-label="File type" value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
+            {Object.entries(FORMAT_NAMES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          <button className="btn" onClick={download} disabled={!data}>Download</button>
+        </div>
+      } />
       {downloadError ? <div className="error-text">{downloadError}</div> : null}
 
       <div className="card row" style={{ gap: 16, alignItems: 'flex-end' }}>
@@ -179,6 +189,8 @@ export function ReportsPage() {
           </div>
         </>
       ) : null}
+
+      <ReportSchedules />
     </div>
   );
 }

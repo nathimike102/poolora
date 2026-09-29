@@ -54,6 +54,7 @@ router.get('/overview', W.overview);
 
 router.get('/applications', W.applications);
 router.post('/applications/:userId/request-changes', W.requestKycChanges);
+router.post('/applications/:userId/recheck', W.recheckApplication);
 
 router.get('/accounts', W.searchUsers);
 router.get('/accounts/:id', W.userDetail);
@@ -64,6 +65,23 @@ router.post('/accounts/:id/block/approve', W.approveBlock);
 router.post('/accounts/:id/block/reject', W.rejectBlock);
 router.post('/accounts/:id/unblock', W.unblock);
 router.post('/accounts/:id/notes', W.addNote);
+router.get('/accounts/:id/duplicates', W.duplicates);
+router.post('/accounts/:id/merge', W.requestMerge);
+router.get('/merges', W.listMerges);
+router.post('/merges/:id/approve', W.approveMerge);
+router.post('/merges/:id/reject', W.rejectMerge);
+router.get('/accounts/:id/calls', W.userCalls);
+router.get('/calls/:id/recording', W.callRecording);
+router.get('/alert-rules', W.alertRules);
+router.post('/alert-rules', W.createAlertRule);
+router.patch('/alert-rules/:id', W.updateAlertRule);
+router.delete('/alert-rules/:id', W.deleteAlertRule);
+router.post('/alert-rules/:id/test', W.testAlertRule);
+router.get('/parcel-claims', W.parcelClaims);
+router.post('/parcel-claims/:id/decide', W.decideParcelClaim);
+router.get('/parcels/:id/photos/:photoId', W.parcelPhoto);
+router.get('/appeals', W.listAppeals);
+router.post('/appeals/:id/decide', W.decideAppeal);
 
 router.get('/support', W.supportQueue);
 router.get('/support/:id', W.supportTicket);
@@ -88,11 +106,19 @@ router.post('/sos/:id/acknowledge', W.sosAcknowledge);
 router.post('/sos/:id/resolve', W.sosResolve);
 router.post('/sos/:id/police', W.sosPolice);
 
+router.get('/report-schedules', W.reportSchedules);
+router.post('/report-schedules', W.createReportSchedule);
+router.patch('/report-schedules/:id', W.updateReportSchedule);
+router.delete('/report-schedules/:id', W.deleteReportSchedule);
+router.post('/report-schedules/:id/send', W.sendReportSchedule);
 router.get('/reports/:type', W.report);
 
 router.get('/settings', W.settings);
 router.put('/settings', W.updateSettings);
 router.get('/settings/history', W.settingsHistory);
+router.get('/settings/pending', W.settingsPending);
+router.post('/settings/pending/:id/approve', W.approveSettings);
+router.post('/settings/pending/:id/reject', W.rejectSettings);
 router.post('/settings/revert/:auditId', W.revertSettings);
 
 router.get('/audit', W.auditLog);
