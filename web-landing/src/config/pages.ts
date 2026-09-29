@@ -19,7 +19,7 @@ export interface PageMeta {
 export const PAGES: PageMeta[] = [
   {
     path: '/',
-    title: `${COMPANY.name}: carpooling for Zimbabwe`,
+    title: `${COMPANY.name}: share the ride, split the cost`,
     description:
       'Book a seat in a car already making your journey. Drivers set the price, documents are checked before anyone drives, and safety tools are in every ride. In development.',
     updated: '2026-09-18',

@@ -114,16 +114,16 @@ export function AboutPage() {
         </Container>
       </section>
 
-      {/* Built for Zimbabwe */}
+      {/* Starting in Zimbabwe */}
       <section className="py-14">
         <Container>
           <div className="max-w-3xl mb-8">
-            <p className="text-sm font-bold text-brand-dark uppercase tracking-widest mb-4">Built for Zimbabwe</p>
+            <p className="text-sm font-bold text-brand-dark uppercase tracking-widest mb-4">Starting in Zimbabwe</p>
             <h2 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight leading-tight mb-4">
-              Made for how people here travel and pay.
+              Our first market, built around how people there travel and pay.
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              Vision 2030 and the National Development Strategy 2 (2026 to 2030) put transport, digital
+              Zimbabwe's Vision 2030 and its National Development Strategy 2 (2026 to 2030) put transport, digital
               services, jobs for young people and climate resilience at the centre of the next five years.
               {` ${COMPANY.name}`} is a private service, not a government programme, but it is built around the same needs.
             </p>

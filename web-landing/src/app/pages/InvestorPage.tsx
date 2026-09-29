@@ -176,7 +176,7 @@ export function InvestorPage() {
                 For investors looking<br />at {COMPANY.name}.
               </h1>
               <p className="text-gray-600 text-lg leading-relaxed mb-6 max-w-lg">
-                We are a small team building a carpooling app for Zimbabwe, with safety tools in the
+                We are a small team building a carpooling app that launches first in Zimbabwe and is built to grow country by country, with safety tools in the
                 product from day one. We have not launched, so there are no ride numbers or revenue
                 to show yet.
               </p>

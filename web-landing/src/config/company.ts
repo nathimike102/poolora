@@ -66,7 +66,7 @@ const SITE_ORIGIN = "https://poolora.vercel.app";
  * legal pages can keep addressing them by purpose, and so they can be split
  * onto different inboxes later without touching any page.
  */
-const PUBLIC_EMAIL = "nathimike102@gmail.com";
+const PUBLIC_EMAIL = "nathimike102@icloud.com";
 
 export const COMPANY: CompanyConfig = {
   name: "Poolora",
@@ -77,10 +77,11 @@ export const COMPANY: CompanyConfig = {
     contact: PUBLIC_EMAIL,
     investors: PUBLIC_EMAIL,
   },
-  phone: "+91 9848377713",
-  address: "Surampalem, Andhra Pradesh, India",
+  // The founder's current number; swap in a +263 line when there is one
+  phone: "+91 90322 32881",
+  address: "Zimbabwe",
   founder: {
-    name: "M. Lakshmi Narayana",
+    name: "N. M. Sibanda",
     title: "Founder",
   },
   social: {
@@ -96,6 +97,6 @@ export const COMPANY: CompanyConfig = {
   },
   appStore: "#",
   playStore: "#",
-  description: "Poolora is a carpooling app for Zimbabwe, in development. Drivers offer empty seats on journeys they are already making, riders book a seat at the price the driver sets, and safety tools are part of every ride.",
+  description: "Poolora is a carpooling app in development, launching first in Zimbabwe. Drivers offer empty seats on journeys they are already making, riders book a seat at the price the driver sets, and safety tools are part of every ride.",
   copyright: `© ${new Date().getFullYear()} Poolora. All rights reserved.`,
 };

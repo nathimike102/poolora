@@ -41,7 +41,7 @@ export const siteConfig: SiteConfig = {
   url: COMPANY.website,
   themeColor: '#0B7A75',
   seo: {
-    title: `${COMPANY.name}: carpooling for Zimbabwe`,
+    title: `${COMPANY.name}: share the ride, split the cost`,
     description: COMPANY.description,
     keywords: [
       'ride pooling',

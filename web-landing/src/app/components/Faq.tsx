@@ -57,7 +57,7 @@ export function Faq() {
     () => [
       {
         q: `What is ${COMPANY.name}?`,
-        a: `${COMPANY.name} is a carpooling app for Zimbabwe. A driver who is already making a journey publishes it with the seats they can spare and the price per seat. Riders going the same way search for that route and book a seat. It is not a taxi service, so there are no professional drivers and no on-demand pickups.`,
+        a: `${COMPANY.name} is a carpooling app, launching first in Zimbabwe. A driver who is already making a journey publishes it with the seats they can spare and the price per seat. Riders going the same way search for that route and book a seat. It is not a taxi service, so there are no professional drivers and no on-demand pickups.`,
       },
       {
         q: 'How is this different from a cab app?',

@@ -43,6 +43,7 @@ openssl rand -base64 756 | tr -d '\n'
 |---|---|---|
 | `NODE_ENV` | yes | `production`, `development` or `test` |
 | `PORT` | no | Defaults to `5002` |
+| `MARKET` | no | The country this deployment serves, from `MARKETS` in `backend/src/config/region.ts`. Default `ZW` (Zimbabwe). The app's `EXPO_PUBLIC_MARKET` must match |
 | `APP_BASE_URL` | yes | Public API origin. **Required in production, no default.** Used in the SOS tracking links sent by SMS, so it must be reachable from a phone |
 | `MONGO_URI` | yes | Self-hosted: build it from `MONGO_USER` and `MONGO_PASS`. Atlas: cloud.mongodb.com, Database, Connect, Drivers |
 | `MONGO_USER`, `MONGO_PASS` | Docker/K8s | Generate the password (above) |
