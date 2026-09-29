@@ -35,8 +35,8 @@ export interface Parcel {
   insuranceValue?: number;
   specialInstructions?: string;
   trackingNumber: string;
-  paymentMethod?: 'wallet' | 'razorpay';
-  paymentStatus?: 'unpaid' | 'authorized' | 'paid' | 'refunded' | 'refund_failed';
+  paymentMethod?: 'wallet' | 'online';
+  paymentStatus?: 'unpaid' | 'paid' | 'refunded' | 'refund_failed';
   refundAmount?: number;
   driverEarnings?: number;
   cancellationReason?: string;
@@ -57,9 +57,6 @@ export interface ParcelDraft {
 
 export interface CreateParcelResult {
   parcel: Parcel;
-  /** Present when paying by card or UPI */
-  razorpayOrder?: { id: string; amount: number } | null;
-  razorpayKeyId?: string;
   /** Shown once: the recipient gives it to the driver on delivery */
   deliveryOtp: string;
 }

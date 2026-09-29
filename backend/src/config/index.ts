@@ -56,11 +56,34 @@ export const config = {
     serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '',
   },
 
-  razorpay: {
-    keyId: process.env.RAZORPAY_KEY_ID || '',
-    keySecret: process.env.RAZORPAY_KEY_SECRET || '',
-    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
+  /**
+   * Paynow (paynow.co.zw): EcoCash, OneMoney, InnBucks and Visa/Mastercard.
+   * Paynow gives one integration per currency, each with its own id and key.
+   * A currency whose integration is not set cannot be paid in.
+   */
+  paynow: {
+    usd: {
+      integrationId: process.env.PAYNOW_USD_INTEGRATION_ID || '',
+      integrationKey: process.env.PAYNOW_USD_INTEGRATION_KEY || '',
+    },
+    zwg: {
+      integrationId: process.env.PAYNOW_ZWG_INTEGRATION_ID || '',
+      integrationKey: process.env.PAYNOW_ZWG_INTEGRATION_KEY || '',
+    },
+    /**
+     * Sent as authemail when the payer has no email on their profile. In
+     * test mode it must be the email of the Paynow merchant account.
+     */
+    authEmail: process.env.PAYNOW_AUTH_EMAIL || '',
+    initiateUrl: optional('PAYNOW_INITIATE_URL', 'https://www.paynow.co.zw/interface/initiatetransaction'),
+    remoteUrl: optional('PAYNOW_REMOTE_URL', 'https://www.paynow.co.zw/interface/remotetransaction'),
   },
+
+  /**
+   * ZiG (ZWG) per US dollar, for riders who pay in ZiG. Prices and wallets
+   * stay in US dollars. 0 turns ZiG payments off. Admin-editable.
+   */
+  zwgPerUsd: parseFloat(process.env.ZWG_PER_USD || '0'),
 
   /**
    * Background checks and licence/registration verification by a vendor
@@ -204,7 +227,7 @@ export const config = {
      * non-refundable"). Off by default. Admin-editable, with a second admin's approval.
      */
     keepPlatformFeeOnCancel: process.env.KEEP_PLATFORM_FEE_ON_CANCEL === 'true',
-    /** Card/UPI requests still unpaid after this are cancelled (UC-R04). */
+    /** Requests paid online still unpaid after this are cancelled (UC-R04). */
     paymentTimeoutMins: 15,
     /** Requests the driver has not answered after this expire (UC-D03). */
     requestExpiryHours: 6,

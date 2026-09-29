@@ -15,6 +15,7 @@ const CATEGORIES: Record<string, string> = {
   quality: 'Service quality',
 };
 const STATUS_TONE: Record<string, Tone> = { open: 'danger', in_review: 'warn', resolved: 'good' };
+const METHOD: Record<string, string> = { ecocash: 'EcoCash', onemoney: 'OneMoney', innbucks: 'InnBucks', card: 'Card' };
 const OUTCOMES: Record<string, string> = { rider: 'In favour of the rider', driver: 'In favour of the driver', both: 'Both at fault', dismissed: 'Dismissed' };
 
 interface Party { _id: string; name: string; phone: string; warnings?: number; isSuspended?: boolean; isBlocked?: boolean; stats?: { avgRatingAsDriver?: number; avgRatingAsRider?: number; cancellationRate?: number } }
@@ -244,7 +245,7 @@ export function DisputeDetailPage() {
           </table>
           <h3 style={{ marginTop: 16 }}>Payments</h3>
           {data.payments.length ? data.payments.map((p) => (
-            <div key={p._id} className="spread"><span>{money(p.amount)} · {p.method ?? 'card/UPI'} · {p.status}</span><span className="faint">{p.refundAmount ? `${money(p.refundAmount)} refunded` : when(p.createdAt)}</span></div>
+            <div key={p._id} className="spread"><span>{money(p.amount)} · {METHOD[p.method ?? ''] ?? 'Online'} · {p.status}</span><span className="faint">{p.refundAmount ? `${money(p.refundAmount)} refunded` : when(p.createdAt)}</span></div>
           )) : <p className="faint">Paid from the wallet.</p>}
           <h3 style={{ marginTop: 16 }}>Ratings</h3>
           {data.ratings.length ? data.ratings.map((r) => (
@@ -313,7 +314,7 @@ export function DisputeDetailPage() {
         <Field label="Justification (both parties see this)">
           <textarea className="input" value={form.justification} onChange={(e) => up('justification', e.target.value)} placeholder="The chat shows the driver asked the rider to cancel, so the late-cancellation fee is returned." />
         </Field>
-        <p className="faint">Money moves as soon as you confirm: wallet refunds are instant, card and UPI refunds go through Razorpay.</p>
+        <p className="faint">Money moves as soon as you confirm: every refund goes to the rider's Poolora wallet at once, including online payments (Paynow cannot refund), and they can withdraw it to mobile money.</p>
       </ActionDialog>
     </div>
   );

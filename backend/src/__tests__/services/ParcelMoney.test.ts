@@ -1,6 +1,6 @@
 /**
- * Money on a parcel: paid from the wallet or by card (recorded by the
- * webhook), accepted only once paid, refunded when cancelled or declined
+ * Money on a parcel: paid from the wallet or online (recorded when Paynow
+ * confirms it), accepted only once paid, refunded when cancelled or declined
  * before pickup, and the driver's share counted on delivery.
  */
 import mongoose, { Types } from 'mongoose';
@@ -21,6 +21,8 @@ import { ParcelPooling } from '../../models/ParcelPooling';
 import { ParcelPoolingService } from '../../services/ParcelPoolingService';
 import { ParcelEvidenceService } from '../../services/ParcelEvidenceService';
 import { config } from '../../config';
+import { ChargeService } from '../../services/ChargeService';
+import { GatewayCharge } from '../../models/GatewayCharge';
 
 jest.setTimeout(60_000);
 
@@ -36,13 +38,13 @@ const driverId = new Types.ObjectId();
 const rideId = new Types.ObjectId();
 const HOUR = 3_600_000;
 
-const place = (address: string, lng: number) => ({ lng, lat: 12.97, address, contactPerson: 'Asha Rao', contactPhone: '+919000000001' });
+const place = (address: string, lng: number) => ({ lng, lat: -17.8, address, contactPerson: 'Rudo Moyo', contactPhone: '+263771000001' });
 const request = (overrides: Record<string, unknown> = {}) => ({
   rideId: rideId.toString(),
   parcelWeight: 2,
   parcelType: 'document' as const,
-  pickupLocation: place('Indiranagar, Bengaluru', 77.64),
-  deliveryLocation: place('Marathahalli, Bengaluru', 77.7),
+  pickupLocation: place('Avondale, Harare', 31.04),
+  deliveryLocation: place('Borrowdale, Harare', 31.1),
   estimatedDeliveryTime: new Date(Date.now() + 6 * HOUR),
   useWallet: true,
   ...overrides,
@@ -59,13 +61,13 @@ afterAll(async () => {
 beforeEach(async () => {
   await mongoose.connection.db!.dropDatabase();
   await User.collection.insertMany([
-    { _id: senderId, name: 'Asha Rao', phone: '+919000000001', capabilities: ['rider'], kyc: { status: 'none' }, stats: {} },
-    { _id: driverId, name: 'Ravi Kumar', phone: '+919000000002', capabilities: ['rider', 'driver'], kyc: { status: 'approved' }, stats: { totalEarnings: 0 } },
+    { _id: senderId, name: 'Rudo Moyo', phone: '+263771000001', capabilities: ['rider'], kyc: { status: 'none' }, stats: {} },
+    { _id: driverId, name: 'Tendai Ncube', phone: '+263771000002', capabilities: ['rider', 'driver'], kyc: { status: 'approved' }, stats: { totalEarnings: 0 } },
   ]);
   await Ride.collection.insertOne({
     _id: rideId, driver: driverId, status: 'scheduled', departureTime: new Date(Date.now() + 3 * HOUR),
-    pickup: { location: { type: 'Point', coordinates: [77.64, 12.97] }, address: 'Indiranagar' },
-    dropoff: { location: { type: 'Point', coordinates: [77.7, 12.96] }, address: 'Marathahalli' },
+    pickup: { location: { type: 'Point', coordinates: [31.04, -17.8] }, address: 'Avondale' },
+    dropoff: { location: { type: 'Point', coordinates: [31.1, -17.75] }, address: 'Borrowdale' },
   });
   await Wallet.create({ userId: senderId, balance: 500 });
 });
@@ -73,8 +75,7 @@ beforeEach(async () => {
 const balance = async () => (await Wallet.findOne({ userId: senderId }).lean())!.balance;
 
 it('pays from the wallet, and refunds it when the sender cancels before pickup', async () => {
-  const { parcel, razorpayOrder } = await service.createParcelRequest(senderId.toString(), request());
-  expect(razorpayOrder).toBeNull();
+  const { parcel } = await service.createParcelRequest(senderId.toString(), request());
   expect(parcel).toMatchObject({ paymentMethod: 'wallet', paymentStatus: 'paid' });
   expect(await balance()).toBe(500 - parcel.estimatedCost);
 
@@ -95,20 +96,31 @@ it('leaves nothing behind when the wallet is short', async () => {
   expect(await ParcelPooling.countDocuments()).toBe(0);
 });
 
-it('lets the driver accept only a paid parcel, recorded by the card webhook', async () => {
-  const unpaid = await ParcelPooling.create({
-    ride: rideId, sender: senderId, driver: driverId, status: 'pending', parcelWeight: 1, parcelType: 'general',
-    pickupLocation: { location: { type: 'Point', coordinates: [77.64, 12.97] }, address: 'Indiranagar', contactPerson: 'A', contactPhone: '+919000000001' },
-    deliveryLocation: { location: { type: 'Point', coordinates: [77.7, 12.96] }, address: 'Marathahalli', contactPerson: 'B', contactPhone: '+919000000003' },
-    estimatedDeliveryTime: new Date(Date.now() + 6 * HOUR), estimatedCost: 80, trackingNumber: 'TRK-ABC-0123ABCD',
-    razorpayOrderId: 'order_parcel_1', paymentMethod: 'razorpay',
-  });
-  await expect(service.acceptParcelRequest(unpaid._id.toString(), driverId.toString())).rejects.toMatchObject({ errorId: 'PARCEL_NOT_PAID' });
+it('lets the driver accept only a paid parcel, marked paid when Paynow confirms it', async () => {
+  const { parcel } = await service.createParcelRequest(senderId.toString(), request({ useWallet: false }));
+  expect(parcel).toMatchObject({ paymentMethod: 'online', paymentStatus: 'unpaid' });
+  expect(await balance()).toBe(500);
+  await expect(service.acceptParcelRequest(parcel._id.toString(), driverId.toString())).rejects.toMatchObject({ errorId: 'PARCEL_NOT_PAID' });
 
-  expect(await service.recordRazorpayPayment('order_parcel_1', 'pay_1', true)).toBe(true);
-  expect(await service.recordRazorpayPayment('order_booking_x', 'pay_2', true)).toBe(false);
-  const accepted = await service.acceptParcelRequest(unpaid._id.toString(), driverId.toString());
-  expect(accepted).toMatchObject({ status: 'confirmed', paymentStatus: 'paid', razorpayPaymentId: 'pay_1' });
+  const charge = await GatewayCharge.create({
+    reference: `PC-${parcel._id}-1`, purpose: 'parcel', target: parcel._id, user: senderId, amountUsd: parcel.estimatedCost,
+    currency: 'USD', chargedAmount: parcel.estimatedCost, channel: 'ecocash', pollUrl: 'https://www.paynow.co.zw/Interface/CheckPayment/?guid=1',
+  });
+  await new ChargeService().apply(charge, { state: 'paid', raw: 'Paid', amount: parcel.estimatedCost });
+  const accepted = await service.acceptParcelRequest(parcel._id.toString(), driverId.toString());
+  expect(accepted).toMatchObject({ status: 'confirmed', paymentStatus: 'paid', paymentRef: charge.reference });
+});
+
+it('refunds an online parcel payment to the wallet when the driver declines', async () => {
+  const { parcel } = await service.createParcelRequest(senderId.toString(), request({ useWallet: false }));
+  const charge = await GatewayCharge.create({
+    reference: `PC-${parcel._id}-1`, purpose: 'parcel', target: parcel._id, user: senderId, amountUsd: parcel.estimatedCost,
+    currency: 'USD', chargedAmount: parcel.estimatedCost, channel: 'onemoney', pollUrl: 'https://www.paynow.co.zw/Interface/CheckPayment/?guid=2',
+  });
+  await new ChargeService().apply(charge, { state: 'paid', raw: 'Paid' });
+  const declined = await service.rejectParcelRequest(parcel._id.toString(), driverId.toString());
+  expect(declined).toMatchObject({ status: 'cancelled', paymentStatus: 'refunded', refundAmount: parcel.estimatedCost });
+  expect(await balance()).toBeCloseTo(500 + parcel.estimatedCost, 2);
 });
 
 it('counts the driver share on delivery and refuses cancelling once picked up', async () => {

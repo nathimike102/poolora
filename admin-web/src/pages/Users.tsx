@@ -247,7 +247,7 @@ export function UserDetailPage() {
           rows={data.ridesAsDriver.map((r) => [when(r.departureTime), `${r.pickup.address} → ${r.dropoff.address}`, `${r.totalSeats - r.availableSeats}/${r.totalSeats}`, titleCase(r.status)])} />
         <HistoryTable title="Ratings received" empty="No ratings." head={['When', 'From', 'Score', 'Comment']}
           rows={data.ratings.map((r) => [day(r.createdAt), `${r.rater?.name ?? '—'} (${r.raterRole})`, `${r.score}/5`, r.comment ?? r.tags.join(', ')])} />
-        <HistoryTable title="Payments" empty="No card or UPI payments." head={['When', 'Amount', 'Method', 'Status']}
+        <HistoryTable title="Payments" empty="No online payments." head={['When', 'Amount', 'Method', 'Status']}
           rows={data.payments.map((p) => [when(p.createdAt), money(p.amount), p.method ?? '—', titleCase(p.status)])} />
         <div className="card">
           <h2>Disputes and SOS</h2>

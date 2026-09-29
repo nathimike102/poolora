@@ -117,7 +117,7 @@ export function ActiveRideScreen() {
         Alert.alert('Help is on the way', 'The Poolora safety team and your emergency contacts have been alerted with your location.');
       }
     } catch (error) {
-      Alert.alert('Not sent', `${errorHandler.process(error).message} If you are in danger, use SOS or call 112.`);
+      Alert.alert('Not sent', `${errorHandler.process(error).message} If you are in danger, use SOS or call 999.`);
     } finally {
       setAnswering(false);
     }

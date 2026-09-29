@@ -92,7 +92,7 @@ export function RaiseDisputeScreen() {
           style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
         />
         <Text style={{ fontSize: 13, color: c.textSec }}>
-          We look at the trip's chat, payments and route. For an emergency, use SOS or call 112 instead.
+          We look at the trip's chat, payments and route. For an emergency, use SOS or call 999 instead.
         </Text>
         <Pressable
           onPress={submit}

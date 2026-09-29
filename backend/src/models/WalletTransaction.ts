@@ -12,16 +12,14 @@ export interface IWalletTransaction extends Document {
     balanceBefore: number;
     balanceAfter: number;
     status: WalletTransactionStatus;
-    /** Set for TOPUP transactions */
-    razorpayOrderId?: string;
-    razorpayPaymentId?: string;
-    razorpaySignature?: string;
+    /** The Paynow charge, for TOPUP transactions and payments credited back to the wallet */
+    gatewayReference?: string;
     /** Set for DEBIT / REFUND transactions */
     bookingId?: Types.ObjectId;
     /** Set for COIN_CONVERSION transactions */
     coinsConverted?: number;
     description: string;
-    /** Prevents double-processing of Razorpay webhooks / retries */
+    /** Prevents double-processing of Paynow updates and retries */
     idempotencyKey: string;
     failureReason?: string;
     createdAt: Date;
@@ -59,9 +57,7 @@ const WalletTransactionSchema = new Schema<IWalletTransaction>(
             default: WalletTransactionStatus.PENDING,
             index: true,
         },
-        razorpayOrderId: { type: String },
-        razorpayPaymentId: { type: String, sparse: true },
-        razorpaySignature: String,
+        gatewayReference: { type: String },
         bookingId: { type: Schema.Types.ObjectId, ref: 'Booking', sparse: true },
         coinsConverted: { type: Number, min: 0 },
         description: { type: String, required: true, maxlength: 255 },
@@ -84,7 +80,7 @@ const WalletTransactionSchema = new Schema<IWalletTransaction>(
 
 WalletTransactionSchema.index({ userId: 1, createdAt: -1 });
 WalletTransactionSchema.index({ wallet: 1, type: 1, status: 1 });
-WalletTransactionSchema.index({ razorpayOrderId: 1 }, { sparse: true });
+WalletTransactionSchema.index({ gatewayReference: 1 }, { sparse: true });
 
 export const WalletTransaction = mongoose.model<IWalletTransaction>(
     'WalletTransaction',

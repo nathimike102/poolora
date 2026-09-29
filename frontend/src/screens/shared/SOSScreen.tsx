@@ -125,7 +125,7 @@ export function SOSScreen() {
     setPhase('sending');
     const location = await getCurrentLocation();
     if (!location) {
-      setFailure('We could not get your location, so the alert was not sent. Call 112 now.');
+      setFailure(`We could not get your location, so the alert was not sent. Call ${EMERGENCY_NUMBER} now.`);
       setPhase('failed');
       return;
     }
@@ -134,7 +134,7 @@ export function SOSScreen() {
       setEmergency(record);
       setPhase('active');
     } catch {
-      setFailure('The alert could not reach Poolora. Check your connection and call 112 now.');
+      setFailure(`The alert could not reach Poolora. Check your connection and call ${EMERGENCY_NUMBER} now.`);
       setPhase('failed');
     }
   }, [activeBookingId]);
@@ -246,10 +246,10 @@ export function SOSScreen() {
             style={s.callBtn}
             onPress={callEmergency}
             accessibilityRole="button"
-            accessibilityLabel="Call 112 emergency services"
+            accessibilityLabel={`Call ${EMERGENCY_NUMBER} emergency services`}
           >
             <Icon name="phone" size={24} color="#B71C1C" />
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#B71C1C' }}>Call 112</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#B71C1C' }}>Call {EMERGENCY_NUMBER}</Text>
           </Pressable>
 
           {phase === 'active' && (
@@ -347,7 +347,7 @@ export function SOSScreen() {
               {activeBookingId === undefined
                 ? 'Checking for an active ride'
                 : !canRaise
-                  ? 'SOS alerts work during a confirmed ride. If you are in danger now, call 112.'
+                  ? `SOS alerts work during a confirmed ride. If you are in danger now, call ${EMERGENCY_NUMBER}.`
                   : phase === 'holding'
                     ? 'Keep holding'
                     : 'Press and hold for 3 seconds to alert the safety team and your emergency contacts'}
@@ -408,10 +408,10 @@ export function SOSScreen() {
               onPress={callEmergency}
               style={[s.quickBtn, { backgroundColor: c.errorLight }]}
               accessibilityRole="button"
-              accessibilityLabel="Call 112 emergency services"
+              accessibilityLabel={`Call ${EMERGENCY_NUMBER} emergency services`}
             >
               <Icon name="phone" size={24} color={c.error} />
-              <Text style={{ fontSize: 13, fontWeight: '600', color: c.error }}>Call 112</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: c.error }}>Call {EMERGENCY_NUMBER}</Text>
             </Pressable>
             <Pressable
               onPress={shareLocation}

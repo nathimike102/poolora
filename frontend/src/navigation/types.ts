@@ -106,16 +106,20 @@ export type RootStackParamList = {
   Help: undefined;
   Appeal: undefined;
   SupportTicket: { ticketId?: string; bookingId?: string };
+  /**
+   * Pays online through Paynow: a seat request (bookingId), a parcel
+   * (parcelId), or a wallet top-up (neither).
+   */
   Payment: {
-    bookingId: string;
+    bookingId?: string;
     /** Paying for a parcel instead of a seat; cancelling cancels the parcel */
     parcelId?: string;
-    orderId: string;
-    keyId: string;
     /** US dollars */
     amount: number;
     summary: string;
   };
+  /** Balance, top-up and withdrawals to mobile money */
+  Wallet: undefined;
   AddSavedRoute: undefined;
 
   // Driver detail screens (pushed above tabs)

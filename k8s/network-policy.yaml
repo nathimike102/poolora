@@ -68,7 +68,7 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
-  # Third-party HTTPS APIs (Razorpay, Twilio, Google, Firebase, S3, Sentry)
+  # Third-party HTTPS APIs (Paynow, Twilio, Google, Firebase, S3, Sentry)
   - to:
     - ipBlock:
         cidr: 0.0.0.0/0

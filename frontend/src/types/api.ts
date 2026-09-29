@@ -370,23 +370,59 @@ export interface CreateBookingRequest {
   seatsBooked: number;
   pickup: { lat: number; lng: number; address: string };
   dropoff: { lat: number; lng: number; address: string };
-  /** Pay from wallet balance instead of Razorpay */
+  /** Pay from wallet balance instead of online (EcoCash, OneMoney, InnBucks, card) */
   useWallet?: boolean;
   /** Optional message to the driver */
   note?: string;
 }
 
-export interface RazorpayOrder {
-  id: string;
-  amount: number; // paise
-  currency: string;
-}
-
 export interface CreateBookingResult {
   booking: Booking;
-  razorpayOrder: RazorpayOrder | null;
-  razorpayKeyId?: string;
+  /** False when the request still has to be paid online (PaymentScreen) */
   paidViaWallet: boolean;
+}
+
+// ─── Online payments (Paynow) ─────────────────────────────────────────────
+
+export type PayChannel = 'ecocash' | 'onemoney' | 'innbucks' | 'card';
+export type PayCurrency = 'USD' | 'ZWG';
+
+export interface PaymentOptions {
+  currencies: Array<{ code: PayCurrency; enabled: boolean; zwgPerUsd?: number }>;
+  channels: PayChannel[];
+}
+
+/** One Paynow payment, as the backend reports it */
+export interface Charge {
+  reference: string;
+  purpose: 'booking' | 'parcel' | 'topup';
+  targetId?: string;
+  status: 'pending' | 'paid' | 'failed' | 'refunded' | 'disputed';
+  channel: PayChannel;
+  currency: PayCurrency;
+  amountUsd: number;
+  chargedAmount: number;
+  exchangeRate?: number;
+  /** Card payments: the Paynow page to open */
+  redirectUrl?: string;
+  /** InnBucks: the code to enter or scan */
+  authorizationCode?: string;
+  authorizationExpires?: string;
+  instructions: string;
+  failureReason?: string;
+  /** Paid, but no longer needed, so it went to the wallet */
+  creditedToWallet: boolean;
+}
+
+export interface Withdrawal {
+  _id: string;
+  amount: number;
+  channel: 'ecocash' | 'onemoney' | 'innbucks';
+  payNumber: string;
+  status: 'pending' | 'paid' | 'rejected' | 'cancelled';
+  payoutReference?: string;
+  note?: string;
+  createdAt: string;
 }
 
 // ─── Rating Types ──────────────────────────────────────────────────────────
@@ -421,8 +457,8 @@ export interface Payment {
   currency: string;
   status: PaymentStatus;
   transactionId?: string;
-  razorpayOrderId?: string;
-  razorpayPaymentId?: string;
+  reference?: string;
+  method?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -499,15 +535,20 @@ export interface Wallet {
 export interface Transaction {
   _id: string;
   wallet: string; // wallet ID
-  type: 'credit' | 'debit';
+  /** Money in: topup, refund, coin_conversion, merge_in. Out: debit, withdrawal, merge_out */
+  type: 'topup' | 'debit' | 'refund' | 'coin_conversion' | 'merge_in' | 'merge_out' | 'withdrawal';
   amount: number;
+  balanceAfter?: number;
+  status?: 'pending' | 'completed' | 'failed';
   description: string;
-  relatedEntity?: string; // ride ID, booking ID, etc.
   createdAt: string;
 }
 
 export interface TopUpRequest {
   amount: number;
+  channel: PayChannel;
+  phone?: string;
+  currency?: PayCurrency;
 }
 
 // ─── Query Parameters ──────────────────────────────────────────────────────

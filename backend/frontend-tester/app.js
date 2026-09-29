@@ -75,8 +75,8 @@ const ENDPOINTS = [
 
   { group: 'wallet', name: 'Tier Info', method: 'GET', path: '/wallet/tiers', auth: false, params: {}, query: {}, body: {} },
   { group: 'wallet', name: 'Get Wallet', method: 'GET', path: '/wallet', auth: true, params: {}, query: {}, body: {} },
-  { group: 'wallet', name: 'Create Topup', method: 'POST', path: '/wallet/topup', auth: true, params: {}, query: {}, body: { amount: 500 } },
-  { group: 'wallet', name: 'Confirm Topup', method: 'POST', path: '/wallet/topup/confirm', auth: true, params: {}, query: {}, body: { razorpayOrderId: '', razorpayPaymentId: '', razorpaySignature: '' } },
+  { group: 'wallet', name: 'Create Topup', method: 'POST', path: '/wallet/topup', auth: true, params: {}, query: {}, body: { amount: 5, channel: 'ecocash', phone: '0771111111', currency: 'USD' } },
+  { group: 'wallet', name: 'Payment Status', method: 'GET', path: '/payments/charges/:reference', auth: true, params: { reference: '' }, query: {}, body: {} },
   { group: 'wallet', name: 'Wallet Transactions', method: 'GET', path: '/wallet/transactions', auth: true, params: {}, query: { page: 1, limit: 20 }, body: {} },
   { group: 'wallet', name: 'Coin History', method: 'GET', path: '/wallet/coins/history', auth: true, params: {}, query: { page: 1, limit: 20 }, body: {} },
   { group: 'wallet', name: 'Convert Coins', method: 'POST', path: '/wallet/coins/convert', auth: true, params: {}, query: {}, body: { coins: 100 } },

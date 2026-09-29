@@ -94,20 +94,9 @@ if (config.isProduction) {
 }
 
 // 4. Body Parser
-// Raw body for Razorpay webhook signature verification
-app.use(['/payments/webhook', '/api/v1/payments/webhook'], express.raw({ type: 'application/json' }), (req, _res, next) => {
-  if (!req.body || (Buffer.isBuffer(req.body) && req.body.length === 0)) {
-    req.body = {};
-    return next();
-  }
-  req.rawBody = req.body;
-  try {
-    req.body = JSON.parse(req.body.toString());
-  } catch {
-    req.body = {};
-  }
-  next();
-});
+// Paynow posts status updates as URL-encoded forms. Keep them as text so the
+// hash is checked over the values exactly as sent, in their order.
+app.use(['/payments/paynow/result', '/api/v1/payments/paynow/result'], express.text({ type: () => true, limit: '64kb' }));
 // Tighter body limits — 1 MB is ample for API payloads; prevents abuse
 // Parcel photos arrive as base64 JSON (UC-P03, UC-P05): a larger limit on that route only
 app.use(/^\/(api\/v1\/)?parcels\/[a-f0-9]{24}\/photos$/, express.json({ limit: '8mb' }));

@@ -170,7 +170,9 @@ export const API_ENDPOINTS = {
   // Payments
   payments: {
     history: '/payments/history',
-    webhook: '/payments/webhook', // server-to-server only
+    options: '/payments/options',
+    start: '/payments/start',
+    charge: (reference: string) => `/payments/charges/${encodeURIComponent(reference)}`,
   },
 
   // Chat
@@ -195,7 +197,8 @@ export const API_ENDPOINTS = {
     transactions: '/wallet/transactions',
     coinHistory: '/wallet/coins/history',
     topUp: '/wallet/topup',
-    confirmTopUp: '/wallet/topup/confirm',
+    withdrawals: '/wallet/withdrawals',
+    cancelWithdrawal: (id: string) => `/wallet/withdrawals/${id}/cancel`,
     convertCoins: '/wallet/coins/convert',
   },
 

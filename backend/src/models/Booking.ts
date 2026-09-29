@@ -19,8 +19,8 @@ export interface IBooking extends Document {
   estimatedFare: number;
   finalFare?: number;
   matchScore: number;
-  razorpayOrderId?: string;
-  razorpayPaymentId?: string;
+  /** 'wallet' is paid when the request is made; 'online' is paid through Paynow before the driver can accept */
+  paymentMethod?: 'wallet' | 'online';
   driverEarnings?: number;
   platformFee?: number;
   settlementStatus: 'pending' | 'processing' | 'settled';
@@ -85,8 +85,7 @@ const BookingSchema = new Schema<IBooking>(
     estimatedFare: { type: Number, required: true, min: 0 },
     finalFare: { type: Number, min: 0 },
     matchScore: { type: Number, default: 0, min: 0, max: 100 },
-    razorpayOrderId: { type: String, sparse: true, unique: true },
-    razorpayPaymentId: String,
+    paymentMethod: { type: String, enum: ['wallet', 'online'] },
     driverEarnings: Number,
     platformFee: Number,
     settlementStatus: {

@@ -10,9 +10,13 @@ export interface IPayment extends Document {
   currency: string;
   status: PaymentStatus;
   method?: PaymentMethod;
-  razorpayOrderId: string;
-  razorpayPaymentId?: string;
-  razorpaySignature?: string;
+  /** The Paynow charge's reference */
+  reference: string;
+  paynowReference?: string;
+  /** What Paynow charged, when it was in ZiG; `amount` is always US dollars */
+  chargedCurrency?: 'USD' | 'ZWG';
+  chargedAmount?: number;
+  exchangeRate?: number;
   refundId?: string;
   refundAmount?: number;
   refundReason?: string;
@@ -42,9 +46,11 @@ const PaymentSchema = new Schema<IPayment>(
       index: true,
     },
     method: { type: String, enum: Object.values(PaymentMethod) },
-    razorpayOrderId: { type: String, required: true, unique: true },
-    razorpayPaymentId: { type: String, sparse: true, unique: true },
-    razorpaySignature: String,
+    reference: { type: String, required: true, unique: true },
+    paynowReference: String,
+    chargedCurrency: { type: String, enum: ['USD', 'ZWG'] },
+    chargedAmount: Number,
+    exchangeRate: Number,
     refundId: String,
     refundAmount: { type: Number, min: 0 },
     refundReason: String,

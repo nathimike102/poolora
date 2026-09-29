@@ -114,7 +114,7 @@ export function ParcelTrackingScreen() {
                   ))}
                 </View>
               ) : parcel.paymentStatus === 'refunded' ? (
-                <Text style={{ fontSize: 14, color: c.textSec }}>{money(parcel.refundAmount ?? 0)} refunded{parcel.paymentMethod === 'wallet' ? ' to your wallet' : ' to your card; banks take 5 to 7 working days'}.</Text>
+                <Text style={{ fontSize: 14, color: c.textSec }}>{money(parcel.refundAmount ?? 0)} refunded{' to your Poolora wallet'}.</Text>
               ) : parcel.paymentStatus === 'refund_failed' ? (
                 <Text style={{ fontSize: 14, color: c.error }}>We could not refund this automatically. Our team will refund you; contact support if it has not arrived in a week.</Text>
               ) : null}

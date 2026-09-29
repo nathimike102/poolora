@@ -74,6 +74,7 @@ import { ActiveRideScreen } from "../screens/rider/ActiveRideScreen";
 import { RideDetailScreen } from "../screens/rider/RideDetailScreen";
 import { MyRidesScreen } from "../screens/rider/MyRidesScreen";
 import { PaymentScreen } from "../screens/rider/PaymentScreen";
+import { WalletScreen } from "../screens/shared/WalletScreen";
 import { ServicesScreen } from "../screens/rider/ServicesScreen";
 
 // ─── Driver screens ───────────────────────────────────────────────────────────
@@ -265,6 +266,7 @@ function AppNavigatorStack() {
       <Stack.Screen name="ActiveRide" component={ActiveRideScreen} />
       <Stack.Screen name="RideDetail" component={RideDetailScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
+      <Stack.Screen name="Wallet" component={WalletScreen} />
       <Stack.Screen name="Receipt" component={ReceiptScreen} />
       <Stack.Screen name="RaiseDispute" component={RaiseDisputeScreen} />
       <Stack.Screen name="RateTrip" component={RateTripScreen} />

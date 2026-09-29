@@ -55,21 +55,23 @@ export interface Anomaly {
   link?: string;
 }
 
-/** Items waiting for an admin's decision: appeals, merges and held settings changes */
+/** Items waiting for an admin's decision: appeals, merges, held settings changes, parcel claims and withdrawals */
 async function secondAdminQueues() {
-  const [{ Appeal }, { AccountMerge }, { SettingsChangeRequest }, { ParcelClaim }] = await Promise.all([
+  const [{ Appeal }, { AccountMerge }, { SettingsChangeRequest }, { ParcelClaim }, { WithdrawalRequest }] = await Promise.all([
     import('../models/Appeal'),
     import('../models/AccountMerge'),
     import('../models/SettingsChangeRequest'),
     import('../models/ParcelClaim'),
+    import('../models/WithdrawalRequest'),
   ]);
-  const [appealsOpen, mergesPending, settingsPending, parcelClaimsOpen] = await Promise.all([
+  const [appealsOpen, mergesPending, settingsPending, parcelClaimsOpen, withdrawalsPending] = await Promise.all([
     Appeal.countDocuments({ status: 'open' }),
     AccountMerge.countDocuments({ status: { $in: ['pending', 'running'] } }),
     SettingsChangeRequest.countDocuments({ status: 'pending', expiresAt: { $gt: new Date() } }),
     ParcelClaim.countDocuments({ status: { $in: ['submitted', 'with_insurer'] } }),
+    WithdrawalRequest.countDocuments({ status: 'pending' }),
   ]);
-  return { appealsOpen, mergesPending, settingsPending, parcelClaimsOpen };
+  return { appealsOpen, mergesPending, settingsPending, parcelClaimsOpen, withdrawalsPending };
 }
 
 export class AdminOverviewService {

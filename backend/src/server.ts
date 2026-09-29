@@ -29,9 +29,9 @@ async function bootstrap(): Promise<void> {
   if (config.isProduction) {
     // 1. Required third-party credentials
     const requiredVars = [
-      'RAZORPAY_KEY_ID',
-      'RAZORPAY_KEY_SECRET',
-      'RAZORPAY_WEBHOOK_SECRET',
+      'PAYNOW_USD_INTEGRATION_ID',
+      'PAYNOW_USD_INTEGRATION_KEY',
+      'PAYNOW_AUTH_EMAIL',
       'JWT_ACCESS_SECRET',
       'JWT_REFRESH_SECRET',
     ];

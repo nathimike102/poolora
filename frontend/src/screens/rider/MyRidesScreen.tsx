@@ -105,7 +105,7 @@ function refundMessage(quote: CancellationQuote | null): string {
   const policy = policyText(quote);
   if (!quote) return `Refunds depend on how soon the ride leaves. ${policy}`;
   if (quote.refundAmount >= quote.fare) {
-    return `You get the full ${money(quote.refundAmount)} back to your wallet or original payment method.`;
+    return `You get the full ${money(quote.refundAmount)} back to your Poolora wallet, which you can withdraw to mobile money.`;
   }
   if (quote.refundAmount <= 0) {
     return `This cancellation is not refunded. ${policy}`;

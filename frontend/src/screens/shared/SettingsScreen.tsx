@@ -221,7 +221,8 @@ export function SettingsScreen() {
             iconBg="#FFFBEB"
             iconColor="#8A5A00"
             iconPath={IC_WALLET}
-            label="Wallet balance"
+            label="Wallet"
+            onPress={() => navigation.navigate('Wallet')}
             rightEl={
               <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>
                 {walletBalance === null ? 'Unavailable' : `${money(walletBalance)}`}

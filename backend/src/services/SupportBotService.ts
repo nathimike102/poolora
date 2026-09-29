@@ -37,9 +37,9 @@ export function supportBotEnabled(): boolean {
 const HELP = `
 Booking and payment
 - A seat is confirmed when the driver accepts the request. Drivers have 6 hours to answer; a request not answered in time, or once the ride has left, expires and any payment is refunded in full.
-- A card or UPI request not paid within 15 minutes is cancelled and nothing is charged.
+- A request paid online (EcoCash, OneMoney, InnBucks or card) that is not paid within 15 minutes is cancelled and nothing is charged. A payment that arrives after that goes to the Poolora wallet.
 - Rider cancellation refunds (defaults; the exact amount comes from the get_cancellation_quote tool): everything 24 hours or more before departure, half from 12 hours, a quarter from 6 hours, nothing after. If the driver changes the time or cancels, the rider gets everything back.
-- Refunds go back the way the rider paid. Card and UPI refunds usually take 5 to 7 working days; wallet refunds are immediate.
+- Refunds go to the Poolora wallet at once, however the rider paid. From the wallet they can withdraw to EcoCash, OneMoney or InnBucks (Wallet, Withdraw); a person sends it, usually within one working day.
 
 During a ride
 - Share trip on the ride screen gives a link anyone can follow until an hour after arrival.
@@ -205,7 +205,7 @@ export class SupportBotService {
             to: b.dropoff?.address ?? b.ride?.dropoff?.address,
             departure: b.ride?.departureTime,
             fare: b.estimatedFare,
-            paid_by: b.paymentMethod,
+            paid_by: b.paymentMethod === 'online' ? 'EcoCash, OneMoney, InnBucks or card' : 'Poolora wallet',
             refunded: b.refundAmount ?? 0,
             cancelled_reason: b.cancellationReason,
           })),

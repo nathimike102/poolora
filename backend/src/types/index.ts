@@ -64,10 +64,11 @@ export enum PaymentStatus {
 }
 
 export enum PaymentMethod {
-  UPI = 'upi',
+  ECOCASH = 'ecocash',
+  ONEMONEY = 'onemoney',
+  INNBUCKS = 'innbucks',
   CARD = 'card',
   WALLET = 'wallet',
-  NETBANKING = 'netbanking',
 }
 
 export enum SOSStatus {
@@ -309,6 +310,8 @@ export enum WalletTransactionType {
   /** Balance moved between accounts when a duplicate is merged (UC-A05) */
   MERGE_IN = 'merge_in',
   MERGE_OUT = 'merge_out',
+  /** Sent to the user's mobile money; reversed with a REFUND if the payout is rejected */
+  WITHDRAWAL = 'withdrawal',
 }
 
 export enum WalletTransactionStatus {

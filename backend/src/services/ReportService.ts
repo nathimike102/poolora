@@ -258,7 +258,7 @@ export class ReportService {
       ],
       tables: [
         {
-          title: 'Card and UPI payments by method',
+          title: 'Online payments by method',
           columns: ['Method', 'Payments', 'Amount (US$)'],
           rows: methods.map((m: { _id: string | null; n: number; amount: number }) => [m._id ?? 'Unknown', m.n, Math.round(m.amount)]),
         },

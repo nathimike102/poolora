@@ -36,11 +36,11 @@ export interface IParcelPooling extends Document {
   insuranceCost?: number;
   specialInstructions?: string;
   trackingNumber: string;
-  razorpayOrderId?: string;
-  razorpayPaymentId?: string;
-  /** How the sender paid, and whether the money has arrived */
-  paymentMethod?: 'wallet' | 'razorpay';
-  paymentStatus?: 'unpaid' | 'authorized' | 'paid' | 'refunded' | 'refund_failed';
+  /** How the sender pays (wallet, or online through Paynow), and whether the money has arrived */
+  paymentMethod?: 'wallet' | 'online';
+  /** The Paynow charge that paid it */
+  paymentRef?: string;
+  paymentStatus?: 'unpaid' | 'paid' | 'refunded' | 'refund_failed';
   paidAt?: Date;
   refundAmount?: number;
   driverEarnings?: number;
@@ -111,10 +111,9 @@ const ParcelPoolingSchema = new Schema<IParcelPooling>(
     insuranceCost: { type: Number, min: 0 },
     specialInstructions: String,
     trackingNumber: { type: String, required: true, unique: true, index: true },
-    razorpayOrderId: { type: String, sparse: true, unique: true },
-    razorpayPaymentId: String,
-    paymentMethod: { type: String, enum: ['wallet', 'razorpay'] },
-    paymentStatus: { type: String, enum: ['unpaid', 'authorized', 'paid', 'refunded', 'refund_failed'], default: 'unpaid' },
+    paymentMethod: { type: String, enum: ['wallet', 'online'] },
+    paymentRef: String,
+    paymentStatus: { type: String, enum: ['unpaid', 'paid', 'refunded', 'refund_failed'], default: 'unpaid' },
     paidAt: Date,
     refundAmount: Number,
     driverEarnings: Number,

@@ -26,6 +26,7 @@ import { CallService } from '../services/CallService';
 import { DocumentCheckService } from '../services/DocumentCheckService';
 import { RatingService } from '../services/RatingService';
 import { SupportService } from '../services/SupportService';
+import { WithdrawalService } from '../services/WithdrawalService';
 import { AppError } from '../utils/AppError';
 
 const overview = new AdminOverviewService();
@@ -42,6 +43,7 @@ const calls = new CallService();
 const documentChecks = new DocumentCheckService();
 const ratings = new RatingService();
 const support = new SupportService();
+const withdrawals = new WithdrawalService();
 
 type Handler = (req: Request, adminId: string) => Promise<unknown>;
 
@@ -171,6 +173,9 @@ export const AdminWebController = {
   testAlertRule: handle((req, admin) => alerts.test(id(req), admin)),
 
   // ── Parcel claims (UC-P05) ─────────────────────────────────────────────
+  withdrawals: handle(async (req) => ({ withdrawals: await withdrawals.adminList(queryString(req, 'status') ?? 'pending') })),
+  withdrawalPaid: handle((req, admin) => withdrawals.markPaid(id(req), admin, req.body?.payoutReference)),
+  withdrawalReject: handle((req, admin) => withdrawals.reject(id(req), admin, req.body?.note)),
   parcelClaims: handle((req) => parcelEvidence.adminList(queryString(req, 'status') ?? 'open')),
   decideParcelClaim: handle((req, admin) => parcelEvidence.decide(id(req), admin, req.body ?? {})),
   parcelPhoto: async (req: Request, res: Response, next: NextFunction) => {

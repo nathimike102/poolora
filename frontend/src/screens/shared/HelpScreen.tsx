@@ -27,16 +27,17 @@ const FAQ: Array<{ topic: string; items: Array<{ q: string; a: string }> }> = [
     topic: 'Booking and payment',
     items: [
       { q: 'When is my seat confirmed?', a: 'When the driver accepts your request. Drivers have 6 hours to answer; a request that is not answered in time, or once the ride has left, expires and any payment is refunded in full.' },
-      { q: 'I paid but my request disappeared', a: 'A card or UPI request that is not paid within 15 minutes is cancelled, and nothing is charged. If money left your account, open a request under Payment below and we will trace it.' },
+      { q: 'I paid but my request disappeared', a: 'A request paid by EcoCash, OneMoney, InnBucks or card that is not paid within 15 minutes is cancelled. If the payment goes through after that, it lands in your Poolora wallet. If money left your account and is not in your wallet, open a request under Payment below and we will trace it.' },
       { q: 'How much do I get back if I cancel?', a: 'By default: everything 24 hours or more before departure, half from 12 hours, a quarter from 6 hours, and nothing after that. The app shows the exact amount before you confirm. If the driver changes the time or cancels, you get everything back.' },
-      { q: 'Where do refunds go?', a: 'Back the way you paid. Card and UPI refunds depend on your bank and usually take 5 to 7 working days.' },
+      { q: 'Where do refunds go?', a: 'To your Poolora wallet, at once, however you paid. Use it for your next ride, or withdraw it to EcoCash, OneMoney or InnBucks under Settings, Wallet; a person sends withdrawals, usually within one working day.' },
+      { q: 'Can I pay in ZiG?', a: 'Yes, when ZiG is offered on the payment screen. Prices are set in US dollars and converted at the rate shown before you pay.' },
     ],
   },
   {
     topic: 'During a ride',
     items: [
       { q: 'How do I share my trip?', a: 'On the ride screen, tap Share trip. Anyone with the link can follow the car without the app until an hour after you arrive.' },
-      { q: 'What does SOS do?', a: 'It alerts the Poolora safety team at once, and texts your emergency contacts a link to your live location. If you are in danger, also call 112.' },
+      { q: 'What does SOS do?', a: 'It alerts the Poolora safety team at once, and texts your emergency contacts a link to your live location. If you are in danger, also call 999 (police 995, ambulance 994).' },
       { q: 'Why am I asked "Are you OK?"', a: 'During longer rides we check in every 30 minutes. If you do not answer twice, we treat it as an SOS.' },
       { q: 'The driver did not come', a: 'If the driver cancels, you are refunded in full automatically. If they never arrived, tap the trip in My rides and choose Report a problem.' },
     ],
@@ -97,7 +98,7 @@ export function HelpScreen() {
           <Icon name="phone-alert" size={22} color={c.error} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Urgent safety or payment problem?</Text>
-            <Text style={{ fontSize: 13, color: c.text }}>Call us on {COMPANY.supportPhoneDisplay}. In danger now? Call 112.</Text>
+            <Text style={{ fontSize: 13, color: c.text }}>Call us on {COMPANY.supportPhoneDisplay}. In danger now? Call 999.</Text>
           </View>
           <Pressable
             onPress={() => Linking.openURL(`tel:${COMPANY.supportPhone}`)}

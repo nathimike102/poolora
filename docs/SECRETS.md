@@ -55,8 +55,10 @@ openssl rand -base64 756 | tr -d '\n'
 | `FIREBASE_PROJECT_ID` | yes | Firebase console, Project settings, General |
 | `FIREBASE_DATABASE_URL` | yes | Firebase console, Realtime Database. Region-specific, e.g. `https://<project-id>-default-rtdb.asia-southeast1.firebasedatabase.app` |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` or `FIREBASE_SERVICE_ACCOUNT_JSON` | yes | Firebase console, Project settings, Service accounts, **Generate new private key**. Save the downloaded JSON to the path, or paste it into the JSON variable |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | yes | dashboard.razorpay.com, Account & Settings, API Keys. `rzp_test_` keys for testing, `rzp_live_` after KYC approval |
-| `RAZORPAY_WEBHOOK_SECRET` | yes | Razorpay dashboard, Webhooks, Add webhook. URL: `<APP_BASE_URL>/payments/webhook`. Events: `payment.authorized`, `payment.captured`. You choose the secret there; copy the same value here |
+| `PAYNOW_USD_INTEGRATION_ID`, `PAYNOW_USD_INTEGRATION_KEY` | yes | paynow.co.zw, Receive Payments, New Integration (USD). Enable EcoCash, OneMoney, InnBucks and Visa/Mastercard on it. Set its result URL to `<APP_BASE_URL>/payments/paynow/result`. Test mode until Paynow approves the integration |
+| `PAYNOW_ZWG_INTEGRATION_ID`, `PAYNOW_ZWG_INTEGRATION_KEY` | no | A second integration in ZiG (ZWG). Leave empty to take US dollars only |
+| `PAYNOW_AUTH_EMAIL` | yes | Sent to Paynow when the payer has no email. In test mode it must be the email you log in to Paynow with |
+| `ZWG_PER_USD` | no | ZiG per US dollar for ZiG payments; `0` (default) turns them off. Admins can change it in Settings |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | yes | AWS console, IAM, create a user with access limited to the uploads bucket (`s3:PutObject`, `s3:GetObject`), then Security credentials, Create access key |
 | `AWS_REGION` | no | Default `af-south-1` (Cape Town), the nearest AWS region to Zimbabwe |
 | `AWS_S3_BUCKET` | yes | Create a private bucket (block all public access) in S3 |

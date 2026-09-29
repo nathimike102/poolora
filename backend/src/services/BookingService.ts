@@ -1,5 +1,4 @@
 import { Types } from 'mongoose';
-import Razorpay from 'razorpay';
 import { Booking, IBooking } from '../models/Booking';
 import { Ride, rideRoutePath } from '../models/Ride';
 import { User } from '../models/User';
@@ -17,19 +16,18 @@ import { nearestOnPath } from '../utils/routeGeometry';
 import { MatchingEngineClient } from './MatchingEngineClient';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
-import { callRazorpay } from '../utils/razorpay';
 import { WalletService } from './WalletService';
 import type { FilterQuery } from 'mongoose';
-import type { Orders } from 'razorpay/dist/types/orders';
 
 const walletService = new WalletService();
 
 /**
- * What a refund did: credited the wallet, refunded through Razorpay (all or
- * only part of what was asked), left an uncaptured authorization to lapse,
- * found nothing paid, or failed and needs a manual refund.
+ * What a refund did: credited the wallet (all, or only the part still
+ * refundable), found nothing paid, or failed and needs a manual refund.
+ * Online payments come back to the wallet too, since Paynow has no refund
+ * API; the rider can withdraw them to mobile money.
  */
-export type RefundOutcome = 'wallet' | 'razorpay' | 'partial' | 'released' | 'none' | 'failed';
+export type RefundOutcome = 'wallet' | 'partial' | 'none' | 'failed';
 
 /** Share of the fare a rider gets back for cancelling a confirmed booking. */
 export function riderRefundRate(departureTime: Date, now = new Date()): number {
@@ -57,16 +55,6 @@ export function cancellationSplit(fare: number, refundRate: number, byPolicy: bo
   return { refund, retained, platformFee, driverEarnings: round2(retained - platformFee) };
 }
 
-function getRazorpayClient(): Razorpay {
-  if (!config.razorpay.keyId) {
-    throw new AppError('Online payments are unavailable right now. Please pay from your wallet.', 503, 'SERVICE_UNAVAILABLE');
-  }
-  return new Razorpay({
-    key_id: config.razorpay.keyId,
-    key_secret: config.razorpay.keySecret,
-  });
-}
-
 export class BookingService {
   private matchingEngine = new MatchingEngineClient();
 
@@ -74,8 +62,8 @@ export class BookingService {
    * Create a booking request. Enforces:
    * - Max 3 pending requests per rider
    * - Pickup within 2km of route
-   * - Creates Razorpay order for pre-authorization
-   * - Optionally deducts from wallet if useWallet=true
+   * - Pays from the wallet when useWallet is set; otherwise the request
+   *   waits for an online payment (ChargeService) before the driver can accept
    */
   async createBooking(
     riderId: string,
@@ -84,12 +72,12 @@ export class BookingService {
       seatsBooked: number;
       pickup: { lng: number; lat: number; address: string };
       dropoff: { lng: number; lat: number; address: string };
-      /** If true, pay from wallet balance instead of Razorpay */
+      /** If true, pay from wallet balance instead of online (EcoCash, OneMoney, InnBucks, card) */
       useWallet?: boolean;
       /** Optional message to the driver (UC-R03 step 6) */
       note?: string;
     },
-  ): Promise<{ booking: IBooking; razorpayOrder: Orders.RazorpayOrder | null; paidViaWallet?: boolean }> {
+  ): Promise<{ booking: IBooking; paidViaWallet: boolean }> {
     const ride = await Ride.findById(data.rideId);
     if (!ride) throw new NotFoundError('Ride');
 
@@ -168,9 +156,7 @@ export class BookingService {
       },
     );
 
-    // ── Payment: wallet or Razorpay ──────────────────────────────────────────
-    let razorpayOrder: Orders.RazorpayOrder | null = null;
-    let paidViaWallet = false;
+    // ── Payment: wallet now, or online next ─────────────────────────────────
 
     if (data.useWallet) {
       // Wallet payment. Create the booking first so the debit is keyed to its
@@ -192,7 +178,7 @@ export class BookingService {
         estimatedFare,
         matchScore: matchResult?.overallScore || 0,
         note: data.note?.trim() || undefined,
-        // No razorpayOrderId — wallet paid
+        paymentMethod: 'wallet',
       });
       try {
         await walletService.deductForBooking(riderId, booking._id.toString(), estimatedFare);
@@ -200,7 +186,6 @@ export class BookingService {
         await Booking.deleteOne({ _id: booking._id });
         throw error;
       }
-      paidViaWallet = true;
 
       EventBridge.publish('booking-events', {
         eventType: 'booking.created',
@@ -214,24 +199,10 @@ export class BookingService {
         },
       });
 
-      return { booking, razorpayOrder: null, paidViaWallet };
+      return { booking, paidViaWallet: true };
     }
 
-    // Default: create Razorpay order for pre-authorization
-    razorpayOrder = await callRazorpay('create booking order', () =>
-      getRazorpayClient().orders.create({
-        amount: Math.round(estimatedFare * 100), // Amount in paise
-        currency: 'INR',
-        receipt: `booking_${new Types.ObjectId()}`,
-        notes: {
-          rideId: data.rideId,
-          riderId,
-          driverId: ride.driver.toString(),
-        },
-      }),
-    );
-
-    // Create booking
+    // Online: the app starts the payment next (POST /payments/start)
     const booking = await Booking.create({
       ride: data.rideId,
       rider: riderId,
@@ -249,7 +220,7 @@ export class BookingService {
       estimatedFare,
       matchScore: matchResult?.overallScore || 0,
       note: data.note?.trim() || undefined,
-      razorpayOrderId: razorpayOrder.id,
+      paymentMethod: 'online',
     });
 
     EventBridge.publish('booking-events', {
@@ -263,7 +234,7 @@ export class BookingService {
       },
     });
 
-    return { booking, razorpayOrder };
+    return { booking, paidViaWallet: false };
   }
 
   /**
@@ -279,13 +250,10 @@ export class BookingService {
       throw new ConflictError('Booking is not in pending state');
     }
 
-    // Card/UPI bookings can only be accepted once Razorpay has authorized the
-    // payment (recorded by the signed webhook). Wallet bookings are paid upfront.
-    if (booking.razorpayOrderId) {
-      const paid = await Payment.exists({
-        razorpayOrderId: booking.razorpayOrderId,
-        status: { $in: [PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED] },
-      });
+    // Online bookings can only be accepted once Paynow reports them paid
+    // (ChargeService records the payment). Wallet bookings are paid upfront.
+    if (booking.paymentMethod === 'online') {
+      const paid = await Payment.exists({ booking: booking._id, status: PaymentStatus.CAPTURED });
       if (!paid) {
         throw new AppError('The rider has not completed payment for this booking yet', 409, 'PAYMENT_PENDING');
       }
@@ -356,51 +324,37 @@ export class BookingService {
   }
 
   /**
-   * Returns the rider's money for a booking that will not go ahead. Wallet
-   * payments go back to the wallet; captured card/UPI payments are refunded
-   * through Razorpay. Uncaptured authorizations are released by Razorpay
-   * automatically. Failures are logged for manual follow-up rather than
-   * blocking the cancellation. `amount` defaults to the whole fare.
+   * Returns the rider's money for a booking that will not go ahead, to their
+   * wallet: wallet payments straight back, and online payments too, since
+   * Paynow cannot refund. Online refunds are capped at what is still
+   * refundable on the payment. Failures are logged for manual follow-up
+   * rather than blocking the cancellation. `amount` defaults to the whole fare.
    */
   async refundBooking(
     booking: IBooking,
     reason: string,
-    actorId: string,
+    _actorId: string,
     amount: number = booking.estimatedFare,
     /** A dispute passes its own, so it is not deduplicated against a cancellation refund */
     walletIdempotencyKey?: string,
   ): Promise<RefundOutcome> {
     if (amount <= 0) return 'none';
+    const rider = booking.rider.toString();
 
-    if (!booking.razorpayOrderId) {
+    if (booking.paymentMethod !== 'online') {
       try {
-        await walletService.refundToWallet(booking.rider.toString(), booking._id.toString(), amount, reason, walletIdempotencyKey);
+        await walletService.refundToWallet(rider, booking._id.toString(), amount, reason, walletIdempotencyKey);
         return 'wallet';
       } catch (refundError) {
-        logger.error('Wallet refund failed; needs manual refund', {
-          bookingId: booking._id,
-          error: (refundError as Error).message,
-        });
+        logger.error('Wallet refund failed; needs manual refund', { bookingId: booking._id, error: (refundError as Error).message });
         return 'failed';
       }
     }
 
-    const payment = await Payment.findOne({
-      razorpayOrderId: booking.razorpayOrderId,
-      status: { $in: [PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED, PaymentStatus.REFUNDED] },
-    });
+    const payment = await Payment.findOne({ booking: booking._id, status: { $in: [PaymentStatus.CAPTURED, PaymentStatus.REFUNDED] } });
     if (!payment) return 'none'; // never paid
 
-    if (payment.status === PaymentStatus.AUTHORIZED) {
-      // An authorization cannot be partly released, so the rider gets it all back
-      logger.info('Uncaptured authorization will be released by Razorpay', { bookingId: booking._id, amount });
-      return 'released';
-    }
-
-    // REFUNDED means fully refunded; older records carry no refundAmount
-    const alreadyRefunded = payment.status === PaymentStatus.REFUNDED
-      ? payment.refundAmount ?? payment.amount
-      : payment.refundAmount ?? 0;
+    const alreadyRefunded = payment.refundAmount ?? 0;
     const refundable = Math.round((payment.amount - alreadyRefunded) * 100) / 100;
     const toRefund = Math.min(amount, refundable);
     if (toRefund <= 0) {
@@ -408,16 +362,8 @@ export class BookingService {
       return 'failed';
     }
 
-    if (!payment.razorpayPaymentId) {
-      logger.error('Cannot refund: payment has no Razorpay payment id', { bookingId: booking._id });
-      return 'failed';
-    }
-
     try {
-      await getRazorpayClient().payments.refund(payment.razorpayPaymentId, {
-        amount: Math.round(toRefund * 100), // paise
-        notes: { bookingId: booking._id.toString(), reason, cancelledBy: actorId },
-      });
+      await walletService.refundToWallet(rider, booking._id.toString(), toRefund, reason, walletIdempotencyKey);
       const refundedTotal = Math.round((alreadyRefunded + toRefund) * 100) / 100;
       await Payment.updateOne(
         { _id: payment._id },
@@ -430,14 +376,10 @@ export class BookingService {
           },
         },
       );
-      logger.info('Razorpay refund initiated', { bookingId: booking._id, paymentId: payment.razorpayPaymentId, amount: toRefund });
-      return toRefund < amount ? 'partial' : 'razorpay';
+      logger.info('Online payment refunded to wallet', { bookingId: booking._id, reference: payment.reference, amount: toRefund });
+      return toRefund < amount ? 'partial' : 'wallet';
     } catch (refundError) {
-      logger.error('Razorpay refund failed; needs manual refund', {
-        bookingId: booking._id,
-        paymentId: payment.razorpayPaymentId,
-        error: (refundError as Error).message,
-      });
+      logger.error('Refund to wallet failed; needs manual refund', { bookingId: booking._id, reference: payment.reference, error: (refundError as Error).message });
       return 'failed';
     }
   }

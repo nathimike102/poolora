@@ -1,10 +1,7 @@
 import crypto from 'crypto';
 import { Types } from 'mongoose';
-import Razorpay from 'razorpay';
-import type { Orders } from 'razorpay/dist/types/orders';
 import { ParcelPooling, IParcelPooling } from '../models/ParcelPooling';
 import { Ride } from '../models/Ride';
-import { config } from '../config';
 import { BookingStatus, UserCapability } from '../types';
 import {
   AppError,
@@ -15,7 +12,6 @@ import {
 import { toGeoPoint, haversineDistanceKm, generateTrackingNumber, generateOTP } from '../utils/helpers';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
-import { callRazorpay } from '../utils/razorpay';
 import { NotificationService } from './NotificationService';
 import { WalletService } from './WalletService';
 import { User } from '../models/User';
@@ -32,16 +28,6 @@ const MAX_DELIVERY_OTP_ATTEMPTS = 5;
 
 function hashOtp(otp: string): string {
   return crypto.createHash('sha256').update(otp).digest('hex');
-}
-
-function getRazorpayClient(): Razorpay {
-  if (!config.razorpay.keyId) {
-    throw new AppError('Razorpay is not configured', 503, 'SERVICE_UNAVAILABLE');
-  }
-  return new Razorpay({
-    key_id: config.razorpay.keyId,
-    key_secret: config.razorpay.keySecret,
-  });
 }
 
 /** What sending a parcel costs: US$2, 8 cents a km, 50 cents a kg over 5 kg, and 1% of any insured value */
@@ -85,10 +71,10 @@ export class ParcelPoolingService {
       insuranceValue?: number;
       specialInstructions?: string;
       receiverId?: string;
-      /** Pay from the wallet instead of by card or UPI */
+      /** Pay from the wallet instead of online (EcoCash, OneMoney, InnBucks, card) */
       useWallet?: boolean;
     },
-  ): Promise<{ parcel: IParcelPooling; razorpayOrder: Orders.RazorpayOrder | null; deliveryOtp: string }> {
+  ): Promise<{ parcel: IParcelPooling; deliveryOtp: string }> {
     const ride = await Ride.findById(data.rideId);
     if (!ride) throw new NotFoundError('Ride');
     if (ride.driver.toString() === senderId) {
@@ -119,17 +105,8 @@ export class ParcelPoolingService {
     const estimatedCost = cost.total;
     const insuranceCost = cost.insuranceCost;
 
-    // Card or UPI: a Razorpay order the app pays; the webhook records the payment
-    const razorpayOrder = data.useWallet
-      ? null
-      : await callRazorpay('create parcel order', () =>
-        getRazorpayClient().orders.create({
-          amount: Math.round(estimatedCost * 100), // Convert to paise
-          currency: 'INR',
-          receipt: `parcel_${Date.now()}`,
-        }),
-      );
-
+    // Online payment: the app starts it next (POST /payments/start), and
+    // ChargeService marks the parcel paid when Paynow confirms
     const trackingNumber = generateTrackingNumber();
     // Shown once to the sender, who shares it with the recipient. The driver
     // must enter it to complete delivery.
@@ -162,8 +139,7 @@ export class ParcelPoolingService {
       insuranceCost: round2(insuranceCost),
       specialInstructions: data.specialInstructions,
       trackingNumber,
-      razorpayOrderId: razorpayOrder?.id,
-      paymentMethod: data.useWallet ? 'wallet' : 'razorpay',
+      paymentMethod: data.useWallet ? 'wallet' : 'online',
       deliveryOtpHash: hashOtp(deliveryOtp),
     });
 
@@ -195,7 +171,7 @@ export class ParcelPoolingService {
       },
     });
 
-    return { parcel, razorpayOrder, deliveryOtp };
+    return { parcel, deliveryOtp };
   }
 
   /**
@@ -212,7 +188,7 @@ export class ParcelPoolingService {
     if (parcel.status !== BookingStatus.PENDING) {
       throw new ConflictError('Parcel is not pending acceptance');
     }
-    if (parcel.paymentStatus !== 'paid' && parcel.paymentStatus !== 'authorized') {
+    if (parcel.paymentStatus !== 'paid') {
       throw new AppError('The sender has not paid for this parcel yet', 409, 'PARCEL_NOT_PAID');
     }
 
@@ -463,7 +439,7 @@ export class ParcelPoolingService {
     await notificationService.createNotification(
       parcel.sender.toString(),
       'Parcel request declined',
-      `The driver could not take your parcel. ${cancelled.refundAmount ? `${money(cancelled.refundAmount)} is on its way back to you.` : ''}`.trim(),
+      `The driver could not take your parcel. ${cancelled.refundAmount ? `${money(cancelled.refundAmount)} is back in your Poolora wallet.` : ''}`.trim(),
       'system',
       { parcelId: parcel._id.toString() },
     );
@@ -477,19 +453,12 @@ export class ParcelPoolingService {
     parcel.cancellationReason = reason;
     parcel.cancelledAt = new Date();
 
+    // Wallet and online payments both come back to the wallet: Paynow has no
+    // refund API, and the sender can withdraw it to mobile money
     if (parcel.paymentStatus === 'paid') {
       const amount = parcel.estimatedCost;
       try {
-        if (parcel.paymentMethod === 'wallet') {
-          await walletService.refundToWallet(parcel.sender.toString(), parcel._id.toString(), amount, reason);
-        } else if (parcel.razorpayPaymentId) {
-          await getRazorpayClient().payments.refund(parcel.razorpayPaymentId, {
-            amount: Math.round(amount * 100),
-            notes: { parcelId: parcel._id.toString(), reason },
-          });
-        } else {
-          throw new Error('No Razorpay payment id');
-        }
+        await walletService.refundToWallet(parcel.sender.toString(), parcel._id.toString(), amount, reason);
         parcel.paymentStatus = 'refunded';
         parcel.refundAmount = amount;
       } catch (error) {
@@ -497,7 +466,6 @@ export class ParcelPoolingService {
         parcel.paymentStatus = 'refund_failed';
       }
     }
-    // An authorization that was never captured is released by Razorpay
     await parcel.save();
 
     EventBridge.publish('ride-events', {
@@ -505,25 +473,5 @@ export class ParcelPoolingService {
       data: { parcelId: parcel._id },
     });
     return parcel;
-  }
-
-  /**
-   * Records a card or UPI payment for a parcel from the Razorpay webhook.
-   * Returns false when the order is not a parcel's.
-   */
-  async recordRazorpayPayment(orderId: string, paymentId: string, captured: boolean): Promise<boolean> {
-    const parcel = await ParcelPooling.findOne({ razorpayOrderId: orderId });
-    if (!parcel) return false;
-    if (parcel.paymentStatus === 'paid' || parcel.paymentStatus === 'refunded') return true;
-    parcel.razorpayPaymentId = paymentId;
-    parcel.paymentStatus = captured ? 'paid' : 'authorized';
-    parcel.paidAt ??= new Date();
-    await parcel.save();
-    if (parcel.status === BookingStatus.PENDING) {
-      await notificationService
-        .createNotification(parcel.driver.toString(), 'New parcel request', `A parcel is waiting for you to accept. Tracking: ${parcel.trackingNumber}`, 'ride', { parcelId: parcel._id.toString() })
-        .catch(() => undefined);
-    }
-    return true;
   }
 }

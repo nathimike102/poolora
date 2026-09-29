@@ -371,6 +371,13 @@ export const paginationSchema = {
 
 // ─── Wallet ───────────────────────────────────────────────────────────────────
 
+const payWith = {
+  channel: Joi.string().valid('ecocash', 'onemoney', 'innbucks', 'card').required(),
+  phone: Joi.string().trim().max(20).when('channel', { is: 'card', then: Joi.optional().allow(''), otherwise: Joi.required() }),
+  currency: Joi.string().valid('USD', 'ZWG').default('USD'),
+};
+
+/** Top up the wallet, paid online through Paynow */
 export const topUpWalletSchema = {
   body: Joi.object({
     amount: Joi.number().positive().min(config.wallet.minTopUpAmount).max(config.wallet.maxTopUpAmount).precision(2).required()
@@ -378,14 +385,24 @@ export const topUpWalletSchema = {
         'number.min': `Minimum top-up amount is ${money(config.wallet.minTopUpAmount)}`,
         'number.max': `Maximum top-up amount is ${money(config.wallet.maxTopUpAmount)}`,
       }),
+    ...payWith,
   }),
 };
 
-export const confirmTopUpSchema = {
+/** Pay for a booking or parcel online */
+export const startChargeSchema = {
   body: Joi.object({
-    razorpayOrderId: Joi.string().trim().required(),
-    razorpayPaymentId: Joi.string().trim().required(),
-    razorpaySignature: Joi.string().trim().required(),
+    purpose: Joi.string().valid('booking', 'parcel').required(),
+    targetId: Joi.string().hex().length(24).required(),
+    ...payWith,
+  }),
+};
+
+export const withdrawalSchema = {
+  body: Joi.object({
+    amount: Joi.number().positive().precision(2).required(),
+    channel: Joi.string().valid('ecocash', 'onemoney', 'innbucks').required(),
+    payNumber: Joi.string().trim().max(20).required(),
   }),
 };
 

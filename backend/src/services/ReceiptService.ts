@@ -31,6 +31,7 @@ export interface Receipt {
   paymentMethod: string;
 }
 
+const METHOD_LABEL: Record<string, string> = { ecocash: 'EcoCash', onemoney: 'OneMoney', innbucks: 'InnBucks', card: 'Card' };
 const when = (d: Date | string) => localTime(d, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 export class ReceiptService {
@@ -47,8 +48,8 @@ export class ReceiptService {
       throw new AppError('There is no receipt until a seat is confirmed', 409, 'NO_RECEIPT_YET');
     }
 
-    const payment = booking.razorpayOrderId
-      ? await Payment.findOne({ razorpayOrderId: booking.razorpayOrderId, status: { $in: [PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED, PaymentStatus.REFUNDED] } }).lean()
+    const payment = booking.paymentMethod === 'online'
+      ? await Payment.findOne({ booking: booking._id, status: { $in: [PaymentStatus.CAPTURED, PaymentStatus.REFUNDED] } }).lean()
       : null;
     const fare = booking.finalFare ?? booking.estimatedFare;
     const refunded = booking.refundAmount ?? 0;
@@ -77,7 +78,7 @@ export class ReceiptService {
       serviceFee: booking.platformFee ?? 0,
       refunded,
       paid: Math.round((fare - refunded) * 100) / 100,
-      paymentMethod: payment ? (payment.method ? String(payment.method).toUpperCase() : 'Card or UPI') : 'Poolora wallet',
+      paymentMethod: payment ? `${METHOD_LABEL[String(payment.method)] ?? 'Online'}${payment.chargedCurrency === 'ZWG' && payment.chargedAmount ? ` (charged ${money(payment.chargedAmount, 'ZWG')})` : ''}` : 'Poolora wallet',
     };
   }
 
@@ -117,7 +118,7 @@ ${r.refunded ? row('Refunded', `− ${money(r.refunded)}`) : ''}
 ${row('Total paid', money(r.paid), true)}
 ${row('Paid by', r.paymentMethod)}
 </table>
-<p style="font-size:12px;color:#75746f;margin:16px 0 0">Issued ${escapeHtml(when(r.issuedAt))} CAT. Refunds reach your wallet at once, and cards or UPI in 5 to 7 working days.</p>`);
+<p style="font-size:12px;color:#75746f;margin:16px 0 0">Issued ${escapeHtml(when(r.issuedAt))} CAT. Refunds go to your Poolora wallet at once, and you can withdraw them to EcoCash, OneMoney or InnBucks.</p>`);
   }
 
   /** Emails the receipt to the rider, if they have an email address and mail is set up */

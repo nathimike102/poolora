@@ -130,7 +130,7 @@ export function globalErrorHandler(
   Sentry.captureException(err, { tags: { requestId } });
   logger.error('Unhandled error', {
     requestId,
-    // Some SDKs (e.g. Razorpay) reject with plain objects, which have no
+    // Some SDKs reject with plain objects, which have no
     // message or stack; log their content instead of an empty entry.
     error: err instanceof globalThis.Error ? err.message : safeStringify(err),
     stack: err instanceof globalThis.Error ? err.stack : undefined,

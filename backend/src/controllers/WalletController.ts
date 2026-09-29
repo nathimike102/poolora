@@ -1,10 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { WalletService } from '../services/WalletService';
+import { ChargeService } from '../services/ChargeService';
+import { WithdrawalService } from '../services/WithdrawalService';
 import { RewardService } from '../services/RewardService';
 import { sendSuccess } from '../utils/helpers';
 import { RewardTier, AuthenticatedRequest } from '../types';
 
 const walletService = new WalletService();
+const charges = new ChargeService();
+const withdrawals = new WithdrawalService();
 const rewardService = new RewardService();
 
 export class WalletController {
@@ -35,45 +39,45 @@ export class WalletController {
     }
 
     /**
-     * POST /api/v1/wallet/topup
-     * Creates a Razorpay order to add money to the wallet.
-     * Body: { amount: number }
+     * POST /wallet/topup
+     * Starts a Paynow payment that tops up the wallet once it is paid.
+     * Body: { amount, channel, phone?, currency? }
      */
     static async createTopUpOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const { userId } = (req as AuthenticatedRequest).user;
-            const amount = Number(req.body.amount);
-            const order = await walletService.createTopUpOrder(userId, amount);
-            sendSuccess(res, order, 201);
+            const charge = await charges.start(userId, { ...req.body, purpose: 'topup', amount: Number(req.body.amount) });
+            sendSuccess(res, { charge }, 201);
         } catch (error) {
             next(error);
         }
     }
 
-    /**
-     * POST /api/v1/wallet/topup/confirm
-     * Verifies Razorpay payment and credits the wallet.
-     * Body: { razorpayOrderId, razorpayPaymentId, razorpaySignature }
-     */
-    static async confirmTopUp(req: Request, res: Response, next: NextFunction): Promise<void> {
+    /** GET /wallet/withdrawals: the user's recent withdrawals */
+    static async listWithdrawals(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const { userId } = (req as AuthenticatedRequest).user;
-            const {
-                razorpayOrderId,
-                razorpayPaymentId,
-                razorpaySignature,
-            } = req.body as {
-                razorpayOrderId: string;
-                razorpayPaymentId: string;
-                razorpaySignature: string;
-            };
-            const result = await walletService.confirmTopUp(
-                userId,
-                razorpayOrderId,
-                razorpayPaymentId,
-                razorpaySignature,
-            );
-            sendSuccess(res, result);
+            sendSuccess(res, { withdrawals: await withdrawals.mine(userId) });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /** POST /wallet/withdrawals: send wallet money to EcoCash, OneMoney or InnBucks */
+    static async requestWithdrawal(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const { userId } = (req as AuthenticatedRequest).user;
+            sendSuccess(res, { withdrawal: await withdrawals.request(userId, req.body) }, 201);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /** POST /wallet/withdrawals/:id/cancel */
+    static async cancelWithdrawal(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const { userId } = (req as AuthenticatedRequest).user;
+            sendSuccess(res, { withdrawal: await withdrawals.cancel(userId, String(req.params.id)) });
         } catch (error) {
             next(error);
         }

@@ -35,7 +35,7 @@ import { money } from '../../utils/region';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Booking'>;
 type BookingRoute = RouteProp<RootStackParamList, 'Booking'>;
-type PayMethod = 'razorpay' | 'wallet';
+type PayMethod = 'online' | 'wallet';
 
 const MAX_SEATS_PER_BOOKING = 4;
 
@@ -56,7 +56,7 @@ export function BookingScreen(): React.ReactElement {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [seats, setSeats] = useState(route.params.seats ?? 1);
-  const [method, setMethod] = useState<PayMethod>('razorpay');
+  const [method, setMethod] = useState<PayMethod>('online');
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -128,15 +128,9 @@ export function BookingScreen(): React.ReactElement {
         setWalletBooked(true);
         return;
       }
-      if (!result.razorpayOrder || !result.razorpayKeyId) {
-        setSubmitError('Card and UPI payments are not available right now. Try paying from your wallet.');
-        return;
-      }
       navigation.replace('Payment', {
         bookingId: result.booking._id,
-        orderId: result.razorpayOrder.id,
-        keyId: result.razorpayKeyId,
-        amount: result.razorpayOrder.amount / 100,
+        amount: result.booking.estimatedFare ?? total,
         summary: `${boardAt.address || 'Pickup'} to ${leaveAt.address || 'drop'} · ${seats} ${seats === 1 ? 'seat' : 'seats'}`,
       });
     } catch (error) {
@@ -144,7 +138,7 @@ export function BookingScreen(): React.ReactElement {
     } finally {
       setIsSubmitting(false);
     }
-  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt]);
+  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, total]);
 
   // ── Booked with wallet ──────────────────────────────────────────
   if (walletBooked) {
@@ -288,7 +282,7 @@ export function BookingScreen(): React.ReactElement {
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text style={[styles.cardTitle, { color: c.text }]}>Pay with</Text>
           {([
-            { id: 'razorpay' as const, label: 'UPI, card or net banking', sub: 'Secure checkout by Razorpay', icon: 'credit-card-outline' as const, enabled: true },
+            { id: 'online' as const, label: 'EcoCash, OneMoney, InnBucks or card', sub: 'Pay in US dollars or ZiG, through Paynow', icon: 'cellphone' as const, enabled: true },
             {
               id: 'wallet' as const,
               label: 'Poolora wallet',

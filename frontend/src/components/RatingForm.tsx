@@ -186,7 +186,7 @@ export function RatingForm({
               />
               {issues.includes('safety') ? (
                 <Text style={{ fontSize: 13, color: c.error }}>
-                  Our safety team is alerted as soon as you submit. If you are in danger now, call 112.
+                  Our safety team is alerted as soon as you submit. If you are in danger now, call 999.
                 </Text>
               ) : null}
             </>

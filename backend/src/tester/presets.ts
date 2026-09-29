@@ -245,18 +245,18 @@ export const testerPresets: TesterPreset[] = [
     path: '/wallet/topup',
     useAuth: true,
     fields: [
-      { key: 'body.amount', label: 'Topup Amount', type: 'number', required: true, defaultValue: 100 },
+      { key: 'body.amount', label: 'Topup Amount (US$)', type: 'number', required: true, defaultValue: 5 },
+      { key: 'body.channel', label: 'Channel (ecocash, onemoney, innbucks, card)', type: 'text', required: true, defaultValue: 'ecocash' },
+      { key: 'body.phone', label: 'Mobile money number', type: 'text', required: false, defaultValue: '0771111111' },
     ],
   },
   {
-    name: 'Wallet Topup Confirm (Auth)',
-    method: 'POST',
-    path: '/wallet/topup/confirm',
+    name: 'Payment Status (Auth)',
+    method: 'GET',
+    path: '/payments/charges/:reference',
     useAuth: true,
     fields: [
-      { key: 'body.razorpayOrderId', label: 'Razorpay Order ID', type: 'text', required: true },
-      { key: 'body.razorpayPaymentId', label: 'Razorpay Payment ID', type: 'text', required: true },
-      { key: 'body.razorpaySignature', label: 'Razorpay Signature', type: 'text', required: true },
+      { key: 'params.reference', label: 'Payment reference', type: 'text', required: true },
     ],
   },
   {

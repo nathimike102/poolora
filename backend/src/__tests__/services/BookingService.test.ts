@@ -34,12 +34,10 @@ jest.mock('../../config', () => ({
         { minHours: 0, refundRate: 0 },
       ],
     },
-    razorpay: { keyId: 'rzp_test', keySecret: 'secret' },
   },
 }));
 const mockDeductForBooking = jest.fn();
 const mockRefundToWallet = jest.fn();
-const mockRazorpayRefund = jest.fn();
 jest.mock('../../services/WalletService', () => ({
   WalletService: jest.fn().mockImplementation(() => ({
     deductForBooking: (...args: unknown[]) => mockDeductForBooking(...args),
@@ -52,17 +50,6 @@ jest.mock('../../services/MatchingEngineClient', () => ({
     scoreRides: jest.fn().mockResolvedValue([{ overallScore: 85 }]),
   })),
 }));
-jest.mock('razorpay', () => {
-  return jest.fn().mockImplementation(() => ({
-    orders: {
-      create: jest.fn().mockResolvedValue({ id: 'order_test_123' }),
-    },
-    payments: {
-      refund: (...args: unknown[]) => mockRazorpayRefund(...args),
-    },
-  }));
-});
-
 describe('BookingService', () => {
   let bookingService: BookingService;
 
@@ -270,14 +257,14 @@ describe('BookingService', () => {
       );
     });
 
-    it('should not confirm a card/UPI booking before payment is authorized', async () => {
+    it('should not confirm an online booking before Paynow reports it paid', async () => {
       (Booking.findById as jest.Mock).mockResolvedValue({
         _id: 'booking123',
         driver: { toString: () => 'driver456' },
         ride: 'ride789',
         status: BookingStatus.PENDING,
         seatsBooked: 1,
-        razorpayOrderId: 'order_1',
+        paymentMethod: 'online',
         save: jest.fn(),
       });
       (Payment.exists as jest.Mock).mockResolvedValue(null);
@@ -343,7 +330,7 @@ describe('BookingService', () => {
     };
 
     it('refunds a confirmed wallet booking to the wallet on cancel', async () => {
-      (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.CONFIRMED, razorpayOrderId: undefined });
+      (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.CONFIRMED, paymentMethod: 'wallet' });
       (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: new Date(Date.now() + 48 * 3600_000) });
 
       await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
@@ -351,27 +338,26 @@ describe('BookingService', () => {
       expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', 300, 'Changed plans', undefined);
     });
 
-    it('refunds a captured card payment through Razorpay when the driver declines', async () => {
-      (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.PENDING, razorpayOrderId: 'order_1' });
-      (Payment.findOne as jest.Mock).mockResolvedValue({ _id: 'pay_doc', status: 'captured', razorpayPaymentId: 'pay_1', amount: 300 });
-      mockRazorpayRefund.mockResolvedValue({ id: 'rfnd_1' });
+    it('refunds an online payment to the wallet when the driver declines', async () => {
+      (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.PENDING, paymentMethod: 'online' });
+      (Payment.findOne as jest.Mock).mockResolvedValue({ _id: 'pay_doc', status: 'captured', reference: 'BK-1-1', amount: 300 });
 
       await bookingService.rejectBooking('booking123', 'driver456', 'Car is full');
 
-      expect(mockRazorpayRefund).toHaveBeenCalledWith('pay_1', expect.objectContaining({ amount: 30000 }));
+      expect(mockRefundToWallet).toHaveBeenCalledWith('rider123', 'booking123', 300, 'Car is full', undefined);
       expect(Payment.updateOne).toHaveBeenCalledWith(
         { _id: 'pay_doc' },
         { $set: { refundAmount: 300, refundReason: 'Car is full', status: 'refunded' } },
       );
     });
 
-    it('does not call the refund API for an uncaptured authorization', async () => {
-      (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.PENDING, razorpayOrderId: 'order_1' });
-      (Payment.findOne as jest.Mock).mockResolvedValue({ _id: 'pay_doc', status: 'authorized', razorpayPaymentId: 'pay_1' });
+    it('refunds nothing for an online request that was never paid', async () => {
+      (Booking.findById as jest.Mock).mockResolvedValue({ ...base, status: BookingStatus.PENDING, paymentMethod: 'online' });
+      (Payment.findOne as jest.Mock).mockResolvedValue(null);
 
       await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
 
-      expect(mockRazorpayRefund).not.toHaveBeenCalled();
+      expect(mockRefundToWallet).not.toHaveBeenCalled();
     });
   });
 
@@ -384,8 +370,7 @@ describe('BookingService', () => {
         ride: 'ride789',
         status: BookingStatus.PENDING,
         estimatedFare: 300,
-        razorpayOrderId: null,
-        razorpayPaymentId: null,
+        paymentMethod: 'wallet',
         save: jest.fn().mockResolvedValue(true),
       };
       (Booking.findById as jest.Mock).mockResolvedValue(mockBooking);
@@ -405,8 +390,7 @@ describe('BookingService', () => {
         status: BookingStatus.CONFIRMED,
         seatsBooked: 2,
         estimatedFare: 300,
-        razorpayOrderId: null,
-        razorpayPaymentId: null,
+        paymentMethod: 'wallet',
         save: jest.fn().mockResolvedValue(true),
       };
       (Booking.findById as jest.Mock).mockResolvedValue(mockBooking);

@@ -27,7 +27,7 @@ export interface SettingDefinition {
   label: string;
   help: string;
   /** 'percent' values are stored as fractions (0.15) and shown as 15% */
-  unit: 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers' | 'boolean';
+  unit: 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers' | 'boolean' | 'zwgPerUsd';
   /** Money settings: a change applies only after a second admin approves it */
   critical?: boolean;
   min?: number;
@@ -39,6 +39,7 @@ export interface SettingDefinition {
 // config is declared `as const` for type safety; these few values are
 // deliberately changed at runtime, and only here.
 const mutable = config as unknown as {
+  zwgPerUsd: number;
   ride: Record<string, unknown>;
   tracking: Record<string, unknown>;
   safety: { checkInSeconds: Record<string, number> };
@@ -64,6 +65,18 @@ const WEIGHT_KEYS = ['proximity', 'time', 'rating', 'acceptance', 'safety'] as c
 export const SETTINGS: SettingDefinition[] = [
   { ...numberSetting('platformFeeRate', 'fees', 'Platform commission', 'Share of each fare the platform keeps. Applies to rides completed after the change.', 'percent', 0, 0.3, mutable.ride, 'platformFeeRate'), critical: true },
   {
+    key: 'zwgPerUsd',
+    group: 'fees',
+    label: 'ZiG exchange rate',
+    help: 'ZiG charged per US dollar when a rider chooses to pay in ZiG. Prices and wallets stay in US dollars. Set 0 to turn ZiG payments off. Use the RBZ interbank rate.',
+    unit: 'zwgPerUsd',
+    critical: true,
+    min: 0,
+    max: 1000,
+    read: () => mutable.zwgPerUsd,
+    write: (v) => { mutable.zwgPerUsd = Number(v); },
+  },
+  {
     key: 'keepPlatformFeeOnCancel',
     group: 'fees',
     label: 'Keep the platform fee when a rider cancels',
@@ -83,7 +96,7 @@ export const SETTINGS: SettingDefinition[] = [
     read: () => mutable.ride.riderCancellationRefunds,
     write: (v) => { mutable.ride.riderCancellationRefunds = v; },
   },
-  numberSetting('paymentTimeoutMins', 'cancellation', 'Payment time limit', 'Card and UPI requests still unpaid after this are cancelled.', 'minutes', 5, 60, mutable.ride, 'paymentTimeoutMins'),
+  numberSetting('paymentTimeoutMins', 'cancellation', 'Payment time limit', 'Requests paid online (EcoCash, OneMoney, InnBucks, card) still unpaid after this are cancelled.', 'minutes', 5, 60, mutable.ride, 'paymentTimeoutMins'),
   numberSetting('requestExpiryHours', 'cancellation', 'Driver response time', 'Requests the driver has not answered after this expire with a full refund.', 'hours', 1, 24, mutable.ride, 'requestExpiryHours'),
   numberSetting('emptyRideCancelMins', 'cancellation', 'Cancel empty rides before departure', 'Rides nobody has booked are cancelled this long before they leave.', 'minutes', 15, 240, mutable.ride, 'emptyRideCancelMins'),
   numberSetting('routeDeviationMeters', 'safety', 'Route deviation alert', 'The rider, driver and admins are alerted when the car is further than this from the planned route.', 'meters', 100, 5000, mutable.tracking, 'routeDeviationMeters'),

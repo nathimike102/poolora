@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { ParcelPoolingService } from '../services/ParcelPoolingService';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
-import { config } from '../config';
 
 const parcelService = new ParcelPoolingService();
 
@@ -18,13 +17,14 @@ export class ParcelPoolingController {
   ): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { parcel, razorpayOrder, deliveryOtp } = await parcelService.createParcelRequest(
+      const { parcel, deliveryOtp } = await parcelService.createParcelRequest(
         user.userId,
         req.body,
       );
       sendSuccess(
         res,
-        { parcel, razorpayOrder, razorpayKeyId: razorpayOrder ? config.razorpay.keyId : undefined, deliveryOtp },
+        // An online payment is started next with POST /payments/start
+        { parcel, deliveryOtp },
         201,
         req.requestId,
       );

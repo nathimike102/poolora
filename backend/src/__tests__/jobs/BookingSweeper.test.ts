@@ -44,7 +44,7 @@ beforeEach(() => {
 
 describe('BookingSweeper', () => {
   it('cancels a card request that is still unpaid after 15 minutes', async () => {
-    pendingBookings([{ _id: 'b1', razorpayOrderId: 'order_1' }], []);
+    pendingBookings([{ _id: 'b1', paymentMethod: 'online' }], []);
     ridesDueSoon([]);
     (Payment.exists as jest.Mock).mockResolvedValue(null);
 
@@ -58,7 +58,7 @@ describe('BookingSweeper', () => {
   });
 
   it('keeps a request that was paid, waiting for the driver', async () => {
-    pendingBookings([{ _id: 'b1', razorpayOrderId: 'order_1' }], []);
+    pendingBookings([{ _id: 'b1', paymentMethod: 'online' }], []);
     ridesDueSoon([]);
     (Payment.exists as jest.Mock).mockResolvedValue({ _id: 'p1' });
 

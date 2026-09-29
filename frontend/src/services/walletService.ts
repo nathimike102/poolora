@@ -7,13 +7,7 @@
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';
 import { logger } from '../utils/logger';
-import type { ApiResponse, Wallet, Transaction, PaginatedResponse, PaginatedResult } from '../types/api';
-
-export interface TopUpResult {
-  transactionId: string;
-  balance: number;
-  [key: string]: unknown;
-}
+import type { ApiResponse, Wallet, Transaction, PaginatedResponse, PaginatedResult, Withdrawal } from '../types/api';
 
 export interface ConvertCoinsResult {
   coins: number;
@@ -65,18 +59,22 @@ export const walletService = {
     }
   },
 
-  /**
-   * Top up wallet
-   */
-  async topUp(amount: number): Promise<TopUpResult> {
-    try {
-      const response = await apiClient.post<ApiResponse<TopUpResult>>(API_ENDPOINTS.wallet.topUp, { amount });
-      logger.info('Wallet topped up', { amount });
-      return response.data.data;
-    } catch (error) {
-      logger.error('Failed to top up wallet', { error, amount });
-      throw error;
-    }
+  /** The user's recent withdrawals to mobile money */
+  async withdrawals(): Promise<Withdrawal[]> {
+    const response = await apiClient.get<ApiResponse<{ withdrawals: Withdrawal[] }>>(API_ENDPOINTS.wallet.withdrawals);
+    return response.data.data.withdrawals;
+  },
+
+  /** Sends wallet money to EcoCash, OneMoney or InnBucks; a person pays it out */
+  async withdraw(input: { amount: number; channel: Withdrawal['channel']; payNumber: string }): Promise<Withdrawal> {
+    const response = await apiClient.post<ApiResponse<{ withdrawal: Withdrawal }>>(API_ENDPOINTS.wallet.withdrawals, input);
+    logger.info('Withdrawal requested', { amount: input.amount, channel: input.channel });
+    return response.data.data.withdrawal;
+  },
+
+  async cancelWithdrawal(id: string): Promise<Withdrawal> {
+    const response = await apiClient.post<ApiResponse<{ withdrawal: Withdrawal }>>(API_ENDPOINTS.wallet.cancelWithdrawal(id));
+    return response.data.data.withdrawal;
   },
 
   /**

@@ -4,7 +4,7 @@ import { authenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import {
     topUpWalletSchema,
-    confirmTopUpSchema,
+    withdrawalSchema,
     convertCoinsSchema,
     paginationSchema,
 } from '../validators';
@@ -23,11 +23,13 @@ router.use(authenticate);
 /** GET /api/v1/wallet — current balance, coins, tier */
 router.get('/', WalletController.getWallet);
 
-/** POST /api/v1/wallet/topup — create Razorpay order for wallet top-up */
+/** POST /wallet/topup — start a Paynow payment that tops up the wallet; follow it at /payments/charges/:reference */
 router.post('/topup', validate(topUpWalletSchema), WalletController.createTopUpOrder);
 
-/** POST /api/v1/wallet/topup/confirm — confirm payment and credit wallet */
-router.post('/topup/confirm', validate(confirmTopUpSchema), WalletController.confirmTopUp);
+/** Withdrawals to mobile money */
+router.get('/withdrawals', WalletController.listWithdrawals);
+router.post('/withdrawals', validate(withdrawalSchema), WalletController.requestWithdrawal);
+router.post('/withdrawals/:id/cancel', WalletController.cancelWithdrawal);
 
 /** GET /api/v1/wallet/transactions — paginated wallet movement history */
 router.get('/transactions', validate(paginationSchema), WalletController.getTransactions);

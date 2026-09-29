@@ -6,7 +6,6 @@
  */
 import crypto from 'crypto';
 
-jest.mock('razorpay', () => jest.fn());
 jest.mock('../../models/ParcelPooling', () => ({
   ParcelPooling: { findById: jest.fn(), findOne: jest.fn(), updateOne: jest.fn() },
 }));

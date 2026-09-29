@@ -58,7 +58,7 @@ export function ParcelResultsScreen() {
     const driver = ride.driver?.name?.split(' ')[0] ?? 'the driver';
     Alert.alert(
       `Send with ${driver}?`,
-      `${price !== null ? `${money(price)} ` : ''}${draft.useWallet ? 'from your wallet' : 'by card or UPI'}. You get a full refund if ${driver} declines or you cancel before pickup.`,
+      `${price !== null ? `${money(price)} ` : ''}${draft.useWallet ? 'from your wallet' : 'by EcoCash, OneMoney, InnBucks or card'}. You get a full refund if ${driver} declines or you cancel before pickup.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -77,14 +77,11 @@ export function ParcelResultsScreen() {
                 useWallet: draft.useWallet,
               });
               const tracking = { trackingNumber: result.parcel.trackingNumber, deliveryCode: result.deliveryOtp };
-              if (result.razorpayOrder && result.razorpayKeyId) {
-                // Card payment first; the tracking screen follows once paid
+              if (result.parcel.paymentMethod === 'online') {
+                // Pay online first; the tracking screen is underneath once paid
                 navigation.replace('ParcelTracking', tracking);
                 navigation.navigate('Payment', {
-                  bookingId: result.parcel._id,
                   parcelId: result.parcel._id,
-                  orderId: result.razorpayOrder.id,
-                  keyId: result.razorpayKeyId,
                   amount: result.parcel.estimatedCost,
                   summary: `Parcel to ${draft.deliveryLocation.contactPerson}, ${draft.deliveryLocation.address.split(',')[0]}`,
                 });

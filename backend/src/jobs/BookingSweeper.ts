@@ -2,7 +2,9 @@
  * BookingSweeper.ts
  *
  * Time-based booking rules that no request triggers:
- * - card/UPI requests still unpaid after 15 minutes are cancelled (UC-R04)
+ * - online-payment requests still unpaid after 15 minutes are cancelled (UC-R04)
+ * - Paynow payments still pending are checked with Paynow, in case its
+ *   status message was lost
  * - requests the driver has not answered in 6 hours, or whose ride has
  *   already left, expire and are refunded (UC-D03)
  * - rides nobody has booked are cancelled 1 hour before departure (UC-D02)
@@ -62,6 +64,9 @@ export class BookingSweeper {
     if (result.unpaidCancelled || result.requestsExpired || result.emptyRidesCancelled) {
       logger.info('Booking sweep', result);
     }
+    const { ChargeService } = await import('../services/ChargeService');
+    const reconciled = await new ChargeService().reconcilePending();
+    if (reconciled) logger.info('Paynow payments reconciled', { reconciled });
     // Riders who have not rated a day after the trip get one reminder (UC-R06 3a)
     const { RatingService } = await import('../services/RatingService');
     const reminded = await new RatingService().sendReminders();
@@ -80,16 +85,13 @@ export class BookingSweeper {
     const cutoff = new Date(now.getTime() - config.ride.paymentTimeoutMins * MINUTE);
     const candidates = await Booking.find({
       status: BookingStatus.PENDING,
-      razorpayOrderId: { $exists: true, $ne: null },
+      paymentMethod: 'online',
       createdAt: { $lt: cutoff },
-    }).select('_id razorpayOrderId');
+    }).select('_id');
 
     let count = 0;
     for (const booking of candidates) {
-      const paid = await Payment.exists({
-        razorpayOrderId: booking.razorpayOrderId,
-        status: { $in: [PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED] },
-      });
+      const paid = await Payment.exists({ booking: booking._id, status: PaymentStatus.CAPTURED });
       if (paid) continue;
       const done = await this.bookingService.expireBooking(
         booking._id.toString(),

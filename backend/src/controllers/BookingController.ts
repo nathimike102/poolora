@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { config } from '../config';
 import { BookingService } from '../services/BookingService';
 import { AuthenticatedRequest, BookingStatus } from '../types';
 import { sendSuccess, sendPaginated } from '../utils/helpers';
@@ -10,7 +9,8 @@ const bookingService = new BookingService();
 export class BookingController {
   /**
    * POST /api/v1/bookings
-   * Create a booking request with Razorpay order.
+   * Create a booking request. Unless it was paid from the wallet, the app
+   * pays for it next with POST /payments/start.
    */
   static async createBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -20,10 +20,7 @@ export class BookingController {
         res,
         {
           booking: result.booking,
-          razorpayOrder: result.razorpayOrder,
-          paidViaWallet: Boolean(result.paidViaWallet),
-          // Public key id the app needs to open Razorpay Checkout for this order
-          razorpayKeyId: result.razorpayOrder ? config.razorpay.keyId : undefined,
+          paidViaWallet: result.paidViaWallet,
         },
         201,
         req.requestId,
