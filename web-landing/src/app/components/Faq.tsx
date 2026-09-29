@@ -57,7 +57,7 @@ export function Faq() {
     () => [
       {
         q: `What is ${COMPANY.name}?`,
-        a: `${COMPANY.name} is a carpooling app for India. A driver who is already making a journey publishes it with the seats they can spare and the price per seat. Riders going the same way search for that route and book a seat. It is not a taxi service, so there are no professional drivers and no on-demand pickups.`,
+        a: `${COMPANY.name} is a carpooling app for Zimbabwe. A driver who is already making a journey publishes it with the seats they can spare and the price per seat. Riders going the same way search for that route and book a seat. It is not a taxi service, so there are no professional drivers and no on-demand pickups.`,
       },
       {
         q: 'How is this different from a cab app?',
@@ -77,7 +77,7 @@ export function Faq() {
       },
       {
         q: 'How do payments work?',
-        a: `You pay when you book, through UPI or a card, or from your ${COMPANY.name} wallet. If a ride is cancelled, by you within the allowed window or by the driver, you are refunded in full. The driver's share, after our platform fee, is worked out when the ride is marked complete. Bank payouts to drivers are part of the payment work we are still finishing.`,
+        a: `You pay when you book, by EcoCash, OneMoney, InnBucks or card, or from your ${COMPANY.name} wallet. Prices are in US dollars, and you can pay in ZiG where it is offered. Refunds go to your wallet at once. The driver's share, after our platform fee, goes to their wallet when the ride is marked complete, and anyone can withdraw their wallet to EcoCash, OneMoney or InnBucks.`,
       },
       {
         q: 'What are parcel pooling and trip pooling?',

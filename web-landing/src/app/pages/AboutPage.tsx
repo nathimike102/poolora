@@ -100,8 +100,8 @@ export function AboutPage() {
               Cars make the same trip every morning with the seats empty.
             </h2>
             <p className="text-gray-700 leading-relaxed mb-5">
-              Someone drives to the same office park at the same time every weekday with three seats
-              nobody uses. Someone else pays for a cab along that exact road. Putting those two people
+              Someone drives into town from Borrowdale at the same time every weekday with three seats
+              nobody uses. Someone else waits for a kombi along that exact road. Putting those two people
               in touch is the whole idea, and the hard part is not the matching. It is making both of
               them comfortable enough to share a car.
             </p>
@@ -110,6 +110,36 @@ export function AboutPage() {
               the first release rather than a later one. If the ride does not feel safe, nothing else
               about the product matters.
             </p>
+          </div>
+        </Container>
+      </section>
+
+      {/* Built for Zimbabwe */}
+      <section className="py-14">
+        <Container>
+          <div className="max-w-3xl mb-8">
+            <p className="text-sm font-bold text-brand-dark uppercase tracking-widest mb-4">Built for Zimbabwe</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight leading-tight mb-4">
+              Made for how people here travel and pay.
+            </h2>
+            <p className="text-gray-700 leading-relaxed">
+              Vision 2030 and the National Development Strategy 2 (2026 to 2030) put transport, digital
+              services, jobs for young people and climate resilience at the centre of the next five years.
+              {` ${COMPANY.name}`} is a private service, not a government programme, but it is built around the same needs.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[
+              { title: 'Cheaper daily travel', desc: 'Sharing a car that is already making the trip costs about what a kombi does, in a seat that is booked, with a driver whose documents we have checked.' },
+              { title: 'The new corridors', desc: 'Rides can run up to 650 km, so Harare to Bulawayo, Mutare, Masvingo or Beitbridge can be shared, and the fuel and tolls split.' },
+              { title: 'Mobile money first', desc: 'Pay with EcoCash, OneMoney, InnBucks or a card, in US dollars or ZiG. Drivers withdraw what they earn straight to mobile money.' },
+              { title: 'Fewer empty seats', desc: 'Every seat filled is a car that did not need to make the trip, which means less fuel burned and less traffic into town.' },
+            ].map((item) => (
+              <div key={item.title} className="rounded-2xl border border-gray-200 bg-white p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{item.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
           </div>
         </Container>
       </section>

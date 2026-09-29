@@ -110,7 +110,7 @@ export function TripPoolingPage() {
               so nobody has to chase anyone for cash.
             </p>
             <p className="text-gray-700 leading-relaxed">
-              We are not publishing example routes with rupee figures. Fuel prices, vehicles and tolls
+              We are not publishing example routes with dollar figures. Fuel prices, vehicles and tolls
               vary too much for a made-up table to tell you anything useful.
             </p>
           </div>

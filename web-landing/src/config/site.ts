@@ -41,11 +41,14 @@ export const siteConfig: SiteConfig = {
   url: COMPANY.website,
   themeColor: '#0B7A75',
   seo: {
-    title: `${COMPANY.name}: carpooling for India`,
+    title: `${COMPANY.name}: carpooling for Zimbabwe`,
     description: COMPANY.description,
     keywords: [
       'ride pooling',
-      'carpooling India',
+      'carpooling Zimbabwe',
+      'lift club Harare',
+      'Harare to Bulawayo ride',
+      'EcoCash',
       'parcel pooling',
       'trip pooling',
       'women safety',
@@ -54,7 +57,7 @@ export const siteConfig: SiteConfig = {
       'shared rides',
     ],
     ogImage: `${COMPANY.website}/og-image.jpg`,
-    locale: 'en_IN',
+    locale: 'en_ZW',
     twitterHandle: '',
   },
   analytics: {

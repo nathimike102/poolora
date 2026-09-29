@@ -96,6 +96,6 @@ export const COMPANY: CompanyConfig = {
   },
   appStore: "#",
   playStore: "#",
-  description: "Poolora is a carpooling app for India, in development. Drivers offer empty seats on journeys they are already making, riders book a seat at the price the driver sets, and safety tools are part of every ride.",
+  description: "Poolora is a carpooling app for Zimbabwe, in development. Drivers offer empty seats on journeys they are already making, riders book a seat at the price the driver sets, and safety tools are part of every ride.",
   copyright: `© ${new Date().getFullYear()} Poolora. All rights reserved.`,
 };

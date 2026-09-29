@@ -8,7 +8,7 @@ The API behind the Poolora app: scheduled car pooling, with parcel pooling in pr
 
 ## Stack
 
-Node.js 20+, TypeScript, Express 5, MongoDB (Mongoose 8), Redis (ioredis), Socket.IO with the Redis adapter, Kafka (kafkajs, optional), Firebase Admin, Razorpay, AWS S3, Twilio, Winston, and Jest with Supertest.
+Node.js 20+, TypeScript, Express 5, MongoDB (Mongoose 8), Redis (ioredis), Socket.IO with the Redis adapter, Kafka (kafkajs, optional), Firebase Admin, Paynow (over HTTP, no SDK), AWS S3, Twilio, Winston, and Jest with Supertest.
 
 ## Running it
 
@@ -54,8 +54,8 @@ src/
 
 ## Booking rules in brief
 
-Riders pay when they request a seat, from the wallet or through Razorpay. The driver accepts once the payment is in, which reserves the seats atomically. Razorpay webhooks only record payments; they never confirm a booking. The booking sweeper then:
-- cancels card and UPI requests still unpaid after 15 minutes
+Riders pay when they request a seat, from the wallet or online through Paynow (EcoCash, OneMoney, InnBucks or card, in US dollars or ZiG). The driver accepts once the payment is in, which reserves the seats atomically. Paynow's status updates only record payments; they never confirm a booking. Paynow cannot refund, so refunds of online payments go to the wallet, and users withdraw the wallet to mobile money (an admin sends each withdrawal). The booking sweeper then:
+- cancels online-payment requests still unpaid after 15 minutes, and re-checks Paynow payments still pending
 - expires requests the driver has not answered within 6 hours
 - cancels rides nobody booked, 1 hour before departure
 

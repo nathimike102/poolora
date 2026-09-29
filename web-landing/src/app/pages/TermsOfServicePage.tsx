@@ -48,7 +48,7 @@ export function TermsOfServicePage() {
         },
         {
           sub: 'Driver Obligations',
-          text: "Drivers must maintain valid and current Driving License, Vehicle RC, Insurance, and PUC certificates at all times. Drivers must not offer more seats than the vehicle's legal seating capacity. Rides must start and end at declared locations.",
+          text: "Drivers must keep a valid driving licence, the vehicle registration book, insurance and a current ZINARA vehicle licence at all times, and the vehicle must be roadworthy. Drivers must not offer more seats than the vehicle's legal seating capacity. Rides must start and end at declared locations.",
         },
         {
           sub: 'Rider Obligations',
@@ -56,7 +56,7 @@ export function TermsOfServicePage() {
         },
         {
           sub: 'Cancellations',
-          text: 'A booking cancelled before the ride is completed, by either the rider or the driver, is refunded in full. We do not charge a cancellation fee. Repeated no-shows may lead to restrictions on your account.',
+          text: 'A request the driver has not yet accepted, or a booking the driver cancels or changes, is refunded in full. When you cancel a confirmed seat, you get everything back 24 hours or more before departure, half from 12 hours, a quarter from 6 hours, and nothing after that; the app shows the exact amount before you confirm. Repeated no-shows may lead to restrictions on your account.',
         },
       ],
     },
@@ -69,15 +69,15 @@ export function TermsOfServicePage() {
         },
         {
           sub: 'When money moves',
-          text: `You pay when you book, through our payment provider. The driver's share is calculated when the ride is marked complete, so a ride that never happens is refunded rather than paid out.`,
+          text: `You pay when you book, by EcoCash, OneMoney, InnBucks or card through Paynow, or from your ${COMPANY.name} wallet. Prices are in US dollars; where ZiG is offered you can pay in ZiG at the rate shown before you pay. The driver's share is calculated when the ride is marked complete, so a ride that never happens is refunded rather than paid out.`,
         },
         {
           sub: 'Refunds',
-          text: `A refund is sent back to the payment method you used. How long it takes to appear is decided by your bank or payment provider, not by us. If a refund does not arrive, email ${COMPANY.emails.support} and we will chase it.`,
+          text: `Refunds go to your ${COMPANY.name} wallet straight away, however you paid. You can spend the balance on rides or withdraw it to EcoCash, OneMoney or InnBucks; a person sends each withdrawal, usually within one working day. If a refund or withdrawal does not arrive, email ${COMPANY.emails.support} and we will chase it.`,
         },
         {
           sub: 'Tax',
-          text: 'Drivers are responsible for declaring what they earn. Where Indian law requires us to deduct tax at source or to report earnings, we will do so and tell the driver what was deducted.',
+          text: 'Drivers are responsible for declaring what they earn. Where Zimbabwean law requires us to withhold tax or to report earnings to ZIMRA, we will do so and tell the driver what was deducted.',
         },
       ],
     },
@@ -132,11 +132,11 @@ export function TermsOfServicePage() {
         },
         {
           sub: 'Governing Law',
-          text: `These Terms are governed by the laws of India. Any legal disputes shall be subject to the exclusive jurisdiction of the courts in Hyderabad, Telangana.`,
+          text: `These Terms are governed by the laws of Zimbabwe, and the courts of Zimbabwe have jurisdiction over any dispute about them.`,
         },
         {
           sub: 'Arbitration',
-          text: 'Both parties agree to attempt good-faith resolution before initiating formal legal proceedings. Where required, arbitration shall be conducted per the Arbitration and Conciliation Act, 1996.',
+          text: 'Both parties agree to attempt good-faith resolution before initiating formal legal proceedings. Where both agree, a dispute may go to arbitration under the Arbitration Act [Chapter 7:15].',
         },
       ],
     },

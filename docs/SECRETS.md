@@ -64,7 +64,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `AWS_S3_BUCKET` | yes | Create a private bucket (block all public access) in S3 |
 | `TWILIO_ENABLED` | yes for SMS | `true` to send SMS. SOS texts to emergency contacts need this |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | if SMS on | console.twilio.com, Account Info on the dashboard |
-| `TWILIO_PHONE_NUMBER` | if SMS on | Twilio console, Phone Numbers, buy a number that can send SMS to India (DLT registration is required for Indian traffic) |
+| `TWILIO_PHONE_NUMBER` | if SMS on | Twilio console, Phone Numbers, buy a number that can send SMS to Zimbabwe (Econet, NetOne and Telecel); check Twilio's Zimbabwe sender rules, which may require a registered alphanumeric sender ID |
 | `GOOGLE_MAPS_API_KEY` | no | Leave empty to use the free OpenStreetMap services (Photon, Nominatim, OSRM), which need no key. To use Google instead: console.cloud.google.com, APIs & Services, Credentials, Create API key; enable Places, Geocoding and Directions; restrict it to those APIs and the server's IP. With a key set, Google is used unless `MAPS_PROVIDER=osm` |
 | `MAPS_PROVIDER` | no | `osm` or `google`. Default: `google` when a Google key is set, otherwise `osm` |
 | `PHOTON_URL`, `NOMINATIM_URL`, `OSRM_URL`, `OSM_USER_AGENT` | production with OSM | The public OSM servers are for light use (Nominatim allows 1 request per second). Point these at self-hosted instances or a hosted OSM provider for real traffic. Nominatim asks for a user agent with a contact address |

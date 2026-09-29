@@ -7,8 +7,8 @@ import { Turnstile, turnstileEnabled } from './common/Turnstile';
 import { submitContact } from '@/services/contact';
 
 const cities = [
-  'Hyderabad', 'Bangalore', 'Pune', 'Mumbai', 'Chennai',
-  'Delhi / NCR', 'Kolkata', 'Ahmedabad', 'Other',
+  'Harare', 'Chitungwiza', 'Bulawayo', 'Mutare', 'Gweru',
+  'Kwekwe', 'Masvingo', 'Victoria Falls', 'Other',
 ];
 
 /** What joining the list actually gets you. Nothing here is a promise we cannot keep. */

@@ -3,6 +3,6 @@
  * in the same commit as any edit to a policy, so `lastmod` stays honest.
  */
 export const LEGAL = {
-  privacyUpdated: '18 September 2026',
-  termsUpdated: '18 September 2026',
+  privacyUpdated: '29 September 2026',
+  termsUpdated: '29 September 2026',
 } as const;

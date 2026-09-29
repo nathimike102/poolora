@@ -4,7 +4,7 @@
 
 > **"Share Seats. Save Costs. Travel Smarter."**
 
-A production-grade, full-stack AI-powered mobility platform encompassing Car-Pooling, Parcel-Pooling, and Trip-Pooling services with intelligent ride matching, real-time tracking, and safety-first infrastructure.
+A full-stack mobility platform for Zimbabwe, encompassing Car-Pooling, Parcel-Pooling, and Trip-Pooling services with intelligent ride matching, real-time tracking, and safety-first infrastructure.
 
 Built with **React Native (Expo)**, **Node.js / Express**, **MongoDB**, **Redis**, **Kafka**, **Elasticsearch**, **Docker**, and **Socket.IO**.
 
@@ -82,7 +82,7 @@ Poolora is a cloud-native AI-powered mobility platform built to address these ch
 - ✅ **Predictive Analytics** — Demand forecasting and fraud detection engines
 - ✅ **Geospatial Optimisation** — VRP/TSP algorithms minimising detours and fuel consumption
 - ✅ **Safety-First Infrastructure** — Emergency SOS systems, live tracking, women-only rides
-- ✅ **Secure Payments** — Razorpay integration with AES-256 encryption
+- ✅ **Mobile money payments** — Paynow: EcoCash, OneMoney, InnBucks and Visa/Mastercard, in US$ or ZiG
 - ✅ **Scalable Architecture** — Node.js API with Kafka events, Redis caching and Socket.IO, plus a Python ML service
 - ✅ **Production-Ready Deployment** — Docker Compose or Kubernetes, GitHub Actions CI/CD
 
@@ -137,7 +137,7 @@ These are the targets the architecture is built for, not measured results.
 
 ### Payment Processing
 
-- ✅ Razorpay payment integration with webhook handling
+- ✅ Paynow payment integration with hash-verified status updates and reconciliation
 - ✅ Wallet infrastructure with balance management
 - ✅ Refund and retry workflows
 - ✅ Driver payout processing and accounting
@@ -156,7 +156,7 @@ These are the targets the architecture is built for, not measured results.
 - 💬 In-App Encrypted Chat
 - ⭐ Ratings & Reviews with safety scores
 - 🔗 Live Trip Sharing with emergency contacts
-- 💳 Wallet & Multiple Payment Methods (UPI, Card, Wallet)
+- 💳 Wallet, withdrawals to mobile money, and EcoCash / OneMoney / InnBucks / card payments
 - 🆘 One-Tap Emergency SOS
 - 👩 Women-Only Ride Preference
 - 🔔 Safety Check-In Alerts
@@ -169,7 +169,7 @@ These are the targets the architecture is built for, not measured results.
 - 🗺️ AI-Optimised Route Suggestions (VRP/TSP)
 - 🎯 Smart Pickup Sequencing for efficiency
 - 💹 Earnings Dashboard with analytics
-- ✅ KYC Verification with document management (Aadhaar, DL, RC, PAN, Insurance)
+- ✅ Driver verification with document management (driving licence, registration book, insurance)
 - 🚙 Vehicle & Document Management
 
 ### 🛠️ Admin Features
@@ -294,7 +294,7 @@ The SOS layer is designed as an event-driven monitoring system, not just a panic
 | Cache & Messaging | Redis 7.2 Cluster, Kafka 7.5 (Confluent)           |
 | Search            | Elasticsearch 8.11                                 |
 | AI & Optimisation | ML Matching, Demand Prediction, Route Optimisation |
-| Payments          | Razorpay                                           |
+| Payments          | Paynow (EcoCash, OneMoney, InnBucks, card)         |
 | DevOps            | Docker Compose, GitHub Actions CI/CD, EC2          |
 | Cloud Storage     | AWS S3                                             |
 
@@ -310,7 +310,7 @@ React Native App ──HTTP/Socket.IO──► NGINX / Kubernetes ingress
             ┌───────────────┬─────────────┼──────────────┬─────────────────┐
             ▼               ▼             ▼              ▼                 ▼
         MongoDB 7        Redis 7      Kafka (optional)  ML service     External services
-     rides, users,    cache, rate    events that drive  (FastAPI):     Razorpay, Firebase,
+     rides, users,    cache, rate    events that drive  (FastAPI):     Paynow, Firebase,  
      bookings,        limits, locks, push notifications route order,   Twilio, S3,
      payments         socket fan-out                    fraud, demand  OpenStreetMap / Google
 ```
@@ -336,7 +336,7 @@ React Native App ──HTTP/Socket.IO──► NGINX / Kubernetes ingress
 | Real-Time         | Socket.IO 4 + Redis adapter          |
 | Authentication    | JWT + Firebase Admin SDK 13          |
 | Cloud Storage     | AWS S3 SDK v3                        |
-| Payments          | Razorpay                             |
+| Payments          | Paynow                               |
 | Maps              | OpenStreetMap (Photon, Nominatim, OSRM) or Google |
 | Logging           | Winston                              |
 | Testing           | Jest 30 + Supertest                  |
@@ -682,7 +682,7 @@ Copy `backend/.env.example` to `backend/.env` and fill in the values. **[docs/SE
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`     | JWT signing secrets (at least 64 characters)     |
 | `AUTH_PROVIDER`                                | `firebase` \| `custom` \| `hybrid`               |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_PATH` | Firebase sign-in and push                |
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET` | Razorpay payments and webhook |
+| `PAYNOW_USD_INTEGRATION_ID` / `PAYNOW_USD_INTEGRATION_KEY` / `PAYNOW_AUTH_EMAIL` | Paynow payments (US$); add `PAYNOW_ZWG_*` and `ZWG_PER_USD` for ZiG |
 | `AWS_*`                                        | S3 bucket for KYC documents                      |
 | `GOOGLE_MAPS_API_KEY`, `MAPS_PROVIDER`         | Optional. Without a key, free OpenStreetMap services are used |
 | `ML_SERVICE_URL` / `ML_SERVICE_API_KEY`        | The Python ML service and its shared key         |

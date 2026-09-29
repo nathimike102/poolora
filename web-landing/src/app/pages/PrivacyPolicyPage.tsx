@@ -16,7 +16,7 @@ export function PrivacyPolicyPage() {
       content: [
         {
           sub: 'The people responsible for your data',
-          text: `${COMPANY.name} is a carpooling service in development, run from ${COMPANY.address}. We decide what personal data is collected and why, which under the Digital Personal Data Protection Act, 2023 makes us the data fiduciary. You can reach us at ${COMPANY.emails.contact}.`,
+          text: `${COMPANY.name} is a carpooling service in development, run from ${COMPANY.address}. We decide what personal data is collected and why, which makes us the data controller under Zimbabwe's Cyber and Data Protection Act [Chapter 12:07]. The Postal and Telecommunications Regulatory Authority of Zimbabwe (POTRAZ) is the Data Protection Authority under that Act. Write to ${COMPANY.emails.contact} with any question about your data, including for our data protection officer.`,
         },
         {
           sub: 'What this policy covers',
@@ -54,7 +54,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'Driver documents',
-          text: 'To offer rides you upload your driving licence, the vehicle registration certificate, insurance and a photo of the vehicle, plus the licence and vehicle details. A member of our team looks at these to approve or reject you. We do not collect Aadhaar and we are not connected to DigiLocker.',
+          text: 'To offer rides you upload your driving licence, the vehicle registration book, insurance and a photo of the vehicle, plus the licence and vehicle details. A member of our team looks at these to approve or reject you. We do not ask for your national ID number.',
         },
         {
           sub: 'Location',
@@ -66,7 +66,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'Payments',
-          text: `Payments are handled by Razorpay. We never see or store your card number or UPI PIN. We keep the payment reference, amount, status and any refund record for accounting and for sorting out disputes.`,
+          text: `Payments are handled by Paynow, which takes EcoCash, OneMoney, InnBucks and Visa or Mastercard. We never see or store your PIN or card number. We keep the payment reference, the mobile money number or channel you paid with, the amount, the currency and exchange rate if you paid in ZiG, the status and any refund record, for accounting and for sorting out disputes. When you withdraw from your wallet we keep the number we sent it to and the transaction reference.`,
         },
         {
           sub: 'Messages and ratings',
@@ -112,7 +112,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'Service providers',
-          text: 'Razorpay for payments, Twilio for SMS, Google Firebase for push notifications and sign-in, Google Maps for routing and maps, Amazon Web Services for hosting and file storage, and Sentry for error reports. Each one only receives what it needs to do its job.',
+          text: 'Paynow for payments, Twilio for SMS, Google Firebase for push notifications and sign-in, Google Maps or OpenStreetMap for routing and maps, Amazon Web Services for hosting and file storage, and Sentry for error reports. Each one only receives what it needs to do its job.',
         },
         {
           sub: 'Nobody else',
@@ -125,15 +125,15 @@ export function PrivacyPolicyPage() {
       content: [
         {
           sub: 'Storage',
-          text: 'Our database and uploaded documents are hosted on Amazon Web Services, configured to the Mumbai region (ap-south-1). Some of the providers above process data outside India under their own terms.',
+          text: 'Our database and uploaded documents are hosted on Amazon Web Services in its Cape Town region (af-south-1), in South Africa, the nearest region to Zimbabwe. Some of the providers above process data in other countries under their own terms. We only send personal data outside Zimbabwe to do the jobs listed in this policy.',
         },
         {
           sub: 'Retention',
-          text: 'Waitlist and enquiry details are kept until you ask us to remove them. Account data is kept while your account exists. Payment and tax records are kept for as long as Indian tax law requires. Driver documents are kept while the driver is approved and deleted when the account is closed.',
+          text: 'Waitlist and enquiry details are kept until you ask us to remove them. Account data is kept while your account exists. Payment and tax records are kept for as long as Zimbabwean tax law requires. Driver documents are kept while the driver is approved and deleted when the account is closed.',
         },
         {
           sub: 'Security',
-          text: 'Traffic is encrypted with HTTPS. Documents are held in private storage and opened through links that expire after a few minutes. Access to personal data is limited to the people who need it, and passwords, tokens and keys are never stored in readable form.',
+          text: 'Traffic is encrypted with HTTPS. Documents are held in private storage and opened through links that expire after a few minutes. Access to personal data is limited to the people who need it, and passwords, tokens and keys are never stored in readable form. If a breach puts your data at risk, we will tell POTRAZ and the people affected, as the Act requires.',
         },
       ],
     },
@@ -154,7 +154,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'Complaints',
-          text: 'If you think we have handled your data badly, tell us first so we can put it right. You may also complain to the Data Protection Board of India.',
+          text: 'If you think we have handled your data badly, tell us first so we can put it right. You may also complain to POTRAZ, the Data Protection Authority under the Cyber and Data Protection Act.',
         },
       ],
     },

@@ -48,7 +48,7 @@ const milestones: Milestone[] = [
   },
   {
     label: 'Payments',
-    detail: 'Razorpay checkout, wallet and refunds are built. Live merchant approval is pending.',
+    detail: 'Paynow payments (EcoCash, OneMoney, InnBucks, card; US$ and ZiG), the wallet, refunds and withdrawals are built. Live Paynow integration approval is pending.',
     state: 'progress',
   },
   {
