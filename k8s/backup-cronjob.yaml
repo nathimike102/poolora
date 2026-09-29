@@ -14,7 +14,7 @@ metadata:
   namespace: poolora
 spec:
   schedule: "0 2 * * *"
-  timeZone: "Asia/Kolkata"
+  timeZone: "Africa/Harare"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3

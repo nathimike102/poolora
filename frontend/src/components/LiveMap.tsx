@@ -39,6 +39,7 @@ import { useApp } from '../context/AppContext';
 import { MAPS_ENABLED, MAP_STYLE } from '../config/maps';
 import { Icon } from './Icon';
 import { MapPlaceholder } from './MapPlaceholder';
+import { REGION } from '../utils/region';
 
 type Coordinate = { latitude: number; longitude: number };
 
@@ -60,7 +61,7 @@ interface LiveMapProps {
 }
 
 /* ── Fallback camera centre (Bangalore) ─────────────────────────── */
-const DEFAULT_CENTER: Coordinate = { latitude: 12.9352, longitude: 77.6245 };
+const DEFAULT_CENTER: Coordinate = REGION.center;
 const DEFAULT_ZOOM = 13;
 const FIT_PADDING = { top: 60, right: 60, bottom: 60, left: 60 };
 

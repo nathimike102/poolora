@@ -29,12 +29,13 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
 import { bookingService } from '../../services/bookingService';
 import { safetyService, type EmergencyContact, type SOSResponse } from '../../services/safetyService';
+import { REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const CIRCUMFERENCE = 2 * Math.PI * 78;
-/** India's single emergency number (police, fire, ambulance). */
-const EMERGENCY_NUMBER = '112';
+/** Zimbabwe's emergency number; police are also on 995 and ambulances on 994. */
+const EMERGENCY_NUMBER = REGION.emergency.general;
 const LOCATION_UPDATE_MS = 15_000;
 
 type Phase = 'idle' | 'holding' | 'countdown' | 'sending' | 'active' | 'failed';

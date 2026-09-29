@@ -22,6 +22,7 @@ import type { Ride as ApiRide, PaginatedResponse } from '../../types/api';
 import { rideAlertService } from '../../services/rideAlertService';
 import { errorHandler } from '../../utils/errorHandler';
 import { VEHICLE_CATEGORIES, vehicleCategory, type VehicleCategory } from '../../utils/vehicles';
+import { REGION, money } from '../../utils/region';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'RideResults'>;
 type ResultsRoute = RouteProp<RootStackParamList, 'RideResults'>;
@@ -75,7 +76,7 @@ function toResult(r: ApiRide): ResultRide {
 function formatLeaves(ms: number): string {
   if (!ms) return 'Time not set';
   const mins = Math.round((ms - Date.now()) / 60000);
-  const clock = new Date(ms).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  const clock = new Date(ms).toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
   if (mins <= 1) return `Leaving now · ${clock}`;
   if (mins < 60) return `Leaves in ${mins} min · ${clock}`;
   const d = new Date(ms);
@@ -83,7 +84,7 @@ function formatLeaves(ms: number): string {
   tomorrow.setDate(tomorrow.getDate() + 1);
   if (d.toDateString() === new Date().toDateString()) return `Leaves ${clock}`;
   if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow ${clock}`;
-  return `${d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}, ${clock}`;
+  return `${d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })}, ${clock}`;
 }
 
 export function RideResultsScreen() {
@@ -332,7 +333,7 @@ export function RideResultsScreen() {
                   onPress={() => setSelectedId(r.id)}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: isSelected, disabled: full }}
-                  accessibilityLabel={`${cat.label} with ${r.driverVerified ? 'verified driver ' : ''}${r.driver}, ₹${r.price} per seat, ${formatLeaves(r.departureAt)}, ${r.seatsLeft} ${r.seatsLeft === 1 ? 'seat' : 'seats'} left`}
+                  accessibilityLabel={`${cat.label} with ${r.driverVerified ? 'verified driver ' : ''}${r.driver}, ${money(r.price)} per seat, ${formatLeaves(r.departureAt)}, ${r.seatsLeft} ${r.seatsLeft === 1 ? 'seat' : 'seats'} left`}
                   style={[
                     styles.ride,
                     { borderColor: isSelected ? c.primary : 'transparent', backgroundColor: c.surface },
@@ -369,7 +370,7 @@ export function RideResultsScreen() {
                     </Text>
                   </View>
                   <View style={styles.priceCol}>
-                    <Text style={[styles.price, { color: c.text }]}>₹{r.price}</Text>
+                    <Text style={[styles.price, { color: c.text }]}>{money(r.price)}</Text>
                     <Text style={[styles.perSeat, { color: c.textSec }]}>per seat</Text>
                   </View>
                 </Pressable>
@@ -429,7 +430,7 @@ export function RideResultsScreen() {
               <Text style={[styles.bookText, { color: canBook ? c.textOnPrimary : c.textSec }]}>
                 {selected
                   ? canBook
-                    ? `Book ${VEHICLE_CATEGORIES[selected.category].label} · ₹${(selected.price * seats).toLocaleString('en-IN')}`
+                    ? `Book ${VEHICLE_CATEGORIES[selected.category].label} · ${money((selected.price * seats))}`
                     : `Only ${selected.seatsLeft} ${selected.seatsLeft === 1 ? 'seat' : 'seats'} left`
                   : 'Choose a ride'}
               </Text>

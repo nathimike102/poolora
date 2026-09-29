@@ -9,8 +9,8 @@ const STORAGE_KEYS = {
 const ENDPOINTS = [
   { group: 'system', name: 'Health', method: 'GET', path: '/health', auth: false, params: {}, query: {}, body: {} },
 
-  { group: 'auth', name: 'Send OTP', method: 'POST', path: '/auth/send-otp', auth: false, params: {}, query: {}, body: { phone: '+919876543210' } },
-  { group: 'auth', name: 'Verify OTP', method: 'POST', path: '/auth/verify-otp', auth: false, params: {}, query: {}, body: { phone: '+919876543210', otp: '123456', name: 'Test User' } },
+  { group: 'auth', name: 'Send OTP', method: 'POST', path: '/auth/send-otp', auth: false, params: {}, query: {}, body: { phone: '+263771234567' } },
+  { group: 'auth', name: 'Verify OTP', method: 'POST', path: '/auth/verify-otp', auth: false, params: {}, query: {}, body: { phone: '+263771234567', otp: '123456', name: 'Test User' } },
   { group: 'auth', name: 'Refresh Token', method: 'POST', path: '/auth/refresh-token', auth: false, params: {}, query: {}, body: { refreshToken: '' } },
   { group: 'auth', name: 'Firebase Login', method: 'POST', path: '/auth/firebase-login', auth: false, params: {}, query: {}, body: { idToken: '' } },
   { group: 'auth', name: 'Logout', method: 'POST', path: '/auth/logout', auth: true, params: {}, query: {}, body: {} },

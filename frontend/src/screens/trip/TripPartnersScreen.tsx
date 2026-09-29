@@ -17,6 +17,7 @@ import { Icon } from '../../components/Icon';
 import { tripService, tripDates, TRIP_INTERESTS, type Trip } from '../../services/tripService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
+import { money, moneyInput } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -70,7 +71,7 @@ export function TripPartnersScreen() {
           {t.destinations.map(d => d.name).join(', ')} · {tripDates(t)}
         </Text>
         <Text style={{ fontSize: 12, color: c.textSec }}>
-          {t.members.length} of {t.maxGroupSize} going{t.budgetPerPerson ? ` · about ₹${t.budgetPerPerson.toLocaleString('en-IN')} each` : ''}
+          {t.members.length} of {t.maxGroupSize} going{t.budgetPerPerson ? ` · about ${money(t.budgetPerPerson)} each` : ''}
         </Text>
       </View>
       {right}
@@ -124,7 +125,7 @@ export function TripPartnersScreen() {
         <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">Find travel partners</Text>
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <TextInput value={destination} onChangeText={setDestination} placeholder="Where to? (optional)" placeholderTextColor={c.textSec} accessibilityLabel="Destination" style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
-          <TextInput value={maxBudget} onChangeText={t => setMaxBudget(t.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="Budget per person, ₹ (optional)" placeholderTextColor={c.textSec} accessibilityLabel="Budget per person" style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
+          <TextInput value={maxBudget} onChangeText={t => setMaxBudget(moneyInput(t))} keyboardType="decimal-pad" placeholder="Budget per person, US$ (optional)" placeholderTextColor={c.textSec} accessibilityLabel="Budget per person" style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
           <View style={styles.chips}>
             {TRIP_INTERESTS.map(i => {
               const on = interests.includes(i);

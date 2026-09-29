@@ -27,7 +27,7 @@ let mongo: MongoMemoryServer;
 const service = new ReportScheduleService();
 const admin = new Types.ObjectId().toString();
 /** An India-time wall clock, as a UTC instant */
-const ist = (s: string) => new Date(`${s}+05:30`);
+const ist = (s: string) => new Date(`${s}+02:00`);
 
 beforeAll(async () => {
   mongo = await MongoMemoryServer.create();
@@ -80,7 +80,7 @@ describe('managing schedules', () => {
       admin,
     );
     expect(schedule).toMatchObject({ recipients: ['ops@poolora.app', 'cfo@poolora.app'], format: 'xlsx', active: true });
-    expect(new Date(schedule.nextRunAt).getUTCDay()).toBe(1); // 07:00 IST Monday is still Monday in UTC
+    expect(new Date(schedule.nextRunAt).getUTCDay()).toBe(1); // 07:00 CAT Monday is still Monday in UTC
     expect(await AdminAuditLog.countDocuments({ action: 'report_schedule.create' })).toBe(1);
   });
 

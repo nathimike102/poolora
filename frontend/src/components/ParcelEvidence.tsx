@@ -14,6 +14,7 @@ import { apiClient, getAuthorizationHeader } from '../api/axios';
 import { parcelService, type Parcel, type ParcelClaim, type ParcelPhoto } from '../services/parcelService';
 import { takeParcelPhoto } from '../utils/parcelPhoto';
 import { errorHandler } from '../utils/errorHandler';
+import { money } from '../utils/region';
 
 const DAY = 86_400_000;
 const STATUS: Record<ParcelClaim['status'], string> = {
@@ -99,9 +100,9 @@ export function ParcelEvidence({ parcel }: { parcel: Parcel }) {
       {claims.map(cl => (
         <View key={cl._id} style={{ gap: 2 }}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: cl.status === 'approved' ? c.success : c.text }}>
-            {cl.kind === 'damaged' ? 'Damage' : 'Lost parcel'} claim, ₹{cl.amountClaimed}: {STATUS[cl.status]}
+            {cl.kind === 'damaged' ? 'Damage' : 'Lost parcel'} claim, {money(cl.amountClaimed)}: {STATUS[cl.status]}
           </Text>
-          {cl.status === 'approved' && cl.payout ? <Text style={{ fontSize: 13, color: c.text }}>₹{cl.payout} was added to your wallet.</Text> : null}
+          {cl.status === 'approved' && cl.payout ? <Text style={{ fontSize: 13, color: c.text }}>{money(cl.payout)} was added to your wallet.</Text> : null}
           {cl.decisionNote ? <Text style={{ fontSize: 13, color: c.textSec }}>{cl.decisionNote}</Text> : null}
         </View>
       ))}
@@ -117,7 +118,7 @@ export function ParcelEvidence({ parcel }: { parcel: Parcel }) {
           <ScrollView style={[styles.sheet, { backgroundColor: c.surface }]} contentContainerStyle={{ gap: 10, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
             <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">{kind === 'damaged' ? 'Report damage' : 'Report a lost parcel'}</Text>
             <Text style={{ fontSize: 13, color: c.textSec }}>
-              {parcel.insuranceValue ? `Insured: covered up to ₹${cover}.` : `Not insured: covered up to the delivery charge, ₹${cover}.`}
+              {parcel.insuranceValue ? `Insured: covered up to ${money(cover)}.` : `Not insured: covered up to the delivery charge, ${money(cover)}.`}
             </Text>
             <TextInput
               value={form.description}
@@ -133,7 +134,7 @@ export function ParcelEvidence({ parcel }: { parcel: Parcel }) {
               value={form.amount}
               onChangeText={t => setForm(f => ({ ...f, amount: t.replace(/[^0-9.]/g, '') }))}
               keyboardType="decimal-pad"
-              placeholder={`Amount, up to ₹${cover}`}
+              placeholder={`Amount, up to ${money(cover)}`}
               placeholderTextColor={c.textSec}
               accessibilityLabel="Amount you are claiming"
               style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}

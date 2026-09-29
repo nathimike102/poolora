@@ -24,6 +24,7 @@ import { WalletService } from './WalletService';
 import { NotificationService } from './NotificationService';
 import { emailUser } from './Mailer';
 import { AdminUserService } from './AdminUserService';
+import { money } from '../config/region';
 
 /** Disputes can be raised up to this long after the booking was made or the ride ended. */
 const RAISE_WINDOW_DAYS = 30;
@@ -187,10 +188,10 @@ export class DisputeService {
     const refundAmount = round2(Number(input.refundAmount ?? 0));
     const driverCompensation = round2(Number(input.driverCompensation ?? 0));
     if (!(refundAmount >= 0) || refundAmount > refundable) {
-      throw new AppError(`The refund must be between ₹0 and ₹${refundable}`, 422, 'VALIDATION_ERROR');
+      throw new AppError(`The refund must be between ${money(0)} and ${money(refundable)}`, 422, 'VALIDATION_ERROR');
     }
     if (!(driverCompensation >= 0) || driverCompensation > paid) {
-      throw new AppError(`Compensation must be between ₹0 and ₹${paid}`, 422, 'VALIDATION_ERROR');
+      throw new AppError(`Compensation must be between ${money(0)} and ${money(paid)}`, 422, 'VALIDATION_ERROR');
     }
     if (input.suspend?.length && input.suspendDays === undefined) {
       throw new AppError('Choose how long to suspend for', 422, 'VALIDATION_ERROR');
@@ -253,8 +254,8 @@ export class DisputeService {
     });
 
     const summary = [
-      refundAmount > 0 ? `₹${refundAmount} is refunded to the rider.` : '',
-      driverCompensation > 0 ? `₹${driverCompensation} is paid to the driver's wallet.` : '',
+      refundAmount > 0 ? `${money(refundAmount)} is refunded to the rider.` : '',
+      driverCompensation > 0 ? `${money(driverCompensation)} is paid to the driver's wallet.` : '',
     ].filter(Boolean).join(' ');
     for (const party of ['rider', 'driver'] as const) {
       const id = idOf(party);

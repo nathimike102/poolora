@@ -3,8 +3,9 @@ import { api, qs, tokens, ApiError } from '../lib/api';
 import { money, pct, titleCase } from '../lib/format';
 
 describe('format', () => {
-  it('formats rupees with Indian grouping', () => {
-    expect(money(1234567)).toBe('₹12,34,567');
+  it('formats US dollars, with cents only when there are some', () => {
+    expect(money(1234567)).toBe('US$1,234,567');
+    expect(money(12.5)).toBe('US$12.50');
     expect(money(null)).toBe('—');
   });
   it('formats fractions as percentages', () => {

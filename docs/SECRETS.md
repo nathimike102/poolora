@@ -58,7 +58,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | yes | dashboard.razorpay.com, Account & Settings, API Keys. `rzp_test_` keys for testing, `rzp_live_` after KYC approval |
 | `RAZORPAY_WEBHOOK_SECRET` | yes | Razorpay dashboard, Webhooks, Add webhook. URL: `<APP_BASE_URL>/payments/webhook`. Events: `payment.authorized`, `payment.captured`. You choose the secret there; copy the same value here |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | yes | AWS console, IAM, create a user with access limited to the uploads bucket (`s3:PutObject`, `s3:GetObject`), then Security credentials, Create access key |
-| `AWS_REGION` | no | Default `ap-south-1` (Mumbai) |
+| `AWS_REGION` | no | Default `af-south-1` (Cape Town), the nearest AWS region to Zimbabwe |
 | `AWS_S3_BUCKET` | yes | Create a private bucket (block all public access) in S3 |
 | `TWILIO_ENABLED` | yes for SMS | `true` to send SMS. SOS texts to emergency contacts need this |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | if SMS on | console.twilio.com, Account Info on the dashboard |

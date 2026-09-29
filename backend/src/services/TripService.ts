@@ -3,7 +3,7 @@
  *
  * Group trips (Phase 4, UC-T01 to UC-T05): plan a trip, find trips that suit
  * you, ask to join, split expenses, vote on activities, and settle up.
- * Money is worked out in whole paise so shares always add up to the total.
+ * Money is worked out in whole cents so shares always add up to the total.
  */
 
 import crypto from 'crypto';
@@ -14,12 +14,13 @@ import { User } from '../models/User';
 import { config } from '../config';
 import { AppError, AuthorizationError, ConflictError, NotFoundError } from '../utils/AppError';
 import { logger } from '../utils/logger';
+import { localTime, money, REGION, toE164, toLocalClock } from '../config/region';
 
 const DAY_MS = 86_400_000;
 /** Members can rate the organizer for this long after the trip ends */
 const RATING_WINDOW_DAYS = 30;
-const toPaise = (rupees: number) => Math.round(rupees * 100);
-const toRupees = (paise: number) => Math.round(paise) / 100;
+const toCents = (dollars: number) => Math.round(dollars * 100);
+const toDollars = (cents: number) => Math.round(cents) / 100;
 const idOf = (v: unknown) => String((v as { _id?: unknown })?._id ?? v);
 
 export interface TripInput {
@@ -43,7 +44,7 @@ export type TripView = Record<string, unknown>;
 
 /**
  * The fewest payments that settle everyone's balance: the one who owes most
- * pays the one owed most, and so on. `balances` are in paise, positive when
+ * pays the one owed most, and so on. `balances` are in cents, positive when
  * the member is owed money.
  */
 export function settlementPlan(balances: Map<string, number>): Transfer[] {
@@ -54,7 +55,7 @@ export function settlementPlan(balances: Map<string, number>): Transfer[] {
   let j = 0;
   while (i < owing.length && j < owed.length) {
     const pay = Math.min(owing[i].left, owed[j].left);
-    if (pay > 0) transfers.push({ from: owing[i].id, to: owed[j].id, amount: toRupees(pay) });
+    if (pay > 0) transfers.push({ from: owing[i].id, to: owed[j].id, amount: toDollars(pay) });
     owing[i].left -= pay;
     owed[j].left -= pay;
     if (owing[i].left === 0) i++;
@@ -63,10 +64,10 @@ export function settlementPlan(balances: Map<string, number>): Transfer[] {
   return transfers;
 }
 
-/** Equal shares in paise; the odd paise go to the first people in the list */
-function shares(amountPaise: number, people: string[]): Map<string, number> {
-  const base = Math.floor(amountPaise / people.length);
-  let extra = amountPaise - base * people.length;
+/** Equal shares in cents; the odd cents go to the first people in the list */
+function shares(amountCents: number, people: string[]): Map<string, number> {
+  const base = Math.floor(amountCents / people.length);
+  let extra = amountCents - base * people.length;
   const out = new Map<string, number>();
   for (const p of people) {
     out.set(p, base + (extra > 0 ? 1 : 0));
@@ -102,12 +103,22 @@ function calendarToken(tripId: string, userId: string): string {
   return `${userId}.${sig}`;
 }
 
-const IST_MS = 5.5 * 3_600_000;
-/** 20260924 for an all-day date, in India time */
-const icsDate = (d: Date) => new Date(d.getTime() + IST_MS).toISOString().slice(0, 10).replace(/-/g, '');
+/** 20260924 for an all-day date, in Zimbabwe time */
+const icsDate = (d: Date) => toLocalClock(d).toISOString().slice(0, 10).replace(/-/g, '');
 /** 20260924T083000Z */
 const icsTime = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+
+/**
+ * A tel: link that dials EcoCash "send money" (*151*1*1*number*amount#) to an
+ * Econet number. Other networks' wallets have their own codes, so they get none.
+ */
+export function ecocashLink(e164: string | undefined, amount: number): string | undefined {
+  const national = e164?.startsWith(REGION.dialCode) ? `0${e164.slice(REGION.dialCode.length)}` : undefined;
+  if (!national || !/^07[78]/.test(national)) return undefined;
+  const value = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+  return `tel:*151*1*1*${national}*${value}%23`;
+}
 
 /** Lines longer than 75 octets are folded, as RFC 5545 requires */
 function fold(line: string): string {
@@ -134,7 +145,7 @@ export function tripCalendar(trip: ITrip): string {
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${icsText(trip.title)}`,
-    'X-WR-TIMEZONE:Asia/Kolkata',
+    `X-WR-TIMEZONE:${REGION.timeZone}`,
     'BEGIN:VEVENT',
     `UID:trip-${trip._id}@poolora.app`,
     `DTSTAMP:${stamp}`,
@@ -156,7 +167,7 @@ export function tripCalendar(trip: ITrip): string {
       timed ? `DTSTART:${icsTime(start)}` : `DTSTART;VALUE=DATE:${icsDate(start)}`,
       timed ? `DTEND:${icsTime(new Date(start.getTime() + a.durationMins! * 60_000))}` : `DTEND;VALUE=DATE:${icsDate(new Date(start.getTime() + DAY_MS))}`,
       `SUMMARY:${icsText(a.title)}`,
-      ...(a.notes || a.cost ? [`DESCRIPTION:${icsText([a.notes, a.cost ? `Cost: ₹${a.cost}` : ''].filter(Boolean).join('\n'))}`] : []),
+      ...(a.notes || a.cost ? [`DESCRIPTION:${icsText([a.notes, a.cost ? `Cost: ${money(a.cost)}` : ''].filter(Boolean).join('\n'))}`] : []),
       ...(place ? [`LOCATION:${icsText(place)}`] : []),
       'END:VEVENT',
     );
@@ -280,8 +291,8 @@ export class TripService {
       inviteCode: member ? trip.inviteCode : undefined,
       settlements: member ? trip.settlements : [],
       activities: member ? trip.activities : [],
-      // UPI ids are only for fellow members
-      members: trip.members.map((m) => ({ ...m, upiId: member ? m.upiId : undefined })),
+      // Mobile money numbers are only for fellow members
+      members: trip.members.map((m) => ({ ...m, payNumber: member ? m.payNumber : undefined })),
       isMember: member,
       isOrganizer,
       /** The viewer's own user id, so the app can tell which member is "you" */
@@ -347,13 +358,15 @@ export class TripService {
     return { left: true };
   }
 
-  /** A member's UPI id, shown to the group for settling up */
-  async setUpi(tripId: string, userId: string, upiId: string) {
+  /** A member's mobile money number (EcoCash, OneMoney), shown to the group for settling up */
+  async setPayNumber(tripId: string, userId: string, payNumber: string) {
     const trip = await this.memberTrip(tripId, userId);
     const me = trip.members.find((m) => m.user.toString() === userId)!;
-    me.upiId = upiId.trim() || undefined;
+    const normalised = payNumber.trim() ? toE164(payNumber) : undefined;
+    if (normalised === null) throw new AppError('Enter a Zimbabwe mobile number, like 0771 234 567', 422, 'VALIDATION_ERROR');
+    me.payNumber = normalised;
     await trip.save();
-    return { upiId: me.upiId };
+    return { payNumber: me.payNumber };
   }
 
   // ── Expenses (UC-T03) ─────────────────────────────────────────────────────
@@ -374,15 +387,15 @@ export class TripService {
     const expense = await TripExpense.create({
       trip: tripId,
       description: data.description.trim(),
-      amount: toRupees(toPaise(data.amount)),
+      amount: toDollars(toCents(data.amount)),
       paidBy,
       splitAmong,
       createdBy: userId,
       activity: activityId,
     });
     const others = splitAmong.filter((m) => m !== userId);
-    const share = toRupees(Math.ceil(toPaise(data.amount) / splitAmong.length));
-    await this.notify(others, `New expense on "${trip.title}"`, `${data.description.trim()}: ₹${expense.amount}, about ₹${share} each.`, trip);
+    const share = toDollars(Math.ceil(toCents(data.amount) / splitAmong.length));
+    await this.notify(others, `New expense on "${trip.title}"`, `${data.description.trim()}: ${money(expense.amount)}, about ${money(share)} each.`, trip);
     return expense;
   }
 
@@ -399,7 +412,7 @@ export class TripService {
 
   // ── Settle up (UC-T05) ────────────────────────────────────────────────────
 
-  /** Net balance per member in paise: what they paid, less their shares, adjusted for payments made */
+  /** Net balance per member in cents: what they paid, less their shares, adjusted for payments made */
   private async balances(trip: ITrip) {
     const expenses = await TripExpense.find({ trip: trip._id }).lean();
     const balances = new Map<string, number>(trip.members.map((m) => [m.user.toString(), 0]));
@@ -407,7 +420,7 @@ export class TripService {
     const owes = new Map<string, number>();
     let total = 0;
     for (const e of expenses) {
-      const amount = toPaise(e.amount);
+      const amount = toCents(e.amount);
       total += amount;
       const payer = e.paidBy.toString();
       paid.set(payer, (paid.get(payer) ?? 0) + amount);
@@ -418,7 +431,7 @@ export class TripService {
       }
     }
     for (const s of trip.settlements) {
-      const amount = toPaise(s.amount);
+      const amount = toCents(s.amount);
       balances.set(s.from.toString(), (balances.get(s.from.toString()) ?? 0) + amount);
       balances.set(s.to.toString(), (balances.get(s.to.toString()) ?? 0) - amount);
     }
@@ -427,32 +440,33 @@ export class TripService {
 
   /**
    * The settlement report: totals, each member's share and balance, and the
-   * payments that settle everyone, with a UPI link when the payee added
-   * their UPI id.
+   * payments that settle everyone. When the payee added an EcoCash number,
+   * the payment carries a link that dials EcoCash's send-money USSD code
+   * with the number and amount filled in; the payer still confirms with
+   * their PIN on the phone.
    */
   async settlement(tripId: string, userId: string) {
     const trip = await this.memberTrip(tripId, userId);
     await trip.populate('members.user', 'name');
     const { balances, paid, owes, total } = await this.balances(trip);
     const names = new Map(trip.members.map((m) => [idOf(m.user), (m.user as unknown as { name?: string }).name ?? 'Member']));
-    const upi = new Map(trip.members.map((m) => [idOf(m.user), m.upiId]));
+    const numbers = new Map(trip.members.map((m) => [idOf(m.user), m.payNumber]));
     const transfers = settlementPlan(balances).map((t) => ({
       ...t,
       fromName: names.get(t.from),
       toName: names.get(t.to),
-      upiLink: upi.get(t.to)
-        ? `upi://pay?pa=${encodeURIComponent(upi.get(t.to)!)}&pn=${encodeURIComponent(names.get(t.to) ?? '')}&am=${t.amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Poolora: ${trip.title}`.slice(0, 50))}`
-        : undefined,
+      payNumber: numbers.get(t.to),
+      ecocashLink: ecocashLink(numbers.get(t.to), t.amount),
     }));
     return {
-      total: toRupees(total),
-      perPerson: trip.members.length ? toRupees(total / trip.members.length) : 0,
+      total: toDollars(total),
+      perPerson: trip.members.length ? toDollars(total / trip.members.length) : 0,
       members: [...names].map(([id, name]) => ({
         userId: id,
         name,
-        paid: toRupees(paid.get(id) ?? 0),
-        share: toRupees(owes.get(id) ?? 0),
-        balance: toRupees(balances.get(id) ?? 0),
+        paid: toDollars(paid.get(id) ?? 0),
+        share: toDollars(owes.get(id) ?? 0),
+        balance: toDollars(balances.get(id) ?? 0),
       })),
       transfers,
       settled: trip.settlements,
@@ -467,10 +481,10 @@ export class TripService {
     if (!members.includes(data.from) || !members.includes(data.to) || data.from === data.to) {
       throw new AppError('Both people must be trip members', 422, 'VALIDATION_ERROR');
     }
-    trip.settlements.push({ from: new Types.ObjectId(data.from), to: new Types.ObjectId(data.to), amount: toRupees(toPaise(data.amount)), markedBy: new Types.ObjectId(userId), at: new Date() } as never);
+    trip.settlements.push({ from: new Types.ObjectId(data.from), to: new Types.ObjectId(data.to), amount: toDollars(toCents(data.amount)), markedBy: new Types.ObjectId(userId), at: new Date() } as never);
     await trip.save();
     const other = userId === data.from ? data.to : data.from;
-    await this.notify([other], `Payment on "${trip.title}"`, `A payment of ₹${data.amount} was marked settled.`, trip);
+    await this.notify([other], `Payment on "${trip.title}"`, `A payment of ${money(data.amount)} was marked settled.`, trip);
     return this.settlement(tripId, userId);
   }
 
@@ -479,8 +493,8 @@ export class TripService {
     const report = await this.settlement(tripId, userId);
     const trip = await this.memberTrip(tripId, userId);
     for (const m of report.members) {
-      const pays = report.transfers.filter((t) => t.from === m.userId).map((t) => `₹${t.amount} to ${t.toName}`);
-      const gets = report.transfers.filter((t) => t.to === m.userId).map((t) => `₹${t.amount} from ${t.fromName}`);
+      const pays = report.transfers.filter((t) => t.from === m.userId).map((t) => `${money(t.amount)} to ${t.toName}`);
+      const gets = report.transfers.filter((t) => t.to === m.userId).map((t) => `${money(t.amount)} from ${t.fromName}`);
       if (!pays.length && !gets.length) continue;
       const body = pays.length ? `You owe ${pays.join(', ')}.` : `You will receive ${gets.join(', ')}.`;
       await this.notify([m.userId], `Settle up for "${trip.title}"`, body, trip);
@@ -537,7 +551,7 @@ export class TripService {
         activity.expense = expense._id;
       }
       await trip.save();
-      await this.notify(trip.members.map((m) => m.user.toString()), `Confirmed: ${activity.title}`, `The group voted yes${activity.date ? ` for ${activity.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}.`, trip);
+      await this.notify(trip.members.map((m) => m.user.toString()), `Confirmed: ${activity.title}`, `The group voted yes${activity.date ? ` for ${localTime(activity.date, { day: 'numeric', month: 'short' })}` : ''}.`, trip);
     } else if (no >= majority) {
       activity.status = 'rejected';
       await trip.save();

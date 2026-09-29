@@ -27,14 +27,15 @@ import { logger } from '../utils/logger';
 import { audit } from './AuditService';
 import { sendMail, mailEnabled, emailLayout, escapeHtml } from './Mailer';
 import { NotificationService } from './NotificationService';
+import { fromLocalClock, toLocalClock } from '../config/region';
 
 const DAY = 86_400_000;
 const MAX_RULES = 50;
 
 function startOfToday(now: Date): Date {
-  const ist = new Date(now.getTime() + 5.5 * 3_600_000);
-  ist.setUTCHours(0, 0, 0, 0);
-  return new Date(ist.getTime() - 5.5 * 3_600_000);
+  const local = toLocalClock(now);
+  local.setUTCHours(0, 0, 0, 0);
+  return fromLocalClock(local);
 }
 
 /** Share of today's expected bookings (from the last 7 days) that actually came, as a percent */

@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 /**
  * A report emailed on a schedule (UC-A06). Each run covers the period just
  * ended (yesterday, the last seven days, or last month) and goes out at 07:00
- * India time with one attachment per report. See services/ReportScheduleService.ts.
+ * Zimbabwe time with one attachment per report. See services/ReportScheduleService.ts.
  */
 export interface IReportSchedule extends Document {
   _id: Types.ObjectId;

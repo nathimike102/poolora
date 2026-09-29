@@ -222,7 +222,7 @@ describe('receipts (UC-R04)', () => {
     const service = new ReceiptService();
     const r = await service.build(b.id, riderId.toString());
     expect(r).toMatchObject({ status: 'cancelled', fare: 200, refunded: 100, paid: 100, paymentMethod: 'Poolora wallet' });
-    expect(service.text(r)).toContain('Refunded ₹100');
+    expect(service.text(r)).toContain('Refunded US$100');
     await expect(service.build(b.id, new Types.ObjectId().toString())).rejects.toThrow('someone else');
   });
 });

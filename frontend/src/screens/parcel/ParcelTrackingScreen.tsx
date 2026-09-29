@@ -19,6 +19,7 @@ import { ParcelEvidence } from '../../components/ParcelEvidence';
 import { parcelService, parcelStage, type Parcel } from '../../services/parcelService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
+import { money } from '../../utils/region';
 
 const POLL_MS = 30_000;
 const STEPS = ['Sent', 'Accepted', 'On the way', 'Delivered'];
@@ -113,7 +114,7 @@ export function ParcelTrackingScreen() {
                   ))}
                 </View>
               ) : parcel.paymentStatus === 'refunded' ? (
-                <Text style={{ fontSize: 14, color: c.textSec }}>₹{parcel.refundAmount} refunded{parcel.paymentMethod === 'wallet' ? ' to your wallet' : ' to your card; banks take 5 to 7 working days'}.</Text>
+                <Text style={{ fontSize: 14, color: c.textSec }}>{money(parcel.refundAmount ?? 0)} refunded{parcel.paymentMethod === 'wallet' ? ' to your wallet' : ' to your card; banks take 5 to 7 working days'}.</Text>
               ) : parcel.paymentStatus === 'refund_failed' ? (
                 <Text style={{ fontSize: 14, color: c.error }}>We could not refund this automatically. Our team will refund you; contact support if it has not arrived in a week.</Text>
               ) : null}
@@ -123,7 +124,7 @@ export function ParcelTrackingScreen() {
             <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Row icon="map-marker-outline" title={parcel.pickupLocation.address} sub={`From ${parcel.pickupLocation.contactPerson}`} />
               <Row icon="map-marker-check-outline" title={parcel.deliveryLocation.address} sub={`To ${parcel.deliveryLocation.contactPerson}`} />
-              <Row icon="weight-kilogram" title={`${parcel.parcelWeight} kg, ${parcel.parcelType}`} sub={`₹${parcel.estimatedCost}${parcel.paymentMethod === 'wallet' ? ' from wallet' : ''}`} />
+              <Row icon="weight-kilogram" title={`${parcel.parcelWeight} kg, ${parcel.parcelType}`} sub={`${money(parcel.estimatedCost)}${parcel.paymentMethod === 'wallet' ? ' from wallet' : ''}`} />
               {parcel.specialInstructions ? <Row icon="note-text-outline" title={parcel.specialInstructions} /> : null}
             </View>
 

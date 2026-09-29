@@ -1,10 +1,18 @@
-/** Display formatting, in Indian conventions (₹, lakh grouping, IST). */
+/** Display formatting for Zimbabwe: US dollars, Harare time (CAT, UTC+2). */
 
-const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-const count = new Intl.NumberFormat('en-IN');
-const compact = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
+export const TIME_ZONE = 'Africa/Harare';
+export const TIME_ZONE_LABEL = 'Zimbabwe time (CAT)';
 
-export const money = (n: number | null | undefined) => (n === null || n === undefined ? '—' : inr.format(n));
+const count = new Intl.NumberFormat('en-US');
+const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+const cents = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** "US$1,234", "US$12.50" */
+export const money = (n: number | null | undefined) => {
+  if (n === null || n === undefined) return '—';
+  const v = Math.round(n * 100) / 100;
+  return `${v < 0 ? '-' : ''}US$${Number.isInteger(v) ? count.format(Math.abs(v)) : cents.format(Math.abs(v))}`;
+};
 export const num = (n: number | null | undefined) => (n === null || n === undefined ? '—' : count.format(n));
 export const short = (n: number) => (Math.abs(n) >= 10_000 ? compact.format(n) : count.format(Math.round(n * 100) / 100));
 export const pct = (n: number | null | undefined, digits = 0) =>
@@ -12,12 +20,12 @@ export const pct = (n: number | null | undefined, digits = 0) =>
 
 export function when(date: string | Date | null | undefined): string {
   if (!date) return '—';
-  return new Date(date).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+  return new Date(date).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: TIME_ZONE });
 }
 
 export function day(date: string | Date | null | undefined): string {
   if (!date) return '—';
-  return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+  return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: TIME_ZONE });
 }
 
 /** "5 min ago", "3 h ago", "2 days ago" */

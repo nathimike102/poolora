@@ -16,6 +16,8 @@ import { toGeoPoint } from '../utils/helpers';
 import { nearestOnPath } from '../utils/routeGeometry';
 import { logger } from '../utils/logger';
 import { NotificationService } from './NotificationService';
+import { money } from '../config/region';
+import { localTime } from '../config/region';
 
 const HOUR = 3_600_000;
 const EARTH_RADIUS_KM = 6378.1;
@@ -80,9 +82,9 @@ export class RideAlertService {
       if (board.distanceKm > maxKm || leave.distanceKm > maxKm || leave.alongKm <= board.alongKm) continue;
 
       await RideAlert.updateOne({ _id: alert._id }, { $addToSet: { notifiedRides: new Types.ObjectId(ride._id.toString()) } });
-      const when = ride.departureTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+      const when = localTime(ride.departureTime, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
       const title = 'A ride on your route';
-      const body = `${alert.pickup.address.split(',')[0]} to ${alert.dropoff.address.split(',')[0]}, ${when}, ₹${ride.pricePerSeat} a seat.`;
+      const body = `${alert.pickup.address.split(',')[0]} to ${alert.dropoff.address.split(',')[0]}, ${when}, ${money(ride.pricePerSeat)} a seat.`;
       await notifications.sendPushNotification(alert.rider.toString(), title, body, { rideId: ride._id.toString(), type: 'ride_alert' }).catch(() => undefined);
       await notifications.createNotification(alert.rider.toString(), title, body, 'ride', { rideId: ride._id.toString() }).catch(() => undefined);
       sent++;

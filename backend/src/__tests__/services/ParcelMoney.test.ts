@@ -90,7 +90,7 @@ it('refunds the sender when the driver declines', async () => {
 });
 
 it('leaves nothing behind when the wallet is short', async () => {
-  await Wallet.updateOne({ userId: senderId }, { $set: { balance: 10 } });
+  await Wallet.updateOne({ userId: senderId }, { $set: { balance: 1 } });
   await expect(service.createParcelRequest(senderId.toString(), request())).rejects.toMatchObject({ errorId: 'INSUFFICIENT_BALANCE' });
   expect(await ParcelPooling.countDocuments()).toBe(0);
 });

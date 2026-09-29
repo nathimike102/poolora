@@ -27,6 +27,7 @@ import type {
   PlacePrediction,
   PlaceV1,
 } from '../types/googleMaps';
+import { REGION } from '../config/region';
 
 const GOOGLE_MAPS_BASE = 'https://maps.googleapis.com/maps/api';
 
@@ -296,7 +297,7 @@ export async function autocomplete(input: string, near?: { lat: number; lng: num
       `${GOOGLE_MAPS_BASE}/place/autocomplete/json`,
       {
         input: input.trim().toLowerCase(),
-        components: 'country:in',
+        components: `country:${REGION.country.toLowerCase()}`,
         ...(bias ? { location: `${bias.lat},${bias.lng}`, radius: '50000' } : {}),
       },
       CACHE_TTL.autocomplete,

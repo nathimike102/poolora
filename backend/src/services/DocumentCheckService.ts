@@ -6,11 +6,14 @@
  * reject on their own.
  *
  * Checked here, with no outside service:
- * - the licence number has the Indian format (state, RTO, year, number) and
- *   a real state code; the plate is a valid registration or BH-series number
- * - the licence year is not in the future and the driver was 18 when it was issued
+ * - the licence number looks like one (VID licences carry no issue year or
+ *   province, so this is a sanity check; the admin compares it with the photo)
+ * - the plate is in the Zimbabwe ABC 1234 format (older and personalised
+ *   plates are flagged for a look, not failed)
+ * - the driver is at least 18
  * - no other account uses the same licence number or plate
- * - the vehicle is under 15 years old
+ * - the vehicle is under 15 years old (older cars are flagged for a
+ *   roadworthiness look, since much of the fleet here is imported used)
  * - the uploaded files exist and are images or PDFs of a sensible size (when S3 is set up)
  *
  * With a background-check vendor connected (KYC_VERIFY_URL), the licence and
@@ -28,27 +31,26 @@ import { logger } from '../utils/logger';
 
 type Result = NonNullable<IKYCData['autoChecks']>[number];
 
-/** Indian state and union territory codes used on licences and plates */
-const STATE_CODES = new Set([
-  'AN', 'AP', 'AR', 'AS', 'BR', 'CG', 'CH', 'DD', 'DL', 'DN', 'GA', 'GJ', 'HP', 'HR', 'JH', 'JK', 'KA', 'KL', 'LA', 'LD',
-  'MH', 'ML', 'MN', 'MP', 'MZ', 'NL', 'OD', 'OR', 'PB', 'PY', 'RJ', 'SK', 'TG', 'TN', 'TR', 'TS', 'UK', 'UA', 'UP', 'WB',
-]);
+const clean = (s?: string) => String(s ?? '').toUpperCase().replace(/[\s\-/]/g, '');
 
-const clean = (s?: string) => String(s ?? '').toUpperCase().replace(/[\s-]/g, '');
-
-/** SS RR YYYY NNNNNNN: state, RTO, year of issue, serial */
-export function parseLicence(number?: string): { state: string; year: number } | null {
-  const m = /^([A-Z]{2})(\d{2})((?:19|20)\d{2})(\d{7})$/.exec(clean(number));
-  return m ? { state: m[1], year: Number(m[3]) } : null;
+/** 5 to 12 letters and digits, with at least one digit */
+export function parseLicence(number?: string): { number: string } | null {
+  const n = clean(number);
+  return /^[A-Z0-9]{5,12}$/.test(n) && /\d/.test(n) ? { number: n } : null;
 }
 
-/** KA01AB1234, DL3CAB1234, or the BH series 22BH1234AA */
-export function parsePlate(plate?: string): { state: string | null } | null {
+/**
+ * The current Zimbabwe plate is three letters and four digits (AEA 1234).
+ * Anything else of plate length is "other": older series and personalised
+ * plates are legal, so they are flagged rather than failed.
+ */
+export function parsePlate(plate?: string): { standard: boolean } | null {
   const p = clean(plate);
-  if (/^\d{2}BH\d{4}[A-Z]{1,2}$/.test(p)) return { state: null };
-  const m = /^([A-Z]{2})\d{1,2}[A-Z]{0,3}\d{4}$/.exec(p);
-  return m ? { state: m[1] } : null;
+  if (/^[A-Z]{3}\d{4}$/.test(p)) return { standard: true };
+  return /^[A-Z0-9]{2,8}$/.test(p) ? { standard: false } : null;
 }
+
+const MIN_DRIVER_AGE = 18;
 
 let s3client: S3Client | null = null;
 
@@ -78,29 +80,24 @@ export class DocumentCheckService {
     const now = new Date();
 
     const licence = parseLicence(user.kyc?.licenseNumber);
-    if (!licence) {
-      out.push({ check: 'Licence number format', result: 'fail', detail: `"${user.kyc?.licenseNumber ?? ''}" is not in the SS-RR-YYYY-NNNNNNN format.` });
-    } else if (!STATE_CODES.has(licence.state)) {
-      out.push({ check: 'Licence number format', result: 'fail', detail: `"${licence.state}" is not an Indian state code.` });
-    } else if (licence.year > now.getFullYear()) {
-      out.push({ check: 'Licence number format', result: 'fail', detail: `The licence year ${licence.year} is in the future.` });
-    } else {
-      out.push({ check: 'Licence number format', result: 'pass', detail: `Issued in ${licence.state} in ${licence.year}.` });
-    }
+    out.push(licence
+      ? { check: 'Licence number format', result: 'pass', detail: 'Looks like a licence number. Compare it with the licence photo.' }
+      : { check: 'Licence number format', result: 'fail', detail: `"${user.kyc?.licenseNumber ?? ''}" does not look like a driving licence number.` });
 
-    if (licence && user.dateOfBirth) {
-      const ageAtIssue = licence.year - new Date(user.dateOfBirth).getFullYear();
-      out.push(ageAtIssue < 18
-        ? { check: 'Age at licence issue', result: 'fail', detail: `The driver would have been ${ageAtIssue} when the licence was issued.` }
-        : { check: 'Age at licence issue', result: 'pass', detail: `About ${ageAtIssue} at issue.` });
-    } else if (!user.dateOfBirth) {
-      out.push({ check: 'Age at licence issue', result: 'warn', detail: 'No date of birth on the profile to compare.' });
+    if (user.dateOfBirth) {
+      const born = new Date(user.dateOfBirth);
+      const age = now.getFullYear() - born.getFullYear() - (now < new Date(now.getFullYear(), born.getMonth(), born.getDate()) ? 1 : 0);
+      out.push(age < MIN_DRIVER_AGE
+        ? { check: 'Driver age', result: 'fail', detail: `The driver is ${age}; drivers must be at least ${MIN_DRIVER_AGE}.` }
+        : { check: 'Driver age', result: 'pass', detail: `${age} years old.` });
+    } else {
+      out.push({ check: 'Driver age', result: 'warn', detail: 'No date of birth on the profile.' });
     }
 
     const plate = parsePlate(vehicle?.plateNumber);
-    if (!plate) out.push({ check: 'Registration number format', result: 'fail', detail: `"${vehicle?.plateNumber ?? ''}" is not a valid Indian registration number.` });
-    else if (plate.state && !STATE_CODES.has(plate.state)) out.push({ check: 'Registration number format', result: 'fail', detail: `"${plate.state}" is not an Indian state code.` });
-    else out.push({ check: 'Registration number format', result: 'pass', detail: plate.state ? `Registered in ${plate.state}.` : 'Bharat (BH) series.' });
+    if (!plate) out.push({ check: 'Registration number format', result: 'fail', detail: `"${vehicle?.plateNumber ?? ''}" is not a valid registration number.` });
+    else if (!plate.standard) out.push({ check: 'Registration number format', result: 'warn', detail: 'Not the usual ABC 1234 format. Older and personalised plates exist; check the registration book.' });
+    else out.push({ check: 'Registration number format', result: 'pass', detail: 'Standard Zimbabwe plate.' });
 
     if (user.kyc?.licenseNumber) {
       const others = await User.find({ _id: { $ne: user._id }, 'kyc.licenseNumber': user.kyc.licenseNumber }).select('name').limit(3).lean();
@@ -111,14 +108,14 @@ export class DocumentCheckService {
     if (vehicle?.plateNumber) {
       const others = await User.find({ _id: { $ne: user._id }, 'vehicles.plateNumber': vehicle.plateNumber, 'kyc.status': 'approved' }).select('name').limit(3).lean();
       out.push(others.length
-        ? { check: 'Vehicle used elsewhere', result: 'warn', detail: `An approved driver (${others.map((o) => o.name).join(', ')}) has the same plate. Shared family cars are fine; check the RC owner.` }
+        ? { check: 'Vehicle used elsewhere', result: 'warn', detail: `An approved driver (${others.map((o) => o.name).join(', ')}) has the same plate. Shared family cars are fine; check the owner in the registration book.` }
         : { check: 'Vehicle used elsewhere', result: 'pass', detail: 'No approved driver has this plate.' });
     }
 
     if (vehicle?.year) {
       const age = now.getFullYear() - vehicle.year;
       out.push(age >= 15
-        ? { check: 'Vehicle age', result: 'fail', detail: `${age} years old; commercial passenger use needs a vehicle under 15 years.` }
+        ? { check: 'Vehicle age', result: 'warn', detail: `${age} years old. Check the ZINARA licence disc is current and the car is roadworthy.` }
         : { check: 'Vehicle age', result: 'pass', detail: `${age} years old.` });
     }
 

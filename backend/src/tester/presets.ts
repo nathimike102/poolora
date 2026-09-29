@@ -31,7 +31,7 @@ export const testerPresets: TesterPreset[] = [
     path: '/auth/send-otp',
     useAuth: false,
     fields: [
-      { key: 'body.phone', label: 'Phone Number', type: 'text', required: true, placeholder: '+919876543210' },
+      { key: 'body.phone', label: 'Phone Number', type: 'text', required: true, placeholder: '+263771234567' },
     ],
   },
   {
@@ -40,7 +40,7 @@ export const testerPresets: TesterPreset[] = [
     path: '/auth/verify-otp',
     useAuth: false,
     fields: [
-      { key: 'body.phone', label: 'Phone Number', type: 'text', required: true, placeholder: '+919876543210' },
+      { key: 'body.phone', label: 'Phone Number', type: 'text', required: true, placeholder: '+263771234567' },
       { key: 'body.otp', label: 'OTP', type: 'text', required: true, placeholder: '123456' },
       { key: 'body.name', label: 'Name', type: 'text', required: true, defaultValue: 'Test User' },
       { key: 'body.email', label: 'Email', type: 'text', required: false, placeholder: 'user@example.com' },

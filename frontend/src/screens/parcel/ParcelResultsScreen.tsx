@@ -21,6 +21,7 @@ import { parcelService } from '../../services/parcelService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Ride } from '../../types/api';
+import { money } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -57,7 +58,7 @@ export function ParcelResultsScreen() {
     const driver = ride.driver?.name?.split(' ')[0] ?? 'the driver';
     Alert.alert(
       `Send with ${driver}?`,
-      `${price !== null ? `₹${price} ` : ''}${draft.useWallet ? 'from your wallet' : 'by card or UPI'}. You get a full refund if ${driver} declines or you cancel before pickup.`,
+      `${price !== null ? `${money(price)} ` : ''}${draft.useWallet ? 'from your wallet' : 'by card or UPI'}. You get a full refund if ${driver} declines or you cancel before pickup.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -109,7 +110,7 @@ export function ParcelResultsScreen() {
           <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Choose a driver</Text>
           <Text style={{ fontSize: 12, color: c.textSec, textAlign: 'center' }} numberOfLines={1}>
             {draft.pickupLocation.address.split(',')[0]} to {draft.deliveryLocation.address.split(',')[0]}
-            {price !== null ? ` · ₹${price}` : ''}
+            {price !== null ? ` · ${money(price)}` : ''}
           </Text>
         </View>
         <View style={{ width: 44 }} />

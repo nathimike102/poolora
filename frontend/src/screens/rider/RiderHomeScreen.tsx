@@ -34,6 +34,7 @@ import { useCurrentPlace } from '../../hooks/useCurrentPlace';
 import { VEHICLE_CATEGORIES, type VehicleCategory } from '../../utils/vehicles';
 import { logger } from '../../utils/logger';
 import type { UpcomingBooking } from '../../types/api';
+import { REGION } from '../../utils/region';
 
 type NavProp = CompositeNavigationProp<
   BottomTabNavigationProp<RiderTabParamList, 'RiderHome'>,
@@ -47,10 +48,10 @@ function formatDeparture(iso: string): string {
   const today = new Date();
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
-  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  const time = d.toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
   if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
   if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
-  return `${d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
+  return `${d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
 }
 
 export function RiderHomeScreen() {

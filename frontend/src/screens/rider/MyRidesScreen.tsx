@@ -31,6 +31,7 @@ import { useApp } from '../../context/AppContext';
 import type { RootStackParamList, RiderTabParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
+import { REGION, money } from '../../utils/region';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<RiderTabParamList, 'MyRides'>,
@@ -62,8 +63,8 @@ function placeName(address: string): string {
 
 function formatDate(d: Date | null): string {
   if (!d) return '';
-  const date = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  const date = d.toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short', year: 'numeric' });
+  const time = d.toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
   return `${date} · ${time}`;
 }
 
@@ -104,13 +105,13 @@ function refundMessage(quote: CancellationQuote | null): string {
   const policy = policyText(quote);
   if (!quote) return `Refunds depend on how soon the ride leaves. ${policy}`;
   if (quote.refundAmount >= quote.fare) {
-    return `You get the full ₹${quote.refundAmount} back to your wallet or original payment method.`;
+    return `You get the full ${money(quote.refundAmount)} back to your wallet or original payment method.`;
   }
   if (quote.refundAmount <= 0) {
     return `This cancellation is not refunded. ${policy}`;
   }
-  const fee = quote.platformFeeKept ? ` The ₹${quote.platformFeeKept} platform fee is not refunded.` : '';
-  return `You get ₹${quote.refundAmount} back of ₹${quote.fare}.${fee} ${policy}`;
+  const fee = quote.platformFeeKept ? ` The ${money(quote.platformFeeKept)} platform fee is not refunded.` : '';
+  return `You get ${money(quote.refundAmount)} back of ${money(quote.fare)}.${fee} ${policy}`;
 }
 
 export function MyRidesScreen() {
@@ -224,7 +225,7 @@ export function MyRidesScreen() {
               {confirmed ? 'Seat confirmed' : 'Waiting for driver'}
             </Text>
           </View>
-          <Text style={[styles.price, { color: c.text }]}>₹{r.price}</Text>
+          <Text style={[styles.price, { color: c.text }]}>{money(r.price)}</Text>
         </View>
         <Text style={[styles.cardTitle, { color: c.text }]} numberOfLines={1}>{placeName(r.to)}</Text>
         <Text style={[styles.meta, { color: c.textSec }]} numberOfLines={1}>From {r.from}</Text>
@@ -275,8 +276,8 @@ export function MyRidesScreen() {
   };
 
   const priceLine = (r: RideItem) => {
-    if (r.status === 'completed') return `₹${r.price} · Completed`;
-    if (r.refunded > 0 && r.refunded < r.price) return `₹${r.refunded} of ₹${r.price} refunded · ${r.reason}`;
+    if (r.status === 'completed') return `${money(r.price)} · Completed`;
+    if (r.refunded > 0 && r.refunded < r.price) return `${money(r.refunded)} of ${money(r.price)} refunded · ${r.reason}`;
     if (r.refunded > 0) return `Refunded in full · ${r.reason}`;
     return r.reason;
   };
@@ -403,7 +404,7 @@ export function MyRidesScreen() {
               <View style={[styles.summary, { backgroundColor: c.surfaceVariant }]}>
                 <Text style={[styles.historyTitle, { color: c.text }]} numberOfLines={1}>{placeName(cancelTarget.to)}</Text>
                 <Text style={[styles.meta, { color: c.textSec }]}>
-                  {formatDate(cancelTarget.departure)} · {cancelTarget.driver} · ₹{cancelTarget.price}
+                  {formatDate(cancelTarget.departure)} · {cancelTarget.driver} · {money(cancelTarget.price)}
                 </Text>
               </View>
               <View style={[styles.refund, { backgroundColor: c.infoLight }]}>

@@ -10,7 +10,7 @@ import { Types } from 'mongoose';
 const mockWallet = {
   _id: new Types.ObjectId(),
   userId: new Types.ObjectId().toString(),
-  balance: 5000,
+  balance: 50,
   coinBalance: 500,
   lifetimeSpent: 0,
   lifetimeCoinsConverted: 0,
@@ -78,7 +78,7 @@ describe('WalletService — Atomic Deduction', () => {
       // This is the atomic operation — returns the pre-update doc
       (Wallet.findOneAndUpdate as jest.Mock).mockResolvedValueOnce({
         ...mockWallet,
-        balance: 5000,
+        balance: 50,
       });
 
       await walletService.deductForBooking(userId, bookingId, 100);

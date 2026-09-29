@@ -34,7 +34,7 @@ const PaymentSchema = new Schema<IPayment>(
     rider: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     driver: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     amount: { type: Number, required: true, min: 0 },
-    currency: { type: String, default: 'INR', uppercase: true },
+    currency: { type: String, default: 'USD', uppercase: true },
     status: {
       type: String,
       enum: Object.values(PaymentStatus),

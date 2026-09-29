@@ -112,7 +112,7 @@ export type RootStackParamList = {
     parcelId?: string;
     orderId: string;
     keyId: string;
-    /** Rupees */
+    /** US dollars */
     amount: number;
     summary: string;
   };

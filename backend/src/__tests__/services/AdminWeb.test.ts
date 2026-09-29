@@ -131,7 +131,7 @@ describe('fraud flag review', () => {
 
 describe('dispute decisions', () => {
   async function cancelledWalletBooking() {
-    // The rider paid ₹400 from the wallet and got ₹200 back on a late cancellation
+    // The rider paid US$400 from the wallet and got US$200 back on a late cancellation
     const booking = await Booking.create({
       ride: new Types.ObjectId(), rider: riderId, driver: driverId, status: BookingStatus.CANCELLED,
       seatsBooked: 1, estimatedFare: 400, refundAmount: 200, cancelledAt: new Date(),
@@ -152,7 +152,7 @@ describe('dispute decisions', () => {
     expect(detail.refundable).toBe(200);
     await expect(disputes.resolve(dispute._id.toString(), adminA, {
       outcome: 'rider', refundAmount: 250, justification: 'Chat shows the driver asked the rider to cancel.',
-    })).rejects.toThrow('between ₹0 and ₹200');
+    })).rejects.toThrow('between US$0 and US$200');
 
     const resolved = await disputes.resolve(dispute._id.toString(), adminA, {
       outcome: 'rider', refundAmount: 200, warn: ['driver'], justification: 'Chat shows the driver asked the rider to cancel.',

@@ -32,6 +32,7 @@ import { logger } from '../utils/logger';
 import { audit } from './AuditService';
 import { NotificationService } from './NotificationService';
 import { WalletService } from './WalletService';
+import { money } from '../config/region';
 
 export type PhotoStage = IParcelPhoto['stage'];
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -182,7 +183,7 @@ export class ParcelEvidenceService {
     const amount = round2(Number(input.amount));
     if (!(amount >= 1)) throw new AppError('Say how much you are claiming', 422, 'VALIDATION_ERROR');
     if (amount > coverLimit) {
-      throw new AppError(`This parcel is covered up to ₹${coverLimit}${insured ? ' (its declared value)' : ' (the delivery charge; it was not insured)'}`, 422, 'OVER_COVER');
+      throw new AppError(`This parcel is covered up to ${money(coverLimit)}${insured ? ' (its declared value)' : ' (the delivery charge; it was not insured)'}`, 422, 'OVER_COVER');
     }
     const photoIds = [...new Set(input.photoIds ?? [])].filter((id) => Types.ObjectId.isValid(id));
     const photos = await ParcelPhoto.find({ _id: { $in: photoIds }, parcel: parcel._id, stage: 'claim', uploadedBy: userId }).select('_id');
@@ -205,7 +206,7 @@ export class ParcelEvidenceService {
       claim.insurerReference = reference;
       await claim.save();
     }
-    await tell(userId, 'Claim received', `We have your ${input.kind} parcel claim for ₹${amount}. We will tell you when it is decided.`, { parcelId });
+    await tell(userId, 'Claim received', `We have your ${input.kind} parcel claim for ${money(amount)}. We will tell you when it is decided.`, { parcelId });
     return { claim };
   }
 
@@ -250,7 +251,7 @@ export class ParcelEvidenceService {
     const approve = input.decision === 'approve';
     const payout = approve ? round2(Number(input.payout ?? claim.amountClaimed)) : 0;
     if (approve && (!(payout > 0) || payout > claim.coverLimit)) {
-      throw new AppError(`Pay between ₹1 and ₹${claim.coverLimit}`, 422, 'VALIDATION_ERROR');
+      throw new AppError(`Pay between ${money(1)} and ${money(claim.coverLimit)}`, 422, 'VALIDATION_ERROR');
     }
     const decided = await ParcelClaim.findOneAndUpdate(
       { _id: claim._id, status: { $in: ['submitted', 'with_insurer'] } },
@@ -274,7 +275,7 @@ export class ParcelEvidenceService {
     await tell(
       claim.claimant.toString(),
       approve ? 'Claim approved' : 'Claim not approved',
-      approve ? `₹${payout} has been added to your Poolora wallet. ${note}` : note,
+      approve ? `${money(payout)} has been added to your Poolora wallet. ${note}` : note,
       { parcelId: claim.parcel.toString() },
     );
     return { claim: decided };

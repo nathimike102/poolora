@@ -4,7 +4,7 @@
  * Reports for the web admin (UC-A06): users, rides, money, performance and
  * safety over a date range, grouped by day, week or month. Each report has
  * summary figures, a time series for the chart, and tables. Any report can
- * be downloaded as CSV. Periods are in India time.
+ * be downloaded as CSV. Periods are in Zimbabwe time.
  */
 
 import { PipelineStage } from 'mongoose';
@@ -17,13 +17,14 @@ import { EmergencyRecord } from '../models/EmergencyRecord';
 import { Dispute } from '../models/Dispute';
 import { BookingStatus, RideStatus, SOSStatus } from '../types';
 import { AppError } from '../utils/AppError';
-import { istDay } from './ReportExport';
+import { localDay } from './ReportExport';
+import { REGION } from '../config/region';
 
 export const REPORT_TYPES = ['users', 'rides', 'financial', 'performance', 'safety'] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
 export type GroupBy = 'day' | 'week' | 'month';
 
-const TZ = 'Asia/Kolkata';
+const TZ = REGION.timeZone;
 const MAX_RANGE_DAYS = 730; // reports cover up to two years
 
 export interface ReportParams {
@@ -60,7 +61,7 @@ export function parseReportParams(query: Record<string, unknown>): ReportParams 
   return { from, to, groupBy };
 }
 
-/** $dateTrunc on a field, in India time */
+/** $dateTrunc on a field, in Zimbabwe time */
 const period = (field: string, unit: GroupBy) => ({ $dateTrunc: { date: `$${field}`, unit, timezone: TZ } });
 
 async function bucket(
@@ -80,8 +81,8 @@ async function bucket(
 /** Every period start in the range, so empty periods show as zero */
 function periods(p: ReportParams): string[] {
   const out: string[] = [];
-  // Work in India time by shifting, then shift back
-  const shift = 5.5 * 3_600_000;
+  // Work in Zimbabwe time by shifting, then shift back
+  const shift = REGION.utcOffsetMs;
   const d = new Date(p.from.getTime() + shift);
   d.setUTCHours(0, 0, 0, 0);
   if (p.groupBy === 'month') d.setUTCDate(1);
@@ -258,7 +259,7 @@ export class ReportService {
       tables: [
         {
           title: 'Card and UPI payments by method',
-          columns: ['Method', 'Payments', 'Amount (₹)'],
+          columns: ['Method', 'Payments', 'Amount (US$)'],
           rows: methods.map((m: { _id: string | null; n: number; amount: number }) => [m._id ?? 'Unknown', m.n, Math.round(m.amount)]),
         },
       ],
@@ -307,7 +308,7 @@ export class ReportService {
       tables: [
         {
           title: 'Top drivers',
-          columns: ['Driver', 'Trips', 'Earned (₹)', 'Rating'],
+          columns: ['Driver', 'Trips', 'Earned (US$)', 'Rating'],
           rows: topDrivers.map((d: { name?: string; trips: number; earned: number; rating?: number }) => [
             d.name ?? 'Unknown',
             d.trips,
@@ -369,7 +370,7 @@ export class ReportService {
     };
     const line = (cells: unknown[]) => cells.map(cell).join(',');
     const out: string[] = [
-      line([`Poolora ${report.type} report`, `${istDay(report.from)} to ${istDay(report.to)}`, `by ${report.groupBy}`]),
+      line([`Poolora ${report.type} report`, `${localDay(report.from)} to ${localDay(report.to)}`, `by ${report.groupBy}`]),
       '',
       line(['Summary', 'Value']),
       ...report.summary.map((s) => line([s.label, s.format === 'percent' ? `${Math.round(s.value * 1000) / 10}%` : s.value])),
@@ -377,7 +378,7 @@ export class ReportService {
     ];
     const keys = Object.keys(report.series[0] ?? { period: '' });
     out.push(line(keys.map((k) => (k === 'period' ? 'Period start' : k))));
-    for (const row of report.series) out.push(line(keys.map((k) => (k === 'period' ? istDay(String(row[k])) : row[k]))));
+    for (const row of report.series) out.push(line(keys.map((k) => (k === 'period' ? localDay(String(row[k])) : row[k]))));
     for (const table of report.tables) {
       out.push('', line([table.title]), line(table.columns), ...table.rows.map(line));
     }

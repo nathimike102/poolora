@@ -8,7 +8,7 @@ export interface ITripExpense extends Document {
   _id: Types.ObjectId;
   trip: Types.ObjectId;
   description: string;
-  /** Rupees */
+  /** US dollars */
   amount: number;
   paidBy: Types.ObjectId;
   splitAmong: Types.ObjectId[];

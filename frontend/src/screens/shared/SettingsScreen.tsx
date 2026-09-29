@@ -29,6 +29,7 @@ import { COMPANY } from '../../config/company';
 import type { User } from '../../types/api';
 import Constants from 'expo-constants';
 import { realPhone } from '../../utils/phone';
+import { money } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -223,7 +224,7 @@ export function SettingsScreen() {
             label="Wallet balance"
             rightEl={
               <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>
-                {walletBalance === null ? 'Unavailable' : `₹${walletBalance.toLocaleString('en-IN')}`}
+                {walletBalance === null ? 'Unavailable' : `${money(walletBalance)}`}
               </Text>
             }
           />

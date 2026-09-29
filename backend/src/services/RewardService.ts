@@ -10,7 +10,7 @@ import { CoinTransactionType } from '../types';
 export interface TierBenefits {
     tier: RewardTier;
     label: string;
-    coinEarnRate: number;      // coins per ₹ spent in a ride
+    coinEarnRate: number;      // coins per US$ spent in a ride
     minRidesRequired: number;
     nextTier: RewardTier | null;
     nextTierRidesRequired: number | null;

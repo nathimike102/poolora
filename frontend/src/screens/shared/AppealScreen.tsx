@@ -17,8 +17,9 @@ import { BackButton } from '../../components/BackButton';
 import { appealService, type AccountStanding } from '../../services/appealService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { AccountRestriction } from '../../utils/accountRestriction';
+import { REGION } from '../../utils/region';
 
-const day = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+const day = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'long', year: 'numeric' }) : '');
 const OUTCOME = { open: 'Being reviewed', upheld: 'Decision kept', overturned: 'Decision lifted' } as const;
 
 export function AppealScreen({ restriction, onSignOut }: { restriction?: AccountRestriction; onSignOut?: () => void } = {}) {

@@ -17,14 +17,15 @@ import { SupportTicket } from '../models/SupportTicket';
 import { getRedisClient } from '../config/redis';
 import { BookingStatus, FraudLevel, KYCStatus, RideStatus, SOSStatus } from '../types';
 import { requestStats } from '../utils/requestStats';
+import { fromLocalClock, toLocalClock } from '../config/region';
 
 const DAY = 86_400_000;
 
 function startOfToday(now: Date): Date {
-  // India time (UTC+5:30), where the service runs
-  const ist = new Date(now.getTime() + 5.5 * 3_600_000);
-  ist.setUTCHours(0, 0, 0, 0);
-  return new Date(ist.getTime() - 5.5 * 3_600_000);
+  // Zimbabwe time, where the service runs
+  const local = toLocalClock(now);
+  local.setUTCHours(0, 0, 0, 0);
+  return fromLocalClock(local);
 }
 
 async function sumBookings(match: Record<string, unknown>, field: string): Promise<{ total: number; count: number }> {

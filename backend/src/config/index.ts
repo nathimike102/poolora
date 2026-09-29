@@ -99,7 +99,7 @@ export const config = {
   aws: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-    region: optional('AWS_REGION', 'ap-south-1'),
+    region: optional('AWS_REGION', 'af-south-1'),
     s3Bucket: optional('AWS_S3_BUCKET', 'mobility-uploads'),
   },
 
@@ -253,17 +253,17 @@ export const config = {
   },
 
   wallet: {
-    coinToInrRate: parseFloat(process.env.COIN_TO_INR_RATE || '0.25'), // ₹ per coin
-    minTopUpAmount: 50,
-    maxTopUpAmount: 50000,
-    maxWalletBalance: 100000,
+    coinToUsdRate: parseFloat(process.env.COIN_TO_USD_RATE || '0.01'), // US$ per coin
+    minTopUpAmount: 1,
+    maxTopUpAmount: 500,
+    maxWalletBalance: 1000,
     minCoinConversion: 100,     // minimum coins needed to convert
-    coinEarnRates: {            // coins earned per ₹ spent/earned in ride, by tier
-      bronze: 1,
-      silver: 1.5,
-      gold: 2,
-      platinum: 3,
-      diamond: 5,
+    coinEarnRates: {            // coins earned per US$ spent/earned in ride, by tier
+      bronze: 10,
+      silver: 15,
+      gold: 20,
+      platinum: 30,
+      diamond: 50,
     } as Record<string, number>,
     tierThresholds: {           // total completed rides to reach tier
       bronze: 0,

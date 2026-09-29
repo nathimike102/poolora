@@ -25,6 +25,7 @@ import { parcelService, parcelStage, type Parcel, type ParcelType } from '../../
 import { realPhone } from '../../utils/phone';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
+import { toE164 } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -35,11 +36,6 @@ const TYPES: Array<{ value: ParcelType; label: string }> = [
   { value: 'perishable', label: 'Food or perishable' },
 ];
 
-/** A 10-digit Indian mobile number, with or without +91 */
-function toE164(input: string): string | null {
-  const digits = input.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
-  return /^[6-9]\d{9}$/.test(digits) ? `+91${digits}` : null;
-}
 
 export function ShipParcelScreen() {
   const navigation = useNavigation<Nav>();

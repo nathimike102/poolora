@@ -4,7 +4,7 @@
  * One group trip. Anyone who can see it gets the plan and can ask to join.
  * Members get three tabs: Plan (the day-by-day outline and activities the
  * group votes on, UC-T04), People (members, join requests, the invite code
- * and UPI ids) and Money (shared expenses and settling up, UC-T03, UC-T05).
+ * and mobile money numbers) and Money (shared expenses and settling up, UC-T03, UC-T05).
  */
 
 import React, { useCallback, useState } from 'react';
@@ -20,9 +20,9 @@ import { StarRating } from '../../components/RatingForm';
 import { tripService, tripDates, tripDays, type Trip, type TripExpense, type Settlement, type TripVote } from '../../services/tripService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
+import { formatPhone, money } from '../../utils/region';
 
 type Tab = 'plan' | 'people' | 'money';
-const inr = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function TripDetailScreen() {
@@ -42,7 +42,7 @@ export function TripDetailScreen() {
   const [joinMessage, setJoinMessage] = useState('');
   const [activity, setActivity] = useState({ title: '', cost: '', notes: '' });
   const [expense, setExpense] = useState({ description: '', amount: '', paidBy: '', split: [] as string[] });
-  const [upi, setUpi] = useState('');
+  const [payNumber, setPayNumber] = useState('');
   const [rating, setRating] = useState({ score: 0, comment: '' });
 
   const load = useCallback(async () => {
@@ -54,7 +54,7 @@ export function TripDetailScreen() {
         const [e, s] = await Promise.all([tripService.expenses(tripId), tripService.settlement(tripId)]);
         setExpenses(e);
         setSettlement(s);
-        setUpi(t.members.find(m => m.user._id === t.viewerId)?.upiId ?? '');
+        setPayNumber(t.members.find(m => m.user._id === t.viewerId)?.payNumber ?? '');
       }
     } catch (e) {
       setLoadError(errorHandler.process(e).message);
@@ -103,7 +103,7 @@ export function TripDetailScreen() {
       </Text>
       <Text style={{ fontSize: 13, color: c.textSec }}>
         {cap(trip.tripType)} · {trip.members.length} of {trip.maxGroupSize} going
-        {trip.budgetPerPerson ? ` · about ${inr(trip.budgetPerPerson)} each` : ''}
+        {trip.budgetPerPerson ? ` · about ${money(trip.budgetPerPerson)} each` : ''}
         {organizerName ? ` · organised by ${organizerName}` : ''}
         {organizerStats?.totalRatingsAsOrganizer ? ` (★ ${organizerStats.avgRatingAsOrganizer?.toFixed(1)} from ${organizerStats.totalRatingsAsOrganizer} ${organizerStats.totalRatingsAsOrganizer === 1 ? 'trip rating' : 'trip ratings'})` : ''}
       </Text>
@@ -203,7 +203,7 @@ export function TripDetailScreen() {
               <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: c.text }}>{a.title}</Text>
               <Text style={{ fontSize: 12, fontWeight: '700', color: a.status === 'confirmed' ? c.success : a.status === 'rejected' ? c.error : c.textSec }}>{cap(a.status)}</Text>
             </View>
-            {a.cost || a.notes ? <Text style={{ fontSize: 13, color: c.textSec }}>{[a.cost ? inr(a.cost) : '', a.notes ?? ''].filter(Boolean).join(' · ')}</Text> : null}
+            {a.cost || a.notes ? <Text style={{ fontSize: 13, color: c.textSec }}>{[a.cost ? money(a.cost) : '', a.notes ?? ''].filter(Boolean).join(' · ')}</Text> : null}
             <Text style={{ fontSize: 12, color: c.textSec }}>Yes {votesOf(a, 'yes')} · No {votesOf(a, 'no')} · Maybe {votesOf(a, 'maybe')}</Text>
             {a.status === 'proposed' ? (
               <View style={styles.row}>
@@ -255,7 +255,7 @@ export function TripDetailScreen() {
           <View key={m.user._id} style={styles.row}>
             <Icon name="account-circle-outline" size={22} color={c.textSec} />
             <Text style={{ flex: 1, color: c.text }}>{m.user._id === me ? 'You' : m.user.name ?? 'Member'}{m.role === 'organizer' ? ' (organiser)' : ''}</Text>
-            {m.upiId ? <Text style={{ fontSize: 12, color: c.textSec }}>{m.upiId}</Text> : null}
+            {m.payNumber ? <Text style={{ fontSize: 12, color: c.textSec }}>{formatPhone(m.payNumber)}</Text> : null}
           </View>
         ))}
       </View>
@@ -292,11 +292,11 @@ export function TripDetailScreen() {
       </View>
 
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <Text style={[styles.cardTitle, { color: c.text }]}>Your UPI id</Text>
-        <Text style={{ fontSize: 13, color: c.textSec }}>So the group can pay you back in one tap. Only members see it.</Text>
+        <Text style={[styles.cardTitle, { color: c.text }]}>Your mobile money number</Text>
+        <Text style={{ fontSize: 13, color: c.textSec }}>EcoCash, OneMoney or InnBucks, so the group can pay you back. With an EcoCash number they can pay in one tap. Only members see it.</Text>
         <View style={styles.row}>
-          <TextInput value={upi} onChangeText={setUpi} autoCapitalize="none" placeholder="name@okaxis" placeholderTextColor={c.textSec} accessibilityLabel="UPI id" style={[styles.input, { flex: 1, borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
-          <Pressable onPress={() => act(() => tripService.setUpi(tripId, upi.trim()), 'Saved')} disabled={busy} accessibilityRole="button" style={[styles.smallBtn, { backgroundColor: c.primary }]}>
+          <TextInput value={payNumber} onChangeText={setPayNumber} keyboardType="phone-pad" placeholder="0771 234 567" placeholderTextColor={c.textSec} accessibilityLabel="Mobile money number" style={[styles.input, { flex: 1, borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
+          <Pressable onPress={() => act(() => tripService.setPayNumber(tripId, payNumber.trim()), 'Saved')} disabled={busy} accessibilityRole="button" style={[styles.smallBtn, { backgroundColor: c.primary }]}>
             <Text style={{ color: c.textOnPrimary, fontWeight: '700' }}>Save</Text>
           </Pressable>
         </View>
@@ -346,13 +346,13 @@ export function TripDetailScreen() {
       {settlement ? (
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text style={[styles.cardTitle, { color: c.text }]}>Settle up</Text>
-          <Text style={{ fontSize: 14, color: c.textSec }}>{inr(settlement.total)} spent, about {inr(settlement.perPerson)} a person</Text>
+          <Text style={{ fontSize: 14, color: c.textSec }}>{money(settlement.total)} spent, about {money(settlement.perPerson)} a person</Text>
           {settlement.members.map(m => (
             <View key={m.userId} style={styles.row}>
               <Text style={{ flex: 1, color: c.text }}>{m.userId === me ? 'You' : m.name}</Text>
-              <Text style={{ fontSize: 13, color: c.textSec }}>paid {inr(m.paid)} · share {inr(m.share)}</Text>
+              <Text style={{ fontSize: 13, color: c.textSec }}>paid {money(m.paid)} · share {money(m.share)}</Text>
               <Text style={{ width: 84, textAlign: 'right', fontWeight: '700', color: m.balance > 0 ? c.success : m.balance < 0 ? c.error : c.textSec }}>
-                {m.balance > 0 ? `+${inr(m.balance)}` : m.balance < 0 ? `−${inr(-m.balance)}` : 'even'}
+                {m.balance > 0 ? `+${money(m.balance)}` : m.balance < 0 ? `−${money(-m.balance)}` : 'even'}
               </Text>
             </View>
           ))}
@@ -363,14 +363,16 @@ export function TripDetailScreen() {
             return (
               <View key={`${t.from}-${t.to}`} style={[styles.item, { borderColor: c.border }]}>
                 <Text style={{ fontSize: 15, color: c.text }}>
-                  <Text style={{ fontWeight: '700' }}>{t.from === me ? 'You' : t.fromName}</Text> pay{t.from === me ? '' : 's'} <Text style={{ fontWeight: '700' }}>{t.to === me ? 'you' : t.toName}</Text> {inr(t.amount)}
+                  <Text style={{ fontWeight: '700' }}>{t.from === me ? 'You' : t.fromName}</Text> pay{t.from === me ? '' : 's'} <Text style={{ fontWeight: '700' }}>{t.to === me ? 'you' : t.toName}</Text> {money(t.amount)}
                 </Text>
                 {mine ? (
                   <View style={styles.row}>
-                    {t.from === me && t.upiLink ? (
-                      <Pressable onPress={() => Linking.openURL(t.upiLink!).catch(() => Alert.alert('No UPI app found'))} accessibilityRole="button" style={[styles.smallBtn, { backgroundColor: c.primary }]}>
-                        <Text style={{ color: c.textOnPrimary, fontWeight: '700' }}>Pay by UPI</Text>
+                    {t.from === me && t.ecocashLink ? (
+                      <Pressable onPress={() => Linking.openURL(t.ecocashLink!).catch(() => Alert.alert('Could not open the dialler', `Dial *151# and send ${money(t.amount)} to ${formatPhone(t.payNumber ?? '')}.`))} accessibilityRole="button" accessibilityHint="Dials EcoCash with the number and amount filled in; you confirm with your PIN" style={[styles.smallBtn, { backgroundColor: c.primary }]}>
+                        <Text style={{ color: c.textOnPrimary, fontWeight: '700' }}>Pay with EcoCash</Text>
                       </Pressable>
+                    ) : t.from === me && t.payNumber ? (
+                      <Text style={{ fontSize: 13, color: c.textSec }}>Send to {formatPhone(t.payNumber)}</Text>
                     ) : null}
                     <Pressable onPress={() => act(() => tripService.markSettled(tripId, { from: t.from, to: t.to, amount: t.amount }))} disabled={busy} accessibilityRole="button" style={[styles.smallBtn, { borderWidth: 1, borderColor: c.primary }]}>
                       <Text style={{ color: c.primary, fontWeight: '700' }}>{t.from === me ? 'I have paid' : 'I got it'}</Text>
@@ -424,7 +426,7 @@ export function TripDetailScreen() {
             );
           })}
         </View>
-        {amountNum > 0 ? <Text style={{ fontSize: 13, color: c.textSec }}>{inr(Math.round((amountNum / splitNow.length) * 100) / 100)} each</Text> : null}
+        {amountNum > 0 ? <Text style={{ fontSize: 13, color: c.textSec }}>{money(Math.round((amountNum / splitNow.length) * 100) / 100)} each</Text> : null}
         <Pressable
           onPress={async () => {
             const ok = await act(() => tripService.addExpense(tripId, { description: expense.description.trim(), amount: amountNum, paidBy: expense.paidBy || me, splitAmong: splitNow }));
@@ -457,7 +459,7 @@ export function TripDetailScreen() {
                 {e.paidBy?._id === me ? 'You' : e.paidBy?.name ?? 'Member'} paid · split {e.splitAmong.length} ways
               </Text>
             </View>
-            <Text style={{ fontWeight: '700', color: c.text }}>{inr(e.amount)}</Text>
+            <Text style={{ fontWeight: '700', color: c.text }}>{money(e.amount)}</Text>
           </Pressable>
         ))}
       </View>

@@ -38,7 +38,7 @@ interface Merge {
 const MOVED_LABELS: Record<string, string> = {
   bookings: 'bookings', rides: 'rides', ratings: 'ratings', payments: 'payments', disputes: 'disputes', sos: 'SOS records',
   messages: 'messages', parcels: 'parcels', trips: 'trips', supportTickets: 'support requests', notifications: 'notifications',
-  walletRupees: 'rupees', coins: 'coins',
+  walletAmount: 'US dollars', coins: 'coins',
 };
 
 /** Appeals against suspensions and blocks, and duplicate-account merges (UC-A05) */

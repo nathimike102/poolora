@@ -9,6 +9,7 @@
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import type { Report } from './ReportService';
+import { money, number, toLocalClock } from '../config/region';
 
 export const EXPORT_FORMATS = ['csv', 'xlsx', 'pdf'] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
@@ -27,21 +28,21 @@ const TITLES: Record<Report['type'], string> = {
   safety: 'Safety',
 };
 
-/** The India-time calendar day of an ISO instant, as YYYY-MM-DD */
-export const istDay = (iso: string) => new Date(new Date(iso).getTime() + 5.5 * 3_600_000).toISOString().slice(0, 10);
+/** The Zimbabwe calendar day of an ISO instant, as YYYY-MM-DD */
+export const localDay = (iso: string) => toLocalClock(new Date(iso)).toISOString().slice(0, 10);
 
 export const reportTitle = (report: Report) => `${TITLES[report.type]} report`;
 export const reportFilename = (report: Report, format: ExportFormat) =>
-  `poolora-${report.type}-${istDay(report.from)}-to-${istDay(report.to)}.${format}`;
+  `poolora-${report.type}-${localDay(report.from)}-to-${localDay(report.to)}.${format}`;
 
-/** A summary figure as people read it: ₹ amounts, 12.5%, 4.25, 18 min */
+/** A summary figure as people read it: US$ amounts, 12.5%, 4.25, 18 min */
 export function formatFigure(value: number, format: Report['summary'][number]['format']): string {
   switch (format) {
-    case 'money': return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+    case 'money': return money(value);
     case 'percent': return `${Math.round(value * 1000) / 10}%`;
     case 'decimal': return value ? value.toFixed(2) : '—';
-    case 'minutes': return value ? `${value.toLocaleString('en-IN')} min` : '—';
-    default: return value.toLocaleString('en-IN');
+    case 'minutes': return value ? `${number(value)} min` : '—';
+    default: return number(value);
   }
 }
 
@@ -51,8 +52,8 @@ function seriesHeader(report: Report): Array<{ key: string; label: string }> {
   return keys.map((key) => ({ key, label: report.seriesColumns.find((c) => c.key === key)?.label ?? key }));
 }
 
-const periodDay = (iso: unknown) => istDay(String(iso));
-const rangeText = (report: Report) => `${istDay(report.from)} to ${istDay(report.to)}, by ${report.groupBy}`;
+const periodDay = (iso: unknown) => localDay(String(iso));
+const rangeText = (report: Report) => `${localDay(report.from)} to ${localDay(report.to)}, by ${report.groupBy}`;
 
 export async function toXlsx(report: Report): Promise<Buffer> {
   const book = new ExcelJS.Workbook();
@@ -61,13 +62,13 @@ export async function toXlsx(report: Report): Promise<Buffer> {
 
   const summary = book.addWorksheet('Summary');
   summary.addRow([`Poolora ${reportTitle(report).toLowerCase()}`]).font = { bold: true, size: 14 };
-  summary.addRow([rangeText(report), 'India time']);
+  summary.addRow([rangeText(report), 'Zimbabwe time']);
   summary.addRow([]);
   summary.addRow(['Figure', 'Value']).font = { bold: true };
   for (const s of report.summary) {
     const row = summary.addRow([s.label, s.value]);
     const cell = row.getCell(2);
-    if (s.format === 'money') cell.numFmt = '"₹"#,##0.00';
+    if (s.format === 'money') cell.numFmt = '"US$"#,##0.00';
     else if (s.format === 'percent') cell.numFmt = '0.0%';
     else if (s.format === 'decimal') cell.numFmt = '0.00';
   }
@@ -84,7 +85,7 @@ export async function toXlsx(report: Report): Promise<Buffer> {
     const format = report.seriesColumns.find((c) => c.key === h.key)?.format;
     const column = byPeriod.getColumn(i + 2);
     column.width = Math.max(14, h.label.length + 2);
-    if (format === 'money') column.numFmt = '"₹"#,##0.00';
+    if (format === 'money') column.numFmt = '"US$"#,##0.00';
     else if (format === 'percent') column.numFmt = '0.0%';
   });
   byPeriod.getColumn(1).width = 14;
@@ -115,8 +116,8 @@ export function toPdf(report: Report): Promise<Buffer> {
 
     const left = doc.page.margins.left;
     const width = doc.page.width - left - doc.page.margins.right;
-    // The built-in PDF fonts have no ₹ sign, so money is written as "Rs"
-    const plain = (s: string) => s.replace(/₹/g, 'Rs ').replace(/—/g, '-');
+    // The built-in PDF fonts have no em dash
+    const plain = (s: string) => s.replace(/—/g, '-');
 
     /** A simple table: header row in bold, then rows, breaking pages as needed */
     const table = (columns: string[], rows: Array<Array<string | number>>) => {
@@ -129,7 +130,7 @@ export function toPdf(report: Report): Promise<Buffer> {
         const y = doc.y;
         cells.forEach((c, i) => {
           const numeric = typeof c === 'number';
-          doc.text(plain(numeric ? c.toLocaleString('en-IN') : String(c)), left + i * colWidth, y, {
+          doc.text(plain(numeric ? number(c) : String(c)), left + i * colWidth, y, {
             width: colWidth - 6,
             align: numeric && i > 0 ? 'right' : 'left',
           });
@@ -150,7 +151,7 @@ export function toPdf(report: Report): Promise<Buffer> {
 
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#0b7a75').text('Poolora');
     doc.font('Helvetica-Bold').fontSize(18).fillColor('#1a1a1a').text(reportTitle(report));
-    doc.font('Helvetica').fontSize(10).fillColor('#555555').text(`${rangeText(report)}. India time.`);
+    doc.font('Helvetica').fontSize(10).fillColor('#555555').text(`${rangeText(report)}. Zimbabwe time.`);
     doc.fillColor('#1a1a1a').moveDown(1);
 
     heading('Summary');

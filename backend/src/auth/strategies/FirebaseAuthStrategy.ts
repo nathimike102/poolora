@@ -51,7 +51,7 @@ export class FirebaseAuthStrategy implements AuthStrategy {
     let user = await User.findOne({ firebaseUid: uid, isActive: true });
     if (user) return user;
 
-    // 2. Try matching by phone (most common for Indian ride-hailing)
+    // 2. Try matching by phone (most people here sign in by phone)
     if (phone) {
       user = await User.findOne({ phone, isActive: true });
       if (user) {

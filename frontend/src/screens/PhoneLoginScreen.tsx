@@ -27,6 +27,7 @@ import { Typography, Spacing, Radius, Shadow } from '../theme';
 import { sendOtpToBackend } from '../services/authService';
 import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
+import { nationalDigits, REGION, toE164 } from '../utils/region';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'PhoneLogin'>;
 
@@ -38,14 +39,14 @@ export function PhoneLoginScreen() {
   const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);
 
-  const isValid = phone.length === 10;
+  const isValid = REGION.mobilePattern.test(nationalDigits(phone));
 
   const handleSendOtp = async () => {
     if (!isValid || sending) return;
     setSending(true);
     try {
-      await sendOtpToBackend(`+91${phone}`);
-      navigation.navigate('OTP', { phone });
+      await sendOtpToBackend(toE164(phone)!);
+      navigation.navigate('OTP', { phone: nationalDigits(phone) });
     } catch (error) {
       Alert.alert('Could not send code', errorHandler.process(error).message);
     } finally {
@@ -90,7 +91,7 @@ export function PhoneLoginScreen() {
           </Text>
           <View style={styles.phoneRow}>
             <View style={styles.prefixRow}>
-              <Text style={[styles.dialCode, { color: c.text }]}>+91</Text>
+              <Text style={[styles.dialCode, { color: c.text }]}>{REGION.dialCode}</Text>
               <View style={[styles.divider, { backgroundColor: c.border }]} />
             </View>
 
@@ -99,7 +100,7 @@ export function PhoneLoginScreen() {
               onChangeText={val => setPhone(val.replace(/\D/g, '').slice(0, 10))}
               keyboardType="phone-pad"
               maxLength={10}
-              placeholder="98765 43210"
+              placeholder={REGION.phonePlaceholder}
               placeholderTextColor={c.textSec}
               style={[styles.phoneInput, { color: c.text }]}
               autoFocus

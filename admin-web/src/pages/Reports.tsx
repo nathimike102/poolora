@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { api, qs } from '../lib/api';
 import { useApi } from '../lib/useApi';
-import { money, num, pct, short } from '../lib/format';
+import { money, num, pct, short, TIME_ZONE, TIME_ZONE_LABEL } from '../lib/format';
 import { ErrorBox, Field, Loading, PageHead, StatTile } from '../components/ui';
 import { LineChart } from '../components/LineChart';
 import { FORMAT_NAMES, ReportSchedules } from '../components/ReportSchedules';
@@ -49,9 +49,9 @@ function show(value: number, format: Format): string {
 function periodLabel(iso: string, groupBy: Report['groupBy']): string {
   const d = new Date(iso);
   const opts: Intl.DateTimeFormatOptions = groupBy === 'month'
-    ? { month: 'short', year: '2-digit', timeZone: 'Asia/Kolkata' }
-    : { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' };
-  return d.toLocaleDateString('en-IN', opts);
+    ? { month: 'short', year: '2-digit', timeZone: TIME_ZONE }
+    : { day: 'numeric', month: 'short', timeZone: TIME_ZONE };
+  return d.toLocaleDateString('en-GB', opts);
 }
 
 export function ReportsPage() {
@@ -97,7 +97,7 @@ export function ReportsPage() {
 
   return (
     <div className="stack">
-      <PageHead title="Reports" sub="All times in India time. Data up to two years back." actions={
+      <PageHead title="Reports" sub={`All times in ${TIME_ZONE_LABEL}. Data up to two years back.`} actions={
         <div className="row" style={{ gap: 6 }}>
           <select className="input" aria-label="File type" value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
             {Object.entries(FORMAT_NAMES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -146,7 +146,7 @@ export function ReportsPage() {
               rows={data.series}
               series={data.seriesColumns}
               formatX={(v) => periodLabel(v, data.groupBy)}
-              formatY={(v) => (seriesFormat === 'money' ? `₹${short(v)}` : short(v))}
+              formatY={(v) => (seriesFormat === 'money' ? `US$${short(v)}` : short(v))}
             />
             <details style={{ marginTop: 12 }}>
               <summary className="muted" style={{ cursor: 'pointer' }}>Show the figures as a table</summary>

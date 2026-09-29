@@ -20,16 +20,12 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
 import { safetyService, type EmergencyContact } from '../../services/safetyService';
 import { errorHandler } from '../../utils/errorHandler';
+import { toE164 } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const MAX_CONTACTS = 3;
 
-/** Accepts a 10-digit Indian mobile number, with or without +91 or spaces. */
-function toE164(input: string): string | null {
-  const digits = input.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
-  return /^[6-9]\d{9}$/.test(digits) ? `+91${digits}` : null;
-}
 
 export function EmergencyContactsScreen() {
   const navigation = useNavigation<Nav>();

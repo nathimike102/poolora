@@ -14,6 +14,7 @@ import { AppError, AuthorizationError, NotFoundError } from '../utils/AppError';
 import { ChatService } from './ChatService';
 import { NotificationService } from './NotificationService';
 import { emailLayout, escapeHtml, mailEnabled, sendMail } from './Mailer';
+import { fromLocalClock, money, toLocalClock } from '../config/region';
 
 /** What it takes to earn the Verified Driver badge (UC-D10) */
 export const VERIFIED_DRIVER_RULES = {
@@ -91,13 +92,12 @@ export class DriverService {
     return { sent: bookings.length };
   }
 
-  /** What a driver earned in a month (IST), line by line (UC-D09) */
+  /** What a driver earned in a month (Zimbabwe time), line by line (UC-D09) */
   async statement(driverId: string, month: string): Promise<{ month: string; lines: StatementLine[]; totals: { fare: number; platformFee: number; earnings: number; trips: number } }> {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new AppError('Month must look like 2026-09', 422, 'VALIDATION_ERROR');
     const [y, m] = month.split('-').map(Number);
-    const istOffset = 5.5 * 3_600_000;
-    const from = new Date(Date.UTC(y, m - 1, 1) - istOffset);
-    const to = new Date(Date.UTC(y, m, 1) - istOffset);
+    const from = fromLocalClock(new Date(Date.UTC(y, m - 1, 1)));
+    const to = fromLocalClock(new Date(Date.UTC(y, m, 1)));
 
     const bookings = await Booking.find({
       driver: driverId,
@@ -115,7 +115,7 @@ export class DriverService {
       const when = (completed ? b.actualDropoffTime : b.cancelledAt) ?? b.updatedAt;
       const fare = completed ? b.finalFare ?? b.estimatedFare : b.cancellationFee ?? 0;
       return {
-        date: new Date(when).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
+        date: toLocalClock(new Date(when)).toISOString().slice(0, 10),
         kind: completed ? 'Trip' : b.noShow ? 'No-show' : 'Late cancellation',
         route: `${b.pickup.address.split(',')[0]} to ${b.dropoff.address.split(',')[0]}`,
         rider: (b.rider?.name ?? 'Rider').split(' ')[0],
@@ -131,7 +131,7 @@ export class DriverService {
   statementCsv(s: Awaited<ReturnType<DriverService['statement']>>): string {
     const cell = (v: unknown) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
     const rows = [
-      ['Date', 'Type', 'Route', 'Rider', 'Fare (INR)', 'Platform fee (INR)', 'Your earnings (INR)'],
+      ['Date', 'Type', 'Route', 'Rider', 'Fare (USD)', 'Platform fee (USD)', 'Your earnings (USD)'],
       ...s.lines.map((l) => [l.date, l.kind, l.route, l.rider, l.fare, l.platformFee, l.earnings]),
       [],
       ['Total', `${s.totals.trips} trips`, '', '', s.totals.fare, s.totals.platformFee, s.totals.earnings],
@@ -145,12 +145,11 @@ export class DriverService {
     if (!user?.email) throw new AppError('Add an email address in your profile to get statements by email', 409, 'NO_EMAIL');
     if (!mailEnabled()) throw new AppError('Email is not available right now', 503, 'EMAIL_UNAVAILABLE');
     const s = await this.statement(driverId, month);
-    const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
     await sendMail({
       to: user.email,
       subject: `Your Poolora earnings for ${month}`,
-      text: `${s.totals.trips} trips in ${month}. Fares ${inr(s.totals.fare)}, platform fees ${inr(s.totals.platformFee)}, your earnings ${inr(s.totals.earnings)}. The full statement is attached.`,
-      html: emailLayout(`Earnings for ${month}`, `<p>${s.totals.trips} trips. Fares ${escapeHtml(inr(s.totals.fare))}, platform fees ${escapeHtml(inr(s.totals.platformFee))}.</p><p style="font-size:18px"><strong>Your earnings: ${escapeHtml(inr(s.totals.earnings))}</strong></p><p>The full statement is attached as a spreadsheet.</p>`),
+      text: `${s.totals.trips} trips in ${month}. Fares ${money(s.totals.fare)}, platform fees ${money(s.totals.platformFee)}, your earnings ${money(s.totals.earnings)}. The full statement is attached.`,
+      html: emailLayout(`Earnings for ${month}`, `<p>${s.totals.trips} trips. Fares ${escapeHtml(money(s.totals.fare))}, platform fees ${escapeHtml(money(s.totals.platformFee))}.</p><p style="font-size:18px"><strong>Your earnings: ${escapeHtml(money(s.totals.earnings))}</strong></p><p>The full statement is attached as a spreadsheet.</p>`),
       attachments: [{ filename: `poolora-earnings-${month}.csv`, content: this.statementCsv(s), contentType: 'text/csv' }],
     });
     return { to: user.email };

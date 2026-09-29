@@ -23,11 +23,11 @@ export interface IDispute extends Document {
   assignedTo?: Types.ObjectId;
   decision?: {
     outcome: DisputeOutcome;
-    /** Returned to the rider, in rupees */
+    /** Returned to the rider, in US dollars */
     refundAmount: number;
     /** What the refund did; 'failed' or 'none' means it needs a manual refund */
     refundStatus?: string;
-    /** Paid to the driver's wallet, in rupees */
+    /** Paid to the driver's wallet, in US dollars */
     driverCompensation: number;
     warned: Types.ObjectId[];
     suspendedDays?: number | null;

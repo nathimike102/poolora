@@ -19,6 +19,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
 import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
+import { money } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -157,7 +158,7 @@ function RideCard({ ride }: { ride: UpcomingRide }) {
               </Text>
               <Text style={{ fontSize: 12, color: c.textSec, marginHorizontal: 4 }}>·</Text>
               <Text style={{ fontSize: 12, fontWeight: '600', color: c.success }}>
-                ₹{ride.earned} from booked seats
+                {money(ride.earned)} from booked seats
               </Text>
             </View>
           </View>

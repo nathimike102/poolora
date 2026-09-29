@@ -42,6 +42,7 @@ import {
 } from '../../services/placeHistoryService';
 import { errorHandler } from '../../utils/errorHandler';
 import { logger } from '../../utils/logger';
+import { REGION } from '../../utils/region';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Search'>;
 type SearchRoute = RouteProp<RootStackParamList, 'Search'>;
@@ -79,10 +80,10 @@ function formatWhen(when: Date | null): string {
   const today = new Date();
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
-  const time = when.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  const time = when.toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
   if (when.toDateString() === today.toDateString()) return `Today, ${time}`;
   if (when.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
-  return `${when.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${time}`;
+  return `${when.toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' })}, ${time}`;
 }
 
 export function SearchScreen() {

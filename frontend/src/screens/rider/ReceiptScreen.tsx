@@ -19,8 +19,8 @@ import type { RootStackParamList } from '../../navigation/types';
 import { bookingService } from '../../services/bookingService';
 import type { Receipt } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
+import { money } from '../../utils/region';
 
-const inr = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 const STATUS: Record<Receipt['status'], string> = {
   completed: 'Trip completed',
@@ -89,12 +89,12 @@ export function ReceiptScreen() {
             </Text>
           </View>
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            {row('Seats', `${r.trip.seats} × ${inr(r.pricePerSeat)}`)}
-            {row('Fare', inr(r.fare))}
-            {r.serviceFee ? row('Includes Poolora service fee', inr(r.serviceFee)) : null}
-            {r.refunded ? row('Refunded', `− ${inr(r.refunded)}`) : null}
+            {row('Seats', `${r.trip.seats} × ${money(r.pricePerSeat)}`)}
+            {row('Fare', money(r.fare))}
+            {r.serviceFee ? row('Includes Poolora service fee', money(r.serviceFee)) : null}
+            {r.refunded ? row('Refunded', `− ${money(r.refunded)}`) : null}
             <View style={[styles.divider, { backgroundColor: c.border }]} />
-            {row('Total paid', inr(r.paid), true)}
+            {row('Total paid', money(r.paid), true)}
             {row('Paid by', r.paymentMethod)}
           </View>
           {r.status === 'no_show' ? (

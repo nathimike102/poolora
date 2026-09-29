@@ -27,6 +27,7 @@ import { MAPS_ENABLED, MAP_STYLE } from '../../config/maps';
 import { reverseGeocodePlace } from '../../services/placesService';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
+import { REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'MapPicker'>;
 type Route = RouteProp<RootStackParamList, 'MapPicker'>;
@@ -35,7 +36,7 @@ const LOOKUP_DEBOUNCE_MS = 500;
 type Point = { latitude: number; longitude: number };
 
 /** Camera starts over Bangalore until the device location is known. */
-const INITIAL_POINT: Point = { latitude: 12.9716, longitude: 77.5946 };
+const INITIAL_POINT: Point = REGION.center;
 const PICKER_ZOOM = 15;
 
 export function MapPickerScreen() {

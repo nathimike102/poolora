@@ -300,7 +300,7 @@ export function SosDetailPage() {
         onConfirm={() => api.post(`/admin/sos/${id}/police`, { notes: text }).then(reload)}
         onClose={() => setDialog(null)}
       >
-        <p className="muted">Call the local police first (dial 112), then record it here. Share the live tracking link with them if they ask for the location.</p>
+        <p className="muted">Call the police first (dial 995, or 999 for any emergency), then record it here. Share the live tracking link with them if they ask for the location.</p>
         <Field label="Station, officer or reference (optional)">
           <input className="input" value={text} onChange={(e) => setText(e.target.value)} />
         </Field>

@@ -5,7 +5,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
-  useRoute: () => ({ params: { phone: '9876543210' } }),
+  useRoute: () => ({ params: { phone: '771234567' } }),
 }));
 
 const mockSetUser = jest.fn();
@@ -38,21 +38,21 @@ describe('OTPScreen', () => {
   beforeEach(() => jest.clearAllMocks());
 
   test('verifies the code with the backend using the full number', async () => {
-    mockVerify.mockResolvedValue({ user: { _id: 'u1', name: '', phone: '+919876543210', capabilities: ['rider'], isVerified: true }, isNewUser: true });
+    mockVerify.mockResolvedValue({ user: { _id: 'u1', name: '', phone: '+263771234567', capabilities: ['rider'], isVerified: true }, isNewUser: true });
     const { getAllByPlaceholderText } = render(<OTPScreen />);
     enterCode(getAllByPlaceholderText);
 
-    await waitFor(() => expect(mockVerify).toHaveBeenCalledWith('+919876543210', '123456'));
+    await waitFor(() => expect(mockVerify).toHaveBeenCalledWith('+263771234567', '123456'));
     expect(mockNavigate).toHaveBeenCalledWith('ProfileSetup');
   });
 
   test('sends a returning driver straight into the app', async () => {
-    mockVerify.mockResolvedValue({ user: { _id: 'u2', name: 'Arjun Sharma', phone: '+919876543210', capabilities: ['driver', 'rider'], isVerified: true }, isNewUser: false });
+    mockVerify.mockResolvedValue({ user: { _id: 'u2', name: 'Rudo Moyo', phone: '+263771234567', capabilities: ['driver', 'rider'], isVerified: true }, isNewUser: false });
     const { getAllByPlaceholderText } = render(<OTPScreen />);
     enterCode(getAllByPlaceholderText);
 
     await waitFor(() => expect(mockSetRole).toHaveBeenCalledWith('driver'));
-    expect(mockSetUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'u2', name: 'Arjun Sharma' }));
+    expect(mockSetUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'u2', name: 'Rudo Moyo' }));
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 

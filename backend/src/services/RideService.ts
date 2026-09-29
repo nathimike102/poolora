@@ -26,6 +26,7 @@ import { MatchingEngineClient } from './MatchingEngineClient';
 import { getRoute } from './MapsService';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
+import { money } from '../config/region';
 
 /**
  * A search hit as it goes out over the API: a plain object from the
@@ -94,7 +95,8 @@ function withoutRouteLine<T extends { routeLine?: unknown }>(ride: T): Omit<T, '
 
 /** Ride creation rules (UC-D02) */
 const MIN_ADVANCE_HOURS = 2;
-const MAX_RIDE_KM = 300;
+/** Long enough for the intercity corridors: Harare to Beitbridge is about 580 km */
+const MAX_RIDE_KM = 650;
 const MAX_STOPS = 3;
 
 export class RideService {
@@ -189,7 +191,7 @@ export class RideService {
     if (estimatedDistanceKm > MAX_RIDE_KM) {
       throw new AppError(`Rides can be at most ${MAX_RIDE_KM} km, for safety. This route is ${Math.round(estimatedDistanceKm)} km.`, 422, 'RIDE_TOO_LONG');
     }
-    // The price must stay within ₹2 to ₹15 a km and ±30% of the suggestion (UC-D02)
+    // The price must stay within US$0.02 to US$0.20 a km and ±30% of the suggestion (UC-D02)
     if (!options.skipCreationRules) {
       const pricing = new PricingService();
       const suggestion = await pricing.suggest({
@@ -541,7 +543,7 @@ export class RideService {
       }
       const limit = config.ride.maxPriceChangeRate;
       if (Math.abs(changes.pricePerSeat - ride.pricePerSeat) > ride.pricePerSeat * limit + 0.001) {
-        throw new AppError(`The price can change by at most ${Math.round(limit * 100)}% (₹${Math.round(ride.pricePerSeat * (1 - limit))} to ₹${Math.round(ride.pricePerSeat * (1 + limit))})`, 409, 'PRICE_CHANGE_TOO_LARGE');
+        throw new AppError(`The price can change by at most ${Math.round(limit * 100)}% (${money(Math.round(ride.pricePerSeat * (1 - limit)))} to ${money(Math.round(ride.pricePerSeat * (1 + limit)))})`, 409, 'PRICE_CHANGE_TOO_LARGE');
       }
       ride.pricePerSeat = changes.pricePerSeat;
       changed.push('price');

@@ -26,10 +26,11 @@ import type {
   ReverseGeocodeResult,
   RouteResult,
 } from './MapsService';
+import { REGION } from '../config/region';
 
-/** Rough box around India, matching the Google calls' country:in restriction. */
-const INDIA_BBOX = '68.1,6.5,97.4,35.7';
-const COUNTRY_CODE = 'in';
+/** Box around the country, matching the Google calls' country restriction. */
+const COUNTRY_BBOX = REGION.bbox.join(',');
+const COUNTRY_CODE = REGION.country.toLowerCase();
 
 const CACHE_TTL = {
   autocomplete: 10 * 60,
@@ -115,7 +116,7 @@ export async function autocomplete(input: string, near?: { lat: number; lng: num
       {
         q: input.trim().toLowerCase(),
         limit: '10',
-        bbox: INDIA_BBOX,
+        bbox: COUNTRY_BBOX,
         lang: 'en',
         // Photon ranks places near this point higher
         ...(near ? { lat: String(near.lat), lon: String(near.lng) } : {}),
@@ -201,7 +202,7 @@ async function photonFirstMatch(address: string): Promise<GeocodeResult | null> 
   try {
     data = await cachedGet(
       `${config.maps.photonUrl}/api/`,
-      { q: address, limit: '5', bbox: INDIA_BBOX, lang: 'en' },
+      { q: address, limit: '5', bbox: COUNTRY_BBOX, lang: 'en' },
       CACHE_TTL.geocode,
     );
   } catch (error) {

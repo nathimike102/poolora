@@ -29,13 +29,13 @@ router.post('/topup', validate(topUpWalletSchema), WalletController.createTopUpO
 /** POST /api/v1/wallet/topup/confirm — confirm payment and credit wallet */
 router.post('/topup/confirm', validate(confirmTopUpSchema), WalletController.confirmTopUp);
 
-/** GET /api/v1/wallet/transactions — paginated INR movement history */
+/** GET /api/v1/wallet/transactions — paginated wallet movement history */
 router.get('/transactions', validate(paginationSchema), WalletController.getTransactions);
 
 /** GET /api/v1/wallet/coins/history — paginated coin ledger */
 router.get('/coins/history', validate(paginationSchema), WalletController.getCoinHistory);
 
-/** POST /api/v1/wallet/coins/convert — convert coins to INR balance */
+/** POST /api/v1/wallet/coins/convert — convert coins to wallet balance */
 router.post('/coins/convert', validate(convertCoinsSchema), WalletController.convertCoins);
 
 export default router;

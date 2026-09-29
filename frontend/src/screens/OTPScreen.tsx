@@ -27,6 +27,7 @@ import { Typography, Spacing, Radius } from '../theme';
 import { sendOtpToBackend, verifyOtpWithBackend } from '../services/authService';
 import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
+import { formatPhone, REGION } from '../utils/region';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'OTP'>;
 type RouteType = RouteProp<RootStackParamList, 'OTP'>;
@@ -136,11 +137,11 @@ export function OTPScreen() {
     async (code: string) => {
       setVerifying(true);
       try {
-        const result = await verifyOtpWithBackend(`+91${phone}`, code);
+        const result = await verifyOtpWithBackend(`${REGION.dialCode}${phone}`, code);
 
         // New phone: collect a name, then profile setup verifies with this code
         if ('needsProfile' in result) {
-          navigation.navigate('ProfileSetup', { phone: `+91${phone}`, otp: code });
+          navigation.navigate('ProfileSetup', { phone: `${REGION.dialCode}${phone}`, otp: code });
           return;
         }
 
@@ -175,7 +176,7 @@ export function OTPScreen() {
   const handleResend = useCallback(async () => {
     if (!canResend) return;
     try {
-      await sendOtpToBackend(`+91${phone}`);
+      await sendOtpToBackend(`${REGION.dialCode}${phone}`);
       setError(false);
       setOtp(Array(OTP_LENGTH).fill(''));
       inputs.current[0]?.focus();
@@ -210,7 +211,7 @@ export function OTPScreen() {
         </View>
 
         <Text style={[styles.title, { color: c.text }]}>Enter verification code</Text>
-        <Text style={[styles.subtitle, { color: c.textSec }]}>We sent a 6-digit code to +91 {phone}</Text>
+        <Text style={[styles.subtitle, { color: c.textSec }]}>We sent a 6-digit code to {formatPhone(`${REGION.dialCode}${phone}`)}</Text>
 
         <View style={styles.otpRow}>
           {otp.map((value, idx) => (

@@ -28,6 +28,7 @@ import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
 import { ActivityIndicator } from 'react-native';
 import { realPhone } from '../../utils/phone';
+import { money } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -365,7 +366,7 @@ export function RideDetailScreen() {
       {ride && (
         <View style={[styles.bottomBar, { backgroundColor: c.surface, borderTopColor: c.border }]}>
           <View>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: c.text }}>₹{ride.pricePerSeat}</Text>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: c.text }}>{money(ride.pricePerSeat)}</Text>
             <Text style={{ fontSize: 12, color: c.textSec }}>
               per seat · {ride.availableSeats} {ride.availableSeats === 1 ? 'seat' : 'seats'} left
             </Text>

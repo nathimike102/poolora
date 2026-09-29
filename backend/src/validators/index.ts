@@ -1,5 +1,7 @@
 import Joi from 'joi';
 import { VehicleType, RideType, RecurringPattern, SOSCheckInStatus } from '../types';
+import { money, REGION } from '../config/region';
+import { config } from '../config';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
@@ -8,7 +10,7 @@ export const sendOtpSchema = {
     phone: Joi.string()
       .pattern(/^\+[1-9]\d{7,14}$/)
       .required()
-      .messages({ 'string.pattern.base': 'Phone must be in E.164 format (e.g., +919876543210)' }),
+      .messages({ 'string.pattern.base': `Phone must be in international format (e.g. ${REGION.examplePhone})` }),
   }),
 };
 
@@ -371,10 +373,10 @@ export const paginationSchema = {
 
 export const topUpWalletSchema = {
   body: Joi.object({
-    amount: Joi.number().positive().min(50).max(50000).required()
+    amount: Joi.number().positive().min(config.wallet.minTopUpAmount).max(config.wallet.maxTopUpAmount).precision(2).required()
       .messages({
-        'number.min': 'Minimum top-up amount is ₹50',
-        'number.max': 'Maximum top-up amount is ₹50,000',
+        'number.min': `Minimum top-up amount is ${money(config.wallet.minTopUpAmount)}`,
+        'number.max': `Maximum top-up amount is ${money(config.wallet.maxTopUpAmount)}`,
       }),
   }),
 };

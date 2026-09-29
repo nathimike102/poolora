@@ -21,7 +21,7 @@ export interface ITrip extends Document {
   startDate: Date;
   endDate: Date;
   destinations: Array<{ name: string; lat?: number; lng?: number }>;
-  /** Estimated cost per person, in rupees */
+  /** Estimated cost per person, in US dollars */
   budgetPerPerson?: number;
   interests: string[];
   itinerary: Array<{ day: number; title: string; notes?: string }>;
@@ -30,7 +30,7 @@ export interface ITrip extends Document {
   /** Private trips are joined with this code */
   inviteCode: string;
   status: 'planning' | 'ongoing' | 'completed' | 'cancelled';
-  members: Array<{ user: Types.ObjectId; role: 'organizer' | 'member'; joinedAt: Date; upiId?: string }>;
+  members: Array<{ user: Types.ObjectId; role: 'organizer' | 'member'; joinedAt: Date; payNumber?: string }>;
   joinRequests: Array<{ _id: Types.ObjectId; user: Types.ObjectId; message?: string; status: 'pending' | 'accepted' | 'declined'; at: Date }>;
   activities: Array<{
     _id: Types.ObjectId;
@@ -74,7 +74,8 @@ const TripSchema = new Schema<ITrip>(
         user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         role: { type: String, enum: ['organizer', 'member'], default: 'member' },
         joinedAt: { type: Date, default: Date.now },
-        upiId: { type: String, trim: true, maxlength: 100 },
+        /** Mobile money number for settling up, E.164 */
+        payNumber: { type: String, trim: true, maxlength: 20 },
       },
     ],
     joinRequests: [

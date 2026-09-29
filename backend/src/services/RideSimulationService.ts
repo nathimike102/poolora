@@ -41,14 +41,15 @@ import { RideService } from './RideService';
 import { BookingService } from './BookingService';
 import { WalletService } from './WalletService';
 import { getRoute, reverseGeocode } from './MapsService';
+import { REGION } from '../config/region';
 
 type Place = LatLng & { address: string };
 
-const BOT_DRIVER_PHONE = '+910000000001';
-const BOT_RIDER_PHONE = '+910000000002';
+const BOT_DRIVER_PHONE = '+263700000001';
+const BOT_RIDER_PHONE = '+263700000002';
 
 /** Koramangala → Indiranagar, used when the app sends no location. */
-const DEFAULT_PICKUP: LatLng = { lat: 12.9352, lng: 77.6245 };
+const DEFAULT_PICKUP: LatLng = { lat: REGION.center.lat, lng: REGION.center.lng };
 
 const TICK_MS = 2000;
 /** Speed reported to riders while moving; drives the ETA in approach alerts. */

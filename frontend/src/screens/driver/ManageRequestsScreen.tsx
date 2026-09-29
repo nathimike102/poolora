@@ -25,6 +25,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
 import { Icon } from '../../components/Icon';
 import { errorHandler } from '../../utils/errorHandler';
+import { money } from '../../utils/region';
 
 type Gender = UserGender;
 type Status = BookingStatus;
@@ -309,7 +310,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={{ fontSize: 20, fontWeight: '800', color: c.success }}>
-                    ₹{trip.earnings}
+                    {money(trip.earnings)}
                   </Text>
                   <Text style={{ fontSize: 11, color: c.textSec }}>from booked seats</Text>
                 </View>
@@ -503,7 +504,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                   </View>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text variant="titleLarge" style={{ fontWeight: '800', color: c.primary }}>₹{req.price}</Text>
+                  <Text variant="titleLarge" style={{ fontWeight: '800', color: c.primary }}>{money(req.price)}</Text>
                   <Text variant="labelSmall" style={{ color: c.textSec }}>total</Text>
                 </View>
               </View>

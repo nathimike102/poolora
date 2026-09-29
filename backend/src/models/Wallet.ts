@@ -6,7 +6,7 @@ import { RewardTier } from '../types';
 export interface IWallet extends Document {
     _id: Types.ObjectId;
     userId: Types.ObjectId;
-    /** INR balance in the wallet (2 decimal precision) */
+    /** US dollar balance in the wallet (2 decimal precision) */
     balance: number;
     /** Accumulated reward coins (integer) */
     coinBalance: number;
@@ -42,7 +42,7 @@ const WalletSchema = new Schema<IWallet>(
             default: 0,
             min: 0,
             max: 100000,
-            // Store as cents internally, return as rupees externally via toJSON
+            // Store as cents internally, return as dollars externally via toJSON
         },
         coinBalance: {
             type: Number,

@@ -88,7 +88,7 @@ function clearLocalAuthState(): void {
 /**
  * Send an OTP to the given phone number.
  *
- * @param phoneNumber - Full international phone number, e.g. '+919876543210'
+ * @param phoneNumber - Full international phone number, e.g. '+263771234567'
  * @returns ConfirmationResult which is used to confirm the OTP code later
  * @throws FirebaseAuthError if the number is invalid or rate-limited
  */

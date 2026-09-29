@@ -3,7 +3,7 @@
  *
  * Reports emailed on a schedule (UC-A06). An admin picks reports, a
  * frequency, a file format and up to ten recipients. Each run covers the
- * period that has just ended, in India time:
+ * period that has just ended, in Zimbabwe time:
  * - daily: yesterday, sent every day at 07:00
  * - weekly: the seven days before Monday, sent on Monday at 07:00
  * - monthly: last calendar month, sent on the 1st at 07:00
@@ -14,18 +14,18 @@
 import { Types } from 'mongoose';
 import { ReportSchedule, IReportSchedule } from '../models/ReportSchedule';
 import { ReportService, REPORT_TYPES, ReportType, ReportParams, GroupBy, Report } from './ReportService';
-import { CONTENT_TYPES, EXPORT_FORMATS, ExportFormat, formatFigure, istDay, reportFilename, reportTitle, toPdf, toXlsx } from './ReportExport';
+import { CONTENT_TYPES, EXPORT_FORMATS, ExportFormat, formatFigure, localDay, reportFilename, reportTitle, toPdf, toXlsx } from './ReportExport';
 import { sendMail, mailEnabled, emailLayout, escapeHtml } from './Mailer';
 import { audit } from './AuditService';
 import { AppError, NotFoundError } from '../utils/AppError';
 import { logger } from '../utils/logger';
+import { fromLocalClock, localTime, toLocalClock } from '../config/region';
 
 export const FREQUENCIES = ['daily', 'weekly', 'monthly'] as const;
 export type Frequency = (typeof FREQUENCIES)[number];
 
-const IST = 5.5 * 3_600_000;
 const DAY = 86_400_000;
-const SEND_HOUR = 7; // 07:00 India time
+const SEND_HOUR = 7; // 07:00 Zimbabwe time
 const MAX_RECIPIENTS = 10;
 const MAX_SCHEDULES = 50;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,17 +33,17 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GROUP_BY: Record<Frequency, GroupBy> = { daily: 'day', weekly: 'day', monthly: 'week' };
 const LABEL: Record<Frequency, string> = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
 
-/** Midnight India time at the start of the day containing `at`, as a UTC instant */
-function istMidnight(at: Date): Date {
-  const local = new Date(at.getTime() + IST);
+/** Midnight Zimbabwe time at the start of the day containing `at`, as a UTC instant */
+function localMidnight(at: Date): Date {
+  const local = toLocalClock(at);
   local.setUTCHours(0, 0, 0, 0);
-  return new Date(local.getTime() - IST);
+  return fromLocalClock(local);
 }
 
 /** The first send time strictly after `after` */
 export function nextRunAfter(frequency: Frequency, after: Date): Date {
-  // Work on India-time wall-clock values held in UTC fields, then shift back
-  const local = new Date(after.getTime() + IST);
+  // Work on Zimbabwe wall-clock values held in UTC fields, then shift back
+  const local = toLocalClock(after);
   const t = new Date(local);
   t.setUTCHours(SEND_HOUR, 0, 0, 0);
   if (frequency === 'monthly') {
@@ -53,21 +53,21 @@ export function nextRunAfter(frequency: Frequency, after: Date): Date {
     if (t <= local) t.setUTCDate(t.getUTCDate() + 1);
     if (frequency === 'weekly') while (t.getUTCDay() !== 1) t.setUTCDate(t.getUTCDate() + 1);
   }
-  return new Date(t.getTime() - IST);
+  return fromLocalClock(t);
 }
 
 /** The period a run at `runAt` reports on: the day, week or month just ended */
 export function periodFor(frequency: Frequency, runAt: Date): ReportParams {
-  const today = istMidnight(runAt);
+  const today = localMidnight(runAt);
   const to = new Date(today.getTime() - 1);
   let from: Date;
   if (frequency === 'daily') from = new Date(today.getTime() - DAY);
   else if (frequency === 'weekly') from = new Date(today.getTime() - 7 * DAY);
   else {
-    const local = new Date(today.getTime() + IST);
+    const local = toLocalClock(today);
     local.setUTCDate(1);
     local.setUTCMonth(local.getUTCMonth() - 1);
-    from = new Date(local.getTime() - IST);
+    from = fromLocalClock(local);
   }
   return { from, to, groupBy: GROUP_BY[frequency] };
 }
@@ -224,11 +224,11 @@ export class ReportScheduleService {
     for (const type of schedule.types) reports.push(await this.reports.build(type, params));
     const attachments = await Promise.all(reports.map((r) => this.attachment(r, schedule.format)));
 
-    const range = `${istDay(params.from.toISOString())} to ${istDay(params.to.toISOString())}`;
+    const range = `${localDay(params.from.toISOString())} to ${localDay(params.to.toISOString())}`;
     const localRange = `${fmtDay(params.from)} to ${fmtDay(params.to)}`;
     const subject = `${LABEL[schedule.frequency]} Poolora reports: ${schedule.name} (${fmtDay(params.from)}${schedule.frequency === 'daily' ? '' : ` to ${fmtDay(params.to)}`})`;
     const text = [
-      `${schedule.name}: ${localRange}, India time.`,
+      `${schedule.name}: ${localRange}, Zimbabwe time.`,
       '',
       ...reports.flatMap((r) => [
         reportTitle(r),
@@ -240,7 +240,7 @@ export class ReportScheduleService {
     ].join('\n');
     const html = emailLayout(
       `${schedule.name}`,
-      `<p style="color:#55544f;margin:0 0 16px">${escapeHtml(localRange)}, India time. The full reports are attached as ${schedule.format.toUpperCase()}.</p>` +
+      `<p style="color:#55544f;margin:0 0 16px">${escapeHtml(localRange)}, Zimbabwe time. The full reports are attached as ${schedule.format.toUpperCase()}.</p>` +
         reports.map((r) => `<h2 style="font-size:15px;margin:20px 0 8px">${escapeHtml(reportTitle(r))}</h2>
 <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:14px">
 ${r.summary.map((s) => `<tr><td style="border-bottom:1px solid #eeede8">${escapeHtml(s.label)}</td><td align="right" style="border-bottom:1px solid #eeede8;font-weight:bold">${escapeHtml(formatFigure(s.value, s.format))}</td></tr>`).join('\n')}
@@ -271,7 +271,7 @@ ${r.summary.map((s) => `<tr><td style="border-bottom:1px solid #eeede8">${escape
   }
 }
 
-/** "24 Sep 2026" in India time */
+/** "24 Sep 2026" in Zimbabwe time */
 function fmtDay(d: Date): string {
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+  return localTime(d, { day: 'numeric', month: 'short', year: 'numeric' });
 }

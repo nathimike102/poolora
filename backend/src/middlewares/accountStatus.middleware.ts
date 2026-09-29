@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { User, IUser } from '../models/User';
 import { AppError } from '../utils/AppError';
 import { AuthenticatedRequest } from '../types';
+import { localTime } from '../config/region';
 
 /**
  * A blocked account cannot use the API at all. A suspended one can still
@@ -32,7 +33,7 @@ export function requireActiveAccount(req: Request, _res: Response, next: NextFun
   const { user } = req as AuthenticatedRequest;
   if (user?.accountStatus === 'suspended') {
     const until = user.suspendedUntil
-      ? ` until ${user.suspendedUntil.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`
+      ? ` until ${localTime(user.suspendedUntil, { day: 'numeric', month: 'long', year: 'numeric' })}`
       : '';
     next(new AppError(`Your account is suspended${until}, so you cannot post or book rides.`, 403, 'ACCOUNT_SUSPENDED'));
     return;

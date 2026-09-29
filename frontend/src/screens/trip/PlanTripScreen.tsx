@@ -18,6 +18,7 @@ import { RideDatePicker } from '../../components/RideDatePicker';
 import { tripService, TRIP_INTERESTS, type TripType } from '../../services/tripService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
+import { moneyInput } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -161,8 +162,8 @@ export function PlanTripScreen() {
           </View>
 
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.label, { color: c.textSec }]}>Budget per person (₹, optional)</Text>
-            {input(budget, t => setBudget(t.replace(/\D/g, '')), 'Budget per person', { placeholder: '8000', keyboardType: 'number-pad', maxLength: 8 })}
+            <Text style={[styles.label, { color: c.textSec }]}>Budget per person (US$, optional)</Text>
+            {input(budget, t => setBudget(moneyInput(t)), 'Budget per person', { placeholder: '150', keyboardType: 'decimal-pad', maxLength: 8 })}
             <Text style={[styles.cardTitle, { color: c.text }]}>Interests</Text>
             <View style={styles.chips}>
               {TRIP_INTERESTS.map(i => {

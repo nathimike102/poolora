@@ -21,6 +21,7 @@ import Svg, { Path, Defs, LinearGradient as SvgGrad, Stop, Polyline, Line } from
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Shadow } from '../../theme';
+import { money } from '../../utils/region';
 
 type Period = 'today' | 'week' | 'month';
 
@@ -54,7 +55,6 @@ function monthLabel(key: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' });
 }
 
-const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
 /**
  * A month's statement (UC-D09): fares, platform fees and earnings, shared as
@@ -136,8 +136,8 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
         <View style={{ gap: 6 }}>
           {[
             ['Trips', String(statement.totals.trips)],
-            ['Fares', inr(statement.totals.fare)],
-            ['Platform fees', `−${inr(statement.totals.platformFee)}`],
+            ['Fares', money(statement.totals.fare)],
+            ['Platform fees', `−${money(statement.totals.platformFee)}`],
           ].map(([label, value]) => (
             <View key={label} style={styles.lineRow}>
               <Text style={{ fontSize: 14, color: c.textSec }}>{label}</Text>
@@ -146,7 +146,7 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
           ))}
           <View style={[styles.lineRow, { borderTopWidth: 1, borderTopColor: c.border, paddingTop: 6 }]}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Your earnings</Text>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: c.success }}>{inr(statement.totals.earnings)}</Text>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: c.success }}>{money(statement.totals.earnings)}</Text>
           </View>
         </View>
       )}
@@ -419,7 +419,7 @@ export function EarningsScreen() {
                   <View style={[styles.skeleton, { backgroundColor: c.surfaceVariant }]} />
                 ) : (
                   <Text style={{ fontSize: 36, fontWeight: '800', color: c.text }}>
-                    ₹{stats.earnings.toLocaleString('en-IN')}
+                    {money(stats.earnings)}
                   </Text>
                 )}
 
@@ -431,7 +431,7 @@ export function EarningsScreen() {
                   <View style={[styles.statDivider, { backgroundColor: c.border }]} />
                   <View style={styles.statCol}>
                     <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>
-                      ₹{stats?.rides ? Math.round(stats.earnings / stats.rides) : 0}
+                      {money(stats?.rides ? Math.round(stats.earnings / stats.rides) : 0)}
                     </Text>
                     <Text style={{ fontSize: 12, color: c.textSec }}>Average per ride</Text>
                   </View>
@@ -477,7 +477,7 @@ export function EarningsScreen() {
                           <Text style={{ fontSize: 11, color: c.textSec }}>{t.time}</Text>
                         </View>
                         <Text style={{ fontSize: 16, fontWeight: '700', color: c.success }}>
-                          +₹{t.amount.toLocaleString('en-IN')}
+                          +{money(t.amount)}
                         </Text>
                       </View>
                     </View>
@@ -499,7 +499,7 @@ export function EarningsScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>All-time earnings</Text>
                     <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>
-                      ₹{lifetime.earnings.toLocaleString('en-IN')}
+                      {money(lifetime.earnings)}
                     </Text>
                     <Text style={{ fontSize: 12, color: c.textSec }}>
                       From {lifetime.rides} completed {lifetime.rides === 1 ? 'ride' : 'rides'}

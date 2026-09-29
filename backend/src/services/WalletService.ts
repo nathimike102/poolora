@@ -19,6 +19,7 @@ import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
 import { callRazorpay } from '../utils/razorpay';
 import { RewardService } from './RewardService';
+import { money } from '../config/region';
 
 const rewardService = new RewardService();
 
@@ -79,7 +80,7 @@ export class WalletService {
         const { minTopUpAmount, maxTopUpAmount } = config.wallet;
         if (amount < minTopUpAmount || amount > maxTopUpAmount) {
             throw new AppError(
-                `Top-up amount must be between ₹${minTopUpAmount} and ₹${maxTopUpAmount}`,
+                `Top-up amount must be between ${money(minTopUpAmount)} and ${money(maxTopUpAmount)}`,
                 400,
                 'INVALID_AMOUNT',
             );
@@ -92,7 +93,7 @@ export class WalletService {
         // Reject before the user pays, rather than refunding afterwards.
         if (wallet.balance + amount > config.wallet.maxWalletBalance) {
             throw new AppError(
-                `Top-up would exceed the maximum wallet balance of ₹${config.wallet.maxWalletBalance}`,
+                `Top-up would exceed the maximum wallet balance of ${money(config.wallet.maxWalletBalance)}`,
                 400,
                 'BALANCE_LIMIT_EXCEEDED',
             );
@@ -196,7 +197,7 @@ export class WalletService {
                 razorpayOrderId,
                 razorpayPaymentId,
                 razorpaySignature,
-                description: `Wallet top-up of ₹${amountInr}`,
+                description: `Wallet top-up of ${money(amountInr)}`,
                 idempotencyKey,
             });
         } catch (error) {
@@ -228,7 +229,7 @@ export class WalletService {
                 amountInr,
             });
             throw new AppError(
-                `Top-up would exceed the maximum wallet balance of ₹${config.wallet.maxWalletBalance}. The payment will be refunded.`,
+                `Top-up would exceed the maximum wallet balance of ${money(config.wallet.maxWalletBalance)}. The payment will be refunded.`,
                 400,
                 'BALANCE_LIMIT_EXCEEDED',
             );
@@ -295,7 +296,7 @@ export class WalletService {
             const current = await Wallet.findOne({ userId });
             if (!current) throw new NotFoundError('Wallet');
             throw new AppError(
-                `Insufficient wallet balance. Have ₹${current.balance.toFixed(2)}, need ₹${amount.toFixed(2)}`,
+                `Insufficient wallet balance. Have ${money(current.balance)}, need ${money(amount)}`,
                 402,
                 'INSUFFICIENT_BALANCE',
             );
@@ -417,7 +418,7 @@ export class WalletService {
                 balanceBefore,
                 balanceAfter: wallet.coinBalance,
                 bookingId,
-                description: `Earned ${coinsEarned} coins from ride (${wallet.tier} tier, ₹${fareAmount})`,
+                description: `Earned ${coinsEarned} coins from ride (${wallet.tier} tier, ${money(fareAmount)})`,
                 expiresAt,
             });
 
@@ -439,12 +440,12 @@ export class WalletService {
     // ── Coin conversion ──────────────────────────────────────────────────────
 
     /**
-     * Converts coins to INR wallet balance.
-     * Rate: config.wallet.coinToInrRate (default ₹0.25 per coin).
+     * Converts coins to wallet balance.
+     * Rate: config.wallet.coinToUsdRate (default US$0.01 per coin).
      * Minimum: config.wallet.minCoinConversion coins.
      */
     async convertCoinsToBalance(userId: string, coins: number) {
-        const { coinToInrRate, minCoinConversion, maxWalletBalance } = config.wallet;
+        const { coinToUsdRate, minCoinConversion, maxWalletBalance } = config.wallet;
 
         if (!Number.isInteger(coins) || coins < minCoinConversion) {
             throw new AppError(
@@ -466,11 +467,11 @@ export class WalletService {
             );
         }
 
-        const amountToCredit = Math.round(coins * coinToInrRate * 100) / 100;
+        const amountToCredit = Math.round(coins * coinToUsdRate * 100) / 100;
 
         if (wallet.balance + amountToCredit > maxWalletBalance) {
             throw new AppError(
-                `Conversion would exceed maximum wallet balance of ₹${maxWalletBalance}`,
+                `Conversion would exceed maximum wallet balance of ${money(maxWalletBalance)}`,
                 400,
                 'BALANCE_LIMIT_EXCEEDED',
             );
@@ -496,12 +497,12 @@ export class WalletService {
         wallet.coinBalance -= coins;
         wallet.lifetimeCoinsConverted += coins;
 
-        // Credit INR
+        // Credit the dollar balance
         const balanceBefore = wallet.balance;
         wallet.balance += amountToCredit;
         await wallet.save();
 
-        // Create INR wallet transaction
+        // Create the wallet transaction
         const walletTx = await WalletTransaction.create({
             wallet: wallet._id,
             userId,
@@ -511,7 +512,7 @@ export class WalletService {
             balanceAfter: wallet.balance,
             status: WalletTransactionStatus.COMPLETED,
             coinsConverted: coins,
-            description: `Converted ${coins} coins → ₹${amountToCredit}`,
+            description: `Converted ${coins} coins → ${money(amountToCredit)}`,
             idempotencyKey,
         });
 
@@ -524,7 +525,7 @@ export class WalletService {
             balanceBefore: coinsBefore,
             balanceAfter: wallet.coinBalance,
             walletTransactionId: walletTx._id,
-            description: `Converted ${coins} coins to ₹${amountToCredit}`,
+            description: `Converted ${coins} coins to ${money(amountToCredit)}`,
         });
 
         EventBridge.publish('payment-events', {
@@ -545,7 +546,7 @@ export class WalletService {
     // ── History ─────────────────────────────────────────────────────────────────
 
     /**
-     * Paginated list of INR wallet transactions for a user.
+     * Paginated list of wallet transactions for a user.
      */
     async getTransactions(userId: string, page: number, limit: number) {
         const [items, total] = await Promise.all([

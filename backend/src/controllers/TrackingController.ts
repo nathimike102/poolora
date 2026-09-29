@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { SafetyService } from '../services/SafetyService';
 import { SOSStatus } from '../types';
+import { localTime, REGION } from '../config/region';
 
 const safetyService = new SafetyService();
 
@@ -16,8 +17,7 @@ function escapeHtml(value: string): string {
 }
 
 function formatTime(date: Date): string {
-  return date.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
+  return localTime(date, {
     day: 'numeric',
     month: 'short',
     hour: 'numeric',
@@ -115,7 +115,7 @@ export class TrackingController {
       const who = escapeHtml(done.userFirstName);
       res.status(200).type('html').send(page('Confirmed', `<h1>Thank you</h1>
 <p class="ok">You are now ${who}'s emergency contact. We have let ${who} know.</p>
-<p>If you ever get an SOS text from Poolora, open the link to see where ${who} is, and call <a href="tel:112">112</a> if they may be in danger.</p>`));
+<p>If you ever get an SOS text from Poolora, open the link to see where ${who} is, and call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a> if they may be in danger.</p>`));
     } catch (error) {
       next(error);
     }
@@ -143,7 +143,7 @@ export class TrackingController {
             'Tracking link expired',
             `<h1>This tracking link is no longer active</h1>
 <p>It may have expired or been typed incorrectly.</p>
-<p>If you think someone is in danger, call <a href="tel:112">112</a>.</p>`,
+<p>If you think someone is in danger, call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a>.</p>`,
           ),
         );
         return;
@@ -170,13 +170,13 @@ export class TrackingController {
         const { lat, lng } = tracking.lastLocation;
         const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
         const updated = tracking.lastUpdatedAt
-          ? `<p class="muted">Location last updated ${escapeHtml(formatTime(tracking.lastUpdatedAt))} (IST).</p>`
+          ? `<p class="muted">Location last updated ${escapeHtml(formatTime(tracking.lastUpdatedAt))} (CAT).</p>`
           : '';
         location = `<a class="button" href="${escapeHtml(mapsUrl)}" rel="noopener noreferrer">Open last known location in Google Maps</a>${updated}`;
       }
 
       const footer = isActive
-        ? `<p>If you think ${name} is in danger, call <a href="tel:112">112</a>.</p>
+        ? `<p>If you think ${name} is in danger, call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a>.</p>
 <p class="muted">This page refreshes every 30 seconds.</p>`
         : '';
 
@@ -212,7 +212,7 @@ export class TrackingController {
         res.status(404).type('html').send(
           page('Trip link expired', `<h1>This trip link is no longer active</h1>
 <p>Links stop working an hour after the trip ends, or when it is cancelled.</p>
-<p>If you think someone is in danger, call <a href="tel:112">112</a>.</p>`),
+<p>If you think someone is in danger, call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a>.</p>`),
         );
         return;
       }
@@ -228,7 +228,7 @@ export class TrackingController {
         const { lat, lng } = trip.position;
         const url = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
         location = `<a class="button" href="${escapeHtml(url)}" rel="noopener noreferrer">See where the car is on a map</a>
-<p class="muted">Position updated ${escapeHtml(formatTime(trip.position.at))} (IST).</p>`;
+<p class="muted">Position updated ${escapeHtml(formatTime(trip.position.at))} (CAT).</p>`;
       }
       const live = trip.status === 'on_the_way' || trip.status === 'in_car';
       res.status(200).type('html').send(
@@ -237,10 +237,10 @@ export class TrackingController {
           `<h1>${rider} is sharing a Poolora trip</h1>
 <p class="${trip.status === 'arrived' ? 'ok' : ''}">${statusText[trip.status]}</p>
 <p><strong>${escapeHtml(trip.from)}</strong> to <strong>${escapeHtml(trip.to)}</strong><br>
-<span class="muted">Leaves ${escapeHtml(formatTime(trip.departure))} (IST)</span></p>
+<span class="muted">Leaves ${escapeHtml(formatTime(trip.departure))} (CAT)</span></p>
 <p>Driver ${escapeHtml(trip.driverFirstName)} · ${escapeHtml(trip.vehicle)}</p>
 ${location}
-<p>If you think ${rider} is in danger, call <a href="tel:112">112</a>.</p>
+<p>If you think ${rider} is in danger, call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a>.</p>
 ${live ? '<p class="muted">This page refreshes every 20 seconds.</p>' : ''}`,
           live ? 20 : 60,
         ),

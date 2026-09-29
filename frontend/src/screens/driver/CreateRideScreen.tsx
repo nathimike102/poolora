@@ -37,6 +37,7 @@ import { useCurrentPlace } from '../../hooks/useCurrentPlace';
 import { Radius, Spacing, Typography } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import type { CreateRideResult, PriceSuggestion, User, Vehicle } from '../../types/api';
+import { money, moneyInput } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 /** 'from', 'to', or the index of a stop */
@@ -252,7 +253,7 @@ export function CreateRideScreen() {
         departureTime: departure.toISOString(),
         returnDepartureTime: withReturn ? returnDeparture.toISOString() : undefined,
         totalSeats: seats,
-        pricePerSeat: Math.round(priceNumber),
+        pricePerSeat: Math.round(priceNumber * 100) / 100,
         preferences: { womenOnly, smokingAllowed, petsAllowed, luggageSize: luggage },
       });
       setPublished(result);
@@ -290,7 +291,7 @@ export function CreateRideScreen() {
           {ride.pickupLocation.address} to {ride.dropoffLocation.address}
         </Text>
         <Text style={[styles.doneBody, { color: c.textSec }]}>
-          {when(ride.scheduledDeparture)} · {ride.seats} seats · ₹{ride.pricePerSeat} per seat
+          {when(ride.scheduledDeparture)} · {ride.seats} seats · {money(ride.pricePerSeat)} per seat
         </Text>
         {returnRide ? (
           <Text style={[styles.doneBody, { color: c.textSec }]}>Return trip: {when(returnRide.scheduledDeparture)}</Text>
@@ -525,16 +526,16 @@ export function CreateRideScreen() {
               })}
             </View>
 
-            <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>Price per seat (₹)</Text>
+            <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>Price per seat (US$)</Text>
             {suggestion ? (
               <View style={[styles.suggestBox, { backgroundColor: c.primaryLight }]} accessibilityLiveRegion="polite">
                 <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
-                  Suggested ₹{suggestion.suggested} · choose ₹{suggestion.min} to ₹{suggestion.max}
+                  Suggested {money(suggestion.suggested)} · choose {money(suggestion.min)} to {money(suggestion.max)}
                 </Text>
                 <Text style={{ fontSize: 13, color: c.textSec }}>{suggestion.explanation}</Text>
                 {String(suggestion.suggested) !== price && (
                   <Pressable onPress={() => setPrice(String(suggestion.suggested))} accessibilityRole="button" style={styles.textBtn}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Use ₹{suggestion.suggested}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Use {money(suggestion.suggested)}</Text>
                   </Pressable>
                 )}
               </View>
@@ -543,21 +544,21 @@ export function CreateRideScreen() {
             ) : null}
             <TextInput
               value={price}
-              onChangeText={t => setPrice(t.replace(/[^0-9]/g, ''))}
-              keyboardType="number-pad"
-              placeholder="For example, 150"
+              onChangeText={t => setPrice(moneyInput(t))}
+              keyboardType="decimal-pad"
+              placeholder="For example, 2.50"
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Price per seat in rupees"
+              accessibilityLabel="Price per seat in US dollars"
               maxLength={5}
               style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
             />
             {price !== '' && !priceInRange && suggestion ? (
               <Text style={{ fontSize: 13, color: c.error, marginTop: 6 }}>
-                For this route the price must be between ₹{suggestion.min} and ₹{suggestion.max}.
+                For this route the price must be between {money(suggestion.min)} and {money(suggestion.max)}.
               </Text>
             ) : price !== '' ? (
               <Text style={{ fontSize: 13, color: c.textSec, marginTop: 6 }}>
-                ₹{(priceNumber * seats).toLocaleString('en-IN')} if every seat is booked, before the platform fee.
+                {money((priceNumber * seats))} if every seat is booked, before the platform fee.
               </Text>
             ) : null}
           </View>

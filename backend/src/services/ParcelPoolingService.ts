@@ -20,6 +20,7 @@ import { NotificationService } from './NotificationService';
 import { WalletService } from './WalletService';
 import { User } from '../models/User';
 import { RideStatus } from '../types';
+import { money } from '../config/region';
 
 const notificationService = new NotificationService();
 const walletService = new WalletService();
@@ -43,15 +44,15 @@ function getRazorpayClient(): Razorpay {
   });
 }
 
-/** What sending a parcel costs: ₹50, ₹5 a km, ₹10 a kg over 5 kg, and 1% of any insured value */
+/** What sending a parcel costs: US$2, 8 cents a km, 50 cents a kg over 5 kg, and 1% of any insured value */
 export function parcelCost(input: { pickup: { lat: number; lng: number }; delivery: { lat: number; lng: number }; weightKg: number; insuranceValue?: number }) {
   const distanceKm = haversineDistanceKm(input.pickup.lat, input.pickup.lng, input.delivery.lat, input.delivery.lng);
-  const weightSurcharge = input.weightKg > 5 ? (input.weightKg - 5) * 10 : 0;
+  const weightSurcharge = input.weightKg > 5 ? (input.weightKg - 5) * 0.5 : 0;
   const insuranceCost = input.insuranceValue ? input.insuranceValue * 0.01 : 0;
   return {
     distanceKm: round2(distanceKm),
     insuranceCost: round2(insuranceCost),
-    total: round2(50 + distanceKm * 5 + weightSurcharge + insuranceCost),
+    total: round2(2 + distanceKm * 0.08 + weightSurcharge + insuranceCost),
   };
 }
 
@@ -462,7 +463,7 @@ export class ParcelPoolingService {
     await notificationService.createNotification(
       parcel.sender.toString(),
       'Parcel request declined',
-      `The driver could not take your parcel. ${cancelled.refundAmount ? `₹${cancelled.refundAmount} is on its way back to you.` : ''}`.trim(),
+      `The driver could not take your parcel. ${cancelled.refundAmount ? `${money(cancelled.refundAmount)} is on its way back to you.` : ''}`.trim(),
       'system',
       { parcelId: parcel._id.toString() },
     );

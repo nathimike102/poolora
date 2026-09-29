@@ -48,6 +48,7 @@ import {
 import { AppError, NotFoundError } from '../utils/AppError';
 import { audit } from './AuditService';
 import { NotificationService } from './NotificationService';
+import { money } from '../config/region';
 
 const MAX_WALLET = 100_000;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -279,7 +280,7 @@ export class AccountMergeService {
 
   /** Moves the wallet balance and coins, with a ledger entry on each side. Repeat-safe by key. */
   private async moveMoney(merge: IAccountMerge, from: Types.ObjectId, to: Types.ObjectId) {
-    const out = { walletRupees: 0, coins: 0 };
+    const out = { walletAmount: 0, coins: 0 };
     const sourceWallet = await Wallet.findOne({ userId: from });
     if (!sourceWallet) return out;
     let targetWallet = await Wallet.findOne({ userId: to });
@@ -289,7 +290,7 @@ export class AccountMergeService {
     const amount = round2(sourceWallet.balance);
     if (amount > 0 && !(await WalletTransaction.exists({ idempotencyKey: `${key}_in` }))) {
       if (targetWallet.balance + amount > MAX_WALLET) {
-        throw new AppError(`Together the wallets would hold more than ₹${MAX_WALLET.toLocaleString('en-IN')}; refund part of the duplicate's balance first`, 409, 'WALLET_LIMIT');
+        throw new AppError(`Together the wallets would hold more than ${money(MAX_WALLET)}; refund part of the duplicate's balance first`, 409, 'WALLET_LIMIT');
       }
       const debited = await Wallet.findOneAndUpdate({ _id: sourceWallet._id, balance: { $gte: amount } }, { $inc: { balance: -amount } }, { new: true });
       if (debited) {
@@ -304,7 +305,7 @@ export class AccountMergeService {
           balanceBefore: round2(credited!.balance - amount), balanceAfter: credited!.balance, status: WalletTransactionStatus.COMPLETED,
           description: 'From your merged duplicate account', idempotencyKey: `${key}_in`,
         });
-        out.walletRupees = amount;
+        out.walletAmount = amount;
       }
     }
 

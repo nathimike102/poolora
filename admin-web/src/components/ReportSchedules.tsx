@@ -85,7 +85,7 @@ export function ReportSchedules() {
       <div className="spread">
         <div>
           <h2 style={{ margin: 0 }}>Scheduled emails</h2>
-          <p className="faint" style={{ margin: '4px 0 0' }}>Reports sent by email at 07:00 India time, with the full report attached.</p>
+          <p className="faint" style={{ margin: '4px 0 0' }}>Reports sent by email at 07:00 Zimbabwe time, with the full report attached.</p>
         </div>
         <button className="btn primary" onClick={() => setEditing('new')}>Schedule a report</button>
       </div>

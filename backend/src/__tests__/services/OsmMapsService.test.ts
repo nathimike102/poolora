@@ -25,28 +25,28 @@ const mockedGet = axios.get as jest.Mock;
 
 describe('OpenStreetMap maps provider', () => {
   it('turns Photon results into suggestions, skipping other countries and repeats', async () => {
-    const koramangala = {
-      geometry: { coordinates: [77.62, 12.93] },
-      properties: { osm_type: 'N', osm_id: 1, name: 'Koramangala', city: 'Bengaluru', state: 'Karnataka', countrycode: 'IN' },
+    const borrowdale = {
+      geometry: { coordinates: [31.09, -17.76] },
+      properties: { osm_type: 'N', osm_id: 1, name: 'Borrowdale', city: 'Harare', state: 'Harare Province', countrycode: 'ZW' },
     };
     mockedGet.mockResolvedValue({
       data: {
         features: [
-          koramangala,
-          { ...koramangala, properties: { ...koramangala.properties, osm_type: 'W', osm_id: 2 } },
-          { geometry: { coordinates: [0, 0] }, properties: { name: 'Koramangala Cafe', countrycode: 'LK' } },
+          borrowdale,
+          { ...borrowdale, properties: { ...borrowdale.properties, osm_type: 'W', osm_id: 2 } },
+          { geometry: { coordinates: [0, 0] }, properties: { name: 'Borrowdale Cafe', countrycode: 'ZA' } },
         ],
       },
     });
 
-    const results = await autocomplete('Koramangala');
+    const results = await autocomplete('Borrowdale');
 
     expect(results).toEqual([
       {
-        description: 'Koramangala, Bengaluru, Karnataka',
+        description: 'Borrowdale, Harare, Harare Province',
         placeId: 'osm:N1',
-        mainText: 'Koramangala',
-        secondaryText: 'Bengaluru, Karnataka',
+        mainText: 'Borrowdale',
+        secondaryText: 'Harare, Harare Province',
       },
     ]);
     expect(mockedGet.mock.calls[0][0]).toBe('https://photon.test/api/');
@@ -56,18 +56,18 @@ describe('OpenStreetMap maps provider', () => {
   it('ranks places near the user first, with the position rounded for caching', async () => {
     mockedGet.mockReset();
     mockedGet.mockResolvedValue({ data: { features: [] } });
-    await autocomplete('Indiranagar', { lat: 12.97194, lng: 77.64117 });
-    expect(mockedGet.mock.calls[0][1].params).toMatchObject({ q: 'indiranagar', lat: '12.97', lon: '77.64' });
+    await autocomplete('Avondale', { lat: -17.80194, lng: 31.04117 });
+    expect(mockedGet.mock.calls[0][1].params).toMatchObject({ q: 'avondale', lat: '-17.8', lon: '31.04' });
   });
 
   it('geocodes with Nominatim and reports an unknown address plainly', async () => {
     mockedGet.mockResolvedValueOnce({
-      data: [{ lat: '12.97', lon: '77.59', display_name: 'MG Road, Bengaluru', osm_type: 'way', osm_id: 42 }],
+      data: [{ lat: '-17.83', lon: '31.05', display_name: 'Samora Machel Avenue, Harare', osm_type: 'way', osm_id: 42 }],
     });
-    await expect(geocodeAddress('MG Road')).resolves.toEqual({
-      formattedAddress: 'MG Road, Bengaluru',
-      lat: 12.97,
-      lng: 77.59,
+    await expect(geocodeAddress('Samora Machel Avenue')).resolves.toEqual({
+      formattedAddress: 'Samora Machel Avenue, Harare',
+      lat: -17.83,
+      lng: 31.05,
       placeId: 'osm:W42',
     });
 
@@ -79,15 +79,15 @@ describe('OpenStreetMap maps provider', () => {
     mockedGet.mockResolvedValueOnce({ data: [] }).mockResolvedValueOnce({
       data: {
         features: [
-          { geometry: { coordinates: [77.69, 12.99] }, properties: { osm_type: 'N', osm_id: 9, countrycode: 'IN' } },
+          { geometry: { coordinates: [31.09, -17.76] }, properties: { osm_type: 'N', osm_id: 9, countrycode: 'ZW' } },
         ],
       },
     });
 
-    await expect(geocodeAddress('Phoenix Marketcity, Whitefield, Bengaluru')).resolves.toEqual({
-      formattedAddress: 'Phoenix Marketcity, Whitefield, Bengaluru',
-      lat: 12.99,
-      lng: 77.69,
+    await expect(geocodeAddress("Sam Levy's Village, Borrowdale, Harare")).resolves.toEqual({
+      formattedAddress: "Sam Levy's Village, Borrowdale, Harare",
+      lat: -17.76,
+      lng: 31.09,
       placeId: 'osm:N9',
     });
   });

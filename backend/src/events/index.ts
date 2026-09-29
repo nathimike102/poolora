@@ -7,6 +7,8 @@ import { config } from '../config';
 
 import { eventSchemas } from '../validators/eventValidators';
 import { Types } from 'mongoose';
+import { money } from '../config/region';
+import { localTime } from '../config/region';
 
 /**
  * Callers pass Mongoose documents' ids (ObjectIds) straight through, but the
@@ -269,7 +271,7 @@ export class EventBridge {
         const { NotificationService } = await import('../services/NotificationService');
         const notificationService = new NotificationService();
         const when = data.departureTime
-          ? new Date(data.departureTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', hour: 'numeric', minute: '2-digit' })
+          ? localTime(data.departureTime, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
           : '';
         const body = data.freeCancellation
           ? `Your driver moved the departure to ${when}. If that no longer works, you can cancel for a full refund.`
@@ -365,7 +367,7 @@ export class EventBridge {
         await notificationService.createNotification(
           data.userId,
           'Payment Successful',
-          `Payment of ₹${data.amount || 0} has been processed.`,
+          `Payment of ${money(data.amount || 0)} has been processed.`,
           'system',
           { bookingId: data.bookingId ?? '', paymentId: data.paymentId ?? '' },
         );

@@ -68,7 +68,7 @@ export class CallService {
     const base = config.app.baseUrl.replace(/\/$/, '');
     const hook = (kind: string) => `${base}/calls/twilio/${kind}?callId=${log._id}`;
     const from = config.twilio.voiceNumber;
-    const twiml = `<Response><Say voice="alice" language="en-IN">Connecting your Poolora call.${record ? ' This call is recorded for safety.' : ''}</Say>`
+    const twiml = `<Response><Say voice="alice" language="en-GB">Connecting your Poolora call.${record ? ' This call is recorded for safety.' : ''}</Say>`
       + `<Dial callerId="${xml(from)}" timeLimit="${MAX_CALL_SECONDS}"${record ? ` record="record-from-answer-dual" recordingStatusCallback="${xml(hook('recording'))}" recordingStatusCallbackMethod="POST"` : ''}>`
       + `<Number>${xml(callee!.phone)}</Number></Dial></Response>`;
 

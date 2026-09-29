@@ -31,6 +31,7 @@ import type { Booking, Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { decodePolyline } from '../../utils/polyline';
 import { initSocket } from '../../utils/socket';
+import { money } from '../../utils/region';
 
 type Coordinate = { latitude: number; longitude: number };
 
@@ -382,7 +383,7 @@ export function DriverRideDetailsScreen() {
             <View style={styles.statItem}>
               <Text style={[styles.sectionLabel, { color: c.textSec }]}>Booked fares</Text>
               <Text style={{ fontSize: 22, fontWeight: '800', color: c.successDark }}>
-                ₹{(booked * ride.pricePerSeat).toLocaleString('en-IN')}
+                {money((booked * ride.pricePerSeat))}
               </Text>
               <Text style={{ fontSize: 12, color: c.textSec }}>before platform fee</Text>
             </View>

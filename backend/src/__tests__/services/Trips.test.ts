@@ -116,9 +116,10 @@ it('splits expenses, suggests the fewest payments and records them', async () =>
     { from: bob, to: alice, amount: 950 },
   ]);
 
-  await service.setUpi(id, alice, 'alice@okaxis');
+  await expect(service.setPayNumber(id, alice, '12345')).rejects.toThrow('Zimbabwe mobile number');
+  await service.setPayNumber(id, alice, '0771 234 567');
   report = await service.settlement(id, carol);
-  expect(report.transfers.find((t) => t.to === alice)?.upiLink).toContain('upi://pay?pa=alice%40okaxis&');
+  expect(report.transfers.find((t) => t.to === alice)).toMatchObject({ payNumber: '+263771234567', ecocashLink: 'tel:*151*1*1*0771234567*1050%23' });
 
   await expect(service.markSettled(id, dan, { from: carol, to: alice, amount: 1000 })).rejects.toThrow('not found');
   report = await service.markSettled(id, carol, { from: carol, to: alice, amount: 1000 });

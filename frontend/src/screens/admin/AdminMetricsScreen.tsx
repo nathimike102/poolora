@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native
 import { useApp } from '../../context/AppContext';
 import { Icon, type IconName } from '../../components/Icon';
 import { adminService, SystemMetrics } from '../../services/adminService';
+import { money } from '../../utils/region';
 
 export const AdminMetricsScreen: React.FC = () => {
   const { c } = useApp();
@@ -124,7 +125,7 @@ export const AdminMetricsScreen: React.FC = () => {
         <View style={styles.columnHalf}>
           <MetricCard
             title="Total revenue"
-            value={`₹${metrics.revenue.toLocaleString('en-IN')}`}
+            value={`${money(metrics.revenue)}`}
             icon="cash"
             color="#FF9800"
           />

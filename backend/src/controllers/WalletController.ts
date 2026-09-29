@@ -81,7 +81,7 @@ export class WalletController {
 
     /**
      * GET /api/v1/wallet/transactions
-     * Paginated list of INR wallet movements.
+     * Paginated list of wallet movements.
      */
     static async getTransactions(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
@@ -113,7 +113,7 @@ export class WalletController {
 
     /**
      * POST /api/v1/wallet/coins/convert
-     * Converts coins into INR wallet balance.
+     * Converts coins into wallet balance.
      * Body: { coins: number }
      */
     static async convertCoins(req: Request, res: Response, next: NextFunction): Promise<void> {

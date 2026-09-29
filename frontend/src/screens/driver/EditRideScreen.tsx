@@ -20,6 +20,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
+import { money, moneyInput } from '../../utils/region';
 
 const STEP_MINS = 15;
 const MAX_SHIFT_MINS = 120;
@@ -148,17 +149,17 @@ export function EditRideScreen() {
         </View>
 
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.label, { color: c.textSec }]}>Price per seat (₹)</Text>
+          <Text style={[styles.label, { color: c.textSec }]}>Price per seat (US$)</Text>
           <TextInput
             value={price}
-            onChangeText={t => setPrice(t.replace(/[^0-9]/g, ''))}
+            onChangeText={t => setPrice(moneyInput(t))}
             editable={!priceLocked && !tooLate}
-            keyboardType="number-pad"
-            accessibilityLabel="Price per seat in rupees"
+            keyboardType="decimal-pad"
+            accessibilityLabel="Price per seat in US dollars"
             style={[styles.input, { borderColor: priceValid ? c.border : c.error, color: c.text, opacity: priceLocked ? 0.5 : 1 }]}
           />
           <Text style={[styles.help, { color: priceValid ? c.textSec : c.error }]}>
-            {priceLocked ? 'The price is fixed once someone has booked or asked for a seat.' : `Between ₹${minPrice} and ₹${maxPrice} (up to 20% change).`}
+            {priceLocked ? 'The price is fixed once someone has booked or asked for a seat.' : `Between ${money(minPrice)} and ${money(maxPrice)} (up to 20% change).`}
           </Text>
         </View>
 

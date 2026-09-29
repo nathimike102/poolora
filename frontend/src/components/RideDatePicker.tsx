@@ -20,6 +20,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { Typography, Spacing, Radius } from '../theme';
+import { REGION } from '../utils/region';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -270,7 +271,7 @@ export function RideDatePicker({
     const diff = Math.round((startOfDay(date).getTime() - today.getTime()) / 86400000);
     if (diff === 0) return 'Today';
     if (diff === 1) return 'Tomorrow';
-    return date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    return date.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' });
   };
 
   // Quick-pick offsets
@@ -282,7 +283,7 @@ export function RideDatePicker({
       label:
         offset === 0 ? 'Today' :
         offset === 1 ? 'Tomorrow' :
-        d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }),
+        d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' }),
     };
   });
 

@@ -31,6 +31,7 @@ import { rideService } from '../../services/rideService';
 import { useCurrentPlace } from '../../hooks/useCurrentPlace';
 import { logger } from '../../utils/logger';
 import type { Booking, Ride } from '../../types/api';
+import { REGION, money } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -51,10 +52,10 @@ function formatDeparture(iso: string): string {
   const today = new Date();
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
-  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  const time = d.toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
   if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
   if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
-  return `${d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
+  return `${d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
 }
 
 export function DriverHomeScreen() {
@@ -204,10 +205,10 @@ export function DriverHomeScreen() {
             <Pressable
               onPress={() => navigation.navigate('Earnings')}
               accessibilityRole="button"
-              accessibilityLabel={`Today: ₹${todayEarnings} earned from ${ridesToday} ${ridesToday === 1 ? 'ride' : 'rides'}. View earnings`}
+              accessibilityLabel={`Today: ${money(todayEarnings)} earned from ${ridesToday} ${ridesToday === 1 ? 'ride' : 'rides'}. View earnings`}
               style={[styles.statsCard, { borderColor: c.border }]}
             >
-              <Stat label="Earned today" value={`₹${todayEarnings.toLocaleString('en-IN')}`} />
+              <Stat label="Earned today" value={`${money(todayEarnings)}`} />
               <View style={[styles.statDivider, { backgroundColor: c.border }]} />
               <Stat label="Rides today" value={String(ridesToday)} />
               <View style={[styles.statDivider, { backgroundColor: c.border }]} />
@@ -280,7 +281,7 @@ export function DriverHomeScreen() {
                   </Text>
                   <Text style={[styles.rideSub, { color: c.textSec }]}>
                     {r.booked}/{r.total} seats booked
-                    {r.earned > 0 ? <Text style={{ color: c.success, fontWeight: Typography.semibold }}>{`  ·  ₹${r.earned.toLocaleString('en-IN')}`}</Text> : null}
+                    {r.earned > 0 ? <Text style={{ color: c.success, fontWeight: Typography.semibold }}>{`  ·  ${money(r.earned)}`}</Text> : null}
                   </Text>
                 </View>
                 <Icon name="chevron-right" size={22} color={c.textSec} />

@@ -22,6 +22,7 @@ import { logger } from '../../utils/logger';
 import { bookingService } from '../../services/bookingService';
 import { parcelService } from '../../services/parcelService';
 import { realPhone } from '../../utils/phone';
+import { money } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type PayRoute = RouteProp<RootStackParamList, 'Payment'>;
@@ -117,7 +118,7 @@ export function PaymentScreen() {
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text style={{ fontSize: Typography.base, color: c.textSec }}>Amount to pay</Text>
           <Text style={{ fontSize: 34, fontWeight: '800', color: c.text, marginTop: 4 }}>
-            ₹{params.amount.toLocaleString('en-IN')}
+            {money(params.amount)}
           </Text>
           <Text style={{ fontSize: Typography.md, color: c.textSec, marginTop: 8 }}>{params.summary}</Text>
         </View>
@@ -166,7 +167,7 @@ export function PaymentScreen() {
             <ActivityIndicator color={c.textOnPrimary} />
           ) : (
             <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>
-              {payState === 'ready' ? `Pay ₹${params.amount.toLocaleString('en-IN')}` : 'Try again'}
+              {payState === 'ready' ? `Pay ${money(params.amount)}` : 'Try again'}
             </Text>
           )}
         </Pressable>

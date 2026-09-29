@@ -128,9 +128,9 @@ router.post(
 router.post('/:id/leave', validate(tripParam), run((req) => trips.leave(String(req.params.id), userId(req))));
 
 router.put(
-  '/:id/upi',
-  validate({ ...tripParam, body: Joi.object({ upiId: Joi.string().trim().pattern(/^[\w.-]{2,}@[a-zA-Z]{2,}$/).allow('').required() }) }),
-  run((req) => trips.setUpi(String(req.params.id), userId(req), req.body.upiId)),
+  '/:id/pay-number',
+  validate({ ...tripParam, body: Joi.object({ payNumber: Joi.string().trim().max(20).allow('').required() }) }),
+  run((req) => trips.setPayNumber(String(req.params.id), userId(req), req.body.payNumber)),
 );
 
 // ── Expenses and settling up ────────────────────────────────────────────────

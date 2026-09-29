@@ -12,6 +12,7 @@ import { User } from '../models/User';
 import { BookingStatus, PaymentStatus } from '../types';
 import { AppError, AuthorizationError, NotFoundError } from '../utils/AppError';
 import { emailLayout, escapeHtml, mailEnabled, sendMail } from './Mailer';
+import { localTime, money } from '../config/region';
 
 export interface Receipt {
   receiptNumber: string;
@@ -20,7 +21,7 @@ export interface Receipt {
   rider: { name: string };
   driver: { name: string; vehicle?: string };
   trip: { from: string; to: string; departure: string; seats: number };
-  /** Rupees */
+  /** US dollars */
   fare: number;
   pricePerSeat: number;
   /** Poolora's service fee, included in the fare */
@@ -30,9 +31,7 @@ export interface Receipt {
   paymentMethod: string;
 }
 
-const inr = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-const ist = (d: Date | string) =>
-  new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+const when = (d: Date | string) => localTime(d, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 export class ReceiptService {
   async build(bookingId: string, userId: string): Promise<Receipt> {
@@ -86,11 +85,11 @@ export class ReceiptService {
     const lines = [
       `Poolora receipt ${r.receiptNumber}`,
       `${r.trip.from} to ${r.trip.to}`,
-      `${ist(r.trip.departure)} · ${r.trip.seats} seat${r.trip.seats === 1 ? '' : 's'} · driver ${r.driver.name}${r.driver.vehicle ? ` (${r.driver.vehicle})` : ''}`,
-      `Fare ${inr(r.fare)} (${r.trip.seats} × ${inr(r.pricePerSeat)})`,
-      ...(r.serviceFee ? [`Includes Poolora service fee ${inr(r.serviceFee)}`] : []),
-      ...(r.refunded ? [`Refunded ${inr(r.refunded)}`] : []),
-      `Paid ${inr(r.paid)} by ${r.paymentMethod}`,
+      `${when(r.trip.departure)} · ${r.trip.seats} seat${r.trip.seats === 1 ? '' : 's'} · driver ${r.driver.name}${r.driver.vehicle ? ` (${r.driver.vehicle})` : ''}`,
+      `Fare ${money(r.fare)} (${r.trip.seats} × ${money(r.pricePerSeat)})`,
+      ...(r.serviceFee ? [`Includes Poolora service fee ${money(r.serviceFee)}`] : []),
+      ...(r.refunded ? [`Refunded ${money(r.refunded)}`] : []),
+      `Paid ${money(r.paid)} by ${r.paymentMethod}`,
       r.status === 'no_show' ? 'The rider did not come to the pickup; the fare was not refunded.' : '',
     ];
     return lines.filter(Boolean).join('\n');
@@ -107,18 +106,18 @@ export class ReceiptService {
     };
     return emailLayout(`Receipt ${r.receiptNumber}`, `
 <p style="margin:0 0 4px"><strong>${escapeHtml(r.trip.from)}</strong> to <strong>${escapeHtml(r.trip.to)}</strong></p>
-<p style="margin:0 0 16px;color:#52514e">${escapeHtml(ist(r.trip.departure))} · ${escapeHtml(statusLine[r.status])}</p>
+<p style="margin:0 0 16px;color:#52514e">${escapeHtml(when(r.trip.departure))} · ${escapeHtml(statusLine[r.status])}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e2e1dc;font-size:14px">
 ${row('Rider', r.rider.name)}
 ${row('Driver', `${r.driver.name}${r.driver.vehicle ? ` · ${r.driver.vehicle}` : ''}`)}
-${row('Seats', `${r.trip.seats} × ${inr(r.pricePerSeat)}`)}
-${row('Fare', inr(r.fare))}
-${r.serviceFee ? row('Includes Poolora service fee', inr(r.serviceFee)) : ''}
-${r.refunded ? row('Refunded', `− ${inr(r.refunded)}`) : ''}
-${row('Total paid', inr(r.paid), true)}
+${row('Seats', `${r.trip.seats} × ${money(r.pricePerSeat)}`)}
+${row('Fare', money(r.fare))}
+${r.serviceFee ? row('Includes Poolora service fee', money(r.serviceFee)) : ''}
+${r.refunded ? row('Refunded', `− ${money(r.refunded)}`) : ''}
+${row('Total paid', money(r.paid), true)}
 ${row('Paid by', r.paymentMethod)}
 </table>
-<p style="font-size:12px;color:#75746f;margin:16px 0 0">Issued ${escapeHtml(ist(r.issuedAt))} IST. Refunds reach your wallet at once, and cards or UPI in 5 to 7 working days.</p>`);
+<p style="font-size:12px;color:#75746f;margin:16px 0 0">Issued ${escapeHtml(when(r.issuedAt))} CAT. Refunds reach your wallet at once, and cards or UPI in 5 to 7 working days.</p>`);
   }
 
   /** Emails the receipt to the rider, if they have an email address and mail is set up */

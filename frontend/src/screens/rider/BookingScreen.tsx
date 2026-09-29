@@ -31,6 +31,7 @@ import { BackButton } from '../../components/BackButton';
 import { Icon } from '../../components/Icon';
 import type { Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
+import { money } from '../../utils/region';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Booking'>;
 type BookingRoute = RouteProp<RootStackParamList, 'Booking'>;
@@ -156,7 +157,7 @@ export function BookingScreen(): React.ReactElement {
           Request sent
         </Text>
         <Text style={[styles.confirmedSub, { color: c.textSec }]}>
-          ₹{total.toLocaleString('en-IN')} was paid from your wallet. The driver will confirm your seat,
+          {money(total)} was paid from your wallet. The driver will confirm your seat,
           and you get a full refund to your wallet if they decline or you cancel.
         </Text>
         <Pressable
@@ -293,7 +294,7 @@ export function BookingScreen(): React.ReactElement {
               label: 'Poolora wallet',
               sub: walletBalance === null
                 ? 'Balance unavailable'
-                : `Balance ₹${walletBalance.toLocaleString('en-IN')}${walletCovers ? '' : ' · not enough for this booking'}`,
+                : `Balance ${money(walletBalance)}${walletCovers ? '' : ' · not enough for this booking'}`,
               icon: 'wallet-outline' as const,
               enabled: walletCovers,
             },
@@ -323,9 +324,9 @@ export function BookingScreen(): React.ReactElement {
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <View style={styles.fareRow}>
             <Text style={{ fontSize: 14, color: c.textSec }}>
-              ₹{ride.pricePerSeat} × {seats} {seats === 1 ? 'seat' : 'seats'}
+              {money(ride.pricePerSeat)} × {seats} {seats === 1 ? 'seat' : 'seats'}
             </Text>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }}>₹{total.toLocaleString('en-IN')}</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }}>{money(total)}</Text>
           </View>
           <Text style={{ fontSize: 12, color: c.textSec, marginTop: 8, lineHeight: 18 }}>
             No extra fees for riders. If the driver declines or you cancel, the full amount is refunded.
@@ -349,7 +350,7 @@ export function BookingScreen(): React.ReactElement {
             <ActivityIndicator color={c.textOnPrimary} />
           ) : (
             <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>
-              {method === 'wallet' ? `Pay ₹${total.toLocaleString('en-IN')} from wallet` : `Continue to pay ₹${total.toLocaleString('en-IN')}`}
+              {method === 'wallet' ? `Pay ${money(total)} from wallet` : `Continue to pay ${money(total)}`}
             </Text>
           )}
         </Pressable>

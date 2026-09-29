@@ -28,7 +28,7 @@ export interface Trip {
   visibility: 'public' | 'private';
   inviteCode?: string;
   status: 'planning' | 'ongoing' | 'completed' | 'cancelled';
-  members: Array<{ user: Person; role: 'organizer' | 'member'; upiId?: string }>;
+  members: Array<{ user: Person; role: 'organizer' | 'member'; payNumber?: string }>;
   joinRequests: Array<{ _id: string; user: Person; message?: string; at: string }>;
   activities: Array<{
     _id: string;
@@ -69,7 +69,7 @@ export interface Settlement {
   total: number;
   perPerson: number;
   members: Array<{ userId: string; name: string; paid: number; share: number; balance: number }>;
-  transfers: Array<{ from: string; to: string; amount: number; fromName?: string; toName?: string; upiLink?: string }>;
+  transfers: Array<{ from: string; to: string; amount: number; fromName?: string; toName?: string; payNumber?: string; ecocashLink?: string }>;
 }
 
 export type TripInput = Pick<Trip, 'title' | 'tripType' | 'startDate' | 'endDate' | 'destinations' | 'interests' | 'itinerary' | 'maxGroupSize' | 'visibility'> & {
@@ -90,7 +90,7 @@ export const tripService = {
   join: (id: string, message?: string, code?: string) => data<{ status: string }>(apiClient.post(API_ENDPOINTS.trips.join(id), { message, code })),
   respond: (id: string, requestId: string, accept: boolean) => data<{ trip: Trip }>(apiClient.post(API_ENDPOINTS.trips.respond(id, requestId), { accept })).then(d => d.trip),
   leave: (id: string) => data<{ left: boolean }>(apiClient.post(API_ENDPOINTS.trips.leave(id), {})),
-  setUpi: (id: string, upiId: string) => data<{ upiId?: string }>(apiClient.put(API_ENDPOINTS.trips.upi(id), { upiId })),
+  setPayNumber: (id: string, payNumber: string) => data<{ payNumber?: string }>(apiClient.put(API_ENDPOINTS.trips.payNumber(id), { payNumber })),
   expenses: (id: string) => data<{ expenses: TripExpense[] }>(apiClient.get(API_ENDPOINTS.trips.expenses(id))).then(d => d.expenses),
   addExpense: (id: string, e: { description: string; amount: number; paidBy?: string; splitAmong?: string[] }) =>
     data<{ expense: TripExpense }>(apiClient.post(API_ENDPOINTS.trips.expenses(id), e)).then(d => d.expense),

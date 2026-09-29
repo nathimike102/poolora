@@ -14,6 +14,7 @@ import { Icon } from './Icon';
 import { parcelService, parcelStage, type Parcel } from '../services/parcelService';
 import { errorHandler } from '../utils/errorHandler';
 import { takeParcelPhoto } from '../utils/parcelPhoto';
+import { money } from '../utils/region';
 
 export function RideParcels({ rideId }: { rideId: string }) {
   const { c } = useApp();
@@ -94,7 +95,7 @@ export function RideParcels({ rideId }: { rideId: string }) {
               <Icon name="package-variant-closed" size={20} color={c.primary} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
-                  {p.parcelWeight} kg {p.parcelType} · ₹{p.driverEarnings ?? Math.round(p.estimatedCost * 0.7)} for you
+                  {p.parcelWeight} kg {p.parcelType} · {money(p.driverEarnings ?? Math.round(p.estimatedCost * 0.7))} for you
                 </Text>
                 <Text style={{ fontSize: 12, color: c.textSec }}>{stage.label}</Text>
               </View>
