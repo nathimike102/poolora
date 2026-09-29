@@ -1,7 +1,7 @@
 {
   "name": "mobility-backend",
   "version": "1.0.0",
-  "description": "Unified mobility platform backend — Car-Pooling, Parcel-Pooling, Trip-Pooling",
+  "description": "Unified mobility platform backend \u2014 Car-Pooling, Parcel-Pooling, Trip-Pooling",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --forceExit",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage --forceExit"
+    "test:coverage": "jest --coverage --forceExit",
+    "seed": "ts-node scripts/seed.ts",
+    "migrate:paynow": "ts-node scripts/migrate-to-paynow.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

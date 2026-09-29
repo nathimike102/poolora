@@ -1,9 +1,11 @@
 /**
  * seed.ts — Dumps realistic fake data into MongoDB for all models.
- * Run: npx ts-node scripts/seed.ts
+ * Run: npm run seed (from backend/)
  */
 
 import dotenv from 'dotenv';
+import { migrateToPaynow } from '../src/migrations/migrateToPaynow';
+
 dotenv.config();
 
 import mongoose, { Types } from 'mongoose';
@@ -75,6 +77,9 @@ async function seed() {
 
   await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 8000 });
   console.log('✅  MongoDB connected\n');
+
+  // Drop indexes left from Razorpay, which would reject Paynow payments
+  await migrateToPaynow(mongoose.connection.db!);
 
   // ── Wipe existing data ──
   console.log('🗑   Clearing collections…');
