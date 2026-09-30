@@ -1,5 +1,8 @@
-"""Poolora: how to run the app on any Android device over adb."""
-import sys
+"""Poolora: how to run the app on any Android device over adb.
+
+python3 runguide.py [out.pdf]   (default ../Poolora-Run-On-Android.pdf)
+"""
+import os, sys
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -9,7 +12,9 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle,
                                 Image, KeepTogether, ListFlowable, ListItem, CondPageBreak)
 
-OUT = sys.argv[1]
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'Poolora-Run-On-Android.pdf')
+ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 F = '/usr/share/fonts/truetype/dejavu/'
 pdfmetrics.registerFont(TTFont('DV', F + 'DejaVuSans.ttf'))
 pdfmetrics.registerFont(TTFont('DVB', F + 'DejaVuSans-Bold.ttf'))
@@ -83,7 +88,7 @@ doc.addPageTemplates([PageTemplate(id='p', frames=[Frame(doc.leftMargin, doc.bot
 W = doc.width
 
 s = []
-s.append(Image('/home/ghost/Desktop/Projects/Poolora/branding/poolora-lockup.png', width=5.2 * cm, height=1.63 * cm, hAlign='LEFT'))
+s.append(Image(os.path.join(ROOT, 'branding/poolora-lockup.png'), width=5.2 * cm, height=1.63 * cm, hAlign='LEFT'))
 s.append(Spacer(1, 8))
 s.append(P('Running Poolora on an Android device', h1))
 s.append(P('Step-by-step: connect any Android phone or emulator with adb, start the backend, and install and run the app '
@@ -153,7 +158,7 @@ s.append(P('In Android Studio, open <b>Device Manager</b>, create a virtual devi
 s.append(CondPageBreak(6 * cm))
 s.append(P('3. Start the backend', h2))
 s.append(P('The app needs the API running. Copy the example settings once and fill in your own values '
-           '(MongoDB, JWT secrets, Firebase, and Razorpay if you test card payments):'))
+           '(MongoDB, JWT secrets, Firebase, and a Paynow test integration if you test online payments):'))
 s.append(C(['cd backend', 'cp .env.example .env              # then edit .env',
             '# Firebase service account: secrets/firebase-service-account.json (see docs/SECRETS.md)']))
 s.append(P('Option A: backend on your laptop, databases in Docker (best for development)', h3))
@@ -230,15 +235,27 @@ s.append(table([
     ['See the API\'s logs', 'The terminal running npm run dev, or: docker compose logs -f app'],
     ['Take a screenshot', 'adb exec-out screencap -p > screen.png'],
     ['Record the screen', 'adb shell screenrecord /sdcard/test.mp4 (Ctrl+C to stop), then adb pull /sdcard/test.mp4'],
-    ['Type text into the phone', 'adb shell input text "Indiranagar"'],
+    ['Type text into the phone', 'adb shell input text "Borrowdale". On a slow emulator, send a code one digit at a time'],
+    ['Sign in without SMS', 'With TWILIO_ENABLED=false and LOG_LEVEL=debug, the backend log prints "[DEV] OTP for +263…: 123456". '
+                            'Seeded users: rider 0776 500 001, driver 0776 543 210'],
+    ['Put an emulator in Harare', 'Time: adb shell service call alarm 3 s16 Africa/Harare. Location (when "geo fix" is ignored): '
+                                   'adb shell appops set com.android.shell android:mock_location allow; '
+                                   'adb shell cmd location providers add-test-provider gps; '
+                                   'adb shell cmd location providers set-test-provider-enabled gps true; '
+                                   'adb shell cmd location providers set-test-provider-location gps --location -17.8252,31.0532 '
+                                   '(repeat every few seconds while the app looks for a fix)'],
+    ['Open the dev build on Metro', 'adb shell am start -a android.intent.action.VIEW -d '
+                                    '"exp+poolora://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081" com.poolora.app'],
     ['Start again from a clean app', 'adb shell pm clear com.poolora.app (signs you out and clears saved data)'],
     ['Remove the app', 'adb uninstall com.poolora.app'],
     ['Open the web admin', 'cd admin-web, npm run dev, then open the address it prints in a browser'],
 ], [5.0 * cm, 12.0 * cm]))
 s.append(Spacer(1, 6))
 s.append(P('Some features need services that may not be set up locally: text messages need Twilio (<i>TWILIO_*</i> in '
-           '<i>backend/.env</i>), emails need an SMTP server (<i>SMTP_*</i>), and card or UPI payments need Razorpay keys. Without '
-           'them the app says the feature is unavailable; wallet payments and the ride simulator work without any of them.'))
+           '<i>backend/.env</i>), emails need an SMTP server (<i>SMTP_*</i>), online payments need a Paynow test integration '
+           '(<i>PAYNOW_*</i>; test numbers such as 0771111111 pay after 5 seconds, see SETUP-TODO.md), and the support assistant needs '
+           '<i>ANTHROPIC_API_KEY</i>. Without them the app says the feature is unavailable; wallet payments and the ride simulator work '
+           'without any of them.'))
 
 # 7
 s.append(CondPageBreak(6 * cm))
@@ -254,6 +271,8 @@ s.append(table([
     ['INSTALL_FAILED_UPDATE_INCOMPATIBLE', 'A copy signed with another key is installed', 'adb uninstall com.poolora.app, then install again'],
     ['Google sign-in fails', 'This computer\'s debug key is not registered in Firebase', 'Add the SHA-1 from ./gradlew signingReport to the Firebase Android app, or sign in with a phone number'],
     ['Map is blank', 'No internet on the phone', 'Map tiles come from OpenFreeMap over the internet; check the phone\'s data or Wi-Fi'],
+    ['Code changes do not show up', 'Metro missed the file change', 'Stop Metro and start it again with --clear, then reopen the app'],
+    ['"Couldn\'t find your location"', 'The emulator has no GPS fix', 'Use the mock-location commands in section 6'],
     ['Port 8081 or 5002 already in use', 'An old Metro or API process', 'Stop it (lsof -i :8081 on Linux or macOS), or run Metro on another port with --port 8082 and reverse that port'],
 ], [4.6 * cm, 4.6 * cm, 7.8 * cm]))
 

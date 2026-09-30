@@ -21,8 +21,8 @@ def nodes():
     x = adb('exec-out', 'cat', '/sdcard/ui.xml', out=True).decode('utf8', 'ignore')
     for m in re.finditer(r'<node [^>]*>', x):
         n = m.group(0)
-        t = re.search(r' text="([^"]*)"', n).group(1)
-        d = re.search(r'content-desc="([^"]*)"', n).group(1)
+        t = (re.search(r' text="([^"]*)"', n) or re.match('()', '')).group(1)
+        d = (re.search(r'content-desc="([^"]*)"', n) or re.match('()', '')).group(1)
         b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n)
         label = (t or d).replace('&amp;', '&')
         if label and b and not label.startswith('&#'):

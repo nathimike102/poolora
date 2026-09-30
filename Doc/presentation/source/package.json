@@ -1,0 +1,22 @@
+{
+  "name": "poolora-presentation",
+  "private": true,
+  "description": "Builds the Poolora decks and PDFs from the code and the app's screens",
+  "scripts": {
+    "facts": "cd ../../../backend && npx ts-node --transpile-only -P tsconfig.json ../Doc/presentation/source/facts.ts > ../Doc/presentation/source/facts.json",
+    "screens": "python3 prep_screens.py",
+    "render3d": "node render3d/render.js",
+    "decks": "node build.js academic && node build.js pitch",
+    "pdfs": "python3 note.py && python3 runguide.py",
+    "all": "npm run facts && npm run screens && npm run render3d && npm run decks && npm run pdfs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0",
+    "pptxgenjs": "^3.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.3.0",
+    "sharp": "^0.33.5",
+    "three": "^0.169.0"
+  }
+}

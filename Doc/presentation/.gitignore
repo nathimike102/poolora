@@ -1,0 +1,3 @@
+# Raw emulator captures; the build reads screens/clean and screens/frames
+screens/*.png
+screens/*.json

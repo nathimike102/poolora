@@ -21,7 +21,7 @@ Features
 -> Phone + OTP authentication
 -> Ride creation (location, time, price, seats)
 -> Ride search and requests
--> Razorpay payment integration
+-> Online payments through Paynow (EcoCash, OneMoney, InnBucks, card); Razorpay in the original India plan
 -> Firebase notifications
 -> Admin panel for user/ride management
 -> Technical Stack
@@ -92,7 +92,7 @@ Features
 Frontend: React Native
 Backend: Node.js + Express
 Database: MongoDB
-APIs: Google Maps, Razorpay, Firebase
+APIs: OpenStreetMap (OSRM, Photon, Nominatim; Google Maps optional), Paynow, Firebase
 
 Project Details
 6-member team
