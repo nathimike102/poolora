@@ -41,6 +41,18 @@ export const userService = {
     }
   },
 
+  /** Whether the account can be closed now, and what is in the way if not */
+  async getClosureCheck(): Promise<{ canClose: boolean; blockers: string[]; walletBalance: number; coins: number; coinsValue: number }> {
+    const response = await apiClient.get<ApiResponse<{ canClose: boolean; blockers: string[]; walletBalance: number; coins: number; coinsValue: number }>>(API_ENDPOINTS.users.closure);
+    return response.data.data;
+  },
+
+  /** Closes the account for good and removes the personal data */
+  async closeAccount(reason?: string): Promise<void> {
+    await apiClient.delete(API_ENDPOINTS.users.me, { data: { confirm: true, ...(reason ? { reason } : {}) } });
+    logger.info('Account closed');
+  },
+
   /**
    * Get user profile by ID
    */

@@ -6,7 +6,7 @@ import {
   RecurringPattern,
   GeoPoint,
 } from '../types';
-import { decodePolyline, toLineString, LatLng } from '../utils/routeGeometry';
+import { decodePolyline, toLineString, LatLng, isValidPath } from '../utils/routeGeometry';
 
 // ─── Interface ───────────────────────────────────────────────────────────────
 
@@ -187,8 +187,9 @@ type RouteSource = Pick<IRide, 'routePolyline' | 'pickup' | 'dropoff'> & { waypo
 export function rideRoutePath(ride: RouteSource): LatLng[] {
   if (ride.routePolyline) {
     try {
+      // Text that is not a real polyline decodes to impossible positions
       const path = decodePolyline(ride.routePolyline);
-      if (path.length >= 2) return path;
+      if (path.length >= 2 && isValidPath(path)) return path;
     } catch {
       // fall through to the straight-line route
     }

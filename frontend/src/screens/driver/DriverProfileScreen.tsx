@@ -21,7 +21,9 @@ import type { RootStackParamList } from '../../navigation/types';
 import { userService } from '../../services/userService';
 import { ratingService, type RatingSummary } from '../../services/ratingService';
 import type { Rating, User, VerifiedStatus } from '../../types/api';
-import { realPhone } from '../../utils/phone';
+import { displayPhone } from '../../utils/phone';
+import { VEHICLE_CATEGORIES, vehicleCategory } from '../../utils/vehicles';
+import { REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -32,7 +34,7 @@ function timeAgo(iso: string): string {
   if (days < 1) return 'Today';
   if (days === 1) return 'Yesterday';
   if (days < 30) return `${days} days ago`;
-  return new Date(iso).toLocaleDateString([], { month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString(REGION.dateLocale, { month: 'short', year: 'numeric' });
 }
 
 export function DriverProfileScreen() {
@@ -68,9 +70,9 @@ export function DriverProfileScreen() {
   const rides = stats?.totalRidesAsDriver ?? 0;
   const kycStatus = (profile?.kyc?.status ?? 'none') as KycStatus;
   const name = profile?.name ?? '';
-  const contact = realPhone(profile?.phone) ?? profile?.email ?? '';
+  const contact = displayPhone(profile?.phone) ?? profile?.email ?? '';
   const memberSince = profile?.createdAt
-    ? new Date(profile.createdAt).toLocaleDateString([], { month: 'short', year: 'numeric' })
+    ? new Date(profile.createdAt).toLocaleDateString(REGION.dateLocale, { month: 'short', year: 'numeric' })
     : null;
 
   const kyc: Record<KycStatus, { icon: IconName; label: string; fg: string; bg: string }> = {
@@ -213,7 +215,7 @@ export function DriverProfileScreen() {
               style={[s.listRow, i < vehicles.length - 1 && [s.dashed, { borderColor: c.border }]]}
             >
               <View style={[s.listIcon, { backgroundColor: c.surfaceVariant }]}>
-                <Icon name={v.vehicleType === 'bike' ? 'motorbike' : 'car-side'} size={22} color={c.primary} />
+                <Icon name={VEHICLE_CATEGORIES[vehicleCategory(v.vehicleType)].icon} size={22} color={c.primary} />
               </View>
               <View style={s.flex1}>
                 <Text style={[s.listTitle, { color: c.text }]} numberOfLines={1}>{v.make} {v.model}</Text>

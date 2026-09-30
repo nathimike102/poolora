@@ -27,6 +27,8 @@ import { useApp } from '../../context/AppContext';
 import { BackButton } from '../../components/BackButton';
 import { adminService, type AdminUser, type KycReview } from '../../services/adminService';
 import { errorHandler } from '../../utils/errorHandler';
+import { REGION } from '../../utils/region';
+import { displayPhone } from '../../utils/phone';
 
 export function AdminVerificationsScreen() {
   const navigation = useNavigation();
@@ -78,7 +80,7 @@ export function AdminVerificationsScreen() {
       if (!review?.documents.licence || !review.documents.registration) {
         Alert.alert(
           'Documents missing',
-          'A driver can only be approved once their driving licence and registration certificate are uploaded. Reject with a reason so they can resubmit.',
+          'A driver can only be approved once their driving licence and vehicle registration book are uploaded. Reject with a reason so they can resubmit.',
         );
         return;
       }
@@ -111,7 +113,7 @@ export function AdminVerificationsScreen() {
   const docLinks: { label: string; url: string | null }[] = review
     ? [
         { label: 'Driving licence', url: review.documents.licence },
-        { label: 'Registration certificate', url: review.documents.registration },
+        { label: 'Registration book', url: review.documents.registration },
         { label: 'Insurance', url: review.documents.insurance },
         ...review.documents.photos.map((url, i) => ({ label: `Vehicle photo ${i + 1}`, url })),
       ]
@@ -145,8 +147,8 @@ export function AdminVerificationsScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{item.name}</Text>
                 <Text style={{ fontSize: 13, color: c.textSec }}>
-                  {item.phone}
-                  {item.kyc.submittedAt ? ` · Submitted ${new Date(item.kyc.submittedAt).toLocaleDateString()}` : ''}
+                  {displayPhone(item.phone) ?? item.phone}
+                  {item.kyc.submittedAt ? ` · Submitted ${new Date(item.kyc.submittedAt).toLocaleDateString(REGION.dateLocale)}` : ''}
                 </Text>
               </View>
               <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Review</Text>
@@ -201,7 +203,7 @@ export function AdminVerificationsScreen() {
                 value={reason}
                 onChangeText={setReason}
                 multiline
-                placeholder="For example, the registration certificate photo is blurred"
+                placeholder="For example, the registration book photo is blurred"
                 placeholderTextColor={c.textSec}
                 accessibilityLabel="Rejection reason"
                 style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}

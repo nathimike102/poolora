@@ -29,10 +29,11 @@ jest.mock('../../config', () => ({
       maxPickupDistanceFromRouteKm: 2,
       riderCancellationRefunds: [
         { minHours: 24, refundRate: 1 },
-        { minHours: 12, refundRate: 0.5 },
-        { minHours: 6, refundRate: 0.25 },
+        { minHours: 2, refundRate: 0.5 },
         { minHours: 0, refundRate: 0 },
       ],
+      riderFreeCancelMins: 30,
+      riderFreeCancelLeadMins: 60,
     },
   },
 }));
@@ -435,8 +436,8 @@ describe('BookingService', () => {
     it.each([
       [30, 400],
       [18, 200],
-      [8, 100],
-      [2, 0],
+      [3, 200],
+      [1, 0],
     ])('refunds the right share %i hours before departure', async (h, refund) => {
       const booking = confirmed();
       (Booking.findById as jest.Mock).mockResolvedValue(booking);
@@ -456,7 +457,7 @@ describe('BookingService', () => {
     it('pays the late-cancellation fee to the driver, less the platform fee', async () => {
       const booking = confirmed();
       (Booking.findById as jest.Mock).mockResolvedValue(booking);
-      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: hours(2) });
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: hours(1) });
 
       await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
 
@@ -483,7 +484,50 @@ describe('BookingService', () => {
       const quote = await bookingService.getCancellationQuote('booking123', 'rider123');
 
       expect(quote).toMatchObject({ fare: 400, refundAmount: 200, refundPercent: 50 });
-      expect(quote.policy).toHaveLength(4);
+      expect(quote.policy).toHaveLength(3);
+      expect(quote.freeCancelUntil).toBeUndefined();
+    });
+
+    it('refunds in full just after the driver accepted, while the ride is an hour or more away', async () => {
+      const booking: Record<string, unknown> = { ...confirmed(), confirmedAt: new Date(Date.now() - 10 * 60_000) };
+      (Booking.findById as jest.Mock).mockResolvedValue(booking);
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: hours(1.5) });
+
+      await bookingService.cancelBooking('booking123', 'rider123', 'Booked the wrong day');
+
+      expect(booking.refundAmount).toBe(400);
+      expect(booking.cancellationFee).toBe(0);
+    });
+
+    it('falls back to the tiers once the free window has passed', async () => {
+      const booking: Record<string, unknown> = { ...confirmed(), confirmedAt: new Date(Date.now() - 45 * 60_000) };
+      (Booking.findById as jest.Mock).mockResolvedValue(booking);
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: hours(1.5) });
+
+      await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
+
+      expect(booking.refundAmount).toBe(0);
+    });
+
+    it('gives no free window within an hour of departure', async () => {
+      const booking: Record<string, unknown> = { ...confirmed(), confirmedAt: new Date(Date.now() - 60_000) };
+      (Booking.findById as jest.Mock).mockResolvedValue(booking);
+      (Ride.findByIdAndUpdate as jest.Mock).mockResolvedValue({ departureTime: hours(0.75) });
+
+      await bookingService.cancelBooking('booking123', 'rider123', 'Changed plans');
+
+      expect(booking.refundAmount).toBe(0);
+    });
+
+    it('quotes when the free window closes', async () => {
+      const confirmedAt = new Date(Date.now() - 5 * 60_000);
+      (Booking.findById as jest.Mock).mockResolvedValue({ ...confirmed(), confirmedAt });
+      (Ride.findById as jest.Mock).mockReturnValue({ select: jest.fn().mockResolvedValue({ departureTime: hours(5) }) });
+
+      const quote = await bookingService.getCancellationQuote('booking123', 'rider123');
+
+      expect(quote).toMatchObject({ refundAmount: 400, refundPercent: 100 });
+      expect(quote.freeCancelUntil?.getTime()).toBe(confirmedAt.getTime() + 30 * 60_000);
     });
   });
 

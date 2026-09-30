@@ -94,7 +94,7 @@ export const FEATURES: FeaturesConfig = {
       id: 'diff-price',
       iconName: 'AffordabilityIcon',
       title: 'The price the driver sets',
-      desc: 'Riders pay the seat price shown, with no booking fee added on top. Cancellations are refunded in full.',
+      desc: 'Riders pay the seat price shown, with no booking fee added on top. Cancel early and you get it all back; the app shows the exact refund before you confirm.',
       color: 'text-amber-700',
       bg: 'bg-amber-50',
     },

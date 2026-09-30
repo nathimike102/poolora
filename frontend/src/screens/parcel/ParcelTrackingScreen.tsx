@@ -57,7 +57,7 @@ export function ParcelTrackingScreen() {
   };
 
   const cancel = () =>
-    Alert.alert('Cancel this parcel?', 'You get a full refund, to your wallet or card.', [
+    Alert.alert('Cancel this parcel?', 'You get a full refund to your Poolora wallet.', [
       { text: 'Keep it', style: 'cancel' },
       {
         text: 'Cancel parcel',

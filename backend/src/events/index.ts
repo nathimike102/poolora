@@ -14,16 +14,26 @@ import { localTime } from '../config/region';
  * Callers pass Mongoose documents' ids (ObjectIds) straight through, but the
  * event schemas and consumers expect strings. Convert them before validating,
  * or production drops the event.
+ *
+ * Only plain objects and arrays are walked. A Mongoose document or
+ * subdocument (such as `ride.pickup`) points back at its parent, so walking
+ * it never ends; it is turned into a plain object first. `ancestors` stops any
+ * cycle through the current path.
  */
-function normalizeIds(value: unknown): unknown {
+export function normalizeIds(value: unknown, ancestors = new Set<object>()): unknown {
   if (value instanceof Types.ObjectId) return value.toString();
-  if (Array.isArray(value)) return value.map(normalizeIds);
-  if (value && typeof value === 'object' && !(value instanceof Date)) {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, normalizeIds(v)]),
-    );
-  }
-  return value;
+  if (!value || typeof value !== 'object' || value instanceof Date) return value;
+  if (ancestors.has(value)) return undefined; // a cycle
+  const toObject = (value as { toObject?: () => unknown }).toObject;
+  if (typeof toObject === 'function') return normalizeIds(toObject.call(value), ancestors);
+  const proto = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && proto !== Object.prototype && proto !== null) return value;
+  ancestors.add(value);
+  const out = Array.isArray(value)
+    ? value.map((v) => normalizeIds(v, ancestors))
+    : Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, normalizeIds(v, ancestors)]));
+  ancestors.delete(value);
+  return out;
 }
 
 /** Every topic the backend publishes to; created at startup if missing. */

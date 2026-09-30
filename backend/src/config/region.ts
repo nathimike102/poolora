@@ -10,6 +10,8 @@
  * Mirrors frontend/src/utils/region.ts.
  */
 
+import { HolidayCalendar, isHolidayDate } from '../utils/holidays';
+
 export type CurrencyCode = 'USD' | 'ZWG';
 
 export interface Market {
@@ -36,6 +38,8 @@ export interface Market {
   bbox: readonly [number, number, number, number];
   center: { lat: number; lng: number };
   emergency: { general: string; police: string; ambulance: string; fire: string };
+  /** Public holidays, for the demand forecast */
+  holidays: HolidayCalendar;
 }
 
 export const MARKETS: Record<string, Market> = {
@@ -57,6 +61,25 @@ export const MARKETS: Record<string, Market> = {
     // Harare
     center: { lat: -17.8292, lng: 31.0522 },
     emergency: { general: '999', police: '995', ambulance: '994', fire: '993' },
+    // Public Holidays and Prohibition of Business Act [Chapter 10:21]
+    holidays: {
+      rules: [
+        { name: "New Year's Day", month: 1, day: 1 },
+        { name: 'Robert Gabriel Mugabe National Youth Day', month: 2, day: 21 },
+        { name: 'Good Friday', easterOffset: -2 },
+        { name: 'Easter Saturday', easterOffset: -1 },
+        { name: 'Easter Monday', easterOffset: 1 },
+        { name: 'Independence Day', month: 4, day: 18 },
+        { name: "Workers' Day", month: 5, day: 1 },
+        { name: 'Africa Day', month: 5, day: 25 },
+        { name: "Heroes' Day", month: 8, weekday: 1, nth: 2 },
+        { name: 'Defence Forces Day', month: 8, weekday: 1, nth: 2, offsetDays: 1 },
+        { name: 'National Unity Day', month: 12, day: 22 },
+        { name: 'Christmas Day', month: 12, day: 25 },
+        { name: 'Boxing Day', month: 12, day: 26 },
+      ],
+      sundayMovesToMonday: true,
+    },
   },
 };
 
@@ -99,6 +122,19 @@ export function localTime(date: Date | string | number, options: Intl.DateTimeFo
  */
 export const toLocalClock = (date: Date) => new Date(date.getTime() + REGION.utcOffsetMs);
 export const fromLocalClock = (date: Date) => new Date(date.getTime() - REGION.utcOffsetMs);
+
+/**
+ * What the demand model needs about a moment, in this market's time: the
+ * hour, the weekday counted from Monday = 0, and whether it is a public holiday.
+ */
+export function demandTime(date: Date): { hour: number; weekday: number; isHoliday: boolean } {
+  const local = toLocalClock(date);
+  return {
+    hour: local.getUTCHours(),
+    weekday: (local.getUTCDay() + 6) % 7,
+    isHoliday: isHolidayDate(local.toISOString().slice(0, 10), REGION.holidays),
+  };
+}
 
 /**
  * Normalises a mobile number in this market to E.164. In Zimbabwe it

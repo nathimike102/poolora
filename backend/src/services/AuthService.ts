@@ -234,8 +234,16 @@ export class AuthService {
         );
       }
 
-      // Keep the code for the second verify that carries the new user's name
-      if (needsProfile) return { needsProfile: true };
+      // Keep the code for the second verify that carries the new user's name,
+      // and give the profile form its own window: the 5 minutes started when
+      // the text was sent, which could leave too little time to fill it in
+      if (needsProfile) {
+        await redis.expire(otpKey, config.otp.profileWindowSeconds);
+        return { needsProfile: true };
+      }
+
+      // A clash that would stop the account being created must not use up the code
+      await this.assertEmailFree(existingUser, email);
 
       // OTP valid — clean up, including the failure history.
       await redis.del(otpKey, attemptsKey, failuresKey, retryKey);
@@ -309,7 +317,11 @@ export class AuthService {
         );
       }
 
-      if (needsProfile) return { needsProfile: true };
+      if (needsProfile) {
+        await OtpChallenge.updateOne({ phone }, { $set: { expiresAt: new Date(Date.now() + config.otp.profileWindowSeconds * 1000) } });
+        return { needsProfile: true };
+      }
+      await this.assertEmailFree(existingUser, email);
       await OtpChallenge.deleteOne({ phone });
     }
 
@@ -617,7 +629,15 @@ export class AuthService {
     await redis.setex(`refresh:${userId}:${sessionId}`, 7 * 24 * 3600, refreshToken);
   }
 
-  private async invalidateAllSessions(userId: string): Promise<void> {
+  /** A new account's email must be free; checked once the code is proven, so it reveals nothing to guessers */
+  private async assertEmailFree(existingUser: IUser | null, email?: string): Promise<void> {
+    if (existingUser || !email) return;
+    if (await User.exists({ email: email.trim().toLowerCase() })) {
+      throw new ConflictError('That email is already on another Poolora account. Use a different one, or leave it empty.');
+    }
+  }
+
+  async invalidateAllSessions(userId: string): Promise<void> {
     const redis = requireRedis();
     const sessionsSetKey = `sessions:${userId}`;
     const sessionIds = await redis.zrange(sessionsSetKey, 0, -1);

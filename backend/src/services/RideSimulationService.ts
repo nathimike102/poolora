@@ -48,7 +48,7 @@ type Place = LatLng & { address: string };
 const BOT_DRIVER_PHONE = '+263700000001';
 const BOT_RIDER_PHONE = '+263700000002';
 
-/** Koramangala → Indiranagar, used when the app sends no location. */
+/** The market's centre (Harare CBD), used when the app sends no location. */
 const DEFAULT_PICKUP: LatLng = { lat: REGION.center.lat, lng: REGION.center.lng };
 
 const TICK_MS = 2000;
@@ -146,7 +146,7 @@ export class RideSimulationService {
       dropoff,
       departureTime: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
       totalSeats: 3,
-      pricePerSeat: 80,
+      pricePerSeat: 1, // US$1, the minimum seat price; the simulated trips are a few km
       recurring: RecurringPattern.NONE,
       preferences: {} as IRide['preferences'],
     }, { skipCreationRules: true });
@@ -226,7 +226,7 @@ export class RideSimulationService {
         dropoff,
         departureTime: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
         totalSeats: 3,
-        pricePerSeat: 80,
+        pricePerSeat: 1,
         recurring: RecurringPattern.NONE,
         preferences: {} as IRide['preferences'],
       }, { skipCreationRules: true });
@@ -241,7 +241,7 @@ export class RideSimulationService {
       { $set: { status: BookingStatus.CANCELLED } },
     );
     await this.walletService.getOrCreateWallet(botRiderId);
-    await Wallet.updateOne({ userId: botRiderId }, { $max: { balance: 10000 }, $set: { isLocked: false } });
+    await Wallet.updateOne({ userId: botRiderId }, { $max: { balance: 100 }, $set: { isLocked: false } });
 
     const { booking } = await this.bookingService.createBooking(botRiderId, {
       rideId: ride._id.toString(),
@@ -364,6 +364,14 @@ export class RideSimulationService {
     if (plan.botDriver) {
       await this.rideService.startRide(run.rideId, run.driverId);
       bookingIds = await this.confirmedBookingIds(run.rideId);
+      // As a real driver does at the pickup: arrived, then picked up. This
+      // stops the approach alerts and starts the in-ride safety check-ins.
+      for (const id of bookingIds) {
+        await this.bookingService.markArrived(id, run.driverId).catch(() => undefined);
+        await this.bookingService.markPickedUp(id, run.driverId).catch((error) =>
+          logger.warn('Simulation could not mark the rider picked up', { bookingId: id, error: (error as Error).message }),
+        );
+      }
     }
 
     // 3. Pickup to drop
@@ -418,11 +426,11 @@ export class RideSimulationService {
     if (existing && existing.vehicles.length) return existing;
     const vehicle = {
       _id: new Types.ObjectId(),
-      make: 'Maruti',
-      model: 'Dzire',
+      make: 'Toyota',
+      model: 'Corolla',
       year: 2022,
       color: 'White',
-      plateNumber: 'KA01SIM001',
+      plateNumber: 'SIM0001',
       vehicleType: VehicleType.SEDAN,
       hasAC: true,
       registrationDocUrl: 'https://example.com/simulated-rc.pdf',

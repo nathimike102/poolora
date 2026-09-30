@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { AuthController } from '../controllers/AuthController';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requireAdmin } from '../middlewares/capability.middleware';
-import { authRateLimit, otpRateLimit } from '../middlewares/rateLimit.middleware';
+import { authRateLimit, otpRateLimit, verifyRateLimit } from '../middlewares/rateLimit.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import {
   sendOtpSchema,
@@ -17,7 +17,7 @@ const router = Router();
 
 // Public
 router.post('/send-otp', otpRateLimit, validate(sendOtpSchema), AuthController.sendOtp);
-router.post('/verify-otp', authRateLimit, validate(verifyOtpSchema), AuthController.verifyOtp);
+router.post('/verify-otp', verifyRateLimit, validate(verifyOtpSchema), AuthController.verifyOtp);
 router.post('/refresh-token', authRateLimit, validate(refreshTokenSchema), AuthController.refreshToken);
 router.post('/firebase-login', authRateLimit, AuthController.firebaseLogin);
 

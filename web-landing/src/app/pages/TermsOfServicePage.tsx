@@ -56,7 +56,7 @@ export function TermsOfServicePage() {
         },
         {
           sub: 'Cancellations',
-          text: 'A request the driver has not yet accepted, or a booking the driver cancels or changes, is refunded in full. When you cancel a confirmed seat, you get everything back 24 hours or more before departure, half from 12 hours, a quarter from 6 hours, and nothing after that; the app shows the exact amount before you confirm. Repeated no-shows may lead to restrictions on your account.',
+          text: 'A request the driver has not yet accepted, or a booking the driver cancels or changes, is refunded in full. When you cancel a confirmed seat, you get everything back 24 hours or more before departure, half from 2 hours, and nothing after that; cancelling within 30 minutes of the driver accepting is refunded in full if the ride is still an hour or more away. The app shows the exact amount before you confirm. Repeated no-shows may lead to restrictions on your account.',
         },
       ],
     },

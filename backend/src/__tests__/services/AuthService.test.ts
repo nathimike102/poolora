@@ -41,6 +41,7 @@ jest.mock('../../models/User', () => ({
     findOneAndUpdate: jest.fn(),
     findById: jest.fn(),
     create: jest.fn(),
+    exists: jest.fn(),
   },
 }));
 
@@ -148,6 +149,23 @@ describe('AuthService — OTP Security', () => {
       const result = await authService.verifyOtp(testPhone, '123456', undefined);
 
       expect(result).toEqual({ needsProfile: true });
+      expect(mockRedis.del).not.toHaveBeenCalled();
+      expect(User.create).not.toHaveBeenCalled();
+      // The profile form gets its own 10 minutes, not what is left of the 5
+      expect(mockRedis.expire).toHaveBeenCalledWith(`otp:${testPhone}`, 600);
+    });
+
+    it('keeps the code when the new account\'s email is already taken', async () => {
+      const otpHash = crypto.createHash('sha256').update('123456').digest('hex');
+      mockRedis.ttl.mockResolvedValueOnce(-2);
+      mockRedis.get.mockResolvedValueOnce(otpHash);
+      const { User } = require('../../models/User');
+      User.findOne.mockResolvedValueOnce(null);
+      User.exists.mockResolvedValueOnce({ _id: 'someone-else' });
+
+      await expect(authService.verifyOtp(testPhone, '123456', 'Tendai Moyo', 'Taken@Example.com')).rejects.toMatchObject({ statusCode: 409 });
+      expect(User.exists).toHaveBeenCalledWith({ email: 'taken@example.com' });
+      // The user can fix the email and send the same code again
       expect(mockRedis.del).not.toHaveBeenCalled();
       expect(User.create).not.toHaveBeenCalled();
     });

@@ -3,6 +3,7 @@ import { getRedisClient } from '../config/redis';
 import { RateLimitError } from '../utils/AppError';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { toE164 } from '../config/region';
 
 interface RateLimitConfig {
   max: number;
@@ -64,21 +65,53 @@ export function describeWait(seconds: number): string {
   return plural(Math.ceil(seconds / 3600), 'hour');
 }
 
-function createRateLimiter(tier: RateLimitConfig, keyPrefix: string) {
+type KeyOf = (req: Request) => string;
+
+const byUserOrIp: KeyOf = (req) => req.user?.userId || req.ip || 'unknown';
+const byIp: KeyOf = (req) => req.ip || 'unknown';
+/** The phone in the body, normalised, so "0771…" and "+263771…" share a count */
+const byPhone: KeyOf = (req) => {
+  const raw = typeof req.body?.phone === 'string' ? req.body.phone : '';
+  return `phone:${toE164(raw) ?? raw.replace(/\s/g, '').slice(0, 20)}`;
+};
+
+/** Checks one request against a limit. Resolves true when it is over. */
+export async function overLimit(key: string, tier: RateLimitConfig): Promise<{ over: boolean; ttlSeconds: number }> {
+  const hit = (await hitRedis(key, tier.windowMs)) ?? hitLocal(key, tier.windowMs);
+  return { over: hit.count > tier.max, ttlSeconds: hit.ttlSeconds };
+}
+
+function createRateLimiter(tier: RateLimitConfig, keyPrefix: string, keyOf: KeyOf = byUserOrIp, skip?: (req: Request) => boolean) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
-    const identifier = req.user?.userId || req.ip || 'unknown';
-    const key = `ratelimit:${keyPrefix}:${identifier}`;
-
-    const hit = (await hitRedis(key, tier.windowMs)) ?? hitLocal(key, tier.windowMs);
-
-    if (hit.count > tier.max) {
-      next(new RateLimitError(`Too many requests. Try again in ${describeWait(hit.ttlSeconds)}.`));
+    if (skip?.(req)) return next();
+    const { over, ttlSeconds } = await overLimit(`ratelimit:${keyPrefix}:${keyOf(req)}`, tier);
+    if (over) {
+      next(new RateLimitError(`Too many requests. Try again in ${describeWait(ttlSeconds)}.`));
       return;
     }
     next();
   };
 }
 
-export const globalRateLimit = createRateLimiter(config.rateLimit.global, 'global');
-export const authRateLimit = createRateLimiter(config.rateLimit.auth, 'auth');
-export const otpRateLimit = createRateLimiter(config.rateLimit.otp, 'otp');
+/**
+ * Callbacks from Paynow, Twilio and the background-check vendor come from a
+ * few IPs, carry their own signatures, and must not be turned away at volume.
+ */
+const SIGNED_CALLBACK = /^\/(api\/v1\/)?(payments\/paynow\/result|calls\/twilio\/|kyc-verify\/callback)/;
+
+export const globalRateLimit = createRateLimiter(config.rateLimit.global, 'ip', byIp, (req) => SIGNED_CALLBACK.test(req.originalUrl));
+export const authRateLimit = createRateLimiter(config.rateLimit.auth, 'auth', byIp);
+export const otpRateLimit = [
+  createRateLimiter(config.rateLimit.otpIp, 'otp-ip', byIp),
+  createRateLimiter(config.rateLimit.otp, 'otp', byPhone),
+];
+export const verifyRateLimit = [
+  createRateLimiter(config.rateLimit.verifyIp, 'verify-ip', byIp),
+  createRateLimiter(config.rateLimit.verify, 'verify', byPhone),
+];
+
+/** Per signed-in user; called by authenticate once the user is known */
+export async function checkUserRateLimit(userId: string): Promise<void> {
+  const { over, ttlSeconds } = await overLimit(`ratelimit:user:${userId}`, config.rateLimit.user);
+  if (over) throw new RateLimitError(`Too many requests. Try again in ${describeWait(ttlSeconds)}.`);
+}

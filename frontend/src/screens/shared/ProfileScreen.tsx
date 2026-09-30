@@ -20,7 +20,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Icon, type IconName } from '../../components/Icon';
 import { COMPANY } from '../../config/company';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
-import { realPhone } from '../../utils/phone';
+import { displayPhone, realPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -62,7 +62,7 @@ export function ProfileScreen(): React.ReactElement {
   const rating = (isDriver ? stats?.avgRatingAsDriver : stats?.avgRatingAsRider) ?? 0;
   const rides = (isDriver ? stats?.totalRidesAsDriver : stats?.totalRidesAsRider) ?? 0;
   const name = profile?.name ?? '';
-  const contact = realPhone(profile?.phone) ?? profile?.email ?? '';
+  const contact = displayPhone(profile?.phone) ?? profile?.email ?? '';
   const done = completion(profile);
 
   const menu: { icon: IconName; label: string; sub?: string; onPress: () => void }[] = [

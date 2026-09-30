@@ -11,7 +11,7 @@
 module.exports = {
   expo: {
     name: 'Poolora',
-    slug: 'one-piece',
+    slug: 'poolora',
     version: '1.0.0',
     icon: './assets/icon.png',
     // Report the phone's light/dark setting to the app (Expo defaults to light).
@@ -88,8 +88,9 @@ module.exports = {
       mapsEnabled: process.env.MAPS_ENABLED !== 'false',
       mapStyleLight: process.env.MAP_STYLE_LIGHT ?? '',
       mapStyleDark: process.env.MAP_STYLE_DARK ?? '',
+      // @nathi_mike/poolora on expo.dev. Not a secret; EAS_PROJECT_ID overrides it.
       eas: {
-        projectId: process.env.EAS_PROJECT_ID ?? '',
+        projectId: process.env.EAS_PROJECT_ID || '1867e068-e5c9-4468-949a-efb9c5cb5a34',
       },
     },
     owner: 'nathi_mike',

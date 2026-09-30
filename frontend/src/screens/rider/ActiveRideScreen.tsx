@@ -41,6 +41,7 @@ import { initSocket } from '../../utils/socket';
 import { decodePolyline } from '../../utils/polyline';
 import { errorHandler } from '../../utils/errorHandler';
 import { realPhone } from '../../utils/phone';
+import { REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -48,7 +49,7 @@ const POLL_MS = 15_000;
 
 function formatTime(iso?: string): string {
   if (!iso) return '';
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' });
 }
 
 export function ActiveRideScreen() {
@@ -61,6 +62,8 @@ export function ActiveRideScreen() {
   const [loadError, setLoadError] = useState(false);
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | undefined>();
   const [driverUpdate, setDriverUpdate] = useState<string>('');
+  /** When the driver's position last came in */
+  const [lastSeen, setLastSeen] = useState<string>('');
   const [deviationMessage, setDeviationMessage] = useState<string>('');
   // An in-ride "Are you OK?" prompt waiting for an answer (UC-R05)
   const [checkIn, setCheckIn] = useState<{ repeat: boolean } | null>(null);
@@ -131,7 +134,7 @@ export function ActiveRideScreen() {
     const onLocation = (data: { bookingId: string; location: { lat: number; lng: number }; timestamp: number }) => {
       if (data.bookingId !== bookingId) return;
       setDriverLocation({ latitude: data.location.lat, longitude: data.location.lng });
-      setDriverUpdate(new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      setLastSeen(new Date(data.timestamp).toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }));
     };
     const onMilestone = (data: { bookingId: string; message: string }) => {
       if (data.bookingId === bookingId) setDriverUpdate(data.message);
@@ -187,6 +190,12 @@ export function ActiveRideScreen() {
         `leaving at ${formatTime(ride.scheduledDeparture)}.`,
     });
   };
+
+  // "Driver is 1 km away" and "Driver has arrived" stop applying once the trip starts
+  const rideStatus = ride?.status;
+  useEffect(() => {
+    if (rideStatus === 'in_progress') setDriverUpdate('');
+  }, [rideStatus]);
 
   if (!ride) {
     return (
@@ -301,8 +310,11 @@ export function ActiveRideScreen() {
               ) : null}
               {driverUpdate ? (
                 <Text style={{ fontSize: 13, color: c.text, marginTop: 12 }} accessibilityLiveRegion="polite">
-                  Driver update: {driverUpdate}
+                  {driverUpdate}
                 </Text>
+              ) : null}
+              {lastSeen ? (
+                <Text style={{ fontSize: 12, color: c.textSec, marginTop: driverUpdate ? 2 : 12 }}>Driver's location updated {lastSeen}</Text>
               ) : null}
             </View>
 

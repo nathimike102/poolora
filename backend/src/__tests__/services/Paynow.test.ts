@@ -101,7 +101,7 @@ describe('starting a payment', () => {
 
     expect(mockPost.mock.calls[0][0]).toBe('https://www.paynow.co.zw/interface/remotetransaction');
     const fields = Object.fromEntries(sent());
-    expect(fields).toMatchObject({ id: '1201', reference: `BK-${booking._id}-1`, amount: '3.00', phone: '0771111111', method: 'ecocash', authemail: 'rudo@example.com', status: 'Message' });
+    expect(fields).toMatchObject({ id: '1201', reference: expect.stringMatching(new RegExp(`^BK-${booking._id}-[0-9a-f]{6}$`)), amount: '3.00', phone: '0771111111', method: 'ecocash', authemail: 'rudo@example.com', status: 'Message' });
     expect(verifyMessage(sent(), USD_KEY)).toBe(true);
     expect(charge).toMatchObject({ status: 'pending', currency: 'USD', chargedAmount: 3, instructions: 'Dial *151*2*4# and enter your PIN' });
   });
@@ -167,7 +167,8 @@ describe('Paynow results', () => {
     expect(await GatewayCharge.findOne({ reference: charge.reference }).lean()).toMatchObject({ status: 'failed', failureReason: 'EcoCash payment cancelled' });
 
     const second = await charges.start(riderId.toString(), { purpose: 'booking', targetId: charge.targetId!, channel: 'ecocash', phone: '0771111111' });
-    expect(second.reference).toBe(`BK-${charge.targetId}-2`);
+    expect(second.reference).toMatch(new RegExp(`^BK-${charge.targetId}-[0-9a-f]{6}$`));
+    expect(second.reference).not.toBe(charge.reference);
     await charges.handleResult(result(second.reference, 'Paid', '1.00'));
     expect((await GatewayCharge.findOne({ reference: second.reference }).lean())?.status).toBe('disputed');
     expect(await Payment.countDocuments()).toBe(0);
@@ -187,6 +188,31 @@ describe('Paynow results', () => {
     await charges.handleResult(result(lateCharge.reference, 'Paid', '2.00'));
     expect(await walletBalance()).toBe(5);
     expect(await charges.status(riderId.toString(), lateCharge.reference)).toMatchObject({ status: 'paid', creditedToWallet: true });
+  });
+
+  it('gives two quick taps on Pay different references, so neither payment is lost', async () => {
+    const booking = await onlineBooking(3);
+    const start = () => charges.start(riderId.toString(), { purpose: 'booking', targetId: booking._id.toString(), channel: 'ecocash', phone: '0771111111' });
+    const [a, b] = await Promise.all([start(), start()]);
+    expect(a.reference).not.toBe(b.reference);
+    expect(await GatewayCharge.countDocuments({ target: booking._id })).toBe(2);
+  });
+
+  it('refunds a payment that lands just as the sweeper closes the unpaid request', async () => {
+    const { booking, charge } = await paidBooking();
+    // payBooking reads the request while it is still pending; the sweeper
+    // then cancels it, finding no payment and so refunding nothing
+    const stale = await Booking.findById(booking._id);
+    await Booking.updateOne({ _id: booking._id }, { $set: { status: 'cancelled', cancellationReason: 'Payment was not completed within 15 minutes' } });
+    const spy = jest.spyOn(Booking, 'findById').mockResolvedValueOnce(stale as never);
+    await charges.handleResult(result(charge.reference, 'Paid', '3.00'));
+    spy.mockRestore();
+
+    expect(await walletBalance()).toBe(3);
+    expect(await Payment.findOne({ booking: booking._id }).lean()).toMatchObject({ status: 'refunded', refundAmount: 3 });
+    // The sweeper finishing its own refund afterwards does not pay twice
+    await new BookingService().refundBooking((await Booking.findById(booking._id))!, 'again', 'system');
+    expect(await walletBalance()).toBe(3);
   });
 
   it('asks Paynow while the app waits, when the result has not arrived', async () => {
@@ -249,6 +275,15 @@ describe('withdrawals to mobile money', () => {
     await withdrawals.markPaid(request._id.toString(), riderId.toString(), 'MP260929.1234.A00001');
     expect(await WithdrawalRequest.findById(request._id).lean()).toMatchObject({ status: 'paid', payoutReference: 'MP260929.1234.A00001' });
     expect(await walletBalance(driverId)).toBe(25);
+  });
+
+  it('lets a small refund leave in full, but not part of it', async () => {
+    // A US$1 seat refunded to the wallet is under the US$2 minimum
+    await Wallet.updateOne({ userId: driverId }, { $set: { balance: 1 } });
+    await expect(withdrawals.request(driverId.toString(), { amount: 0.5, channel: 'ecocash', payNumber: '0771000002' })).rejects.toMatchObject({ statusCode: 422 });
+    const all = await withdrawals.request(driverId.toString(), { amount: 1, channel: 'ecocash', payNumber: '0771000002' });
+    expect(all).toMatchObject({ status: 'pending', amount: 1 });
+    expect(await walletBalance(driverId)).toBe(0);
   });
 
   it('refuses more than the balance, and a number on another network', async () => {

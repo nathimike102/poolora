@@ -20,10 +20,31 @@ export enum VehicleType {
   SEDAN = 'sedan',
   SUV = 'suv',
   HATCHBACK = 'hatchback',
+  /** Kept for vehicles registered before the Zimbabwe classes; not offered to new drivers */
   MINI = 'mini',
+  /** Tuk-tuk */
   AUTO = 'auto',
   BIKE = 'bike',
+  /** Seven-seat people carrier, e.g. Toyota Noah or Sienta */
+  MINIVAN = 'minivan',
+  /** Bakkie, single or double cab */
+  PICKUP = 'pickup',
 }
+
+/**
+ * Most seats a ride may offer, by vehicle, not counting the driver.
+ * Mirrors REGISTRABLE_VEHICLES in frontend/src/utils/vehicles.ts.
+ */
+export const MAX_SEATS_BY_VEHICLE: Record<VehicleType, number> = {
+  [VehicleType.HATCHBACK]: 4,
+  [VehicleType.SEDAN]: 4,
+  [VehicleType.MINI]: 4,
+  [VehicleType.SUV]: 6,
+  [VehicleType.PICKUP]: 4,
+  [VehicleType.MINIVAN]: 7,
+  [VehicleType.AUTO]: 3,
+  [VehicleType.BIKE]: 1,
+};
 
 export enum RideStatus {
   SCHEDULED = 'scheduled',

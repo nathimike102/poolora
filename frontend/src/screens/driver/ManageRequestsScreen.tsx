@@ -25,7 +25,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
 import { Icon } from '../../components/Icon';
 import { errorHandler } from '../../utils/errorHandler';
-import { money } from '../../utils/region';
+import { money, REGION } from '../../utils/region';
 
 type Gender = UserGender;
 type Status = BookingStatus;
@@ -148,7 +148,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                 from: b.pickup?.address || 'Pickup',
                 to: b.dropoff?.address || 'Drop',
                 date: ride?.departureTime
-                  ? new Date(ride.departureTime).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                  ? new Date(ride.departureTime).toLocaleString(REGION.dateLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                   : '',
                 seats: b.seatsBooked,
                 price: b.estimatedFare ?? 0,
@@ -173,7 +173,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                 label: `${ride.pickup?.address || 'Start'} to ${ride.dropoff?.address || 'end'}`,
                 from: ride.pickup?.address,
                 to: ride.dropoff?.address,
-                date: ride.departureTime ? new Date(ride.departureTime).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '',
+                date: ride.departureTime ? new Date(ride.departureTime).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' }) : '',
                 totalSeats,
                 filledSeats,
                 earnings: (ride.pricePerSeat ?? 0) * filledSeats,

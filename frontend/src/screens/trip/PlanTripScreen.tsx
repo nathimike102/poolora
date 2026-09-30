@@ -18,7 +18,7 @@ import { RideDatePicker } from '../../components/RideDatePicker';
 import { tripService, TRIP_INTERESTS, type TripType } from '../../services/tripService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
-import { moneyInput } from '../../utils/region';
+import { moneyInput, REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -31,7 +31,7 @@ const MAX_DAYS = 90;
 const DAY_MS = 86_400_000;
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const fmt = (d: Date) => d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+const fmt = (d: Date) => d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' });
 
 export function PlanTripScreen() {
   const navigation = useNavigation<Nav>();

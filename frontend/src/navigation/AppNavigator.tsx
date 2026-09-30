@@ -92,6 +92,7 @@ import { RaiseDisputeScreen } from "../screens/shared/RaiseDisputeScreen";
 import { RateTripScreen } from "../screens/shared/RateTripScreen";
 import { HelpScreen } from "../screens/shared/HelpScreen";
 import { SupportTicketScreen } from "../screens/shared/SupportTicketScreen";
+import { SupportAssistantScreen } from "../screens/shared/SupportAssistantScreen";
 import { AppealScreen } from "../screens/shared/AppealScreen";
 import { onAccountRestricted, type AccountRestriction } from "../utils/accountRestriction";
 import { AddSavedRouteScreen } from "../screens/rider/AddSavedRouteScreen";
@@ -272,6 +273,7 @@ function AppNavigatorStack() {
       <Stack.Screen name="RateTrip" component={RateTripScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
       <Stack.Screen name="SupportTicket" component={SupportTicketScreen} />
+      <Stack.Screen name="SupportAssistant" component={SupportAssistantScreen} />
       <Stack.Screen name="Appeal" component={AppealRoute} />
       <Stack.Screen name="AddSavedRoute" component={AddSavedRouteScreen} />
 

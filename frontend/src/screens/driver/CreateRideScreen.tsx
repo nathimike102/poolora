@@ -37,14 +37,14 @@ import { useCurrentPlace } from '../../hooks/useCurrentPlace';
 import { Radius, Spacing, Typography } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import type { CreateRideResult, PriceSuggestion, User, Vehicle } from '../../types/api';
-import { money, moneyInput } from '../../utils/region';
+import { money, moneyInput, REGION } from '../../utils/region';
+import { maxSeatsFor } from '../../utils/vehicles';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 /** 'from', 'to', or the index of a stop */
 type Field = 'from' | 'to' | number;
 type Luggage = 'none' | 'small' | 'medium' | 'large';
 
-const MAX_SEATS = 6;
 const MAX_STOPS = 3;
 /** The backend refuses rides that leave sooner than this */
 const MIN_ADVANCE_HOURS = 2;
@@ -58,7 +58,7 @@ const LUGGAGE: { value: Luggage; label: string }[] = [
 ];
 
 function formatDate(d: Date): string {
-  return d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 function atTime(day: Date, t: string): Date {
@@ -68,10 +68,10 @@ function atTime(day: Date, t: string): Date {
   return d;
 }
 
+/** "08:30", the 24-hour clock the rest of the app shows */
 function formatTime(t: string): string {
   const [h, m] = t.split(':').map(Number);
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 export function CreateRideScreen() {
@@ -198,6 +198,9 @@ export function CreateRideScreen() {
   const priceNumber = Number(price);
   const vehicles: Vehicle[] = profile?.vehicles ?? [];
   const vehicleType = vehicles.find(v => v._id === vehicleId)?.vehicleType;
+  const maxSeats = maxSeatsFor(vehicleType);
+  // A bike offers one seat, a tuk-tuk three; switching vehicle trims the choice
+  useEffect(() => setSeats(n => Math.min(n, maxSeats)), [maxSeats]);
   const kycApproved = profile?.kyc?.status === 'approved';
   const routeReady = from.trim().length > 2 && to.trim().length > 2;
   const priceInRange = !suggestion || (priceNumber >= suggestion.min && priceNumber <= suggestion.max);
@@ -278,7 +281,7 @@ export function CreateRideScreen() {
   if (published) {
     const { ride, returnRide, returnError } = published;
     const when = (iso: string) =>
-      `${formatDate(new Date(iso))} at ${new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      `${formatDate(new Date(iso))} at ${new Date(iso).toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' })}`;
     return (
       <View style={[styles.centered, { backgroundColor: c.bg, paddingTop: insets.top }]}>
         <View style={[styles.doneBadge, { backgroundColor: c.success }]}>
@@ -510,7 +513,7 @@ export function CreateRideScreen() {
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Text style={[styles.label, { color: c.textSec }]}>Seats to offer</Text>
             <View style={styles.row} accessibilityRole="radiogroup">
-              {Array.from({ length: MAX_SEATS }, (_, i) => i + 1).map(n => {
+              {Array.from({ length: maxSeats }, (_, i) => i + 1).map(n => {
                 const selected = seats === n;
                 return (
                   <Pressable

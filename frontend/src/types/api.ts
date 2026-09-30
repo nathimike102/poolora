@@ -78,7 +78,7 @@ export interface RefreshTokenResponse {
 
 export type UserCapability = 'rider' | 'driver' | 'admin';
 export type KYCStatus = 'none' | 'pending' | 'approved' | 'rejected';
-export type VehicleType = 'sedan' | 'suv' | 'hatchback' | 'mini' | 'auto' | 'bike';
+export type VehicleType = 'sedan' | 'suv' | 'hatchback' | 'mini' | 'auto' | 'bike' | 'minivan' | 'pickup';
 export type UserGender = 'male' | 'female' | 'other';
 
 export interface User {
@@ -217,6 +217,10 @@ export interface CancellationQuote {
   platformFeeKept?: number;
   platformFeeRefundable?: boolean;
   policy: Array<{ minHoursBeforeDeparture: number; refundPercent: number }>;
+  /** Cancelling before this gets everything back; absent once it has passed */
+  freeCancelUntil?: string;
+  /** How long after the driver accepts a cancellation is free */
+  freeCancelMins?: number;
 }
 
 export interface UpcomingBooking {

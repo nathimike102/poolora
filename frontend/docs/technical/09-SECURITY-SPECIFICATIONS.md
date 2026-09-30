@@ -1,6 +1,6 @@
 # Security Specifications & Compliance
 
-> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
 ## Poolora - Security & Compliance Framework
@@ -424,6 +424,8 @@ const html = `<p>${DOMPurify.sanitize(userComment)}</p>`;
 
 ### 4.4 Rate Limiting & DDoS Protection
 
+> **As built:** limits are keyed per signed-in user (checked inside `authenticate`, once the user is known) and per phone number for OTP, with a high per-IP ceiling, because many users in Zimbabwe share one carrier NAT address. Signed callbacks (Paynow, Twilio, the background-check vendor) are exempt. The table is in the API specification, section 15; the code is `backend/src/middlewares/rateLimit.middleware.ts`.
+
 ```javascript
 // Redis-based Rate Limiting
 const rateLimit = require('express-rate-limit');
@@ -542,7 +544,7 @@ secrets:
     rotation: 30 days
 
   api-keys:
-    stripe: "encrypted-key"  # For production: razorpay
+    paynow: "encrypted-integration-key"   # USD and ZWG integrations
     google-maps: "encrypted-key"
     twilio: "encrypted-key"
     rotation: 90 days
@@ -557,7 +559,7 @@ type: Opaque
 stringData:
   mongodb-uri: mongodb+srv://user:pass@cluster.mongodb.net/db
   jwt-secret: your-jwt-secret-key
-  stripe-key: your-stripe-api-key  # For production: razorpay-key
+  paynow-usd-integration-key: your-paynow-integration-key
 
 # Access Control
 - Only pods mount secrets
@@ -666,6 +668,40 @@ CMD ["node", "dist/index.js"]
 
 ## 6. Compliance & Legal
 
+### 6.0 Zimbabwe: Cyber and Data Protection Act [Chapter 12:07]
+
+**Applies To**: every user; Zimbabwe is the launch market. The Data Protection Authority is POTRAZ. GDPR and CCPA (below) apply only if Poolora serves those regions.
+
+```
+✅ Registration
+   - Data controller licence from POTRAZ before processing personal
+     data commercially; a named Data Protection Officer
+   - (Owner's checklist: SETUP-TODO.md, Part 3)
+
+✅ Rights of the data subject (as built)
+   - Access and correction: profile editing in the app; other requests
+     to the contact email in the privacy policy
+   - Erasure: Settings → Close account (DELETE /users/me). Removes name,
+     email, date of birth, photo, licence details, vehicles, KYC files in
+     S3, emergency contacts, push tokens and alerts; frees the phone
+     number; revokes every session. Refused while trips, money or
+     disputes are open, so nothing is lost
+   - Retention: bookings and payments stay, attached to an anonymous
+     "Deleted user", for tax records (ZIMRA) and the other party
+
+✅ Adults only
+   - Terms and privacy policy: 18 and over. The API refuses a date of
+     birth under 18 at sign-up and on profile edits
+
+✅ Location and hosting
+   - Files in AWS Cape Town (af-south-1); disclose the database host
+     and any transfer outside Zimbabwe in the privacy policy
+
+✅ Breach notification
+   - Report to POTRAZ as the Act requires; notify affected users
+```
+
+
 ### 6.1 GDPR (General Data Protection Regulation)
 
 **Applies To**: EU users  
@@ -707,13 +743,17 @@ CMD ["node", "dist/index.js"]
 
 ```
 ✅ Don't Store Full Card Numbers
-   - Only store Razorpay order and payment ids
-   - Example: "pay_29QQoWBxaMR65N"
-   - Never store: visa card numbers, CVV, expiration
+   - Card details are typed on Paynow's own page and never reach Poolora
+   - Only Paynow references are stored (the Poolora reference, e.g.
+     "BK-<booking id>-a1b2c3", and Paynow's own reference)
+   - Never store: card numbers, CVV, expiry dates, mobile money PINs
 
 ✅ Secure Transmission
    - TLS 1.2 minimum for all payment data
-   - PCI-compliant payment processor (Razorpay, with test keys in development)
+   - Payment processor: Paynow (test mode in development); confirm its
+     PCI DSS status and sign a data processing agreement before launch
+   - Every Paynow message is verified by its SHA-512 hash with the
+     integration key; poll URLs outside paynow.co.zw are refused
    - No payment data in server logs
 
 ✅ Access Control
@@ -1075,14 +1115,16 @@ Response Time: Within 1 day
 ### 11.1 Third-Party Risk Management
 
 ```
-Razorpay:
-- PCI DSS compliant
-- SOC 2 certified
-- Annual security audit
-- Penetration testing
-- Data protection agreement signed
+Paynow (payments, Zimbabwe):
+- Cards are entered on Paynow's page; Poolora never sees card data
+- Every request, reply and status update is hash-verified (SHA-512)
+- Integration keys live only on the server (PAYNOW_*_INTEGRATION_KEY)
+- To confirm before launch: PCI DSS status, and a data processing
+  agreement under the Cyber and Data Protection Act
 
-Google Maps API:
+OpenStreetMap services (Photon, Nominatim, OSRM; Google optional):
+- Only coordinates and search text are sent, never user identity
+- Self-host or use a paid provider for production traffic
 - HTTPS only
 - API key rotation required
 - Rate limiting enabled
@@ -1100,7 +1142,9 @@ Twilio (SMS):
 - API key not logged
 - SMS cannot be intercepted
 
-AWS:
+AWS (S3, af-south-1 Cape Town):
+- Driver documents stored privately, encrypted at rest (SSE-S3)
+- Deleted when the driver closes their account
 - Shared security model
 - We are responsible for app security
 - AWS responsible for infrastructure

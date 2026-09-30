@@ -79,18 +79,19 @@ export const COMPANY: CompanyConfig = {
   },
   // The founder's current number; swap in a +263 line when there is one
   phone: "+91 90322 32881",
-  address: "Zimbabwe",
+  address: "Bulawayo, Zimbabwe",
   founder: {
     name: "N. M. Sibanda",
     title: "Founder",
   },
+  // The founder's own profiles until Poolora has company accounts
   social: {
-    linkedin: "",
+    linkedin: "https://www.linkedin.com/in/nkosinathi-sibanda-294155131/",
     x: "",
     instagram: "",
     facebook: "",
     youtube: "",
-    github: "",
+    github: "https://github.com/nathimike102",
   },
   launch: {
     status: "In development",

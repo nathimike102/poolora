@@ -21,6 +21,7 @@ import { Icon } from '../../components/Icon';
 import { safetyService, type EmergencyContact } from '../../services/safetyService';
 import { errorHandler } from '../../utils/errorHandler';
 import { toE164 } from '../../utils/region';
+import { displayPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -186,7 +187,7 @@ export function EmergencyContactsScreen() {
                 <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{contact.name}</Text>
                 <Text style={{ fontSize: 13, color: c.textSec }}>{contact.relation}</Text>
                 <Text style={{ fontSize: 14, fontWeight: '600', color: c.text, marginTop: 2 }}>
-                  {contact.phone}
+                  {displayPhone(contact.phone) ?? contact.phone}
                 </Text>
                 {contact.email ? <Text style={{ fontSize: 13, color: c.textSec }}>{contact.email}</Text> : null}
                 <View style={s.tags}>

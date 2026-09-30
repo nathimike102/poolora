@@ -5,6 +5,7 @@
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';
 import type { ApiResponse } from '../types/api';
+import { REGION } from '../utils/region';
 
 export type TripType = 'vacation' | 'weekend' | 'business';
 export type TripVote = 'yes' | 'no' | 'maybe';
@@ -112,6 +113,6 @@ export const tripDays = (t: Pick<Trip, 'startDate' | 'endDate'>) =>
   Math.round((new Date(t.endDate).getTime() - new Date(t.startDate).getTime()) / 86_400_000) + 1;
 
 export const tripDates = (t: Pick<Trip, 'startDate' | 'endDate'>) => {
-  const f = (d: string) => new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short' });
+  const f = (d: string) => new Date(d).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' });
   return t.startDate.slice(0, 10) === t.endDate.slice(0, 10) ? f(t.startDate) : `${f(t.startDate)} to ${f(t.endDate)}`;
 };

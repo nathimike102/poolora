@@ -1,6 +1,6 @@
 # Flowcharts & Process Diagrams
 
-> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
 ## Poolora - Flowcharts
@@ -392,55 +392,48 @@ START
          │
          ▼
 ┌──────────────────────────────────┐
-│ Initiate Payment                 │
-│ Create Razorpay Order            │
+│ Create Pending Request           │
+│ (seats not reserved yet)         │
 └────────┬─────────────────────────┘
          │
          ▼
 ┌──────────────────────────────────┐
-│ Show Payment Gateway             │
-│ Rider Selects Payment Method:    │
-│ - Card                           │
-│ - UPI                            │
-│ - NetBanking                     │
-│ - Wallet                         │
+│ Rider Chooses How to Pay:        │
+│ - Wallet (paid at once)          │
+│ - EcoCash / OneMoney (PIN)       │
+│ - InnBucks (code in the app)     │
+│ - Card (Paynow page)             │
+│ in US$ or ZiG                    │
 └────────┬──────┬──────────────────┘
          │      │
-      Payment  Cancel
-         │      │
-         ▼      ▼
-    Processing Back
-         │      │
-         ┌──────┘
-         │
-         ▼
+      Online  Wallet ─────────────┐
+         │                        │
+         ▼                        │
 ┌──────────────────────────────────┐
-│ Razorpay Processes Payment       │
+│ Paynow: payment result           │
+│ (hash-verified; app polls too)   │
 └────────┬──────┬──────────────────┘
          │      │
-      SUCCESS  FAILURE
+       PAID  FAILED / CANCELLED
          │      │
          │      ▼
-         │   ┌──────────────┐
-         │   │ Show Error   │
-         │   │ Retry or Use │
-         │   │ Different    │
-         │   │ Method       │
-         │   └──┬───────────┘
-         │      │
-         │      └────────────┐
-         │                   │
-         ▼                   │
-┌──────────────────────────────┐
-│ Verify Payment Response      │
-│ Create Booking in MongoDB    │
-└────────┬─────────────────────┘
+         │   ┌──────────────────┐
+         │   │ Retry, any method│
+         │   │ within 15 min,   │
+         │   │ else request     │
+         │   │ is cancelled     │
+         │   └──────────────────┘
+         ▼                        │
+┌──────────────────────────────────┐
+│ Request Paid; Driver Notified    │◄┘
+└────────┬─────────────────────────┘
          │
          ▼
 ┌──────────────────────────────────┐
-│ Update Ride Availability         │
-│ Notify Driver of Booking         │
-│ Send Receipt to Rider            │
+│ Driver Accepts (within 6 hours)  │
+│ Seats Reserved Atomically        │
+│ (declined or expired → refund    │
+│  to the Poolora wallet)          │
 └────────┬─────────────────────────┘
          │
          ▼
@@ -462,118 +455,84 @@ START
 
 ## 4. Payment Processing Flow
 
+As built with Paynow (Zimbabwe). Paynow has no authorise-then-capture and no refund API, so a request is paid in full before the driver can accept, and every refund goes to the Poolora wallet.
+
 ```
-START (After Booking)
+START (a pending request, parcel or wallet top-up)
   │
   ▼
-┌──────────────────────────────┐
-│ Create Razorpay Order        │
-│ - Order ID                   │
-│ - Amount (Pre-authorized)    │
-│ - User Info                  │
-└────────┬─────────────────────┘
+┌──────────────────────────────────┐
+│ POST /payments/start             │
+│ - Channel: EcoCash, OneMoney,    │
+│   InnBucks or card               │
+│ - Currency: US$, or ZiG at the   │
+│   admin's rate (rate stored)     │
+│ - Unique reference per attempt   │
+└────────┬─────────────────────────┘
          │
          ▼
-┌──────────────────────────────┐
-│ Send to Payment Gateway      │
-└────────┬─────────────────────┘
-         │
+┌──────────────────────────────────┐
+│ Paynow starts the transaction    │
+│ (request and reply hash-checked) │
+└───┬──────────┬──────────┬────────┘
+    │          │          │
+ EcoCash/   InnBucks     Card
+ OneMoney      │          │
+    │          ▼          ▼
+    ▼     Code shown   Paynow card
+ PIN prompt  in app    page opens
+ on phone      │          │
+    └──────────┴────┬─────┘
+                    │
+                    ▼
+┌──────────────────────────────────┐
+│ Outcome arrives two ways:        │
+│ - Paynow posts to /payments/     │
+│   paynow/result (hash-verified)  │
+│ - The app polls /payments/       │
+│   charges/:ref; the sweeper      │
+│   re-checks pending charges      │
+└────────┬──────┬──────┬───────────┘
+         │      │      │
+       PAID  FAILED  LESS THAN CHARGED
+         │      │      │
+         │      │      ▼
+         │      │   Marked disputed;
+         │      │   an admin reviews
+         │      ▼
+         │   Rider can retry, any method
+         │   (request closes after 15 min)
          ▼
-┌──────────────────────────────┐
-│ Razorpay Shows UI            │
-│ User Completes Payment       │
-└────────┬──────┬──────────────┘
-         │      │
-      SUCCESS  FAILED
-         │      │
-         │      ▼
-         │   ┌──────────────┐
-         │   │ Decrypted    │
-         │   │ Charge Card/ │
-         │   │ Account      │
-         │   └──┬───────────┘
-         │      │
-         │      ▼
-         │   ┌──────────────┐
-         │   │ Payment Failed
-         │   │ Notify User  │
-         │   └──┬───────────┘
-         │      │
-         │      ▼
-         │   ┌──────────────┐
-         │   │ Retry Option │
-         │   └──┬───────────┘
-         │      │
-         │      └────────────┐
-         │                   │
-         ▼                   │
-    Payment Received      Back to
-         │                Payment
-         │                 │
-         └─────┬───────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│ Razorpay Sends Webhook       │
-│ - Status: SUCCESS            │
-│ - Payment ID                 │
-│ - Signature                  │
-└────────┬─────────────────────┘
-         │
-         ▼
-┌──────────────────────────────┐
-│ System Verifies Signature    │
-│ Valid?                       │
-└────────┬─────────┬───────────┘
+┌──────────────────────────────────┐
+│ Applied exactly once (claim)     │
+│ Still needed?                    │
+└────────┬─────────┬───────────────┘
          │         │
-        YES        NO
+        YES        NO (request closed,
+         │         or already paid)
          │         │
          │         ▼
-         │     ┌──────────────┐
-         │     │ Log Suspicious
-         │     │ Activity     │
-         │     │ Alert Admin  │
-         │     └──┬───────────┘
-         │        │
-         │        ▼
-         │     ┌──────────────┐
-         │     │ Refund User  │
-         │     │ Suspense     │
-         │     │ Account      │
-         │     └──┬───────────┘
-         │        │
-         │        ▼
-         │     END(X)
-         │
+         │   ┌────────────────────┐
+         │   │ Credit the payer's │
+         │   │ Poolora wallet;    │
+         │   │ notify them        │
+         │   └────────────────────┘
          ▼
-┌──────────────────────────────┐
-│ Create Booking Record        │
-│ Status: CONFIRMED            │
-└────────┬─────────────────────┘
-         │
-         ▼
-┌──────────────────────────────┐
-│ Send Confirmation Email      │
-│ Send Confirmation SMS        │
-│ Send In-App Notification     │
-└────────┬─────────────────────┘
-         │
-         ▼
-┌──────────────────────────────┐
-│ Notify Driver of Booking     │
-│ Share Passenger Details      │
-└────────┬─────────────────────┘
-         │
-         ▼
-┌──────────────────────────────┐
-│ Add Payment to Wallet        │
-│ (to be settled to driver)    │
-└────────┬─────────────────────┘
+┌──────────────────────────────────┐
+│ Booking/parcel marked paid, or   │
+│ top-up credited. Driver told     │
+│ there is a paid request.         │
+└────────┬─────────────────────────┘
          │
          ▼
       ┌────────┐
       │ END(✓) │
       └────────┘
+
+Wallet → mobile money (withdrawal)
+  User asks (US$2–US$1,000) ─► amount held ─► admin sends it by EcoCash /
+  OneMoney / InnBucks and records the transaction id ─► user notified
+                              └► or admin rejects ─► amount returned
 ```
 
 ---

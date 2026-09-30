@@ -1,6 +1,6 @@
 # System Architecture Document
 
-> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
 ## Poolora
@@ -83,7 +83,7 @@
 │                   EXTERNAL SERVICES LAYER                       │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
-│  │ OpenStreetMap│  │   Razorpay   │  │   Firebase   │           │
+│  │ OpenStreetMap│  │    Paynow    │  │   Firebase   │           │
 │  │ (MapLibre,   │  │  (test keys  │  │     FCM      │           │
 │  │ Photon, OSRM)│  │   in dev)    │  │              │           │
 │  │ Google opt.  │  │              │  │              │           │
@@ -2417,7 +2417,7 @@ POST   /api/v1/logs/query
 
 **Responsibilities:**
 
-- Payment processing via Razorpay (test keys in development)
+- Payment processing via Paynow (EcoCash, OneMoney, InnBucks, card; test mode in development)
 - Wallet management
 - Refund processing
 - Transaction history
@@ -2426,19 +2426,19 @@ POST   /api/v1/logs/query
 **Technology Stack:**
 
 - Node.js + Express
-- Razorpay SDK
+- Paynow HTTP interface (hash-signed forms; no SDK dependency)
 - MongoDB Atlas M0 Free Tier (Paid tiers for production) for transaction records
 - Redis Cloud Free Tier (Paid for production) for payment session caching
 
 **Payment Flow:**
 
 ```
-1. User initiates payment
-2. Payment service creates Razorpay order
-3. Client completes payment with Razorpay Checkout
-4. Razorpay webhook notifies payment service
-5. Payment service verifies payment signature
-6. Update booking status
+1. User initiates payment (POST /payments/start)
+2. Payment service starts a Paynow transaction (unique reference per attempt)
+3. Payer approves: PIN prompt (EcoCash, OneMoney), InnBucks code, or Paynow card page
+4. Paynow posts the result; the app and the sweeper also poll it
+5. Payment service verifies the SHA-512 hash
+6. Applies the payment exactly once (or credits the wallet if no longer needed)
 7. Trigger notification service
 ```
 
@@ -2790,14 +2790,15 @@ const route = await googleMaps.directions({
 const location = await geocodeAddress(address); // OpenStreetMap by default, Google optional
 ```
 
-#### 3.5.2 Razorpay Integration
+#### 3.5.2 Paynow Integration
 
 **Features:**
 
-- Payment orders
-- Payment verification
-- Webhooks for payment events
-- Refund processing
+- Mobile money express checkout (EcoCash, OneMoney: PIN prompt; InnBucks: code)
+- Card payments on Paynow's page
+- US dollar and ZiG integrations (ZiG at an admin-set rate)
+- Hash-verified status updates and polling
+- No refund API: refunds go to the Poolora wallet; users withdraw to mobile money
 - Settlement reports
 
 #### 3.5.3 Firebase Cloud Messaging (FCM)
@@ -3117,7 +3118,7 @@ spec:
 ### External Services
 
 - **Maps**: Google Maps Platform
-- **Payments**: Razorpay (test keys in development)
+- **Payments**: Paynow (test mode in development)
 - **Notifications**: Firebase FCM
 - **SMS**: Twilio
 - **Email**: provider not chosen yet
@@ -3618,7 +3619,7 @@ LOW (Weekly digest):
 **Technology Stack**:
 
 - Node.js + Express
-- Razorpay payment gateway
+- Paynow payment gateway
 - Idempotency keys for retry safety
 - MongoDB for transaction audit trail
 - Redis for payment state caching
@@ -3626,22 +3627,22 @@ LOW (Weekly digest):
 **Payment Flow**:
 
 ```
-1. Create Order (Backend)
-   POST /api/v1/payments/init
+1. Start Payment (Backend)
+   POST /payments/start
    ↓
-2. Initialize Payment UI (Frontend)
-   Display Razorpay modal
+2. Payment UI (Frontend)
+   PIN prompt, InnBucks code or Paynow card page
    ↓
-3. User Enters Payment Details
-   Card, UPI, NetBanking, Wallet
+3. User Chooses a Method
+   EcoCash, OneMoney, InnBucks, card, or the wallet
    ↓
-4. Razorpay Processes Payment
-   (Secured by PCI DSS)
+4. Paynow Processes Payment
+   (cards on Paynow's page)
    ↓
-5. Razorpay Webhook Notification
-   POST /webhook/razorpay
+5. Paynow Result Notification
+   POST /payments/paynow/result
    ↓
-6. Verify Signature & Update DB
+6. Verify Hash & Update DB
    Payment status → "completed" or "failed"
    ↓
 7. Trigger Payment Events
@@ -3690,8 +3691,8 @@ Scenarios triggering automatic refunds:
 5. ETA exceeded by >50%
    → Partial refund based on time difference
 
-All refunds processed within 3-5 business days
-Refund status tracked in real-time via Razorpay API
+As built: every refund goes to the Poolora wallet at once (Paynow has no
+refund API); the user can withdraw it to mobile money
 ```
 
 ---

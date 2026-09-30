@@ -28,7 +28,7 @@ import { errorHandler } from '../../utils/errorHandler';
 import { COMPANY } from '../../config/company';
 import type { User } from '../../types/api';
 import Constants from 'expo-constants';
-import { realPhone } from '../../utils/phone';
+import { displayPhone } from '../../utils/phone';
 import { money } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -122,6 +122,47 @@ export function SettingsScreen() {
   const [saveError, setSaveError] = useState('');
   const [simulationEnabled, setSimulationEnabled] = useState(false);
   const [simulatingAs, setSimulatingAs] = useState<'rider' | 'driver' | null>(null);
+  const [closing, setClosing] = useState(false);
+
+  // Closing the account (data protection: the right to erasure)
+  const closeAccount = async () => {
+    if (closing) return;
+    setClosing(true);
+    try {
+      const check = await userService.getClosureCheck();
+      if (!check.canClose) {
+        Alert.alert('You cannot close your account yet', check.blockers.join('\n\n'));
+        return;
+      }
+      const coins = check.coinsValue > 0
+        ? ` Your ${check.coins} coins, worth ${money(check.coinsValue)}, will be lost. To keep their value, convert them in Wallet and withdraw the money first.`
+        : check.coins > 0 ? ` Your ${check.coins} coins will be lost.` : '';
+      Alert.alert(
+        'Close your account?',
+        `This removes your name, email, photo, driver documents, vehicles and emergency contacts, and signs you out on every phone. Trip and payment records are kept, without your name, as the law requires.${coins} This cannot be undone.`,
+        [
+          { text: 'Keep my account', style: 'cancel' },
+          {
+            text: 'Close account',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await userService.closeAccount();
+                Alert.alert('Account closed', 'Your account has been closed. You can sign up again with the same number at any time.');
+                await logout();
+              } catch (error) {
+                Alert.alert('Could not close your account', errorHandler.process(error).message);
+              }
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      Alert.alert('Could not check your account', errorHandler.process(error).message);
+    } finally {
+      setClosing(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -143,7 +184,7 @@ export function SettingsScreen() {
           near = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         }
       } catch {
-        // The server starts the ride in Bangalore instead
+        // The server starts the ride at the market's centre instead
       }
       if (as === 'rider') {
         const { rideId, bookingId } = await simulationService.asRider(near);
@@ -292,6 +333,16 @@ export function SettingsScreen() {
           />
           <Divider c={c} />
           <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_LOGOUT} label="Log out" onPress={() => logout()} />
+          <Divider c={c} />
+          <SettingsRow
+            c={c}
+            iconBg="#FEF2F2"
+            iconColor="#B42318"
+            iconPath={IC_LOGOUT}
+            label="Close account"
+            rightEl={closing ? <ActivityIndicator size="small" color={c.textSec} /> : undefined}
+            onPress={closeAccount}
+          />
         </Section>
       </ScrollView>
 
@@ -337,7 +388,7 @@ export function SettingsScreen() {
             ))}
             <View>
               <Text style={[st.fieldLabel, { color: c.textSec }]}>Phone number</Text>
-              <Text style={{ fontSize: 15, color: c.text }}>{realPhone(profile?.phone) ?? 'Not added'}</Text>
+              <Text style={{ fontSize: 15, color: c.text }}>{displayPhone(profile?.phone) ?? 'Not added'}</Text>
               <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
                 Your phone number is verified at sign-in and can't be changed here.
               </Text>

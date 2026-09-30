@@ -2,7 +2,7 @@
  * screens/driver/KYCScreen.tsx
  *
  * Driver verification. Collects exactly what the Poolora team reviews:
- * driving licence, vehicle details, registration certificate, insurance and a
+ * driving licence, vehicle details, registration book, insurance and a
  * vehicle photo. Documents are reviewed by a person; nothing is auto-approved.
  */
 
@@ -33,22 +33,17 @@ import { kycService, type LocalFile } from '../../services/kycService';
 import { errorHandler } from '../../utils/errorHandler';
 import { Radius, Spacing, Typography } from '../../theme';
 import type { User, VehicleType } from '../../types/api';
+import { REGISTRABLE_VEHICLES } from '../../utils/vehicles';
 
 type DocKey = 'licence' | 'registration' | 'insurance' | 'vehiclePhoto';
 
 const DOCS: { key: DocKey; label: string; hint: string }[] = [
   { key: 'licence', label: 'Driving licence', hint: 'Front side, all text readable' },
-  { key: 'registration', label: 'Registration certificate (RC)', hint: 'The page showing the registration number' },
+  { key: 'registration', label: 'Vehicle registration book', hint: 'The page showing the registration number' },
   { key: 'insurance', label: 'Vehicle insurance', hint: 'The current policy page' },
   { key: 'vehiclePhoto', label: 'Photo of your vehicle', hint: 'Number plate clearly visible' },
 ];
 
-const VEHICLE_TYPES: { value: VehicleType; label: string }[] = [
-  { value: 'hatchback', label: 'Hatchback' },
-  { value: 'sedan', label: 'Sedan' },
-  { value: 'suv', label: 'SUV' },
-  { value: 'mini', label: 'Mini' },
-];
 
 export function KYCScreen() {
   const navigation = useNavigation();
@@ -205,8 +200,8 @@ export function KYCScreen() {
 
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Text style={[styles.sectionTitle, { color: c.text }]}>Vehicle</Text>
-            <Field label="Make" value={make} onChange={setMake} placeholder="For example, Maruti Suzuki" c={c} />
-            <Field label="Model" value={model} onChange={setModel} placeholder="For example, Swift" c={c} />
+            <Field label="Make" value={make} onChange={setMake} placeholder="For example, Toyota" c={c} />
+            <Field label="Model" value={model} onChange={setModel} placeholder="For example, Corolla" c={c} />
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <Field label="Year" value={year} onChange={t => setYear(t.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={4} c={c} />
@@ -215,10 +210,10 @@ export function KYCScreen() {
                 <Field label="Colour" value={color} onChange={setColor} c={c} />
               </View>
             </View>
-            <Field label="Registration number" value={plate} onChange={setPlate} autoCapitalize="characters" placeholder="For example, AP05AB1234" c={c} />
+            <Field label="Registration number" value={plate} onChange={setPlate} autoCapitalize="characters" placeholder="For example, AEA 1234" c={c} />
             <Text style={[styles.label, { color: c.textSec }]}>Type</Text>
             <View style={styles.chips} accessibilityRole="radiogroup">
-              {VEHICLE_TYPES.map(t => {
+              {REGISTRABLE_VEHICLES.map(t => {
                 const selected = vehicleType === t.value;
                 return (
                   <Pressable

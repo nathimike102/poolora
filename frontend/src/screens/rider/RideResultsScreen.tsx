@@ -143,7 +143,7 @@ export function RideResultsScreen() {
   ) : null;
 
   const counts = useMemo(() => {
-    const n: Record<VehicleCategory, number> = { bike: 0, auto: 0, cab: 0 };
+    const n: Record<VehicleCategory, number> = { car: 0, suv: 0, minivan: 0, auto: 0, bike: 0 };
     all.forEach(r => { n[r.category] += 1; });
     return n;
   }, [all]);

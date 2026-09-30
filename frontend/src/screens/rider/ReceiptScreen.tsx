@@ -19,7 +19,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { bookingService } from '../../services/bookingService';
 import type { Receipt } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
-import { money } from '../../utils/region';
+import { money, REGION } from '../../utils/region';
 
 
 const STATUS: Record<Receipt['status'], string> = {
@@ -84,7 +84,7 @@ export function ReceiptScreen() {
             <Text style={{ fontSize: 13, color: c.textSec, marginVertical: 2 }}>to</Text>
             <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{r.trip.to}</Text>
             <Text style={{ fontSize: 13, color: c.textSec, marginTop: 8 }}>
-              {new Date(r.trip.departure).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              {new Date(r.trip.departure).toLocaleString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
               {' · '}Driver {r.driver.name}{r.driver.vehicle ? ` · ${r.driver.vehicle}` : ''}
             </Text>
           </View>

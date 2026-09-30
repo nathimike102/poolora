@@ -21,12 +21,12 @@ import { parcelService } from '../../services/parcelService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Ride } from '../../types/api';
-import { money } from '../../utils/region';
+import { money, REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 function when(iso: string) {
-  return new Date(iso).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  return new Date(iso).toLocaleString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 }
 
 export function ParcelResultsScreen() {

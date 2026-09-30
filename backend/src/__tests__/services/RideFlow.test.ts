@@ -138,7 +138,7 @@ describe('editing a published ride (UC-D08)', () => {
     await rides.updateRide(ride.id, driverId.toString(), { departureTime: new Date(ride.departureTime.getTime() + HOUR).toISOString() });
     expect((await Booking.findById(b._id).lean())?.rideChangedAt).toBeDefined();
 
-    // Within 12 hours a rider would normally get only 50%; after the change it is 100%
+    // Within 24 hours a rider would normally get only 50%; after the change it is 100%
     const quote = await bookings.getCancellationQuote(b.id, riderId.toString());
     expect(quote.refundPercent).toBe(100);
   });

@@ -1,4 +1,4 @@
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
@@ -71,4 +71,25 @@ export async function presignKycDownload(fileUrl: string): Promise<string> {
     new GetObjectCommand({ Bucket: config.aws.s3Bucket, Key: fileUrl.slice(prefix.length) }),
     { expiresIn: EXPIRES_SECONDS },
   );
+}
+
+/**
+ * Deletes every KYC file stored for a user (when they close their account).
+ * Returns how many objects were removed; 0 when uploads are not configured.
+ */
+export async function deleteKycDocuments(userId: string): Promise<number> {
+  if (!config.aws.accessKeyId || !config.aws.secretAccessKey || !config.aws.s3Bucket) return 0;
+  const Prefix = `kyc/${userId}/`;
+  let removed = 0;
+  let ContinuationToken: string | undefined;
+  do {
+    const page = await s3().send(new ListObjectsV2Command({ Bucket: config.aws.s3Bucket, Prefix, ContinuationToken }));
+    const keys = (page.Contents ?? []).flatMap((o) => (o.Key ? [{ Key: o.Key }] : []));
+    if (keys.length) {
+      await s3().send(new DeleteObjectsCommand({ Bucket: config.aws.s3Bucket, Delete: { Objects: keys, Quiet: true } }));
+      removed += keys.length;
+    }
+    ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (ContinuationToken);
+  return removed;
 }

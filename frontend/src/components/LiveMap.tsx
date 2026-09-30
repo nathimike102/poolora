@@ -10,7 +10,7 @@
  *   when one is given, or by a dashed straight line otherwise
  * - Shows a driver marker only when a real driver location is provided
  * - Follows the phone's light/dark setting
- * - Centres on Bangalore if the user's location is unavailable
+ * - Centres on the market's centre (Harare) if the user's location is unavailable
  *
  * Nothing is drawn from placeholder data: without coordinates the map just
  * shows the user's area.
@@ -60,7 +60,7 @@ interface LiveMapProps {
   driverLocation?: Coordinate;
 }
 
-/* ── Fallback camera centre (Bangalore) ─────────────────────────── */
+/* ── Fallback camera centre (the market's, Harare) ──────────────── */
 const DEFAULT_CENTER: Coordinate = REGION.center;
 const DEFAULT_ZOOM = 13;
 const FIT_PADDING = { top: 60, right: 60, bottom: 60, left: 60 };

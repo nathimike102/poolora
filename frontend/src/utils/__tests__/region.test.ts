@@ -26,3 +26,12 @@ describe('region helpers', () => {
     expect(moneyInput('abc')).toBe('');
   });
 });
+
+describe('displayPhone', () => {
+  const { displayPhone } = require('../phone');
+  it('shows a Zimbabwe number in groups, and hides the Firebase placeholder', () => {
+    expect(displayPhone('+263775550101')).toBe('+263 77 555 0101');
+    expect(displayPhone('firebase:abc')).toBeUndefined();
+    expect(displayPhone(undefined)).toBeUndefined();
+  });
+});

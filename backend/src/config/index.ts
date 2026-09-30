@@ -185,10 +185,27 @@ export const config = {
     ).split(',').map((s) => s.trim()).filter(Boolean),
   },
 
+  /**
+   * Limits are keyed by what is being protected. Mobile networks put many
+   * subscribers behind one public IP (carrier-grade NAT), so per-IP limits
+   * are only a high ceiling against one source flooding; the real limits are
+   * per signed-in user and per phone number.
+   */
   rateLimit: {
-    global: { max: 100, windowMs: 60_000 },
-    auth: { max: 10, windowMs: 15 * 60_000 },
+    /** Per IP, every request */
+    global: { max: parseInt(process.env.RATE_LIMIT_IP_PER_MIN || '1000', 10), windowMs: 60_000 },
+    /** Per signed-in user, every authenticated request */
+    user: { max: parseInt(process.env.RATE_LIMIT_USER_PER_MIN || '120', 10), windowMs: 60_000 },
+    /** Per IP: token refresh and Firebase sign-in */
+    auth: { max: 300, windowMs: 15 * 60_000 },
+    /** Per phone number: codes sent (UC-R01: 3 an hour) */
     otp: { max: 3, windowMs: 60 * 60_000 },
+    /** Per IP: codes sent, whatever the number */
+    otpIp: { max: 30, windowMs: 60 * 60_000 },
+    /** Per phone number: code checks */
+    verify: { max: 10, windowMs: 15 * 60_000 },
+    /** Per IP: code checks */
+    verifyIp: { max: 100, windowMs: 15 * 60_000 },
   },
 
   session: {
@@ -235,14 +252,24 @@ export const config = {
     emptyRideCancelMins: 60,
     /**
      * Refund when a rider cancels a confirmed booking (UC-R09), by hours left
-     * before departure. The first tier whose `minHours` is met applies.
+     * before departure. The first tier whose `minHours` is met applies. Most
+     * seats are same-day commutes, and taxi apps and kombis here charge riders
+     * nothing to cancel, so half comes back until 2 hours before; after that
+     * the driver is unlikely to fill the seat and keeps the fare.
      */
     riderCancellationRefunds: [
       { minHours: 24, refundRate: 1 },
-      { minHours: 12, refundRate: 0.5 },
-      { minHours: 6, refundRate: 0.25 },
+      { minHours: 2, refundRate: 0.5 },
       { minHours: 0, refundRate: 0 },
     ],
+    /**
+     * A rider who cancels within this long of the driver accepting gets
+     * everything back, whatever the tier, as long as the ride leaves at
+     * least riderFreeCancelLeadMins later. Covers a mistaken or duplicate
+     * booking without letting a seat be held until the last minute.
+     */
+    riderFreeCancelMins: 30,
+    riderFreeCancelLeadMins: 60,
     /** How often the booking sweeper runs. */
     sweepIntervalMs: 60_000,
     /** How long a driver waits at a pickup before reporting a no-show (UC-D07). Admin-editable. */
@@ -261,6 +288,8 @@ export const config = {
 
   otp: {
     expirySeconds: 300,
+    /** Once a new user's code is proven, the profile form gets its own window */
+    profileWindowSeconds: 600,
     /**
      * A wrong code makes the next attempt wait longer, doubling each time and
      * capped at backoffMaxSeconds. We deliberately do not suspend the account:

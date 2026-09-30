@@ -18,6 +18,7 @@ import { Icon } from '../../components/Icon';
 import { COMPANY } from '../../config/company';
 import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type SupportTicket } from '../../services/supportService';
+import { REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -28,7 +29,7 @@ const FAQ: Array<{ topic: string; items: Array<{ q: string; a: string }> }> = [
     items: [
       { q: 'When is my seat confirmed?', a: 'When the driver accepts your request. Drivers have 6 hours to answer; a request that is not answered in time, or once the ride has left, expires and any payment is refunded in full.' },
       { q: 'I paid but my request disappeared', a: 'A request paid by EcoCash, OneMoney, InnBucks or card that is not paid within 15 minutes is cancelled. If the payment goes through after that, it lands in your Poolora wallet. If money left your account and is not in your wallet, open a request under Payment below and we will trace it.' },
-      { q: 'How much do I get back if I cancel?', a: 'By default: everything 24 hours or more before departure, half from 12 hours, a quarter from 6 hours, and nothing after that. The app shows the exact amount before you confirm. If the driver changes the time or cancels, you get everything back.' },
+      { q: 'How much do I get back if I cancel?', a: 'Before the driver accepts, everything. After that, by default: everything 24 hours or more before departure, half from 2 hours, and nothing after that. Cancelling within 30 minutes of the driver accepting is free, as long as the ride is an hour or more away. The app shows the exact amount before you confirm. If the driver changes the time or cancels, you get everything back.' },
       { q: 'Where do refunds go?', a: 'To your Poolora wallet, at once, however you paid. Use it for your next ride, or withdraw it to EcoCash, OneMoney or InnBucks under Settings, Wallet; a person sends withdrawals, usually within one working day.' },
       { q: 'Can I pay in ZiG?', a: 'Yes, when ZiG is offered on the payment screen. Prices are set in US dollars and converted at the rate shown before you pay.' },
     ],
@@ -70,11 +71,13 @@ export function HelpScreen() {
   const [query, setQuery] = useState('');
   const [openQ, setOpenQ] = useState<string | null>(null);
   const [tickets, setTickets] = useState<SupportTicket[] | null>(null);
+  const [assistantOn, setAssistantOn] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       supportService.mine().then(t => active && setTickets(t)).catch(() => active && setTickets([]));
+      supportService.assistantEnabled().then(on => active && setAssistantOn(on)).catch(() => undefined);
       return () => { active = false; };
     }, []),
   );
@@ -147,6 +150,16 @@ export function HelpScreen() {
         ))}
 
         <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">Still need help?</Text>
+        {assistantOn ? (
+          <Pressable
+            onPress={() => navigation.navigate('SupportAssistant')}
+            accessibilityRole="button"
+            style={[styles.primary, styles.outline, { borderColor: c.primary }]}
+          >
+            <Icon name="robot-happy-outline" size={20} color={c.primary} />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: c.primary }}>Ask the assistant</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={() => navigation.navigate('SupportTicket', {})}
           accessibilityRole="button"
@@ -176,7 +189,7 @@ export function HelpScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }} numberOfLines={1}>{t.subject}</Text>
                   <Text style={{ fontSize: 13, color: t.status === 'answered' ? c.primary : c.textSec }}>
-                    {STATUS[t.status]} · {new Date(t.updatedAt).toLocaleDateString([], { day: 'numeric', month: 'short' })}
+                    {STATUS[t.status]} · {new Date(t.updatedAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' })}
                   </Text>
                 </View>
                 <Icon name="chevron-right" size={20} color={c.textSec} />
@@ -202,5 +215,6 @@ const styles = StyleSheet.create({
   qRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, paddingHorizontal: 14, paddingVertical: 10 },
   answer: { fontSize: 14, lineHeight: 20, paddingHorizontal: 14, paddingBottom: 14 },
   primary: { minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  outline: { flexDirection: 'row', gap: 8, borderWidth: 1.5 },
   link: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 });

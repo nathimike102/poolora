@@ -35,7 +35,7 @@ type Route = RouteProp<RootStackParamList, 'MapPicker'>;
 const LOOKUP_DEBOUNCE_MS = 500;
 type Point = { latitude: number; longitude: number };
 
-/** Camera starts over Bangalore until the device location is known. */
+/** Camera starts over the market's centre (Harare) until the device location is known. */
 const INITIAL_POINT: Point = REGION.center;
 const PICKER_ZOOM = 15;
 

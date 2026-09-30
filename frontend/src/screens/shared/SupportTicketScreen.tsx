@@ -17,6 +17,7 @@ import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type SupportCategory, type SupportTicket } from '../../services/supportService';
 import { errorHandler } from '../../utils/errorHandler';
+import { REGION } from '../../utils/region';
 
 const CATEGORIES: Array<{ value: SupportCategory; label: string }> = [
   { value: 'safety', label: 'Safety concern' },
@@ -161,7 +162,7 @@ export function SupportTicketScreen() {
                 >
                   <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSec }}>{mine ? 'You' : 'Poolora support'}</Text>
                   <Text style={{ fontSize: 15, color: c.text }}>{m.text}</Text>
-                  <Text style={{ fontSize: 11, color: c.textSec }}>{new Date(m.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+                  <Text style={{ fontSize: 11, color: c.textSec }}>{new Date(m.at).toLocaleString(REGION.dateLocale, { dateStyle: 'medium', timeStyle: 'short' })}</Text>
                 </View>
               );
             })}

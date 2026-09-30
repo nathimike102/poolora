@@ -3,6 +3,9 @@ import { User } from '../models/User';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import { NotFoundError } from '../utils/AppError';
+import { AccountClosureService } from '../services/AccountClosureService';
+
+const closure = new AccountClosureService();
 
 export class UserController {
   /**
@@ -16,6 +19,33 @@ export class UserController {
       );
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /users/me/closure
+   * Whether the account can be closed now, and what is in the way if not.
+   */
+  static async closureCheck(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      sendSuccess(res, await closure.check(userId), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /users/me
+   * Closes the account and removes the personal data. Body: `confirm: true`, optional `reason`.
+   */
+  static async closeAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { reason } = req.body as { reason?: string };
+      sendSuccess(res, await closure.close(userId, reason), 200, req.requestId);
     } catch (error) {
       next(error);
     }

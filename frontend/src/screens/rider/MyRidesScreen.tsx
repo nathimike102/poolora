@@ -68,6 +68,10 @@ function formatDate(d: Date | null): string {
   return `${date} · ${time}`;
 }
 
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
+}
+
 function toItem(b: Booking): RideItem {
   const ride = b.ride as unknown as { _id?: string; departureTime?: string } | undefined;
   return {
@@ -86,7 +90,7 @@ function toItem(b: Booking): RideItem {
 
 
 const DEFAULT_POLICY_TEXT =
-  'Full refund more than 24 hours before departure, 50% from 12 hours, 25% from 6 hours, and nothing after that.';
+  'Full refund 24 hours or more before departure, 50% from 2 hours, and nothing after that. Cancelling within 30 minutes of the driver accepting is free while the ride is an hour or more away.';
 
 /** The refund tiers in words, from the policy the server sent */
 function policyText(quote: CancellationQuote | null): string {
@@ -96,8 +100,11 @@ function policyText(quote: CancellationQuote | null): string {
       ? `${t.refundPercent}% from ${t.minHoursBeforeDeparture} hours before departure`
       : `${t.refundPercent ? `${t.refundPercent}%` : 'nothing'} after that`,
   );
+  const grace = quote.freeCancelMins
+    ? ` Cancelling within ${quote.freeCancelMins} minutes of the driver accepting is free while the ride is an hour or more away.`
+    : '';
   const fee = quote.platformFeeRefundable === false ? ' The platform fee is not refunded.' : '';
-  return `Refunds: ${parts.join(', ')}.${fee}`;
+  return `Refunds: ${parts.join(', ')}.${grace}${fee}`;
 }
 
 /** What the rider gets back, in words, for the cancel sheet. */
@@ -105,7 +112,8 @@ function refundMessage(quote: CancellationQuote | null): string {
   const policy = policyText(quote);
   if (!quote) return `Refunds depend on how soon the ride leaves. ${policy}`;
   if (quote.refundAmount >= quote.fare) {
-    return `You get the full ${money(quote.refundAmount)} back to your Poolora wallet, which you can withdraw to mobile money.`;
+    const until = quote.freeCancelUntil ? ` Free cancellation ends at ${formatTime(quote.freeCancelUntil)}.` : '';
+    return `You get the full ${money(quote.refundAmount)} back to your Poolora wallet, which you can withdraw to mobile money.${until}`;
   }
   if (quote.refundAmount <= 0) {
     return `This cancellation is not refunded. ${policy}`;

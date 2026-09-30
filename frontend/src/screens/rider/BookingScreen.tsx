@@ -31,7 +31,7 @@ import { BackButton } from '../../components/BackButton';
 import { Icon } from '../../components/Icon';
 import type { Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
-import { money } from '../../utils/region';
+import { money, REGION } from '../../utils/region';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Booking'>;
 type BookingRoute = RouteProp<RootStackParamList, 'Booking'>;
@@ -42,7 +42,7 @@ const MAX_SEATS_PER_BOOKING = 4;
 function formatDeparture(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
-  return d.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export function BookingScreen(): React.ReactElement {
@@ -152,7 +152,7 @@ export function BookingScreen(): React.ReactElement {
         </Text>
         <Text style={[styles.confirmedSub, { color: c.textSec }]}>
           {money(total)} was paid from your wallet. The driver will confirm your seat,
-          and you get a full refund to your wallet if they decline or you cancel.
+          and you get a full refund to your wallet if they decline or you cancel before they do.
         </Text>
         <Pressable
           onPress={() => navigation.navigate('RiderTabs', { screen: 'MyRides' })}
@@ -271,7 +271,7 @@ export function BookingScreen(): React.ReactElement {
             onChangeText={setNote}
             maxLength={300}
             multiline
-            placeholder="I'll wait at the bus stop by the metro exit."
+            placeholder="I'll wait at the bus stop outside the post office."
             placeholderTextColor={c.textSec}
             accessibilityLabel="Message to the driver"
             style={{ borderWidth: 1, borderColor: c.border, borderRadius: 12, padding: 12, minHeight: 64, color: c.text, fontSize: 15, textAlignVertical: 'top' }}
@@ -323,7 +323,7 @@ export function BookingScreen(): React.ReactElement {
             <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }}>{money(total)}</Text>
           </View>
           <Text style={{ fontSize: 12, color: c.textSec, marginTop: 8, lineHeight: 18 }}>
-            No extra fees for riders. If the driver declines or you cancel, the full amount is refunded.
+            No extra fees for riders. If the driver declines or cancels, or you cancel before they accept, the full amount is refunded. After that, what you get back depends on how soon the ride leaves.
           </Text>
         </View>
       </ScrollView>

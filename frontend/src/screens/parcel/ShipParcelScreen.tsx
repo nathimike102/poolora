@@ -25,7 +25,7 @@ import { parcelService, parcelStage, type Parcel, type ParcelType } from '../../
 import { realPhone } from '../../utils/phone';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
-import { toE164 } from '../../utils/region';
+import { toE164, REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -161,7 +161,7 @@ export function ShipParcelScreen() {
             <View style={styles.row}>
               <Pressable onPress={() => setShowDate(true)} accessibilityRole="button" style={[styles.picker, { borderColor: c.border, backgroundColor: c.bg }]}>
                 <Icon name="calendar" size={18} color={c.primary} />
-                <Text style={{ color: c.text }}>{date.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}</Text>
+                <Text style={{ color: c.text }}>{date.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })}</Text>
               </Pressable>
               <Pressable onPress={() => setShowTime(true)} accessibilityRole="button" style={[styles.picker, { borderColor: c.border, backgroundColor: c.bg }]}>
                 <Icon name="clock-outline" size={18} color={c.primary} />

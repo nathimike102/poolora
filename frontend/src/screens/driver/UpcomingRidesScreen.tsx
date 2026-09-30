@@ -19,7 +19,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Shadow } from '../../theme';
 import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
-import { money } from '../../utils/region';
+import { money, REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -41,8 +41,8 @@ function toUpcoming(r: Ride): UpcomingRide {
     id: r._id,
     from: r.pickupLocation?.address || 'Pickup',
     to: r.dropoffLocation?.address || 'Drop',
-    date: departure.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }),
-    time: departure.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    date: departure.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' }),
+    time: departure.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }),
     booked,
     total: r.seats ?? 0,
     earned: booked * r.pricePerSeat,

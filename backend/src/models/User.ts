@@ -52,6 +52,8 @@ export interface IUser extends Document {
   otpAttempts: number;
   otpLastAttemptAt?: Date;
   isActive: boolean;
+  /** Set when the user closed their own account; personal data is removed then */
+  closedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -201,6 +203,7 @@ const UserSchema = new Schema<IUser>(
       default: undefined,
     },
     isActive: { type: Boolean, default: true },
+    closedAt: Date,
   },
   {
     timestamps: true,

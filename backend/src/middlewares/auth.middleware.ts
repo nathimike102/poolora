@@ -3,6 +3,7 @@ import { UnifiedAuthService } from '../auth';
 import { getRedisClient } from '../config/redis';
 import { AuthenticationError } from '../utils/AppError';
 import { checkAccountStatus } from './accountStatus.middleware';
+import { checkUserRateLimit } from './rateLimit.middleware';
 import { JWTPayload, AuthenticatedRequest, UserCapability } from '../types';
 
 const unifiedAuth = new UnifiedAuthService();
@@ -73,6 +74,7 @@ export async function authenticate(
     };
 
     (req as AuthenticatedRequest).user = payload;
+    await checkUserRateLimit(payload.userId);
     markActive(payload.userId);
     next();
   } catch (error) {

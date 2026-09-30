@@ -1,6 +1,6 @@
 # Technical Requirements & Stack
 
-> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
 ## Poolora - Technical Requirements
@@ -115,7 +115,7 @@ trip-events         → trip.created, trip.expense_added, trip.settlement_calcul
 
 | Service            | Provider                                   | Purpose               |
 | ------------------ | ------------------------------------------ | --------------------- |
-| Payment Processing | Razorpay (test keys in development) | Payment gateway       |
+| Payment Processing | Paynow (test mode in development) | Payment gateway: EcoCash, OneMoney, InnBucks, card |
 | Maps               | Google Maps API                            | Location services     |
 | SMS Gateway        | Twilio                                     | SMS notifications     |
 | Email Service      | Not chosen yet                             | Email notifications   |
@@ -483,7 +483,7 @@ type: Opaque
 stringData:
   mongodb-uri: mongodb+srv://user:password@cluster.mongodb.net/dbname
   jwt-secret: your-jwt-secret-key
-  stripe-key: your-stripe-api-key # For production: razorpay-key
+  paynow-usd-integration-key: your-paynow-integration-key
 ```
 
 ### 6.4 Networking
@@ -674,13 +674,13 @@ data:
 
 ## 9. Integration Requirements
 
-### 9.1 Razorpay Integration
+### 9.1 Paynow Integration
 
-- **API Version**: Latest stable
-- **Webhooks**: Fully implemented
-- **Timeout**: 30 seconds
-- **Retry**: Exponential backoff
-- **Error Handling**: All error codes handled
+- **Interface**: Paynow's URL-encoded HTTP API; every message SHA-512 hash-verified with the integration key
+- **Integrations**: one in US dollars (required), one in ZiG (optional, with an admin-set rate)
+- **Status**: result URL (`/payments/paynow/result`) plus polling by the app and the sweeper
+- **Timeout**: 30 seconds; a failed request is shown to the payer as "try again, or pay from your wallet"
+- **Refunds**: none through Paynow; refunds go to the Poolora wallet, and admins pay out withdrawals to mobile money
 
 ### 9.2 Maps Integration
 

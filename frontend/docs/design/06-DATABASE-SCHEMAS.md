@@ -1,6 +1,6 @@
 # Database Schemas
 
-> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
 ## Poolora - Database Schema Design
@@ -131,7 +131,7 @@ db.createCollection("users", {
           bsonType: "object",
           properties: {
             language: { default: "en" },
-            currency: { default: "INR" },
+            currency: { default: "USD" },
             notificationEnabled: { bsonType: "bool" },
             emailNotifications: { bsonType: "bool" },
             smsNotifications: { bsonType: "bool" },
@@ -720,7 +720,7 @@ db.createCollection("trips", {
           },
         ],
         estimatedBudget: { bsonType: "double" },
-        budgetCurrency: { default: "INR" },
+        budgetCurrency: { default: "USD" },
         budgetBreakdown: {
           bsonType: "object",
           properties: {

@@ -1,6 +1,6 @@
 # Feature Gap Analysis
 
-What the documents in `frontend/docs` promise, compared with what the app and backend do today (September 2026). Each gap says what the feature should do and where it would go. Use-case IDs (UC-…) refer to `design/03-USE-CASES.md`.
+What the documents in `frontend/docs` promise, compared with what the app and backend do today (last updated 29 September 2026). Sections 1 to 1.3 are a history written while Poolora targeted India, so they still mention Razorpay, rupees and India time; section 1.4 records the move to Zimbabwe, and sections 2 onward describe the system as it is now. Each gap says what the feature should do and where it would go. Use-case IDs (UC-…) refer to `design/03-USE-CASES.md`.
 
 ---
 
@@ -73,32 +73,63 @@ These blocked the core ride flow and are now in the code:
 
 ---
 
-## 2. Still open
+### 1.4 Built for the Zimbabwe launch (25–29 September 2026)
 
-These need a paid outside service, a business decision, or more design:
+| Area | Now |
+|---|---|
+| Appeals, merges, alerts, calls, claims (snapshot `3e36134`) | Account appeals within 30 days; duplicate-account merges approved by a second admin; custom admin alert rules by dashboard, email and SMS; masked driver–rider calls through Twilio, optionally recorded; parcel photo proof and damage or loss claims; automatic document checks with an optional background-check vendor; the in-app support assistant; two-admin approval for critical settings; organiser ratings and a calendar feed for trips |
+| Market | Zimbabwe first, with each country an entry in a market registry (`MARKET`, `EXPO_PUBLIC_MARKET`): Zimbabwe time, `+263` numbers, US dollars, maps limited to Zimbabwe, 999 for emergencies |
+| Payments | Paynow replaced Razorpay: EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG; hash-verified results, polling and reconciliation; refunds to the wallet; wallet withdrawals to mobile money paid by an admin |
+| Prices | US$0.02–US$0.20 a km, US$1 minimum seat; rides up to 650 km for the intercity corridors |
+| Trips | Members add a mobile money number; EcoCash send-money links replace UPI links |
+| Data | `npm run migrate:paynow` moves an old database onto the Paynow fields |
+
+### 1.5 Fixed in the review of 29 September 2026
+
+Found by reading the documents against the code and by running the app on an Android emulator. Each has a test.
+
+| Area | Before | Now |
+|---|---|---|
+| Posting a ride (bug) | `ride.created` carried the pickup as a Mongoose subdocument, and the event code walked it forever: every `POST /rides` saved the ride and then failed with 500 (return rides were never created; retries made duplicates). Hidden because every test mocked `EventBridge`. Since 22 September | Documents are turned into plain data first, with a cycle guard |
+| Paying twice quickly (bug) | Two taps on Pay could send Paynow the same reference; the second payment then had no record and was never applied or credited | Every attempt has its own reference |
+| Payment as the request closes (bug) | A payment landing while the sweeper cancelled the unpaid request was recorded on a cancelled booking and never refunded | Refunded to the wallet at once (keyed per booking, so never twice) |
+| Rate limits (bug) | All limits were per IP: 100 requests a minute for everyone behind a carrier NAT address, 3 sign-in codes an hour per IP, 10 token refreshes per 15 minutes per IP (enough to log out a NAT's users), and Paynow's callbacks counted too | Per user (120 a minute) and per phone number (3 codes an hour, UC-R01), with high per-IP ceilings; signed callbacks exempt |
+| Children could sign up (bug) | The API accepted any date of birth and the app's picker allowed 13-year-olds, though the Terms and privacy policy say 18 | Refused under 18 in the API and the app |
+| Sign-up codes | The 5-minute code window included the profile form; a taken email used up the code | The profile form gets its own 10 minutes; a clash is refused before the code is used |
+| Closing an account (UC-A05, data protection) | No way to close an account or erase personal data, though the privacy policy promised it and Google Play requires it | Settings → Close account (`DELETE /users/me`), refused while trips, money or disputes are open |
+| Seeded rides | Placeholder polylines from the Mumbai demo data decoded to impossible positions, and the route backfill failed on every start | Real polylines; unreadable polylines fall back to the straight route |
+| Ride simulator | US$80 seats and a US$10,000 bot wallet (rupee values); an Indian plate and car; the rider was never marked picked up, so "Driver is 4 km away" showed during the trip | US$1 seats, Zimbabwe plate, and arrived / picked up marked as a driver would |
+| API tester | Drop-offs in the Indian Ocean (Harare latitude with Bengaluru longitude), and enum values the API rejects | Harare coordinates and valid values |
+| Driver KYC screen | Example plate `AP05AB1234` (the plate check flags it); "registration certificate (RC)" | `AEA 1234`; "vehicle registration book" |
+| Phone display | Profile, driver profile and settings showed `+263775550101` | `+263 77 555 0101`, as on the sign-in screens |
+
+### 1.6 Closed on 30 September 2026
+
+| Item | Before | Now |
+|---|---|---|
+| Rider cancellation refunds (UC-R09) | Nothing back inside 6 hours of departure, so most same-day commute cancellations lost the whole fare, while taxi apps and kombis charge riders nothing to cancel | 100% from 24 hours, 50% from 2 hours, nothing after; free within 30 minutes of the driver accepting while the ride is an hour or more away. Both windows are admin settings. The booking screen, website and terms no longer promise a full refund on every cancellation |
+| Public holidays in demand prediction (UC-AI03) | The backend never sent `is_holiday`, and the analytics call sent the server's clock hour with Sunday as day 0 | Zimbabwe's holidays, moving ones included (Easter weekend, Heroes' and Defence Forces Days, Sunday holidays kept on the Monday), are in the market registry and sent with every forecast, in Harare time. No peak-hour uplift on a holiday |
+| Vehicle classes (UC-D02) | Riders could pick Bike, Auto and Cab, but drivers could only register a hatchback, sedan, SUV or "mini", so bike and auto searches were always empty | Drivers register a hatchback, sedan, SUV, bakkie, minivan, auto (tuk-tuk) or motorbike; riders pick Car, SUV, Minivan, Auto or Bike. Seats are capped per vehicle (one on a motorbike, three in a tuk-tuk, seven in a minivan) |
+| Support assistant (UC-X02) | Built, but no route or screen reached it | `GET/POST /support/assistant` and Help → Ask the assistant, shown when `ANTHROPIC_API_KEY` is set; defaults to `claude-opus-5-5` |
+
+---
+
+## 2. Still open
 
 | Item | Docs | Why it is open |
 |---|---|---|
-| Masked calls, call recording | UC-D06, UC-A03 | Needs a call-proxy service such as Exotel. Riders and drivers call each other's real numbers. |
-| Background checks, automatic document validation | UC-A01 | Needs an identity or verification vendor. Admins check documents by hand, with a checklist. |
-| Platform fee on refunds | UC-R09 calls it non-refundable | The fee is part of the fare, so full refunds return it. Keeping it is a business decision. |
-| Merging duplicate accounts, appeals | UC-A05 | Needs a policy; merging moves money and history. Appeals go through support requests for now. |
-| Chatbot | UC-X02 | Needs a language-model service. The FAQ and support requests cover the other channels. |
-| SMS alerts to admins; custom alert rules | UC-A02 | SMS alerts need Twilio set up. Anomalies are rule-based. |
-| Dual approval for critical settings | UC-A07 | A 24-hour revert is used instead. |
-| Parcel photo proof and insurance claims | UC-P03, UC-P05 | Delivery uses the recipient's code and name. Photos need upload handling on the driver's side; claims need an insurer. |
-| ML matching | UC-AI01 | Matching is a weighted score in the backend; the ML service's `/api/match` is not called. Demand prediction feeds price suggestions and surge. |
-| Trip pooling extras | UC-T02, UC-T04 | Organiser ratings come from ride ratings; there is no shared calendar export for confirmed activities. |
-
----
+| Platform fee on refunds | UC-R09 calls it non-refundable | An admin setting (keep the platform fee on cancellation) now exists; its default is a business decision |
+| Ride-hailing regulations | UC-D02, UC-R09 | Cabinet gave e-hailing platforms a five-month transition from 8 September 2026 while regulations are written. Check the fare, refund and commission rules against them when published |
+| Payout automation | UC-D09 | Admins pay withdrawals by hand from a business mobile money account; Paynow has no payout API |
+| Legal | Security spec 6.0 | POTRAZ data controller licence, a Data Protection Officer, a lawyer's review of the policy and terms (see SETUP-TODO.md) |
 
 ## 3. Documentation cleanup
 
 The documents disagree with each other and with the code in several places:
 
-1. ~~**Vendors.**~~ Every document names Razorpay for payments and OpenStreetMap (Google optional) for maps. Email is plain SMTP (`SMTP_*` in `backend/.env.example`), so any provider works.
-2. ~~**API specification is out of date.**~~ Rewritten from the code in September 2026.
-3. ~~**Contradictions in the use cases.**~~ UC-D02 now refuses rides over 300 km, and parcel pooling is Phase 4 everywhere.
+1. ~~**Vendors.**~~ Every document names Paynow for payments (September 2026; Razorpay before) and OpenStreetMap (Google optional) for maps. Email is plain SMTP (`SMTP_*` in `backend/.env.example`), so any provider works.
+2. ~~**API specification is out of date.**~~ Rewritten from the code in September 2026, and checked again on 29 September: all 234 routes are documented (236 with the support assistant's two, added 30 September) and none that is documented is missing.
+3. ~~**Contradictions in the use cases.**~~ UC-D02 now refuses rides over 650 km, and parcel pooling is Phase 4 everywhere.
 4. ~~**Numbering.**~~ `08-TECHNICAL-REQUIREMENTS.md` runs 1–15 (the second "Quality Metrics" was the database configuration), and `03-USE-CASES.md` runs 1–12.
 5. ~~**Naming.**~~ The documents say Poolora.
 6. ~~**Admin.**~~ The web dashboard the documents describe now exists (`admin-web/`), alongside the app's admin screens.
@@ -111,10 +142,10 @@ Code hygiene: ~~frontend linting could not run~~ fixed; `npm run lint` passes an
 
 ## 4. Suggested order
 
-Everything in the earlier plan is done: background jobs, scheduled report emails, refunds and route search, per-rider pickup and no-shows, trip sharing and check-ins, price rules, admin tools, and the parcel and trip screens. What remains (section 2) depends on vendors or decisions. If one is chosen:
+Everything in the earlier plan is done, including parcel photo proof and masked calls. What remains (section 2) is mostly launch paperwork and business decisions. In order:
 
-1. Parcel photo proof at pickup and delivery.
-2. A call-proxy vendor for masked calls, if privacy requires it.
+1. The legal steps in SETUP-TODO.md (POTRAZ licence, DPO, lawyer's review), since they gate launch.
+2. Review fares and refunds against the e-hailing regulations once they are published.
 
 ---
 

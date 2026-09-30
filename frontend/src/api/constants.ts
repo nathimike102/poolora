@@ -74,6 +74,7 @@ export const API_ENDPOINTS = {
     statement: '/users/me/statement',
     emailStatement: '/users/me/statement/email',
     verifiedStatus: '/users/me/verified-status',
+    closure: '/users/me/closure',
   },
 
   // Rides
@@ -161,6 +162,7 @@ export const API_ENDPOINTS = {
     tickets: '/support/tickets',
     ticket: (id: string) => `/support/tickets/${id}`,
     reply: (id: string) => `/support/tickets/${id}/reply`,
+    assistant: '/support/assistant',
   },
   disputes: {
     create: '/disputes',

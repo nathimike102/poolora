@@ -3,6 +3,7 @@ import Joi from 'joi';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validation.middleware';
 import { SupportService } from '../services/SupportService';
+import { SupportBotService, supportBotEnabled } from '../services/SupportBotService';
 import { SUPPORT_CATEGORIES } from '../models/SupportTicket';
 import { sendSuccess } from '../utils/helpers';
 import type { AuthenticatedRequest } from '../types';
@@ -10,6 +11,7 @@ import type { AuthenticatedRequest } from '../types';
 /** Help and support tickets (UC-X02) */
 const router = Router();
 const support = new SupportService();
+const assistant = new SupportBotService();
 router.use(authenticate);
 
 const userId = (req: Request) => (req as AuthenticatedRequest).user.userId;
@@ -57,6 +59,32 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       sendSuccess(res, { ticket: await support.reply(userId(req), String(req.params.id), req.body.text) }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/** Whether the in-app assistant is switched on (it needs ANTHROPIC_API_KEY) */
+router.get('/assistant', (req: Request, res: Response) => {
+  sendSuccess(res, { enabled: supportBotEnabled() }, 200, req.requestId);
+});
+
+/** The conversation so far, oldest first, ending with the user's new message */
+router.post(
+  '/assistant',
+  validate({
+    body: Joi.object({
+      messages: Joi.array()
+        .items(Joi.object({ role: Joi.string().valid('user', 'assistant').required(), text: Joi.string().trim().min(1).max(4000).required() }))
+        .min(1)
+        .max(40)
+        .required(),
+    }),
+  }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      sendSuccess(res, await assistant.reply(userId(req), req.body.messages), 200, req.requestId);
     } catch (error) {
       next(error);
     }

@@ -22,7 +22,24 @@ export interface SupportTicket {
   updatedAt: string;
 }
 
+export interface AssistantTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 export const supportService = {
+  /** Whether the in-app assistant is switched on */
+  async assistantEnabled(): Promise<boolean> {
+    const response = await apiClient.get<ApiResponse<{ enabled: boolean }>>(API_ENDPOINTS.support.assistant);
+    return response.data.data.enabled;
+  },
+
+  /** Sends the conversation so far; the reply, and the id of any request the assistant opened */
+  async askAssistant(messages: AssistantTurn[]): Promise<{ reply: string; ticketId?: string }> {
+    const response = await apiClient.post<ApiResponse<{ reply: string; ticketId?: string }>>(API_ENDPOINTS.support.assistant, { messages });
+    return response.data.data;
+  },
+
   async create(data: { category: SupportCategory; subject: string; message: string; bookingId?: string }): Promise<SupportTicket> {
     const appInfo = `${Platform.OS} ${Platform.Version} · app ${Constants.expoConfig?.version ?? '?'}`;
     const response = await apiClient.post<ApiResponse<{ ticket: SupportTicket }>>(API_ENDPOINTS.support.tickets, { ...data, appInfo });

@@ -20,6 +20,7 @@ import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
+import { REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -63,7 +64,7 @@ export function ChatScreen(): React.ReactElement {
                 id: m._id,
                 from: senderId === user?.id ? 'me' : 'them',
                 text: m.content,
-                time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                time: new Date(m.createdAt).toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }),
                 isRead: Boolean((m as unknown as { isRead?: boolean }).isRead),
               };
             });
@@ -101,7 +102,7 @@ export function ChatScreen(): React.ReactElement {
         id: tempId,
         from: 'me',
         text: msgText,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: new Date().toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }),
         isRead: false,
       },
     ]);

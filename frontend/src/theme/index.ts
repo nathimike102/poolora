@@ -17,13 +17,9 @@
  *
  * ---- fonts.css ----
  * @import url('https://fonts.googleapis.com/...Inter...')
- *   -> Google Fonts CDN is unavailable in React Native.
- *      Inter is loaded via expo-font's useFonts() hook.
- *      See src/theme/fonts.ts for the font loading setup.
- *
- * * { font-family: 'Inter', sans-serif }
- *   -> No global * selector in RN. Use the Typography.fontFamily constant
- *      in component styles, or wrap with a custom AppText component.
+ *   -> Google Fonts CDN is unavailable in React Native. The app uses the
+ *      platform font (Roboto on Android, San Francisco on iOS); adding Inter
+ *      would mean loading it with expo-font and setting fontFamily on text.
  *      Without custom fonts loaded, RN uses the system font
  *      (San Francisco on iOS, Roboto on Android).
  *
@@ -294,13 +290,6 @@ export const Typography = {
   tight:   1.2,
   normal:  1.5,
   relaxed: 1.6,
-
-  // Inter font family loaded via expo-font (see src/theme/fonts.ts)
-  fontFamily: 'Inter_400Regular',
-  fontFamilyMedium: 'Inter_500Medium',
-  fontFamilySemiBold: 'Inter_600SemiBold',
-  fontFamilyBold: 'Inter_700Bold',
-  fontFamilyExtraBold: 'Inter_800ExtraBold',
 } as const;
 
 // ---- Spacing Scale (Tailwind utility equivalents) ----------------------------

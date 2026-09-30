@@ -2,7 +2,8 @@
  * Geometry behind the ride simulator: routes are decoded from the stored
  * polyline and walked in even steps.
  */
-import { bearing, decodePolyline, distanceToPathKm, resample } from '../../utils/routeGeometry';
+import { bearing, decodePolyline, distanceToPathKm, encodePolyline, isValidPath, resample } from '../../utils/routeGeometry';
+import { rideRoutePath } from '../../models/Ride';
 import { haversineDistanceKm } from '../../utils/helpers';
 
 describe('ride simulator geometry', () => {
@@ -59,5 +60,23 @@ describe('distanceToPathKm', () => {
 
   it('handles a one-point path', () => {
     expect(distanceToPathKm({ lat: 12.97, lng: 77.55 }, [road[0]])).toBeCloseTo(0, 5);
+  });
+});
+
+describe('encodePolyline and unusable polylines', () => {
+  it('round-trips through decodePolyline', () => {
+    const path = [{ lat: -17.8292, lng: 31.0522 }, { lat: -17.76, lng: 31.095 }];
+    expect(decodePolyline(encodePolyline(path))).toEqual(path);
+  });
+
+  it('falls back to the straight route when the polyline is not real', () => {
+    // Placeholder text once left in demo data decoded to longitude -8166
+    const ride = {
+      routePolyline: 'encodedPolylineVashiToChurchgate',
+      pickup: { location: { type: 'Point', coordinates: [31.145, -17.89] }, address: 'Epworth' },
+      dropoff: { location: { type: 'Point', coordinates: [31.049, -17.829] }, address: 'Harare CBD' },
+    } as unknown as Parameters<typeof rideRoutePath>[0];
+    expect(isValidPath(decodePolyline(ride.routePolyline!))).toBe(false);
+    expect(rideRoutePath(ride)).toEqual([{ lat: -17.89, lng: 31.145 }, { lat: -17.829, lng: 31.049 }]);
   });
 });

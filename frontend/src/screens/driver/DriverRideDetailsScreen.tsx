@@ -31,7 +31,7 @@ import type { Booking, Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { decodePolyline } from '../../utils/polyline';
 import { initSocket } from '../../utils/socket';
-import { money } from '../../utils/region';
+import { money, REGION } from '../../utils/region';
 
 type Coordinate = { latitude: number; longitude: number };
 
@@ -359,8 +359,8 @@ export function DriverRideDetailsScreen() {
           <View style={styles.infoRow}>
             <Icon name="calendar" size={16} color={c.textSec} />
             <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>
-              {departure.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} at{' '}
-              {departure.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {departure.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })} at{' '}
+              {departure.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
           <View style={styles.infoRow}>

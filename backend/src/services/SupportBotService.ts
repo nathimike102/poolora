@@ -8,7 +8,8 @@
  * money itself.
  *
  * Runs on Claude (ANTHROPIC_API_KEY; model SUPPORT_BOT_MODEL, default
- * claude-opus-5). Without a key the endpoint says so and the app offers the
+ * claude-opus-5-5). Served at /support/assistant; the app's Help screen
+ * opens it. Without a key the endpoint says so and the app offers the
  * FAQ and the contact form instead. The conversation is kept by the app and
  * sent with each message; tool calls happen inside a single turn.
  */
@@ -24,7 +25,7 @@ import { getRedisClient } from '../config/redis';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 
-const MODEL = process.env.SUPPORT_BOT_MODEL || 'claude-opus-5';
+const MODEL = process.env.SUPPORT_BOT_MODEL || 'claude-opus-5-5';
 const MAX_TOOL_ROUNDS = 5;
 const MAX_HISTORY = 20;
 const MESSAGES_PER_HOUR = 40;
@@ -38,7 +39,7 @@ const HELP = `
 Booking and payment
 - A seat is confirmed when the driver accepts the request. Drivers have 6 hours to answer; a request not answered in time, or once the ride has left, expires and any payment is refunded in full.
 - A request paid online (EcoCash, OneMoney, InnBucks or card) that is not paid within 15 minutes is cancelled and nothing is charged. A payment that arrives after that goes to the Poolora wallet.
-- Rider cancellation refunds (defaults; the exact amount comes from the get_cancellation_quote tool): everything 24 hours or more before departure, half from 12 hours, a quarter from 6 hours, nothing after. If the driver changes the time or cancels, the rider gets everything back.
+- Rider cancellation refunds (defaults; the exact amount comes from the get_cancellation_quote tool): everything 24 hours or more before departure, half from 2 hours, nothing after; and everything back when cancelled within 30 minutes of the driver accepting, if the ride is still at least an hour away. If the driver changes the time or cancels, the rider gets everything back.
 - Refunds go to the Poolora wallet at once, however the rider paid. From the wallet they can withdraw to EcoCash, OneMoney or InnBucks (Wallet, Withdraw); a person sends it, usually within one working day.
 
 During a ride

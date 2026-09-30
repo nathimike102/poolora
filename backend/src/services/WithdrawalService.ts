@@ -43,8 +43,13 @@ export class WithdrawalService {
 
   async request(userId: string, input: { amount: number; channel: string; payNumber: string }): Promise<IWithdrawalRequest> {
     const amount = round2(Number(input.amount));
-    if (!(amount >= WITHDRAWAL_RULES.min) || amount > WITHDRAWAL_RULES.max) {
-      throw new AppError(`You can withdraw between ${money(WITHDRAWAL_RULES.min)} and ${money(WITHDRAWAL_RULES.max)} at a time.`, 422, 'VALIDATION_ERROR');
+    // Refunds land in the wallet (Paynow cannot refund) and a seat can cost
+    // US$1, so a balance under the minimum can always be withdrawn in full;
+    // otherwise that money could never leave, and the account could not close
+    const balance = round2((await Wallet.findOne({ userId }).select('balance').lean())?.balance ?? 0);
+    const wholeSmallBalance = amount > 0 && amount === balance && balance < WITHDRAWAL_RULES.min;
+    if (!(amount >= WITHDRAWAL_RULES.min || wholeSmallBalance) || amount > WITHDRAWAL_RULES.max) {
+      throw new AppError(`You can withdraw between ${money(WITHDRAWAL_RULES.min)} and ${money(WITHDRAWAL_RULES.max)} at a time, or all of a smaller balance.`, 422, 'VALIDATION_ERROR');
     }
     if (!(CHANNELS as readonly string[]).includes(input.channel)) throw new AppError('Choose EcoCash, OneMoney or InnBucks', 422, 'VALIDATION_ERROR');
     const payNumber = toE164(input.payNumber);

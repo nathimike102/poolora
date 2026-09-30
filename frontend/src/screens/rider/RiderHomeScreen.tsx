@@ -431,9 +431,9 @@ const styles = StyleSheet.create({
   sectionTitleInline: { marginTop: 0, marginBottom: 0 },
   link: { fontSize: Typography.lg, fontWeight: Typography.bold },
 
-  tileRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  tile: { width: '23%', alignItems: 'center', gap: 6 },
-  tileIcon: { width: '100%', aspectRatio: 1, borderRadius: Radius.xl, alignItems: 'center', justifyContent: 'center' },
+  tileRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: Spacing.md },
+  tile: { width: '31%', alignItems: 'center', gap: 6 },
+  tileIcon: { width: '100%', aspectRatio: 1.45, borderRadius: Radius.xl, alignItems: 'center', justifyContent: 'center' },
   tileLabel: { fontSize: Typography.base, fontWeight: Typography.semibold },
 
   routeRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },

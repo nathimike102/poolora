@@ -30,15 +30,40 @@ function hashOtp(otp: string): string {
   return crypto.createHash('sha256').update(otp).digest('hex');
 }
 
-/** What sending a parcel costs: US$2, 8 cents a km, 50 cents a kg over 5 kg, and 1% of any insured value */
+/**
+ * Parcel prices, pitched against what people pay now (checked September 2026).
+ * In town the price follows Harare's motorbike couriers (about US$3 for 5 km,
+ * US$5 for 10 km, US$8 for 15 km); beyond that a driver already on the road
+ * adds little, so intercity prices sit near Zimpost and below overnight
+ * couriers (Zimpost US$13.10 for 5 kg anywhere, Swift about US$24 for 5 kg
+ * Harare to Bulawayo). Distance is in a straight line.
+ */
+export const PARCEL_RATES = {
+  base: 2,
+  /** A km, for the first townKm */
+  perKmInTown: 0.35,
+  townKm: 20,
+  /** A km after that */
+  perKmBeyond: 0.02,
+  /** A kg over freeKg */
+  perKg: 0.5,
+  freeKg: 5,
+  /** Share of any insured value */
+  insuranceRate: 0.01,
+} as const;
+
+/** What sending a parcel costs, rounded to 10 cents; insurance is added to the cent */
 export function parcelCost(input: { pickup: { lat: number; lng: number }; delivery: { lat: number; lng: number }; weightKg: number; insuranceValue?: number }) {
+  const r = PARCEL_RATES;
   const distanceKm = haversineDistanceKm(input.pickup.lat, input.pickup.lng, input.delivery.lat, input.delivery.lng);
-  const weightSurcharge = input.weightKg > 5 ? (input.weightKg - 5) * 0.5 : 0;
-  const insuranceCost = input.insuranceValue ? input.insuranceValue * 0.01 : 0;
+  const distanceCost = Math.min(distanceKm, r.townKm) * r.perKmInTown + Math.max(0, distanceKm - r.townKm) * r.perKmBeyond;
+  const weightSurcharge = Math.max(0, input.weightKg - r.freeKg) * r.perKg;
+  const insuranceCost = input.insuranceValue ? input.insuranceValue * r.insuranceRate : 0;
+  const carriage = Math.round((r.base + distanceCost + weightSurcharge) * 10) / 10;
   return {
     distanceKm: round2(distanceKm),
     insuranceCost: round2(insuranceCost),
-    total: round2(2 + distanceKm * 0.08 + weightSurcharge + insuranceCost),
+    total: round2(carriage + insuranceCost),
   };
 }
 

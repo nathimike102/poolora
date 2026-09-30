@@ -30,9 +30,8 @@ function htmlSeoMeta() {
     telephone: COMPANY.phone,
     address: {
       '@type': 'PostalAddress',
-      addressLocality: 'Surampalem',
-      addressRegion: 'Andhra Pradesh',
-      addressCountry: 'IN',
+      addressLocality: 'Bulawayo',
+      addressCountry: 'ZW',
     },
     founder: { '@type': 'Person', name: COMPANY.founder.name },
     description: COMPANY.description,

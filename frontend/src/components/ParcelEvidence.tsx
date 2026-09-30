@@ -14,7 +14,7 @@ import { apiClient, getAuthorizationHeader } from '../api/axios';
 import { parcelService, type Parcel, type ParcelClaim, type ParcelPhoto } from '../services/parcelService';
 import { takeParcelPhoto } from '../utils/parcelPhoto';
 import { errorHandler } from '../utils/errorHandler';
-import { money } from '../utils/region';
+import { money, REGION } from '../utils/region';
 
 const DAY = 86_400_000;
 const STATUS: Record<ParcelClaim['status'], string> = {
@@ -89,7 +89,7 @@ export function ParcelEvidence({ parcel }: { parcel: Parcel }) {
               <View key={p.id} style={{ gap: 4 }}>
                 <Image source={image(p)} style={styles.thumb} accessibilityLabel={`${p.stage === 'pickup' ? 'Pickup' : 'Delivery'} photo`} />
                 <Text style={{ fontSize: 12, color: c.textSec }}>
-                  {p.stage === 'pickup' ? 'Picked up' : 'Delivered'} {new Date(p.takenAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                  {p.stage === 'pickup' ? 'Picked up' : 'Delivered'} {new Date(p.takenAt).toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' })}
                 </Text>
               </View>
             ))}

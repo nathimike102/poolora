@@ -1,6 +1,6 @@
 # Testing Strategy & Quality Assurance
 
-> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
 ## Poolora - Comprehensive Testing Framework
@@ -143,60 +143,33 @@ describe("UserService", () => {
 
 ### 2.2 Mocking & Stubbing
 
-```javascript
-// Mock external dependencies
-jest.mock("../services/NotificationService");
-jest.mock("../integrations/RazorpayAPI");
+As built (`backend/src/__tests__/services/Paynow.test.ts`): fake only the payment gateway's HTTP endpoint, and run everything else, including the database, for real. Messages are signed with the same hash function the code verifies, so the tests exercise the real verification.
 
-describe("PaymentService", () => {
-  let paymentService;
-  let mockNotificationService;
-  let mockRazorpay;
+```typescript
+jest.mock("../../services/NotificationService", () => ({
+  NotificationService: jest.fn().mockImplementation(() => ({
+    createNotification: jest.fn().mockResolvedValue(undefined),
+    sendPushNotification: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+const mockPost = jest.fn();
+jest.mock("axios", () => ({ __esModule: true, default: { post: (...a: unknown[]) => mockPost(...a) } }));
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockNotificationService = require("../services/NotificationService");
-    mockRazorpay = require("../integrations/RazorpayAPI");
-    paymentService = new PaymentService();
-  });
+/** A Paynow message with a valid hash */
+const signed = (fields: Array<[string, string]>) =>
+  new URLSearchParams([...fields, ["hash", paynowHash(fields, USD_KEY)]]).toString();
 
-  it("should notify user on successful payment", async () => {
-    mockRazorpay.capturePayment.mockResolvedValue({
-      status: "completed",
-      paymentId: "pay_123",
-    });
-
-    await paymentService.processPayment({
-      bookingId: "booking_456",
-      amount: 250,
-    });
-
-    expect(mockNotificationService.sendPaymentConfirmed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        paymentId: "pay_123",
-        amount: 250,
-      }),
-    );
-  });
-
-  it("should log error on payment failure", async () => {
-    mockRazorpay.capturePayment.mockRejectedValue(
-      new Error("Payment gateway unavailable"),
-    );
-
-    const logger = jest.spyOn(console, "error");
-
-    await paymentService.processPayment({
-      bookingId: "booking_456",
-      amount: 250,
-    });
-
-    expect(logger).toHaveBeenCalledWith(
-      expect.stringContaining("Payment failed"),
-    );
-  });
+it("records the payment once, after which the driver can accept", async () => {
+  const booking = await onlineBooking(3); // US$3, in MongoMemoryServer
+  const charge = await charges.start(riderId, { purpose: "booking", targetId: booking.id, channel: "ecocash", phone: "0771111111" });
+  const paid = signed([["reference", charge.reference], ["amount", "3.00"], ["status", "Paid"]]);
+  expect(await charges.handleResult(paid)).toBe(true);
+  expect(await charges.handleResult(paid)).toBe(true); // Paynow retries
+  expect(await Payment.countDocuments({ booking: booking._id })).toBe(1); // applied exactly once
 });
 ```
+
+**Mock the edges, not the middle.** Every backend test used to mock `EventBridge`, so no test ever ran event publishing, and a stack overflow in it (a Mongoose subdocument in a `ride.created` payload) made every `POST /rides` fail from 22 to 29 September 2026 without a single red test. `src/__tests__/events/normalizeIds.test.ts` now covers it. When a module is mocked in most suites, keep at least one test that runs it for real.
 
 ### 2.3 Code Coverage Target
 
@@ -247,7 +220,7 @@ describe("Ride Management API", () => {
   beforeAll(async () => {
     // Setup: Create test user and get auth token
     const user = await User.create({
-      phone: "+919876543210",
+      phone: "+263771234567",
       role: "driver",
     });
     driverId = user.id;
@@ -255,7 +228,7 @@ describe("Ride Management API", () => {
     const signupResponse = await request(app)
       .post("/api/v1/auth/register")
       .send({
-        phone: "+919876543210",
+        phone: "+263771234567",
         password: "TestPassword@123",
         firstName: "Test",
         lastName: "Driver",
@@ -449,7 +422,7 @@ describe("Ride Booking Flow", () => {
     await expect(element(by.id("signup_button"))).toBeVisible();
     await element(by.id("signup_button")).tap();
 
-    await element(by.id("phone_input")).typeText("+919876543210");
+    await element(by.id("phone_input")).typeText("+263771234567");
     await element(by.id("continue_button")).tap();
 
     // Wait for OTP
@@ -479,7 +452,7 @@ describe("Ride Booking Flow", () => {
     await element(by.id("ride_item_0")).tap();
 
     await expect(element(by.text("Driver Name"))).toBeVisible();
-    await expect(element(by.text("₹250"))).toBeVisible();
+    await expect(element(by.text("US$2.50"))).toBeVisible();
 
     // 5. Request ride
     await element(by.id("request_ride_button")).tap();
@@ -547,7 +520,7 @@ describe("Admin Dashboard", () => {
 
     cy.get('[data-testid="active-rides-count"]').should("be.visible");
 
-    cy.get('[data-testid="total-revenue"]').should("contain", "₹");
+    cy.get('[data-testid="total-revenue"]').should("contain", "US$");
   });
 
   it("should list all users", () => {
@@ -920,7 +893,7 @@ sonar-scanner \
 const seedTestData = async () => {
   // Create 100 test users
   const users = Array.from({ length: 100 }, (_, i) => ({
-    phone: `+919876543${String(i).padStart(3, "0")}`,
+    phone: `+263771${String(i).padStart(6, "0")}`,
     email: `testuser${i}@example.com`,
     role: i % 2 === 0 ? "driver" : "rider",
     status: "verified",
@@ -974,7 +947,8 @@ DON'T:
 
 Test-Only Phone Numbers:
 - +1234567890 (US test range)
-- +919999999999 (India test range)
+- Paynow test mode numbers: 0771111111 (paid after 5 s), 0772222222 (paid after 30 s),
+  0773333333 (user cancels), 0774444444 (insufficient balance)
 - +44XXXXXXXXX (UK test range)
 ```
 
@@ -1167,7 +1141,7 @@ OVERALL: ✅ PASS (1,587 tests, 99.8% pass rate)
 Recent Test Failures (Last 7 Days):
 
 2026-02-26: payment-service integration test
-  Issue: Razorpay API timeout
+  Issue: Paynow API timeout
   Root Cause: API rate limiting
   Fix: Increase retry backoff
   Status: Resolved

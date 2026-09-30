@@ -1,6 +1,6 @@
 # Use Cases Document
 
-> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Razorpay payments; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
+> **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
 ## Poolora
@@ -23,7 +23,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 ### 2.2 Secondary Actors
 
-- **Payment Gateway**: Razorpay (test keys in development)
+- **Payment Gateway**: Paynow (EcoCash, OneMoney, InnBucks, Visa/Mastercard; test mode in development)
 - **Map Service**: OpenStreetMap (MapLibre tiles; Photon, Nominatim and OSRM), with Google Maps optional
 - **Notification Service**: Firebase Cloud Messaging and Phone Auth, Twilio SMS for SOS alerts; no email provider yet
 - **AI/ML Service**: Intelligent matching and fraud detection system
@@ -158,13 +158,13 @@ This document outlines detailed use cases for the car pooling platform, covering
    - Platform fee
    - Total amount
 4. User selects payment method:
-   - Credit/Debit card
-   - UPI
+   - EcoCash or OneMoney (a PIN prompt on the phone)
+   - InnBucks (a code to enter in the InnBucks app)
+   - Visa/Mastercard (Paynow's card page)
    - Wallet
-   - Net banking
-5. System opens Razorpay Checkout
-6. User completes payment on Razorpay
-7. Razorpay sends the payment result by signed webhook
+5. System starts the payment with Paynow, in US dollars or ZiG
+6. User approves it on their phone, in InnBucks, or on Paynow's card page
+7. Paynow reports the result to the system, verified by its hash, and the app also asks Paynow while it waits
 8. System verifies payment
 9. System updates booking status to "Confirmed"
 10. System sends confirmation to user and driver
@@ -180,7 +180,8 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 - Payment must be completed within 15 minutes of acceptance
 - Failed payment cancels the booking
-- Refund processed within 5-7 business days
+- Refunds go to the Poolora wallet at once (Paynow has no refund API); the user can withdraw them to mobile money
+- As built: the rider pays when requesting, and the driver can accept only once the payment is in (see the API specification, section 5)
 
 ---
 
@@ -362,9 +363,9 @@ This document outlines detailed use cases for the car pooling platform, covering
 2. User selects booking to cancel
 3. System displays cancellation policy:
    - Free cancellation (if >24 hours before ride)
-   - 50% refund (12-24 hours before)
-   - 25% refund (6-12 hours before)
-   - No refund (<6 hours before)
+   - 50% refund (2-24 hours before)
+   - No refund (<2 hours before)
+   - Free cancellation within 30 minutes of the driver accepting, if the ride is still 1 hour or more away
 4. User selects cancellation reason:
    - Change of plans
    - Found another ride
@@ -380,7 +381,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 **Extensions**:
 
-- 6a. Refund initiated: Expected in 5-7 business days
+- 6a. Refund: credited to the Poolora wallet at once
 - 4a. Driver-related issue: Admin reviews for full refund
 
 **Business Rules**:
@@ -447,7 +448,7 @@ This document outlines detailed use cases for the car pooling platform, covering
    - Driver's license (front & back)
    - Vehicle registration
    - Vehicle insurance
-   - Government ID (Aadhaar/PAN)
+   - National ID (national registration card)
    - Profile photo
 5. User enters vehicle details:
    - Make and model
@@ -516,14 +517,14 @@ This document outlines detailed use cases for the car pooling platform, covering
 **Extensions**:
 
 - 6a. Surge pricing active: System shows +20-50% pricing
-- 10a. Route longer than 300km: System refuses the ride and explains the limit
+- 10a. Route longer than 650 km: System refuses the ride and explains the limit
 - 11a. Driver has <3.5 rating: Ride requires admin approval
 
 **Business Rules**:
 
 - Ride must be created at least 2 hours in advance
-- Maximum 300km per ride (for safety)
-- Price between ₹2-₹15 per km per person
+- Maximum 650 km per ride, so the intercity corridors (Harare to Bulawayo, Mutare or Beitbridge) fit
+- Price between US$0.02 and US$0.20 per km per person, with a US$1 minimum seat price
 - Driver can have maximum 5 active future rides
 - Ride auto-cancels if no bookings 1 hour before departure
 
@@ -802,7 +803,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 - Cancellations:
   - > 24 hours: No penalty
   - 12-24 hours: Driver rating impact
-  - <12 hours: ₹500 penalty + rating impact
+  - <12 hours: US$5 penalty + rating impact
 - Cancellation rate >20% triggers account review
 - 3+ cancellations in month: Temporary suspension
 
@@ -859,11 +860,11 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 **Business Rules**:
 
-- Payouts processed every Friday
-- Minimum payout threshold: ₹500
+- Payouts: the driver withdraws earnings from the wallet to EcoCash, OneMoney or InnBucks (US$2 to US$1,000 at a time); an admin sends each withdrawal
+- Minimum withdrawal: US$2
 - Platform fee: 15-20% based on driver tier
 - Bonuses for high-rated drivers (>4.7)
-- TDS deducted for earnings >₹2.5L annually
+- Monthly and annual earnings statements for the driver's own ZIMRA tax returns
 
 ---
 
@@ -1606,8 +1607,8 @@ This document outlines detailed use cases for the car pooling platform, covering
 └─────────────────────────────────────────────────────────────────┘
 
 External Systems:
-- Payment Gateway (Razorpay, with test keys in development)
-- Maps API (Google Maps)
+- Payment Gateway (Paynow, in test mode in development)
+- Maps (OpenStreetMap: MapLibre, Photon, Nominatim, OSRM; Google optional)
 - Notification Service (Firebase, Twilio)
 - AI/ML Service (Matching, Fraud Detection, Demand Prediction)
 ```
@@ -1688,7 +1689,7 @@ External Systems:
 **Business Rules**:
 
 - Maximum parcel weight: 25kg
-- Insurance required for items >₹5,000 value
+- Insurance required for items worth more than US$50
 - Delivery time window: minimum 24 hours
 
 ---
@@ -1837,7 +1838,7 @@ External Systems:
 
 **Main Success Scenario**:
 
-1. Member enters expense (e.g., hotel ₹3,000 for 2 nights)
+1. Member enters expense (e.g., lodge US$30 for 2 nights)
 2. Member selects who should split cost
 3. Member marks who paid (can be different from who entered)
 4. System auto-calculates individual shares
@@ -1850,11 +1851,11 @@ External Systems:
 **Example**:
 
 ```
-Expense: Hotel ₹3,000
+Expense: Lodge US$30
 Paid by: Alice
 Split among: Alice, Bob, Carol (3 people)
-Per person: ₹1,000
-Settlement: Bob owes Alice ₹1,000, Carol owes Alice ₹1,000
+Per person: US$10
+Settlement: Bob owes Alice US$10, Carol owes Alice US$10
 ```
 
 ---
@@ -1888,7 +1889,7 @@ Settlement: Bob owes Alice ₹1,000, Carol owes Alice ₹1,000
 **Primary Actor**: Trip Organizer or Finance Member  
 **Goal**: Generate settlement report and payment instructions  
 **Preconditions**: Trip completed or nearing end  
-**Postconditions**: Settlement report generated with UPI/Bank details
+**Postconditions**: Settlement report generated with mobile money details
 
 **Main Success Scenario**:
 
@@ -1900,11 +1901,11 @@ Settlement: Bob owes Alice ₹1,000, Carol owes Alice ₹1,000
    - Outstanding balances
 3. System displays settlement matrix:
    ```
-   Person A → Person B: ₹500
-   Person C → Person B: ₹750
-   Person A → Person C: ₹300
+   Person A → Person B: US$5
+   Person C → Person B: US$7.50
+   Person A → Person C: US$3
    ```
-4. System provides direct payment links (UPI/Bank)
+4. System provides a one-tap EcoCash send-money link (`*151*1*1*number*amount#`) for members who added an EcoCash number
 5. Members can mark payments as settled
 6. System notifies all members of their obligations
 

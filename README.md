@@ -101,7 +101,7 @@ These are the targets the architecture is built for, not measured results.
 
 ### Authentication & Authorisation
 
-- ✅ OTP-based login and registration via Firebase
+- ✅ OTP-based login and registration via Firebase, for adults (18+)
 - ✅ JWT token issuance and secure refresh workflows
 - ✅ Role-based access control (RBAC) for Rider, Driver, Admin
 - ✅ Session validation middleware with multi-device support
@@ -160,6 +160,9 @@ These are the targets the architecture is built for, not measured results.
 - 🆘 One-Tap Emergency SOS
 - 👩 Women-Only Ride Preference
 - 🔔 Safety Check-In Alerts
+- 🚗 Cars, SUVs and bakkies, minivans, autos (tuk-tuks) and motorbikes
+- 🤖 An in-app support assistant (Claude) that checks your trips and refunds, and hands anything else to a person
+- 🗑️ Close the account in Settings: personal data is erased, trip and payment records are kept anonymously
 
 ### 🚗 Driver Features
 
@@ -583,7 +586,7 @@ What runs today. The algorithms named in the PRD (Prophet, isolation forests, VR
 | Ride matching | Backend, `MatchingEngineClient` | Weighted score: pickup distance to the ride's start 40%, departure-time match 30%, driver rating 15%, acceptance rate 10%, low cancellation rate 5%. Used to rank search results |
 | Pickup order | ML service, `POST /api/optimize-route` | Nearest-neighbour ordering over a haversine distance matrix |
 | Fraud checks | ML service, `POST /api/fraud-check` | Rule-based risk score from cancellations, payment failures, IP risk, booking velocity, account age and location spoofing. Runs after a failed payment |
-| Demand prediction | ML service, `POST /api/predict-demand` | Historical average adjusted for hour, weekday, weather and holidays, with a surge multiplier up to 2.5×. Deterministic. Shown to drivers; it does not change fares yet |
+| Demand prediction | ML service, `POST /api/predict-demand` | Historical average adjusted for hour, weekday and public holidays (the market's calendar, moving holidays included), with a surge multiplier. Deterministic. A forecast of +20% or more raises the suggested seat price, capped at +50%; weather is supported by the model but not yet sent |
 | Routing | Backend, `MapsService` | OSRM on OpenStreetMap, or Google Directions when configured |
 
 The ML service's `/api/match` endpoint mirrors the matching score but is not called by the backend.
@@ -691,6 +694,7 @@ Copy `backend/.env.example` to `backend/.env` and fill in the values. **[docs/SE
 | `CORS_ORIGIN`                                  | Allowed origins; never `*` in production         |
 | `PLATFORM_FEE_RATE`                            | Platform commission (default `0.15` = 15%)       |
 | `ENABLE_RIDE_SIMULATION`                       | Turn on the ride simulator in production         |
+| `RATE_LIMIT_IP_PER_MIN` / `RATE_LIMIT_USER_PER_MIN` | Request limits; per user is the real limit, per IP a ceiling (mobile carriers share IPs) |
 
 > **Never commit `.env` to version control.** Generate strong secrets with:
 >

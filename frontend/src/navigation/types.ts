@@ -106,6 +106,7 @@ export type RootStackParamList = {
   Help: undefined;
   Appeal: undefined;
   SupportTicket: { ticketId?: string; bookingId?: string };
+  SupportAssistant: undefined;
   /**
    * Pays online through Paynow: a seat request (bookingId), a parcel
    * (parcelId), or a wallet top-up (neither).

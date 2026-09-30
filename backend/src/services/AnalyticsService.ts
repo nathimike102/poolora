@@ -2,13 +2,15 @@ import { Ride } from '../models/Ride';
 import { mlClient } from '../utils/mlClient';
 import { logger } from '../utils/logger';
 import { AppError } from '../utils/AppError';
+import { demandTime } from '../config/region';
 
 /** What the ML service returns for a demand forecast. */
 export interface DemandPrediction {
-  predicted_rides: number;
+  predicted_demand: number;
   confidence: number;
-  surge_multiplier?: number;
-  [key: string]: unknown;
+  surge_multiplier: number;
+  demand_level: 'low' | 'medium' | 'high' | 'surge';
+  recommended_drivers: number;
 }
 
 /** Hot spots, one entry per area, most rides first. */
@@ -25,11 +27,14 @@ export class AnalyticsService {
    */
   async getDemandPrediction(lat: number, lng: number): Promise<DemandPrediction> {
     try {
+      // In the market's time, weekdays from Monday = 0, as the model expects
+      const { hour, weekday, isHoliday } = demandTime(new Date());
       const response = await mlClient.post('/api/predict-demand', {
         lat,
         lng,
-        hour: new Date().getHours(),
-        day_of_week: new Date().getDay(),
+        hour,
+        day_of_week: weekday,
+        is_holiday: isHoliday,
         historical_rides: await this.getHistoricalRideCount(lat, lng),
       });
 

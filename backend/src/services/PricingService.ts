@@ -8,12 +8,19 @@
  * within ±30% of the suggestion, and never outside US$0.02 to US$0.20 per km a
  * seat. Rates are pitched against kombi and intercity bus fares, so a 15 km
  * commute costs about a dollar and Harare to Bulawayo about US$25.
+ *
+ * Checked in September 2026: ZUPCO charges US$0.50 up to 20 km and US$1 up
+ * to 40 km, private kombis US$0.50 to US$1, taxi apps (inDrive, Vaya) US$2
+ * to US$4 for 5 km, and intercity buses from Harare US$15 to Bulawayo
+ * (440 km) or US$35 on a luxury coach. Petrol is about US$2.06 a litre, so a
+ * sedan costs roughly US$0.15 a km to run; three riders at the sedan rate
+ * cover it.
  */
 
 import { VehicleType } from '../types';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
-import { money, toLocalClock } from '../config/region';
+import { demandTime, money } from '../config/region';
 
 export const PRICE_RULES = {
   minPerKm: 0.02,
@@ -30,12 +37,14 @@ export const PRICE_RULES = {
 } as const;
 
 /** US dollars per km for one seat, by vehicle */
-const RATE_PER_KM: Record<string, number> = {
+export const RATE_PER_KM: Record<string, number> = {
   [VehicleType.BIKE]: 0.04,
   [VehicleType.AUTO]: 0.045,
   [VehicleType.MINI]: 0.05,
   [VehicleType.HATCHBACK]: 0.05,
   [VehicleType.SEDAN]: 0.06,
+  [VehicleType.MINIVAN]: 0.065,
+  [VehicleType.PICKUP]: 0.07,
   [VehicleType.SUV]: 0.075,
 };
 
@@ -63,12 +72,6 @@ const roundSuggestion = (n: number) => {
 const tenCentsUp = (n: number) => (Math.ceil(cents(n) / 10) * 10) / 100;
 const tenCentsDown = (n: number) => (Math.floor(cents(n) / 10) * 10) / 100;
 
-function localParts(date: Date): { hour: number; weekday: number } {
-  const local = toLocalClock(date);
-  // The ML service counts weekdays from Monday = 0
-  return { hour: local.getUTCHours(), weekday: (local.getUTCDay() + 6) % 7 };
-}
-
 export class PricingService {
   /**
    * Surge for a place and time, from the demand forecast. 1 when the
@@ -76,9 +79,9 @@ export class PricingService {
    */
   async surgeFor(lat: number, lng: number, departure: Date): Promise<number> {
     try {
-      const { hour, weekday } = localParts(departure);
+      const { hour, weekday, isHoliday } = demandTime(departure);
       const { mlClient } = await import('../utils/mlClient');
-      const { data } = await mlClient.post('/api/predict-demand', { lat, lng, hour, day_of_week: weekday }, { timeout: 2000 });
+      const { data } = await mlClient.post('/api/predict-demand', { lat, lng, hour, day_of_week: weekday, is_holiday: isHoliday }, { timeout: 2000 });
       const multiplier = Number((data as { surge_multiplier?: number }).surge_multiplier);
       if (!Number.isFinite(multiplier) || multiplier < PRICE_RULES.surgeFloor) return 1;
       return Math.min(multiplier, PRICE_RULES.surgeCap);
@@ -91,7 +94,9 @@ export class PricingService {
   async suggest(input: { distanceKm: number; vehicleType?: string; departureTime: Date; pickup: { lat: number; lng: number } }): Promise<PriceSuggestion> {
     const distanceKm = Math.max(1, input.distanceKm);
     const rate = RATE_PER_KM[input.vehicleType ?? VehicleType.SEDAN] ?? RATE_PER_KM[VehicleType.SEDAN];
-    const peak = (PRICE_RULES.peakHours as readonly number[]).includes(localParts(input.departureTime).hour);
+    const when = demandTime(input.departureTime);
+    // No commute rush on a public holiday
+    const peak = !when.isHoliday && (PRICE_RULES.peakHours as readonly number[]).includes(when.hour);
     const surge = await this.surgeFor(input.pickup.lat, input.pickup.lng, input.departureTime);
 
     const floor = distanceKm * PRICE_RULES.minPerKm;

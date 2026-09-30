@@ -28,7 +28,7 @@ import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
 import { ActivityIndicator } from 'react-native';
 import { realPhone } from '../../utils/phone';
-import { money } from '../../utils/region';
+import { money, REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -81,7 +81,7 @@ const StarIcon = ({ size = 14 }: { size?: number }) => (
 function formatTime(iso?: string): string | null {
   if (!iso) return null;
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' });
 }
 
 const LUGGAGE_LABEL: Record<string, string> = {

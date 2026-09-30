@@ -35,6 +35,7 @@ import { errorHandler } from '../utils/errorHandler';
 import type { User as ApiUser } from '../types/api';
 import type { RootStackParamList } from '../navigation/types';
 import { logger } from '../utils/logger';
+import { formatPhone } from '../utils/region';
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -217,9 +218,9 @@ export function ProfileSetupScreen() {
     }
   }, [isValid, submitting, firstName, lastName, phone, email, dob, photoUri, firebaseUser, setUser, setRole, pendingSignup]);
 
-  // Max date = 13 years ago (minimum age)
+  // Poolora is for adults: the picker stops at 18 years ago (the API checks too)
   const maxDate = new Date();
-  maxDate.setFullYear(maxDate.getFullYear() - 13);
+  maxDate.setFullYear(maxDate.getFullYear() - 18);
 
   return (
     <KeyboardAvoidingView
@@ -324,7 +325,7 @@ export function ProfileSetupScreen() {
         >
           <Text style={[styles.inputLabel, { color: c.textSec }]}>PHONE NUMBER</Text>
           <TextInput
-            value={phone}
+            value={phone ? formatPhone(phone) : ''}
             editable={false}
             placeholder="Not available"
             placeholderTextColor={c.textDisabled}

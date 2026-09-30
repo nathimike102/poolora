@@ -34,6 +34,35 @@ export function decodePolyline(encoded: string): LatLng[] {
   return points;
 }
 
+/** Encode positions as a Google polyline (the inverse of decodePolyline). */
+export function encodePolyline(path: LatLng[]): string {
+  let out = '';
+  let prevLat = 0;
+  let prevLng = 0;
+  const encode = (delta: number) => {
+    let value = delta < 0 ? ~(delta << 1) : delta << 1;
+    while (value >= 0x20) {
+      out += String.fromCharCode((0x20 | (value & 0x1f)) + 63);
+      value >>= 5;
+    }
+    out += String.fromCharCode(value + 63);
+  };
+  for (const p of path) {
+    const lat = Math.round(p.lat * 1e5);
+    const lng = Math.round(p.lng * 1e5);
+    encode(lat - prevLat);
+    encode(lng - prevLng);
+    prevLat = lat;
+    prevLng = lng;
+  }
+  return out;
+}
+
+/** True when every position is a real place on Earth */
+export function isValidPath(path: LatLng[]): boolean {
+  return path.every((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180);
+}
+
 /** Evenly spaced positions along a path, `steps` intervals long. */
 export function resample(path: LatLng[], steps: number): LatLng[] {
   if (path.length < 2) return path.slice();

@@ -10,6 +10,7 @@ import {
   MatchScore,
   BookingStatus,
   KYCStatus,
+  MAX_SEATS_BY_VEHICLE,
 } from '../types';
 import {
   AppError,
@@ -154,7 +155,12 @@ export class RideService {
       throw new NotFoundError('Vehicle');
     }
 
-    // Get real route data from Google Directions API
+    const seatLimit = MAX_SEATS_BY_VEHICLE[vehicle.vehicleType] ?? 8;
+    if (data.totalSeats > seatLimit) {
+      throw new AppError(`This vehicle can offer at most ${seatLimit} seat${seatLimit === 1 ? '' : 's'}.`, 422, 'TOO_MANY_SEATS');
+    }
+
+    // Road route from OSRM (OpenStreetMap)
     const departureTime = new Date(data.departureTime);
     const stops = (data.waypoints ?? []).slice(0, MAX_STOPS);
     // Rides are posted at least 2 hours ahead (UC-D02), so riders can plan
@@ -176,8 +182,8 @@ export class RideService {
       estimatedDurationMins = routeData.durationMins;
       routePolyline = routeData.polyline;
     } catch (error) {
-      // Fallback to haversine estimate if Google API is unavailable
-      logger.warn('Google Directions API unavailable, using haversine fallback', {
+      // Straight-line estimate when the routing service is unavailable
+      logger.warn('Routing unavailable, using haversine fallback', {
         error: (error as Error).message,
       });
       const { haversineDistanceKm } = await import('../utils/helpers');
@@ -531,7 +537,8 @@ export class RideService {
       if (changes.totalSeats < ride.totalSeats) {
         throw new AppError('Seats can only be added. Riders who booked keep their seats.', 409, 'SEATS_ONLY_UP');
       }
-      if (changes.totalSeats > 8) throw new AppError('At most 8 seats', 422, 'VALIDATION_ERROR');
+      const seatLimit = MAX_SEATS_BY_VEHICLE[ride.vehicle.vehicleType] ?? 8;
+      if (changes.totalSeats > seatLimit) throw new AppError(`At most ${seatLimit} seat${seatLimit === 1 ? '' : 's'} in this vehicle`, 422, 'VALIDATION_ERROR');
       ride.availableSeats += changes.totalSeats - ride.totalSeats;
       ride.totalSeats = changes.totalSeats;
       changed.push('seats');

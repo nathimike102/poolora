@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImageWithFallback } from '../../components/ImageWithFallback';
 import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
+import { REGION } from '../../utils/region';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -70,7 +71,7 @@ export function ChatListScreen(): React.ReactElement {
                   id: b._id,
                   name: otherParty?.name || (role === 'driver' ? 'Rider' : 'Driver'),
                   avatar: otherParty?.profilePhotoUrl,
-                  time: new Date(b.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short' }),
+                  time: new Date(b.createdAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' }),
                   ride: `${b.pickup?.address || 'Pickup'} to ${b.dropoff?.address || 'drop'}`,
                   status: b.status,
                 };

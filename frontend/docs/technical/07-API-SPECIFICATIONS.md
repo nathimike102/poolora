@@ -2,7 +2,7 @@
 
 **Poolora REST and real-time API**
 
-This document describes the API the backend serves today (September 2026). It was rebuilt from the route files in `backend/src/routes` and the request schemas in `backend/src/validators`. When the two disagree, the code wins, so update this file in the same change as the route.
+This document describes the API the backend serves today (last checked against the code on 29 September 2026, after the move to Zimbabwe and Paynow). It was rebuilt from the route files in `backend/src/routes` and the request schemas in `backend/src/validators`. When the two disagree, the code wins, so update this file in the same change as the route.
 
 ---
 
@@ -15,7 +15,9 @@ This document describes the API the backend serves today (September 2026). It wa
 | Local | `http://localhost:5002` (a phone on the same network uses `http://<LAN IP>:5002`) |
 | Production | The value of `APP_BASE_URL`, served behind the Kubernetes ingress (`k8s/ingress.yaml`) |
 
-Routes are served **without a version prefix**, for example `POST /bookings`. Old clients that still call `/api/v1/...` get a `307` redirect to the same path without the prefix, plus the header `X-API-Deprecation`. The Razorpay webhook is the exception: `/api/v1/payments/webhook` is still answered directly, because webhook senders may not follow redirects.
+Routes are served **without a version prefix**, for example `POST /bookings`. Old clients that still call `/api/v1/...` get a `307` redirect to the same path without the prefix, plus the header `X-API-Deprecation`.
+
+**Market.** A deployment serves one country, chosen by `MARKET` (default `ZW`, Zimbabwe) from the registry in `backend/src/config/region.ts`. The market sets the time zone (Zimbabwe: `Africa/Harare`, CAT, UTC+2), the phone format (`+263`), the currency (US dollars) and the map area. "Local time" below means the market's time.
 
 ### 1.2 Authentication
 
@@ -67,7 +69,7 @@ Paginated lists take `page` (from 1) and `limit` query parameters and return the
 
 ### 1.4 Coordinates
 
-Request bodies give positions as `{ "lng": 77.59, "lat": 12.97, "address": "…" }`. Stored documents use GeoJSON, `{ "type": "Point", "coordinates": [lng, lat] }`, so responses carry `pickup.location.coordinates` in **longitude, latitude** order.
+Request bodies give positions as `{ "lng": 31.05, "lat": -17.83, "address": "…" }`. Stored documents use GeoJSON, `{ "type": "Point", "coordinates": [lng, lat] }`, so responses carry `pickup.location.coordinates` in **longitude, latitude** order.
 
 ---
 
@@ -75,7 +77,7 @@ Request bodies give positions as `{ "lng": 77.59, "lat": 12.97, "address": "…"
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/auth/send-otp` | public, 3 per hour | Send a 6-digit code. Body: `phone` in E.164 form (`+919876543210`) |
+| POST | `/auth/send-otp` | public, 3 per hour | Send a 6-digit code. Body: `phone`, as `0771 234 567` or E.164 (`+263771234567`) |
 | POST | `/auth/verify-otp` | public, 10 per 15 min | Body: `phone`, `otp`; `name` is required for a new account; `email` and `dateOfBirth` are optional. Returns the user and tokens |
 | POST | `/auth/firebase-login` | public, 10 per 15 min | Exchange a Firebase ID token (phone or Google sign-in) for Poolora tokens |
 | POST | `/auth/refresh-token` | public, 10 per 15 min | Body: `refreshToken`. Returns a new token pair |
@@ -85,7 +87,7 @@ Request bodies give positions as `{ "lng": 77.59, "lat": 12.97, "address": "…"
 | POST | `/auth/kyc/:userId/approve` | admin | Approve a driver |
 | POST | `/auth/kyc/:userId/reject` | admin | Reject with a reason |
 
-A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). After 5 wrong codes the code is discarded. Accounts are never locked, so nobody can lock out another person's number.
+A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). After 5 wrong codes the code is discarded. Accounts are never locked, so nobody can lock out another person's number. A code lasts 5 minutes. For a new number, the first correct `verify-otp` without a `name` returns `{ needsProfile: true }` and keeps the code for another 10 minutes, so the profile form has time; the same code then comes back with `name` (and optional `email` and `dateOfBirth`). A taken email is refused (`409`) without using up the code. Users must be at least 18: a `dateOfBirth` under 18 years ago is refused (`422`), here and in `PATCH /users/me`.
 
 ---
 
@@ -97,9 +99,11 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 | PATCH | `/users/me` | Update name, email, photo and preferences |
 | GET | `/users/saved-routes` | Routes the rider searches often |
 | GET | `/users/kyc/status` | Driver verification state |
-| GET | `/users/me/statement` | A driver's earnings for a month (UC-D09). `?month=2026-09` (India time; defaults to this month). Returns `lines` (date, `Trip` / `Late cancellation` / `No-show`, route, rider's first name, fare, platform fee, earnings) and `totals`. Add `&format=csv` for a spreadsheet download |
+| GET | `/users/me/statement` | A driver's earnings for a month (UC-D09). `?month=2026-09` (local time; defaults to this month). Returns `lines` (date, `Trip` / `Late cancellation` / `No-show`, route, rider's first name, fare, platform fee, earnings) and `totals`. Add `&format=csv` for a spreadsheet download |
 | POST | `/users/me/statement/email` | Emails that statement to the profile's address with the CSV attached. Body: `month`. `409 NO_EMAIL` without an address, `503 EMAIL_UNAVAILABLE` when SMTP is not set up |
 | GET | `/users/me/verified-status` | Progress towards the Verified Driver badge (UC-D10): `verified` and one `checks` entry per rule (`label`, `met`, `progress`) |
+| GET | `/users/me/closure` | Whether the account can be closed now: `canClose`, `blockers` (plain-language reasons), `walletBalance`, `coins` |
+| DELETE | `/users/me` | Close the account (data protection right to erasure; Google Play account deletion). Body: `confirm: true`, optional `reason`. Refused with `409 ACCOUNT_CLOSE_BLOCKED` while anything is under way (open bookings, upcoming rides, parcels, disputes, an SOS, an unfinished group trip, a withdrawal being paid) or the wallet holds money; admin accounts cannot close themselves. On closing: name, email, date of birth, photo, licence details, vehicles, KYC files in S3, emergency contacts, push tokens, ride alerts and notifications are removed; the Firebase user is deleted; every session is revoked; coins are forfeited. The phone number is freed and can sign up again as a new account. Bookings, payments, ratings and chats stay, attached to an anonymous "Deleted user", because tax law requires the payment records |
 | GET | `/users/:id` | Public profile of another user (no phone number) |
 
 ---
@@ -129,14 +133,14 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 {
   "vehicleId": "66f0…",
   "rideType": "car_pool",
-  "pickup":  { "lng": 77.6408, "lat": 12.9784, "address": "Indiranagar, Bengaluru" },
-  "dropoff": { "lng": 77.6974, "lat": 12.9591, "address": "Marathahalli, Bengaluru" },
+  "pickup":  { "lng": 31.0522, "lat": -17.8292, "address": "Harare CBD" },
+  "dropoff": { "lng": 31.0950, "lat": -17.7600, "address": "Borrowdale, Harare" },
   "departureTime": "2026-09-24T08:30:00.000Z",
   "totalSeats": 3,
-  "pricePerSeat": 120,
+  "pricePerSeat": 1,
   "recurring": "none",
   "preferences": { "womenOnly": false, "smokingAllowed": false, "petsAllowed": false, "luggageSize": "medium", "maxDetourMins": 15 },
-  "waypoints": [{ "lng": 77.6387, "lat": 12.9609, "address": "Domlur" }],
+  "waypoints": [{ "lng": 31.0850, "lat": -17.7950, "address": "Highlands, Harare" }],
   "returnDepartureTime": "2026-09-24T18:00:00.000Z"
 }
 ```
@@ -146,8 +150,8 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 Rules (UC-D02):
 
 - The ride leaves **at least 2 hours** from now (`422 TOO_SOON`).
-- The route, through its stops, is **at most 300 km** (`422 RIDE_TOO_LONG`).
-- The **seat price** is within ±30% of the suggestion from `GET /rides/price-suggestion`, and never below ₹2 or above ₹15 a km (`422 PRICE_OUT_OF_RANGE`, with the allowed range in the message). The suggestion is the route distance times a rate for the vehicle (₹2.5 a km for a bike up to ₹5 for an SUV), plus 10% at commute hours (7–10 am, 5–8 pm India time), plus surge of 20–50% when the demand forecast is high. It is rounded to the nearest ₹5, with a ₹20 minimum.
+- The route, through its stops, is **at most 650 km** (`422 RIDE_TOO_LONG`), so the intercity corridors (Harare to Bulawayo, Mutare or Beitbridge) fit.
+- The **seat price**, in US dollars, is within ±30% of the suggestion from `GET /rides/price-suggestion`, and never below US$0.02 or above US$0.20 a km (`422 PRICE_OUT_OF_RANGE`, with the allowed range in the message). The suggestion is the route distance times a rate for the vehicle (US$0.04 a km for a bike up to US$0.075 for an SUV, pitched against kombi and bus fares), plus 10% at commute hours (06:00–09:00 and 16:00–19:00 local time), plus surge of 20–50% when the demand forecast is high. It is rounded to 10 cents under US$5 and to 50 cents above, with a US$1 minimum seat price, which wins over the per-km ceiling on very short rides.
 - 1–8 seats, and at most 5 active future rides per driver.
 
 The backend fetches the driving route and stores its polyline, distance and duration.
@@ -203,7 +207,7 @@ rider requests ──► pending ──(driver accepts, payment in)──► con
 | POST | `/bookings` | signed in | Request seats |
 | GET | `/bookings/as-rider` | signed in | The caller's bookings as a rider. Query: `status`, `page`, `limit` |
 | GET | `/bookings/as-driver` | signed in | Requests and bookings on the caller's rides |
-| POST | `/bookings/:id/confirm` | the ride's driver | Accept. Reserves the seats atomically; `409 PAYMENT_PENDING` until a card or UPI payment is authorized |
+| POST | `/bookings/:id/confirm` | the ride's driver | Accept. Reserves the seats atomically; `409 PAYMENT_PENDING` until an online payment is in |
 | POST | `/bookings/:id/reject` | the ride's driver | Decline. Body: optional `reason`. Full refund |
 | GET | `/bookings/:id/cancellation-quote` | rider or driver | What cancelling now would refund (section 5.3) |
 | POST | `/bookings/:id/cancel` | rider or driver | Cancel. Body: optional `reason` |
@@ -225,15 +229,15 @@ Phone numbers of the other party appear only on confirmed bookings.
   "rideId": "66f0…",
   "seatsBooked": 1,
   "useWallet": false,
-  "pickup":  { "lng": 77.6412, "lat": 12.9760, "address": "100 Feet Rd" },
-  "dropoff": { "lng": 77.6950, "lat": 12.9600, "address": "Marathahalli Bridge" },
-  "note": "I'll wait at the bus stop by the metro exit."
+  "pickup":  { "lng": 31.0530, "lat": -17.8270, "address": "Samora Machel Ave" },
+  "dropoff": { "lng": 31.0930, "lat": -17.7620, "address": "Borrowdale Village" },
+  "note": "I'll wait at the kombi stop by the bank."
 }
 ```
 
 - With `useWallet: true`, the fare is taken from the wallet at once, and the response has `paidViaWallet: true`.
 - `note` is optional (up to 300 characters) and is shown on the driver's request card.
-- Otherwise the response carries a Razorpay order (`razorpayOrder.id`, amount in paise). The app opens Razorpay Checkout with that order, and the result arrives by webhook (section 7).
+- Otherwise the booking is created with `paymentMethod: "online"`, and the app pays for it with `POST /payments/start` (section 7). The driver can accept only once it is paid.
 
 Rules:
 - the pickup and the drop must each be within **2 km of the ride's route** (measured against the road route, so riders can join and leave part-way)
@@ -250,11 +254,11 @@ A background sweep runs every minute (`backend/src/jobs/BookingSweeper.ts`):
 
 | Rule | Result |
 |---|---|
-| A card or UPI request is still unpaid **15 minutes** after it was made | `cancelled` |
+| An online-payment request is still unpaid **15 minutes** after it was made | `cancelled` |
 | The driver has not answered a request within **6 hours**, or the ride has already departed | `rejected`, refunded in full |
 | A driver accepts a request and the seats left no longer fit other requests | Those requests are `rejected` at once, refunded in full |
 
-The rider gets a "Request closed" push in each case. A failed card attempt does **not** close the request: the rider can retry on the same order until the 15 minutes are up.
+The rider gets a "Request closed" push in each case. A failed or cancelled payment does **not** close the request: the rider can try again, with the same or another method, until the 15 minutes are up. The sweeper also asks Paynow about payments still pending, in case a status update was lost. A payment that arrives after its request closed, or a second payment for the same request, goes to the rider's wallet.
 
 ### 5.3 Cancellation and refunds
 
@@ -267,7 +271,7 @@ A rider cancelling a **confirmed** booking gets back a share that depends on the
 | 6–12 h | 25% |
 | Under 6 h | 0% |
 
-What the rider does not get back is paid to the driver as a cancellation fee, less the platform fee. A request that was never accepted, a request the driver declines, and any booking the driver cancels are always refunded in full. Wallet payments go back to the wallet. Captured card and UPI payments are refunded through Razorpay. An authorization that was never captured is released by Razorpay in full.
+What the rider does not get back is paid to the driver as a cancellation fee, less the platform fee. A request that was never accepted, a request the driver declines, and any booking the driver cancels are always refunded in full. Every refund goes to the Poolora wallet, at once: Paynow has no refund API. Riders can then use the balance or withdraw it to mobile money (section 6).
 
 `GET /bookings/:id/cancellation-quote` returns:
 
@@ -295,32 +299,40 @@ The cancelled booking records `refundAmount` and `cancellationFee`.
 |---|---|---|---|
 | GET | `/wallet/tiers` | public | Coin tiers and their benefits |
 | GET | `/wallet` | signed in | Balance, coins and tier |
-| POST | `/wallet/topup` | signed in | Start a top-up of ₹50–₹50,000. Returns a Razorpay order |
-| POST | `/wallet/topup/confirm` | signed in | Body: `razorpayOrderId`, `razorpayPaymentId`, `razorpaySignature`. The signature is checked before crediting |
+| POST | `/wallet/topup` | signed in | Start a top-up of US$1–US$500, paid through Paynow. Body: `amount`, `channel`, `phone`, `currency` as for `POST /payments/start`. Returns the `charge`; follow it at `/payments/charges/:reference`. The wallet may hold at most US$1,000 |
+| GET | `/wallet/withdrawals` | signed in | The caller's withdrawals |
+| POST | `/wallet/withdrawals` | signed in | Cash out to mobile money. Body: `amount` (US$2–US$1,000), `channel` (`ecocash`, `onemoney`, `innbucks`), `payNumber`. The number must be on that network (EcoCash 077/078, OneMoney 071). The amount is held from the balance at once; one pending withdrawal at a time (`409 WITHDRAWAL_PENDING`). An admin sends the money and records the transaction id, or rejects it and the amount comes back |
+| POST | `/wallet/withdrawals/:id/cancel` | signed in | Cancel a pending withdrawal; the amount comes back |
 | GET | `/wallet/transactions` | signed in | Wallet history |
 | GET | `/wallet/coins/history` | signed in | Coins earned and spent |
 | POST | `/wallet/coins/convert` | signed in | Convert at least 100 coins to wallet money |
 
-Coins are earned on completed rides by both rider and driver.
+Coins are earned on completed rides by both rider and driver, and convert at US$0.01 each (`COIN_TO_USD_RATE`).
 
 ---
 
 ## 7. Payments — `/payments`
 
+Online payments go through **Paynow** (paynow.co.zw): EcoCash, OneMoney, InnBucks and Visa/Mastercard, in US dollars, or in ZiG when an admin has set an exchange rate. Amounts owed are always in US dollars; a ZiG payment converts at the admin's rate when it starts, and the rate is stored on the payment.
+
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/payments/webhook` | Razorpay (HMAC-signed) | Payment events |
+| GET | `/payments/options` | signed in | Which currencies are enabled now (`currencies`, with `zwgPerUsd` for ZiG) and the payment `channels` |
+| POST | `/payments/start` | signed in | Pay for a seat request or a parcel. Body: `purpose` (`booking` or `parcel`), `targetId`, `channel` (`ecocash`, `onemoney`, `innbucks`, `card`), `phone` (the mobile money number; not needed for `card`), `currency` (`USD` default, or `ZWG`). Returns the `charge` (below) |
+| GET | `/payments/charges/:reference` | the payer | Where a payment stands. While it is pending, the backend asks Paynow at most every 5 seconds, so the app can poll this |
 | GET | `/payments/history` | signed in | The caller's payments |
+| POST | `/payments/paynow/result` | Paynow (hash-verified) | Paynow's status updates |
+| GET | `/payments/paynow/return` | public | The page a card payer lands on after Paynow; it tells them to go back to the app |
 
-The webhook checks `X-Razorpay-Signature` against the raw body with `RAZORPAY_WEBHOOK_SECRET`, and always answers `200` so Razorpay does not retry endlessly. Events:
+**What the payer sees.** EcoCash and OneMoney push a PIN prompt to the phone. InnBucks returns an `authorizationCode` to enter or scan in the InnBucks app. Card returns a `redirectUrl` to Paynow's page. The `charge` carries `reference`, `status` (`pending`, `paid`, `failed`, `refunded`, `disputed`), `channel`, `currency`, `amountUsd`, `chargedAmount`, `exchangeRate`, `instructions`, `failureReason` and `creditedToWallet`.
 
-- `payment.authorized`: records the payment. The driver can now accept the booking.
-- `payment.captured`: marks the payment captured. It does **not** confirm the booking; only the driver's accept does, because that is what reserves the seats.
-- `payment.failed`: records the failure for fraud checks. The booking stays pending so the rider can retry, and a payment that already went through is never overwritten. The fraud check then scores the rider: high risk flags the account for admin review, and critical risk suspends it until an admin reviews it (see `/admin/fraud`). The check never blocks an account by itself.
+**Status updates.** Paynow posts a URL-encoded form to `<APP_BASE_URL>/payments/paynow/result`; the backend sends that address with every payment, so nothing needs setting in Paynow. Each message is verified by its SHA-512 hash with the integration key (both integrations are tried, and the currency must match the charge). The endpoint always answers `200`. A paid charge is applied exactly once: the booking or parcel is marked paid, or the top-up credited. A payment that is no longer needed goes to the payer's wallet. A reported amount lower than the charge marks it `disputed` for an admin. Charges nobody pays are failed after 24 hours.
 
-In the Razorpay dashboard, the webhook URL is `<APP_BASE_URL>/payments/webhook`, with events `payment.authorized`, `payment.captured` and `payment.failed`.
+**References.** Each attempt has its own reference, such as `BK-<booking id>-<6 hex characters>` (`PC-` for parcels, `WT-` for top-ups), so two quick taps on Pay never send Paynow the same reference.
 
-There are no `/payments/orders` or `/payments/verify` endpoints: booking orders are created by `POST /bookings`, and payments are confirmed by the webhook.
+**Refunds.** Paynow has no authorise-then-capture and no refund API. So a request is paid before the driver can accept, and refunds go to the Poolora wallet.
+
+**Fraud checks.** A failed payment is recorded for the fraud check, which scores the payer: high risk flags the account for admin review, and critical risk suspends it until an admin reviews it (see `/admin/fraud`). The check never blocks an account by itself.
 
 ---
 
@@ -431,17 +443,22 @@ Push notifications go through Firebase Cloud Messaging using the service account
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| GET | `/parcels/quote` | signed in | Price before sending. Query: `pickupLat`, `pickupLng`, `deliveryLat`, `deliveryLng`, `weight` (kg), optional `insuranceValue`. ₹50, plus ₹5 a km, ₹10 a kg over 5 kg, and 1% of the insured value. Returns `total` and `distanceKm` |
-| POST | `/parcels/create` | signed in | Send a parcel on a ride that has not left, and is not your own (`409 SELF_PARCEL`, `409 RIDE_NOT_AVAILABLE`). With `useWallet: true` the wallet pays at once; otherwise the response has a Razorpay order, and the payment webhook records the payment. The response has the one-time `deliveryOtp` to share with the recipient |
+| GET | `/parcels/quote` | signed in | Price before sending. Query: `pickupLat`, `pickupLng`, `deliveryLat`, `deliveryLng`, `weight` (kg), optional `insuranceValue`. US$2, plus US$0.35 a km for the first 20 km and US$0.02 a km after that (straight-line distance), US$0.50 a kg over 5 kg, rounded to 10 cents, plus 1% of the insured value. Set against Harare's motorbike couriers in town and Zimpost between cities. Returns `total` and `distanceKm` |
+| POST | `/parcels/create` | signed in | Send a parcel on a ride that has not left, and is not your own (`409 SELF_PARCEL`, `409 RIDE_NOT_AVAILABLE`). With `useWallet: true` the wallet pays at once; otherwise it is paid with `POST /payments/start` (`purpose: parcel`). The response has the one-time `deliveryOtp` to share with the recipient |
 | POST | `/parcels/:id/accept` | driver | Carry it. Only once it is paid (`409 PARCEL_NOT_PAID`) |
 | POST | `/parcels/:id/reject` | driver | Decline. Body: optional `reason`. The sender is refunded in full |
 | POST | `/parcels/:id/pickup` | driver | Picked up |
 | POST | `/parcels/:id/deliver` | driver | Delivered, with the recipient's code. 70% of the cost is counted in the driver's earnings |
-| POST | `/parcels/:id/cancel` | sender | Cancel before pickup, with a full refund to the wallet or card. Refused once the driver has it (`409 PARCEL_PICKED_UP`) |
+| POST | `/parcels/:id/cancel` | sender | Cancel before pickup, with a full refund to the wallet. Refused once the driver has it (`409 PARCEL_PICKED_UP`) |
+| POST | `/parcels/:id/photos` | sender, driver or recipient | Photo proof (UC-P03). Body: `stage` (`pickup`, `delivery`, `claim`), `data` (base64 JPEG or PNG, up to 5 MB), optional `lat`, `lng` |
+| GET | `/parcels/:id/photos` | parties or admin | The parcel's photos |
+| GET | `/parcels/:id/photos/:photoId` | parties or admin | One image |
+| POST | `/parcels/:id/claims` | sender or recipient | Claim for a damaged or lost parcel (UC-P05). Body: `kind` (`damaged`, `lost`), `description`, `amount`, `photoIds` (up to 6). Cover is the declared value for insured parcels, otherwise the delivery charge. One open claim per parcel |
+| GET | `/parcels/:id/claims` | parties or admin | Claims on the parcel |
 | GET | `/parcels/track/:trackingNumber` | signed in | Status by tracking number |
 | GET | `/parcels` | signed in | The caller's parcels. `role` (`sender`, `driver`, `receiver`), optional `rideId`. Drivers see only paid requests |
 
-In the app: Services > Parcels. The sender describes the parcel and picks a ride on the route, pays from the wallet or by card, and gets the delivery code once to pass to the recipient. The driver accepts or declines, marks the pickup and hands the parcel over with the code, from the ride screen.
+In the app: Services > Parcels. The sender describes the parcel and picks a ride on the route, pays from the wallet or through Paynow, and gets the delivery code once to pass to the recipient. The driver accepts or declines, marks the pickup and hands the parcel over with the code, from the ride screen.
 
 ### Admin — `/admin` (admin only)
 
@@ -451,6 +468,7 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 |---|---|---|
 | GET | `/admin/overview` | Dashboard figures (users, rides, money, safety, system health) and anomalies (UC-A02) |
 | GET | `/admin/applications` | Driver applications waiting for review, with document status, risk indicators and an `overdue` flag after 48 hours (UC-A01) |
+| POST | `/admin/applications/:userId/recheck` | Run the automatic document checks again (Zimbabwe plate format, licence, driver age, vehicle age, duplicates), and the vendor background check when `KYC_VERIFY_URL` is set |
 | POST | `/admin/applications/:userId/request-changes` | Ask for documents again. Body: `documents` (any of `licence`, `registration`, `insurance`, `photo`) and `note`. The driver is notified and can resubmit |
 | GET | `/admin/kyc/:userId/documents` | Short-lived links to a driver's KYC documents. A document that cannot be signed is listed in `unavailable` instead of failing the request |
 | GET | `/admin/accounts` | Search users. Query: `q` (name, phone or email), `status` (`active`, `suspended`, `blocked`, `pending_block`), `role`, `kycStatus`, `page`, `limit` |
@@ -462,6 +480,24 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | POST | `/admin/accounts/:id/block/reject` | Reject a block request. Body: `reason` |
 | POST | `/admin/accounts/:id/unblock` | Body: `reason` |
 | POST | `/admin/accounts/:id/notes` | Internal note, seen only by admins. Body: `text` |
+| GET | `/admin/accounts/:id/duplicates` | Accounts that look like the same person: same name, or the same phone (push token) |
+| POST | `/admin/accounts/:id/merge` | Ask to merge this duplicate into another account. Body: `targetId`, `reason`. The duplicate must have nothing under way |
+| GET | `/admin/merges` | Merge requests. `?status=` |
+| POST | `/admin/merges/:id/approve` | A different admin approves; history, wallet money and coins move, and the duplicate is closed (`SECOND_ADMIN_REQUIRED` for the admin who asked) |
+| POST | `/admin/merges/:id/reject` | Body: `reason` |
+| GET | `/admin/appeals` | Appeals against suspensions and blocks (UC-A05 3a) |
+| POST | `/admin/appeals/:id/decide` | Body: `decision`, `note`. Decided by an admin other than the one who acted |
+| GET | `/admin/accounts/:id/calls` | Masked calls the user made or received |
+| GET | `/admin/calls/:id/recording` | A call's recording, when recording is on |
+| GET | `/admin/withdrawals` | Wallet withdrawals. `?status=pending` (default), `paid`, `rejected` |
+| POST | `/admin/withdrawals/:id/paid` | Record that the money was sent. Body: `payoutReference` (the mobile money transaction id). The user is notified |
+| POST | `/admin/withdrawals/:id/reject` | Body: `note`. The amount goes back to the wallet |
+| GET | `/admin/parcel-claims` | Parcel claims |
+| POST | `/admin/parcel-claims/:id/decide` | Body: `decision` (`approve`, `reject`), `note` (the claimant sees it), optional `payout` (up to the cover limit; paid to the wallet) and `insurerReference` |
+| GET | `/admin/parcels/:id/photos/:photoId` | A parcel photo |
+| GET, POST | `/admin/alert-rules` | Custom alert rules (UC-A02): `metric` (new or open SOS, SOS waiting over 5 minutes, bookings or cancellations today as % of normal, fraud flags, urgent support, open disputes, overdue driver applications, server error rate), `comparator` (`above`, `below`), `threshold`, `channels` (`email`, `sms`), admins to tell, `cooldownMins` (5–1440) |
+| PATCH, DELETE | `/admin/alert-rules/:id` | Change or remove a rule |
+| POST | `/admin/alert-rules/:id/test` | Send a test alert |
 | GET | `/admin/support` | Support requests. `?status=open` (default: urgent first, then oldest), `answered` or `closed`; optional `category` |
 | GET | `/admin/support/:id` | The request with the user, the trip and the thread |
 | POST | `/admin/support/:id/reply` | Body: `text`, optional `close`. The user is notified in the app, by push and by email |
@@ -480,24 +516,27 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | POST | `/admin/sos/:id/log` | Add a call or action to the timeline. Body: `text` |
 | POST | `/admin/sos/:id/police` | Record that police were called. Body: optional `notes` |
 | POST | `/admin/sos/:id/resolve` | Body: `notes`, `isFalseAlarm` |
-| GET | `/admin/reports/:type` | `type`: `users`, `rides`, `financial`, `performance`, `safety`. Query: `from`, `to` (at most two years apart; default the last 30 days), `groupBy` (`day`, `week`, `month`), `format=csv`, `xlsx` or `pdf` for a download. Periods are in India time (UC-A06) |
+| GET | `/admin/reports/:type` | `type`: `users`, `rides`, `financial`, `performance`, `safety`. Query: `from`, `to` (at most two years apart; default the last 30 days), `groupBy` (`day`, `week`, `month`), `format=csv`, `xlsx` or `pdf` for a download. Periods are in local time (UC-A06) |
 | GET | `/admin/report-schedules` | Scheduled report emails, and `emailEnabled` (false when the server has no SMTP) |
-| POST | `/admin/report-schedules` | `{ name, types[], frequency: daily\|weekly\|monthly, format?: xlsx\|pdf\|csv, recipients }` (up to 10 addresses, as an array or comma-separated). Sent at 07:00 India time: daily covers yesterday, weekly (Mondays) the last seven days, monthly (the 1st) last month |
+| POST | `/admin/report-schedules` | `{ name, types[], frequency: daily\|weekly\|monthly, format?: xlsx\|pdf\|csv, recipients }` (up to 10 addresses, as an array or comma-separated). Sent at 07:00 local time: daily covers yesterday, weekly (Mondays) the last seven days, monthly (the 1st) last month |
 | PATCH | `/admin/report-schedules/:id` | Any of the fields above, or `active`. A new frequency or resuming starts from the next send time |
 | DELETE | `/admin/report-schedules/:id` | Stops and removes a schedule |
 | POST | `/admin/report-schedules/:id/send` | Sends it now for the period just ended, without moving the schedule. 503 `EMAIL_UNAVAILABLE` without SMTP |
 | GET | `/admin/settings` | Every editable setting with its value, default and limits (UC-A07) |
-| PUT | `/admin/settings` | Body: `changes` (key to value) and `reason`. All values are validated first; nothing changes unless all are valid. Applies at once, and on other servers within a minute |
+| PUT | `/admin/settings` | Body: `changes` (key to value) and `reason`. All values are validated first; nothing changes unless all are valid. Applies at once, and on other servers within a minute. **Critical settings** (platform commission, the ZiG exchange rate, keeping the platform fee on cancellation, and rider refund tiers) are not applied: they wait in `pending` for a second admin |
+| GET | `/admin/settings/pending` | Critical changes waiting for approval |
+| POST | `/admin/settings/pending/:id/approve` | A different admin applies it. Body: optional `note` |
+| POST | `/admin/settings/pending/:id/reject` | Body: `note` |
 | GET | `/admin/settings/history` | Recent changes with before and after values |
 | POST | `/admin/settings/revert/:auditId` | Put back what a change replaced, within 24 hours. Body: `reason` |
 | GET | `/admin/audit` | The audit log. Query: `action` (prefix such as `user` or `sos`), `actor`, `targetId`, `page`, `limit` |
 | GET | `/admin/metrics`, `/admin/rides`, `/admin/users`, `/admin/payments`, `/admin/demand-heatmap` | Older summary endpoints used by the app's admin screens |
 
-Settings an admin can change: platform commission, rider cancellation refund tiers, payment time limit, driver response time, empty-ride cancellation, SOS check-in intervals by risk level, match-score weights (must add up to 100%), distance from the route, default search radius and time window, active rides per driver, and open requests per rider. Payment credentials and message templates are deliberately not editable.
+Settings an admin can change: platform commission, the ZiG exchange rate (ZiG per US dollar; 0 turns ZiG off), rider cancellation refund tiers, payment time limit, driver response time, empty-ride cancellation, SOS check-in intervals by risk level, match-score weights (must add up to 100%), distance from the route, default search radius and time window, active rides per driver, and open requests per rider. Payment credentials and message templates are deliberately not editable.
 
 ### Trips — `/trips` (Phase 4)
 
-Group trips (UC-T01 to UC-T05). Only members see expenses, activities, settlements, the invite code and members' UPI ids.
+Group trips (UC-T01 to UC-T05). Only members see expenses, activities, settlements, the invite code and members' mobile money numbers.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -510,12 +549,15 @@ Group trips (UC-T01 to UC-T05). Only members see expenses, activities, settlemen
 | POST | `/trips/:id/join` | Ask to join. Body: optional `message`, and `code` for a private trip. `409 TRIP_FULL` when full |
 | POST | `/trips/:id/requests/:requestId` | Organiser answers. Body: `accept` |
 | POST | `/trips/:id/leave` | A member leaves, once their balance is settled |
-| PUT | `/trips/:id/upi` | The caller's UPI id for this trip. Body: `upiId` (empty to remove) |
-| GET, POST | `/trips/:id/expenses` | List, or add: `description`, `amount`, optional `paidBy` (default the caller) and `splitAmong` (default everyone). Split equally, to the paisa |
+| PUT | `/trips/:id/pay-number` | The caller's mobile money number for this trip. Body: `payNumber` (empty to remove) |
+| GET, POST | `/trips/:id/expenses` | List, or add: `description`, `amount`, optional `paidBy` (default the caller) and `splitAmong` (default everyone). Split equally, to the cent |
 | DELETE | `/trips/:id/expenses/:expenseId` | Whoever added it, or the organiser |
-| GET | `/trips/:id/settlement` | `total`, `perPerson`, each member's `paid`, `share` and `balance`, and `transfers`: the fewest payments that settle everyone, each with a `upiLink` when the payee added a UPI id |
+| GET | `/trips/:id/settlement` | `total`, `perPerson`, each member's `paid`, `share` and `balance`, and `transfers`: the fewest payments that settle everyone, each with an `ecocashLink` (a `tel:` link that dials EcoCash send-money, `*151*1*1*<number>*<amount>#`) when the payee added an EcoCash number |
 | POST | `/trips/:id/settlements` | The payer or payee marks a payment made. Body: `from`, `to`, `amount` |
 | POST | `/trips/:id/settlement/notify` | Tells each member what they owe or are owed |
+| POST | `/trips/:id/rate-organizer` | A member rates the organiser once the trip is over. Body: `score` 1–5, optional `comment` |
+| GET | `/trips/:id/calendar-link` | A private calendar feed URL for the trip's confirmed activities (UC-T04) |
+| GET | `/trips/:id/calendar.ics?token=` | The feed itself, for calendar apps; no login, the token is signed per member |
 | POST | `/trips/:id/activities` | Propose an activity: `title`, optional `date`, `cost`, `durationMins`, `notes`. The proposer votes yes |
 | POST | `/trips/:id/activities/:activityId/vote` | Body: `vote` (`yes`, `no`, `maybe`). More than half the group voting yes confirms it and adds its cost to the expenses, paid by the proposer; more than half voting no rejects it |
 
@@ -529,6 +571,8 @@ Help and support requests (UC-X02). The FAQ and the phone line for urgent safety
 | GET | `/support/tickets` | The caller's requests, newest activity first |
 | GET | `/support/tickets/:id` | One request with its messages |
 | POST | `/support/tickets/:id/reply` | Body: `text`. Adds to the thread; a closed request opens again |
+| GET | `/support/assistant` | `{ enabled }`: whether the in-app assistant is on (it needs `ANTHROPIC_API_KEY`) |
+| POST | `/support/assistant` | Body: `messages`, the conversation so far (1–40 turns of `{ role: 'user' \| 'assistant', text }`, ending with the user). Returns `reply`, and `ticketId` when the assistant opened a support request. The assistant reads the caller's recent bookings and cancellation quotes; it never changes a booking or moves money. 40 messages an hour per user (`429 CHATBOT_LIMIT`); `503 CHATBOT_UNAVAILABLE` when switched off |
 
 ### Disputes — `/disputes`
 
@@ -536,6 +580,31 @@ Help and support requests (UC-X02). The FAQ and the phone line for urgent safety
 |---|---|---|
 | POST | `/disputes` | A rider or driver disputes one of their bookings. Body: `bookingId`, `category` (`payment`, `cancellation`, `behavior`, `route`, `quality`), `description` (at least 10 characters), optional `evidenceUrls` (https, up to 5). Allowed up to 30 days after the ride or cancellation, one open dispute per booking per person |
 | GET | `/disputes/mine` | Disputes the caller raised or is named in |
+
+### Appeals — `/appeals`
+
+A suspended or blocked account can appeal within 30 days (UC-A05 3a). Blocked accounts can reach these routes and nothing else.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/appeals/mine` | The account's restriction, whether it can be appealed, and past appeals |
+| POST | `/appeals` | Body: `message` (20–2000 characters) |
+
+### Masked calls — `/calls`
+
+Riders and drivers call each other through a Twilio number, so neither sees the other's number (UC-D06). Needs `TWILIO_VOICE_NUMBER`; recording is optional (`TWILIO_RECORD_CALLS`).
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `/calls/available` | signed in | `masked` and `recorded`; without masked calls the app dials directly |
+| POST | `/calls` | rider or driver of the booking | Body: `bookingId`. Rings the caller, then connects them to the other person |
+| POST | `/calls/twilio/status`, `/calls/twilio/recording` | Twilio (signature-checked) | Call progress and recordings |
+
+### Background checks — `/kyc-verify`
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| POST | `/kyc-verify/callback` | the vendor, with `X-Kyc-Verify-Key` | The background-check vendor's answer. Body: `reference` (the user id), `status`, optional `summary` |
 
 ### Ride simulator — `/dev/simulate`
 
@@ -610,20 +679,27 @@ With several backend instances, events are shared through the Socket.IO Redis ad
 | 401 | `UNAUTHORIZED` | Missing or expired token |
 | 403 | `FORBIDDEN`, `ACCOUNT_BLOCKED`, `ACCOUNT_SUSPENDED`, `SECOND_ADMIN_REQUIRED` | Signed in, but not allowed. A blocked account gets `ACCOUNT_BLOCKED` on every request; a suspended one gets `ACCOUNT_SUSPENDED` when it tries to post a ride, book or send a parcel |
 | 404 | `NOT_FOUND` | No such resource |
-| 409 | `CONFLICT`, `PAYMENT_PENDING` | The state does not allow it, for example a booking already answered |
+| 409 | `CONFLICT`, `PAYMENT_PENDING`, `WITHDRAWAL_PENDING`, `ACCOUNT_CLOSE_BLOCKED` | The state does not allow it, for example a booking already answered |
 | 422 | `VALIDATION_ERROR`, `TOO_SOON`, `RIDE_TOO_LONG`, `PRICE_OUT_OF_RANGE` | The body or query failed validation (`details` lists the fields), or a ride breaks a publishing rule (section 4.1) |
 | 429 | `RATE_LIMITED` | Too many requests |
 | 500 | `INTERNAL_ERROR` | Unexpected failure |
-| 503 | `SERVICE_UNAVAILABLE`, `MAPS_SERVICE_UNAVAILABLE` | A dependency is down or not configured (Razorpay keys, a Google-only map call without a key) |
+| 503 | `SERVICE_UNAVAILABLE`, `PAYMENT_CURRENCY_UNAVAILABLE`, `MAPS_SERVICE_UNAVAILABLE` | A dependency is down or not configured (Paynow keys, ZiG without a rate, a Google-only map call without a key) |
+| 502 | `PAYMENT_PROVIDER_UNAVAILABLE` | Paynow could not be reached, or its reply failed the hash check |
 
 ## 15. Rate limits
 
 Limits are counted in Redis, or in memory when Redis is unavailable:
 
-| Scope | Limit |
-|---|---|
-| All requests, per IP | 100 per minute |
-| `verify-otp`, `firebase-login`, `refresh-token` | 10 per 15 minutes |
-| `send-otp` | 3 per hour |
+Each limit is keyed by what it protects. Mobile networks put many subscribers behind one public IP address (carrier-grade NAT), so per-IP limits are only a high ceiling against a single source flooding the API; the real limits are per signed-in user and per phone number.
 
-A limited request gets `429 RATE_LIMITED`.
+| Scope | Key | Limit |
+|---|---|---|
+| Every request | IP | 1000 per minute (`RATE_LIMIT_IP_PER_MIN`) |
+| Every authenticated request | user | 120 per minute (`RATE_LIMIT_USER_PER_MIN`) |
+| `send-otp` | phone number | 3 per hour (UC-R01) |
+| `send-otp` | IP | 30 per hour |
+| `verify-otp` | phone number | 10 per 15 minutes, on top of the wrong-code back-off (section 2) |
+| `verify-otp` | IP | 100 per 15 minutes |
+| `refresh-token`, `firebase-login` | IP | 300 per 15 minutes |
+
+Paynow's result callback, Twilio's callbacks and the background-check callback are not limited: they come from a few addresses and carry their own signatures. A limited request gets `429 RATE_LIMITED`, with the wait in the message.

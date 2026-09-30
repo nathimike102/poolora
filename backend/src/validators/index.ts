@@ -14,6 +14,14 @@ export const sendOtpSchema = {
   }),
 };
 
+/** Poolora is for adults (Terms of Service; privacy policy on children's data) */
+export const MIN_USER_AGE = 18;
+const adultDateOfBirth = Joi.date().iso().max('now').custom((value: Date, helpers) => {
+  const limit = new Date();
+  limit.setFullYear(limit.getFullYear() - MIN_USER_AGE);
+  return value.getTime() > limit.getTime() ? helpers.error('date.underAge') : value;
+}).messages({ 'date.underAge': `You must be at least ${MIN_USER_AGE} to use Poolora` });
+
 export const verifyOtpSchema = {
   body: Joi.object({
     phone: Joi.string()
@@ -25,7 +33,7 @@ export const verifyOtpSchema = {
       then: Joi.required(),
     }),
     email: Joi.string().email().optional(),
-    dateOfBirth: Joi.date().iso().optional(),
+    dateOfBirth: adultDateOfBirth.optional(),
   }),
 };
 
@@ -332,8 +340,16 @@ export const updateMeSchema = {
   body: Joi.object({
     name: Joi.string().trim().min(2).max(100),
     email: Joi.string().trim().lowercase().email().max(254).allow('', null),
-    dateOfBirth: Joi.date().iso().max('now'),
+    dateOfBirth: adultDateOfBirth,
   }).min(1),
+};
+
+/** DELETE /users/me: an explicit confirmation, so a stray request cannot close an account */
+export const closeAccountSchema = {
+  body: Joi.object({
+    confirm: Joi.boolean().valid(true).required().messages({ 'any.only': 'Set confirm to true to close the account' }),
+    reason: Joi.string().trim().max(500).allow(''),
+  }),
 };
 
 // ─── Maps ────────────────────────────────────────────────────────────────────

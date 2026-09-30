@@ -11,6 +11,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { safetyService, type IncidentData } from "../../services/safetyService";
 import { initSocket, joinAdminSosRoom, getSocket } from "../../utils/socket";
+import { REGION } from '../../utils/region';
 
 export const AdminIncidentsScreen: React.FC = () => {
   const { c } = useApp();
@@ -102,7 +103,7 @@ export const AdminIncidentsScreen: React.FC = () => {
         Location: {item.location.lat.toFixed(4)}, {item.location.lng.toFixed(4)}
       </Text>
       <Text style={{ color: c.text, fontSize: 12, marginTop: 4 }}>
-        Raised at {new Date(item.timestamp).toLocaleTimeString()}
+        Raised at {new Date(item.timestamp).toLocaleTimeString(REGION.dateLocale)}
       </Text>
       <View style={styles.actionButtons}>
         {item.status === "triggered" && (

@@ -56,7 +56,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `FIREBASE_PROJECT_ID` | yes | Firebase console, Project settings, General |
 | `FIREBASE_DATABASE_URL` | yes | Firebase console, Realtime Database. Region-specific, e.g. `https://<project-id>-default-rtdb.asia-southeast1.firebasedatabase.app` |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` or `FIREBASE_SERVICE_ACCOUNT_JSON` | yes | Firebase console, Project settings, Service accounts, **Generate new private key**. Save the downloaded JSON to the path, or paste it into the JSON variable |
-| `PAYNOW_USD_INTEGRATION_ID`, `PAYNOW_USD_INTEGRATION_KEY` | yes | paynow.co.zw, Receive Payments, New Integration (USD). Enable EcoCash, OneMoney, InnBucks and Visa/Mastercard on it. Set its result URL to `<APP_BASE_URL>/payments/paynow/result`. Test mode until Paynow approves the integration |
+| `PAYNOW_USD_INTEGRATION_ID`, `PAYNOW_USD_INTEGRATION_KEY` | yes | paynow.co.zw, Receive Payments, New Integration (USD). Enable EcoCash, OneMoney, InnBucks and Visa/Mastercard on it. The backend sends its result URL (`<APP_BASE_URL>/payments/paynow/result`) with every payment, so nothing needs setting in Paynow. Test mode until Paynow approves the integration |
 | `PAYNOW_ZWG_INTEGRATION_ID`, `PAYNOW_ZWG_INTEGRATION_KEY` | no | A second integration in ZiG (ZWG). Leave empty to take US dollars only |
 | `PAYNOW_AUTH_EMAIL` | yes | Sent to Paynow when the payer has no email. In test mode it must be the email you log in to Paynow with |
 | `ZWG_PER_USD` | no | ZiG per US dollar for ZiG payments; `0` (default) turns them off. Admins can change it in Settings |
@@ -77,7 +77,19 @@ openssl rand -base64 756 | tr -d '\n'
 | `ELASTICSEARCH_URL` | no | Default `http://localhost:9200` |
 | `CORS_ORIGIN` | yes | Comma-separated list of allowed origins, including the web admin's. Never `*` in production |
 | `PLATFORM_FEE_RATE` | no | Business setting, default `0.15` |
-| `COIN_TO_INR_RATE` | no | Business setting for wallet coins |
+| `COIN_TO_USD_RATE` | no | US dollars per wallet coin when coins are converted. Default `0.01` |
+| `KEEP_PLATFORM_FEE_ON_CANCEL` | no | `true` keeps the platform fee when a rider cancels (UC-R09). Default off; admins can change it (a critical setting: two admins) |
+| `RATE_LIMIT_IP_PER_MIN`, `RATE_LIMIT_USER_PER_MIN` | no | Request limits per IP (default `1000`) and per signed-in user (default `120`) a minute. Per-IP is only a ceiling, because many mobile users share one carrier NAT address |
+| `PAYNOW_INITIATE_URL`, `PAYNOW_REMOTE_URL` | no | Paynow's endpoints for card and mobile payments. The defaults are Paynow's live URLs; change only for a proxy |
+| `ADMIN_WEB_URL` | no | The web admin's address, for links in admin emails and alerts |
+| `ANTHROPIC_API_KEY` | for the support assistant | console.anthropic.com, API Keys. Without it the in-app assistant says it is unavailable and the app offers a support request instead |
+| `SUPPORT_BOT_MODEL` | no | The Claude model for the support assistant. Default `claude-opus-5-5`, the current Opus |
+| `ML_MATCHING` | no | `true` ranks search results with the ML service's `/api/match` (needs `ML_SERVICE_API_KEY`); otherwise the backend's own weighted score is used |
+| `TWILIO_VOICE_NUMBER` | for masked calls | A Twilio voice number that can call Zimbabwe; riders and drivers call each other through it. Defaults to `TWILIO_PHONE_NUMBER` |
+| `CALL_RECORDING` | no | `false` turns off recording of masked calls (on by default; both sides hear a notice) |
+| `KYC_VERIFY_URL`, `KYC_VERIFY_API_KEY` | no | A background-check vendor for driver applications (UC-A01). The vendor answers at `<APP_BASE_URL>/kyc-verify/callback` with the key in `X-Kyc-Verify-Key`. Without it, only the automatic document checks run |
+| `INSURANCE_CLAIMS_URL`, `INSURANCE_API_KEY` | no | An insurer's endpoint for parcel claims (UC-P05). Without it, admins decide claims and pay them to the wallet |
+| `PARCEL_PHOTO_PROOF` | no | `optional` stops requiring photos at parcel pickup and delivery |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` | for email | Any SMTP provider: Amazon SES, Zoho, Google Workspace, or SendGrid or Mailgun over SMTP. Port `587` with `SMTP_SECURE=false`, or `465` with `true`. Without `SMTP_HOST`, emails (receipts, driver application decisions, account and dispute notices) are skipped |
 | `MAIL_FROM` | for email | Sender, e.g. `Poolora <no-reply@your-domain>`. See "Sending mail without a custom domain" below |
 | `SENTRY_DSN` | no | sentry.io, create a Node.js project, Settings, Client Keys (DSN). Empty disables it |
@@ -103,7 +115,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `REACT_NATIVE_API_BASE_URL` | yes | Backend URL. `http://<your LAN IP>:5002` for a physical device in development |
 | `REACT_NATIVE_API_TIMEOUT` | no | Milliseconds, default `30000` |
 | `MAP_STYLE_LIGHT`, `MAP_STYLE_DARK` | no | Map style URLs. Default: OpenFreeMap's liberty and dark styles, which need no key. The app no longer uses a Google Maps key |
-| `EAS_PROJECT_ID` | for EAS builds | expo.dev, your project, Project ID. Or run `eas init` |
+| `EAS_PROJECT_ID` | no | Overrides the project in `frontend/app.config.js`, which is `@nathi_mike/poolora` (`1867e068-…`). The old `@nathi_mike/one-piece` project is no longer used |
 | `SENTRY_DSN` | no | sentry.io, a React Native project, Client Keys |
 | `FIREBASE_DATABASE_URL` | yes | Firebase console, Realtime Database. Region-specific instance URL |
 | `GOOGLE_WEB_CLIENT_ID` | for Google sign-in | Google Cloud, Credentials, OAuth client ID of type Web application (the one Firebase creates) |
@@ -157,8 +169,9 @@ All of these are compiled into the build and are public; none is a secret.
 | `EC2_USER` | SSH user on that server, e.g. `ubuntu` |
 | `EC2_SSH_KEY` | The private key for a deploy-only key pair. Put its public key in the server's `~/.ssh/authorized_keys` |
 
-Without `EC2_HOST`, the deploy job skips with a notice instead of failing.
 | `GITHUB_TOKEN` | Provided automatically. Used to push images to ghcr.io |
+
+Without `EC2_HOST`, the deploy job skips with a notice instead of failing.
 
 ## Sending mail without a custom domain
 
@@ -202,7 +215,8 @@ Actions taken:
 
 - Git history was rewritten with `git-filter-repo` to redact all three keys from
   every commit. The working tree and all 57 commits are clean.
-- The Firebase project was rebuilt from scratch as `poolora-e145e`. The old
+- The Firebase project was rebuilt from scratch as `sanchari-e145e` (the id
+  in `frontend/google-services.json` and both `.env` files). The old
   project and its keys are abandoned.
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` and `ML_SERVICE_API_KEY` were
   regenerated, even though they were never committed. Rotating the JWT secrets

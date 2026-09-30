@@ -20,7 +20,7 @@ import { StarRating } from '../../components/RatingForm';
 import { tripService, tripDates, tripDays, type Trip, type TripExpense, type Settlement, type TripVote } from '../../services/tripService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
-import { formatPhone, money } from '../../utils/region';
+import { currencySymbol, formatPhone, money } from '../../utils/region';
 
 type Tab = 'plan' | 'people' | 'money';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -222,7 +222,7 @@ export function TripDetailScreen() {
         <Text style={[styles.label, { color: c.textSec }]}>Propose an activity</Text>
         <TextInput value={activity.title} onChangeText={t => setActivity(s => ({ ...s, title: t }))} placeholder="Dudhsagar falls trek" placeholderTextColor={c.textSec} maxLength={120} accessibilityLabel="Activity" style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
         <View style={styles.row}>
-          <TextInput value={activity.cost} onChangeText={t => setActivity(s => ({ ...s, cost: t.replace(/[^0-9.]/g, '') }))} placeholder="Total cost, ₹" placeholderTextColor={c.textSec} keyboardType="decimal-pad" accessibilityLabel="Total cost" style={[styles.input, { flex: 1, borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
+          <TextInput value={activity.cost} onChangeText={t => setActivity(s => ({ ...s, cost: t.replace(/[^0-9.]/g, '') }))} placeholder={`Total cost, ${currencySymbol()}`} placeholderTextColor={c.textSec} keyboardType="decimal-pad" accessibilityLabel="Total cost" style={[styles.input, { flex: 1, borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
           <TextInput value={activity.notes} onChangeText={t => setActivity(s => ({ ...s, notes: t }))} placeholder="When, notes" placeholderTextColor={c.textSec} maxLength={1000} accessibilityLabel="Notes" style={[styles.input, { flex: 2, borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
         </View>
         <Pressable
@@ -393,7 +393,7 @@ export function TripDetailScreen() {
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
         <Text style={[styles.cardTitle, { color: c.text }]}>Add an expense</Text>
         <TextInput value={expense.description} onChangeText={t => setExpense(s => ({ ...s, description: t }))} placeholder="Hotel, 2 nights" placeholderTextColor={c.textSec} maxLength={200} accessibilityLabel="What for" style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
-        <TextInput value={expense.amount} onChangeText={t => setExpense(s => ({ ...s, amount: t.replace(/[^0-9.]/g, '') }))} placeholder="Amount, ₹" placeholderTextColor={c.textSec} keyboardType="decimal-pad" accessibilityLabel="Amount" style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
+        <TextInput value={expense.amount} onChangeText={t => setExpense(s => ({ ...s, amount: t.replace(/[^0-9.]/g, '') }))} placeholder={`Amount, ${currencySymbol()}`} placeholderTextColor={c.textSec} keyboardType="decimal-pad" accessibilityLabel="Amount" style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]} />
         <Text style={[styles.label, { color: c.textSec }]}>Paid by</Text>
         <View style={styles.chips}>
           {memberIds.map(id => {

@@ -17,6 +17,8 @@ import { BookingStatus, RideStatus, UserCapability } from '../types';
 import { Ride, rideRoutePath } from '../models/Ride';
 import { nearestOnPath } from '../utils/routeGeometry';
 
+const minutes = (n: number) => `${n} min${n === 1 ? '' : 's'}`;
+
 interface AuthenticatedSocket extends Socket {
   userId: string;
   sessionId: string;
@@ -458,7 +460,7 @@ export class SocketGateway {
       return {
         distanceKm: Math.round(distanceKm * 10) / 10,
         estimatedMins: Math.min(eta, 5),
-        message: `Driver is ${Math.round(distanceKm * 1000)}m away (~${Math.min(Math.round(eta), 5)} mins)`,
+        message: `Driver is ${Math.round(distanceKm * 1000)} m away, about ${minutes(Math.max(1, Math.min(Math.round(eta), 5)))}`,
       };
     }
 
@@ -469,7 +471,7 @@ export class SocketGateway {
       return {
         distanceKm: Math.round(distanceKm * 10) / 10,
         estimatedMins: eta,
-        message: `Driver is ${Math.round(distanceKm)}km away (~${eta} mins)`,
+        message: `Driver is ${Math.round(distanceKm)} km away, about ${minutes(Math.max(1, eta))}`,
       };
     }
 

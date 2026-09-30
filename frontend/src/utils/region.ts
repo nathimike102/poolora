@@ -50,6 +50,9 @@ export const REGION: Market = MARKETS[(process.env.EXPO_PUBLIC_MARKET || 'ZW').t
 
 const SYMBOL: Record<CurrencyCode, string> = { USD: 'US$', ZWG: 'ZiG ' };
 
+/** The market currency's symbol, for input labels: "US$" */
+export const currencySymbol = (currency: CurrencyCode = REGION.currency) => SYMBOL[currency].trim();
+
 /** "US$12", "US$12.50", "ZiG 340.25" */
 export function money(amount: number, currency: CurrencyCode = REGION.currency): string {
   const n = Math.round(amount * 100) / 100;

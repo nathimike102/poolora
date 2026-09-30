@@ -20,6 +20,7 @@
  * sets (config.zwgPerUsd) at the moment it starts, and records that rate.
  */
 
+import { randomBytes } from 'crypto';
 import { Types } from 'mongoose';
 import { config } from '../config';
 import { CurrencyCode, money, REGION, roundMoney, toE164 } from '../config/region';
@@ -129,8 +130,9 @@ export class ChargeService {
     const { amountUsd, target, description } = await this.owed(userId, input);
     const exchangeRate = currency === 'ZWG' ? config.zwgPerUsd : undefined;
     const chargedAmount = roundMoney(amountUsd * (exchangeRate ?? 1));
-    const attempts = target ? await GatewayCharge.countDocuments({ target }) : 0;
-    const reference = `${PREFIX[input.purpose]}-${(target ?? new Types.ObjectId()).toString()}${target ? `-${attempts + 1}` : ''}`;
+    // A random suffix, not an attempt count: two quick taps on Pay must not
+    // send Paynow the same reference, or the second payment has no record
+    const reference = `${PREFIX[input.purpose]}-${(target ?? new Types.ObjectId()).toString()}${target ? `-${randomBytes(3).toString('hex')}` : ''}`;
 
     const user = await User.findById(userId).select('email').lean();
     const email = user?.email || config.paynow.authEmail;
@@ -302,6 +304,16 @@ export class ChargeService {
       // Another charge for the same booking got there first
       if ((error as { code?: number }).code === 11000) return false;
       throw error;
+    }
+    // The sweeper may have closed the request between the check above and
+    // the payment being recorded; it then refunded nothing, so refund now.
+    // The wallet refund is keyed by booking, so it is never paid twice.
+    const closed = await Booking.findOne({ _id: booking._id, status: { $ne: BookingStatus.PENDING } });
+    if (closed) {
+      const { BookingService } = await import('./BookingService');
+      await new BookingService().refundBooking(closed, 'The request closed as the payment arrived', 'system');
+      logger.warn('Payment arrived as its request closed; refunded to wallet', { reference: charge.reference, bookingId: booking._id });
+      return true;
     }
     EventBridge.publish('payment-events', {
       eventType: 'payment.captured',

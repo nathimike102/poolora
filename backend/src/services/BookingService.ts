@@ -29,8 +29,23 @@ const walletService = new WalletService();
  */
 export type RefundOutcome = 'wallet' | 'partial' | 'none' | 'failed';
 
+/**
+ * Until when a rider may cancel a confirmed booking for everything back:
+ * riderFreeCancelMins after the driver accepted, and only while the ride is
+ * at least riderFreeCancelLeadMins away. Null when there is no such window.
+ */
+export function freeCancelUntil(departureTime: Date, confirmedAt?: Date): Date | null {
+  if (!confirmedAt) return null;
+  const graceEnds = confirmedAt.getTime() + config.ride.riderFreeCancelMins * 60_000;
+  const leadEnds = departureTime.getTime() - config.ride.riderFreeCancelLeadMins * 60_000;
+  const until = Math.min(graceEnds, leadEnds);
+  return until > confirmedAt.getTime() ? new Date(until) : null;
+}
+
 /** Share of the fare a rider gets back for cancelling a confirmed booking. */
-export function riderRefundRate(departureTime: Date, now = new Date()): number {
+export function riderRefundRate(departureTime: Date, now = new Date(), confirmedAt?: Date): number {
+  const free = freeCancelUntil(departureTime, confirmedAt);
+  if (free && now.getTime() <= free.getTime()) return 1;
   const hoursLeft = (departureTime.getTime() - now.getTime()) / 3_600_000;
   const tier = config.ride.riderCancellationRefunds.find((t) => hoursLeft >= t.minHours);
   return tier ? tier.refundRate : 0;
@@ -270,6 +285,7 @@ export class BookingService {
     }
 
     booking.status = BookingStatus.CONFIRMED;
+    booking.confirmedAt = new Date();
     await booking.save();
 
     EventBridge.publish('booking-events', {
@@ -451,12 +467,13 @@ export class BookingService {
       : null;
 
     // A rider cancelling a confirmed seat gets back a share that shrinks as
-    // departure nears (UC-R09); the rest goes to the driver, less the platform
-    // fee (UC-D04 7b). Requests not yet accepted, and anything the driver
-    // cancels, are refunded in full.
+    // departure nears (UC-R09), or everything just after the driver accepted;
+    // the rest goes to the driver, less the platform fee (UC-D04 7b).
+    // Requests not yet accepted, and anything the driver cancels, are
+    // refunded in full.
     // Full refund when the driver moved the departure after this booking was made (UC-D08)
     const byPolicy = Boolean(isRider && ride && !booking.rideChangedAt);
-    const split = cancellationSplit(booking.estimatedFare, byPolicy ? riderRefundRate(ride!.departureTime) : 1, byPolicy);
+    const split = cancellationSplit(booking.estimatedFare, byPolicy ? riderRefundRate(ride!.departureTime, new Date(), booking.confirmedAt) : 1, byPolicy);
     const refundAmount = split.refund;
     const cancellationFee = split.retained;
     booking.refundAmount = refundAmount;
@@ -495,11 +512,15 @@ export class BookingService {
     }
     let refundRate = 1;
     let byPolicy = false;
+    let freeUntil: Date | null = null;
     if (isRider && booking.status === BookingStatus.CONFIRMED && !booking.rideChangedAt) {
       const ride = await Ride.findById(booking.ride).select('departureTime');
       if (ride) {
-        refundRate = riderRefundRate(ride.departureTime);
+        const now = new Date();
+        refundRate = riderRefundRate(ride.departureTime, now, booking.confirmedAt);
         byPolicy = true;
+        freeUntil = freeCancelUntil(ride.departureTime, booking.confirmedAt);
+        if (freeUntil && freeUntil.getTime() < now.getTime()) freeUntil = null;
       }
     }
     const { refund: refundAmount, platformFee } = cancellationSplit(booking.estimatedFare, refundRate, byPolicy);
@@ -511,10 +532,13 @@ export class BookingService {
       /** The platform fee kept from this cancellation when the fee is non-refundable */
       platformFeeKept: feeKept ? platformFee : 0,
       platformFeeRefundable: !config.ride.keepPlatformFeeOnCancel,
+      /** Cancelling before this gets everything back; absent once the window has passed */
+      freeCancelUntil: freeUntil ?? undefined,
       policy: config.ride.riderCancellationRefunds.map((t) => ({
         minHoursBeforeDeparture: t.minHours,
         refundPercent: Math.round(t.refundRate * 100),
       })),
+      freeCancelMins: config.ride.riderFreeCancelMins,
     };
   }
 
@@ -577,7 +601,7 @@ export class BookingService {
     }
 
     const fee = booking.estimatedFare;
-    const platformFee = Math.round(fee * config.ride.platformFeeRate * 100) / 100;
+    const platformFee = round2(fee * config.ride.platformFeeRate);
     booking.status = BookingStatus.CANCELLED;
     booking.noShow = true;
     booking.cancelledBy = new Types.ObjectId(driverId);
@@ -586,7 +610,7 @@ export class BookingService {
     booking.refundAmount = 0;
     booking.cancellationFee = fee;
     booking.platformFee = platformFee;
-    booking.driverEarnings = fee - platformFee;
+    booking.driverEarnings = round2(fee - platformFee);
     await booking.save();
 
     await Promise.all([

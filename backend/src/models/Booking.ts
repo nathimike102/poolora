@@ -36,6 +36,8 @@ export interface IBooking extends Document {
   cancelledBy?: Types.ObjectId;
   cancellationReason?: string;
   cancelledAt?: Date;
+  /** When the driver accepted the request; starts the free-cancellation window */
+  confirmedAt?: Date;
   /** What the rider got back on cancellation. */
   refundAmount?: number;
   /** What the rider forfeited for a late cancellation; paid to the driver less the platform fee. */
@@ -104,6 +106,7 @@ const BookingSchema = new Schema<IBooking>(
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
     cancellationReason: String,
     cancelledAt: Date,
+    confirmedAt: Date,
     refundAmount: { type: Number, min: 0 },
     cancellationFee: { type: Number, min: 0 },
     note: { type: String, maxlength: 300 },

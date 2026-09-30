@@ -30,6 +30,7 @@ import { Icon } from '../../components/Icon';
 import { bookingService } from '../../services/bookingService';
 import { safetyService, type EmergencyContact, type SOSResponse } from '../../services/safetyService';
 import { REGION } from '../../utils/region';
+import { displayPhone } from '../../utils/phone';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -394,7 +395,7 @@ export function SOSScreen() {
                             </View>
                           ) : null}
                         </View>
-                        <Text style={{ fontSize: 13, color: c.textSec }}>{contact.phone}</Text>
+                        <Text style={{ fontSize: 13, color: c.textSec }}>{displayPhone(contact.phone) ?? contact.phone}</Text>
                       </View>
                     </View>
                   </View>

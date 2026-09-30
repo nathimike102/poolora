@@ -1,6 +1,6 @@
 # Poolora App
 
-The Poolora mobile app for riders, drivers and admins. It is a React Native 0.86 app on Expo 57, written in TypeScript. Riders search and book scheduled rides, pay from the wallet or through Razorpay, follow the car live, chat, and raise an SOS. Drivers publish rides, accept requests, and start and finish trips. Admins review driver verifications, SOS incidents and platform metrics.
+The Poolora mobile app for riders, drivers and admins. It is a React Native 0.86 app on Expo 57, written in TypeScript. Riders search and book scheduled rides, pay from the wallet or through Paynow (EcoCash, OneMoney, InnBucks or card), follow the car live, chat, and raise an SOS. Drivers publish rides, accept requests, and start and finish trips. Admins review driver verifications, SOS incidents and platform metrics.
 
 The backend is in [`../backend`](../backend). Every key and environment variable is listed in [`../docs/SECRETS.md`](../docs/SECRETS.md).
 

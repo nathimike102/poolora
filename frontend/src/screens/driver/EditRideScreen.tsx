@@ -20,7 +20,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
-import { money, moneyInput } from '../../utils/region';
+import { money, moneyInput, REGION } from '../../utils/region';
 
 const STEP_MINS = 15;
 const MAX_SHIFT_MINS = 120;
@@ -28,7 +28,7 @@ const MAX_PRICE_CHANGE = 0.2;
 const EDIT_CUTOFF_HOURS = 4;
 
 function timeLabel(d: Date): string {
-  return d.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export function EditRideScreen() {

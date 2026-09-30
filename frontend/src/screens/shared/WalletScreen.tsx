@@ -99,7 +99,9 @@ export function WalletScreen() {
   const amountNum = Number(amount);
   const numberOk = REGION.mobilePattern.test(nationalDigits(payNumber));
   const pending = withdrawals.find(w => w.status === 'pending');
-  const canWithdraw = !pending && numberOk && amountNum >= MIN_WITHDRAWAL && balance !== null && amountNum <= balance;
+  // Below the minimum, the whole balance can still be withdrawn (small refunds must not get stuck)
+  const wholeSmallBalance = balance !== null && balance > 0 && balance < MIN_WITHDRAWAL && amountNum === Math.round(balance * 100) / 100;
+  const canWithdraw = !pending && numberOk && (amountNum >= MIN_WITHDRAWAL || wholeSmallBalance) && balance !== null && amountNum <= balance;
 
   const withdraw = () => {
     Alert.alert(
@@ -234,12 +236,12 @@ export function WalletScreen() {
                 value={amount}
                 onChangeText={t => setAmount(moneyInput(t))}
                 keyboardType="decimal-pad"
-                placeholder={`Amount, at least ${money(MIN_WITHDRAWAL)}`}
+                placeholder={`Amount, at least ${money(MIN_WITHDRAWAL)}, or all of a smaller balance`}
                 placeholderTextColor={c.textSec}
                 accessibilityLabel="Amount to withdraw in US dollars"
                 style={[styles.input, { borderColor: c.border, color: c.text }]}
               />
-              {balance !== null && balance >= MIN_WITHDRAWAL ? (
+              {balance !== null && balance > 0 ? (
                 <Pressable onPress={() => setAmount(String(Math.floor(balance * 100) / 100))} accessibilityRole="button" style={styles.linkBtn}>
                   <Text style={{ color: c.primary, fontWeight: '600' }}>Withdraw all ({money(balance)})</Text>
                 </Pressable>

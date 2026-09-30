@@ -21,7 +21,7 @@ import Svg, { Path, Defs, LinearGradient as SvgGrad, Stop, Polyline, Line } from
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Shadow } from '../../theme';
-import { money } from '../../utils/region';
+import { money, REGION } from '../../utils/region';
 
 type Period = 'today' | 'week' | 'month';
 
@@ -52,7 +52,7 @@ function monthKey(offset: number, now = new Date()): string {
 
 function monthLabel(key: string): string {
   const [y, m] = key.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' });
+  return new Date(y, m - 1, 1).toLocaleDateString(REGION.dateLocale, { month: 'long', year: 'numeric' });
 }
 
 
@@ -200,7 +200,7 @@ function summarise(bookings: Booking[], now = new Date()): Record<Period, Period
   const weekChart = Array.from({ length: 7 }, (_, k) => {
     const from = today - (6 - k) * DAY_MS;
     return {
-      time: new Date(from).toLocaleDateString([], { weekday: 'short' }),
+      time: new Date(from).toLocaleDateString(REGION.dateLocale, { weekday: 'short' }),
       amt: sumIn(from, from + DAY_MS),
     };
   });
@@ -326,7 +326,7 @@ export function EarningsScreen() {
               id: b._id,
               rider: b.rider?.name ?? 'Rider',
               route: [b.pickup?.address, b.dropoff?.address].filter(Boolean).join(' to '),
-              time: new Date(b.updatedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+              time: new Date(b.updatedAt).toLocaleString(REGION.dateLocale, { dateStyle: 'medium', timeStyle: 'short' }),
               amount: b.driverEarnings ?? 0,
             })),
           );
