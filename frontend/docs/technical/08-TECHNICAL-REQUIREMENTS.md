@@ -503,10 +503,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - api.carpooling.com
+        - api.<domain>
       secretName: api-tls
   rules:
-    - host: api.carpooling.com
+    - host: api.<domain>
       http:
         paths:
           - path: /api/v1/rides

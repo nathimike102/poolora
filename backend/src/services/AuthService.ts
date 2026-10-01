@@ -502,7 +502,7 @@ export class AuthService {
     let payload: JWTPayload;
 
     try {
-      payload = jwt.verify(refreshToken, config.jwt.refreshSecret) as JWTPayload;
+      payload = jwt.verify(refreshToken, config.jwt.refreshSecret, { algorithms: ['HS256'] }) as JWTPayload;
     } catch {
       throw new AuthenticationError('Invalid refresh token');
     }
@@ -581,10 +581,13 @@ export class AuthService {
       sessionId,
     };
 
+    // Verification accepts HS256 only, so a token signed any other way is refused
     const accessOptions: SignOptions = {
+      algorithm: 'HS256',
       expiresIn: config.jwt.accessExpiry as SignOptions['expiresIn'],
     };
     const refreshOptions: SignOptions = {
+      algorithm: 'HS256',
       expiresIn: config.jwt.refreshExpiry as SignOptions['expiresIn'],
     };
 

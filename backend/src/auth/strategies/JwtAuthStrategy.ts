@@ -18,7 +18,7 @@ export class JwtAuthStrategy implements AuthStrategy {
     let payload: JWTPayload;
 
     try {
-      payload = jwt.verify(token, config.jwt.accessSecret) as JWTPayload;
+      payload = jwt.verify(token, config.jwt.accessSecret, { algorithms: ['HS256'] }) as JWTPayload;
     } catch (err) {
       if (err instanceof jwt.TokenExpiredError) {
         throw new AuthenticationError('Access token has expired');
