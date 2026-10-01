@@ -51,6 +51,7 @@ router.get('/kyc/:userId/documents', validate(kycReviewParamsSchema), getKycDocu
 
 // ─── Web admin (admin-web/) ─────────────────────────────────────────────────
 router.get('/overview', W.overview);
+router.get('/analytics', W.analytics);
 
 router.get('/applications', W.applications);
 router.post('/applications/:userId/request-changes', W.requestKycChanges);

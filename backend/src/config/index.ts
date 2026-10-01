@@ -366,6 +366,16 @@ export const config = {
     } as Record<string, number>,
   },
 
+  /**
+   * Product analytics (docs/ANALYTICS_PLAN.md). The admin's Analytics page
+   * always works; PostHog only receives events in production with a key, so
+   * development and staging never reach the live project.
+   */
+  analytics: {
+    posthogKey: process.env.POSTHOG_API_KEY || '',
+    posthogHost: optional('POSTHOG_HOST', 'https://eu.i.posthog.com'),
+  },
+
   services: {
     mlServiceUrl: optional('ML_SERVICE_URL', 'http://poolora-ml:8000'),
     mlServiceApiKey: process.env.ML_SERVICE_API_KEY || '',
