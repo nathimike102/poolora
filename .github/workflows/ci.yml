@@ -20,10 +20,10 @@ jobs:
         working-directory: backend
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
@@ -52,17 +52,17 @@ jobs:
         working-directory: frontend
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run Lint
         run: npm run lint
@@ -81,10 +81,10 @@ jobs:
         working-directory: web-landing
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
@@ -104,15 +104,17 @@ jobs:
         working-directory: admin-web
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: 'npm'
+          cache-dependency-path: admin-web/package-lock.json
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run Typecheck
         run: npm run typecheck
@@ -128,20 +130,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
+      - name: Check standalone lockfiles match package.json
+        run: scripts/check-lockfiles.sh
+
+      # Audit every package before failing, so one finding does not hide the rest
       - name: Audit production dependencies
         run: |
-          for dir in backend frontend web-landing; do
+          failed=""
+          for dir in backend frontend web-landing admin-web; do
             echo "::group::npm audit $dir"
-            (cd "$dir" && npm audit --omit=dev --audit-level=high)
+            (cd "$dir" && npm audit --omit=dev --audit-level=high) || failed="$failed $dir"
             echo "::endgroup::"
           done
+          if [ -n "$failed" ]; then
+            echo "::error::High or critical advisories in:$failed"
+            exit 1
+          fi
 
       - name: Audit ML service dependencies
         run: |
@@ -156,10 +167,10 @@ jobs:
         working-directory: ml-service
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -190,20 +201,20 @@ jobs:
       packages: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build & Push Backend Image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           push: true
@@ -214,7 +225,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build & Push ML Image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./ml-service
           push: true
@@ -239,11 +250,11 @@ jobs:
 
       - name: Checkout Code
         if: env.EC2_HOST != ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Deploy via SSH
         if: env.EC2_HOST != ''
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}

@@ -16,5 +16,9 @@
   "version": "1.0.0",
   "devDependencies": {
     "async-limiter": "^2.0.0"
+  },
+  "overrides": {
+    "uuid": "^11.1.1",
+    "@grpc/grpc-js": "^1.13.6"
   }
 }
