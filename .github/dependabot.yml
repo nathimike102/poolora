@@ -1,0 +1,22 @@
+# npm is left out on purpose: each package has a standalone lockfile next to the
+# root workspace lockfile, and Dependabot only refreshes one of them. npm advisories
+# are caught by the dependency-audit job instead (see docs/PIPELINE_REPORT.md).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /ml-service
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directories: ["/backend", "/ml-service"]
+    schedule:
+      interval: weekly
