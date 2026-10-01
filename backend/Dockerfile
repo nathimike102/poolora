@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ─── Build stage ──────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
@@ -12,7 +12,7 @@ COPY src ./src
 RUN npm run build
 
 # ─── Production stage ─────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 
 # Set production environment so libraries that check NODE_ENV behave correctly
