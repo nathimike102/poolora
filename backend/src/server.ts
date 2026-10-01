@@ -16,6 +16,7 @@ import { backfillRouteLines } from './jobs/backfillRouteLines';
 import { SettingsService } from './services/SettingsService';
 import { RideCheckInService } from './services/RideCheckInService';
 import { logger } from './utils/logger';
+import { flush as flushAnalytics } from './utils/posthog';
 
 const server = http.createServer(app);
 const socketGateway = new SocketGateway();
@@ -151,6 +152,9 @@ async function shutdown(signal: string): Promise<void> {
       // Close Socket.io connections
       socketGateway.getIO()?.close();
       logger.info('Socket.io server closed');
+
+      // Send queued analytics events before the process goes
+      await flushAnalytics();
 
       // Disconnect infrastructure
       await Promise.allSettled([

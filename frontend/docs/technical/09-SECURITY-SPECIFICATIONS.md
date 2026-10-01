@@ -266,7 +266,7 @@ All data in transit encrypted with TLS 1.3:
    - Backup: Multiple certificate providers
 
 3. WebSocket Security (Real-time Tracking)
-   wss://api.carpooling.com/ws/tracking (Secure WebSocket)
+   wss://api.<domain>/ws/tracking (Secure WebSocket)
    - TLS encryption with same certificate
    - Authentication required before upgrade
    - Message integrity verified
@@ -403,7 +403,7 @@ response.setHeader('Content-Security-Policy',
   "script-src 'self' https://cdn.example.com; " +
   "style-src 'self' 'unsafe-inline'; " +
   "img-src 'self' data: https:; " +
-  "connect-src 'self' wss://api.carpooling.com"
+  "connect-src 'self' wss://api.<domain>"
 );
 
 // React Protection
@@ -470,7 +470,7 @@ app.post('/auth/login', authLimiter, controller.login);
 const cors = require("cors");
 
 const corsOptions = {
-  origin: process.env.allowed_origins.split(","), // ['app.carpooling.com', 'admin.carpooling.com']
+  origin: process.env.allowed_origins.split(","), // ['app.<domain>', 'admin.<domain>']
   credentials: true, // Allow cookies
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -486,7 +486,7 @@ app.use(cors({ origin: "*" }));
 // ✅ SAFE: Whitelist specific origins
 app.use(
   cors({
-    origin: ["https://app.carpooling.com", "https://admin.carpooling.com"],
+    origin: ["https://app.<domain>", "https://admin.<domain>"],
   }),
 );
 ```
@@ -877,7 +877,7 @@ Reward Tiers:
 
 Process:
 1. Security researcher discovers vulnerability
-2. Reports via security@carpooling.com
+2. Reports via security@<domain>
 3. Team confirms vulnerability
 4. 15 days to patch
 5. Researcher can responsibly disclose after patch

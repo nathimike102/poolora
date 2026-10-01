@@ -3,6 +3,7 @@
  * modules loaded after it. Disabled unless SENTRY_DSN is set.
  */
 import * as Sentry from '@sentry/node';
+import { redactUrl } from './utils/redactUrl';
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -14,6 +15,8 @@ if (process.env.SENTRY_DSN) {
     tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0),
     beforeSend(event) {
       if (event.request) {
+        if (event.request.url) event.request.url = redactUrl(event.request.url);
+        if (typeof event.request.query_string === 'string') event.request.query_string = redactUrl(event.request.query_string);
         delete event.request.cookies;
         delete event.request.data;
         if (event.request.headers) {

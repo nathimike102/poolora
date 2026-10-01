@@ -9,6 +9,7 @@ import { eventSchemas } from '../validators/eventValidators';
 import { Types } from 'mongoose';
 import { money } from '../config/region';
 import { localTime } from '../config/region';
+import { trackDomainEvent } from '../services/ProductAnalyticsService';
 
 /**
  * Callers pass Mongoose documents' ids (ObjectIds) straight through, but the
@@ -86,6 +87,8 @@ export class EventBridge {
       source: 'mobility-backend',
       correlationId: uuidv4(),
     };
+
+    trackDomainEvent(event.eventType, event.data);
 
     // Async publish — don't await to avoid blocking the request
     EventBridge.publishAsync(topic, fullEvent).catch((err) => {
@@ -245,7 +248,8 @@ export class EventBridge {
   private static registerHandlers(): void {
     // User events consumer
     EventBridge.register('user-events', 'user-events-group', async (event) => {
-      logger.info('User event', { type: event.eventType, data: event.data });
+      // The type only: user events carry phone numbers
+      logger.info('User event', { type: event.eventType });
     });
 
     // Ride events consumer — notify riders about new rides matching their saved routes

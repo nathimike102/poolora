@@ -511,8 +511,8 @@ describe("Ride Booking Flow", () => {
 // cypress/e2e/admin-dashboard.cy.js
 describe("Admin Dashboard", () => {
   beforeEach(() => {
-    cy.visit("https://admin.carpooling.com");
-    cy.login("admin@carpooling.com", "AdminPassword@123");
+    cy.visit("https://admin.<domain>");
+    cy.login("admin@<domain>", "AdminPassword@123");
   });
 
   it("should display dashboard with metrics", () => {
@@ -794,7 +794,7 @@ Bulk update: 180.34ms
 ```bash
 # Run OWASP ZAP scan against staging
 docker run -t owasp/zap2docker-stable zap-baseline.py \
-  -t https://staging-api.carpooling.com \
+  -t https://staging-api.<domain> \
   -r report.html
 
 # Results include:

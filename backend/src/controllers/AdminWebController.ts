@@ -11,6 +11,7 @@ import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import { queryInt, queryString } from '../utils/request';
 import { AdminOverviewService } from '../services/AdminOverviewService';
+import { ProductAnalyticsService } from '../services/ProductAnalyticsService';
 import { AdminUserService } from '../services/AdminUserService';
 import { AdminSosService } from '../services/AdminSosService';
 import { IdentityService } from '../services/IdentityService';
@@ -31,6 +32,7 @@ import { WithdrawalService } from '../services/WithdrawalService';
 import { AppError } from '../utils/AppError';
 
 const overview = new AdminOverviewService();
+const analytics = new ProductAnalyticsService();
 const users = new AdminUserService();
 const sos = new AdminSosService();
 const identity = new IdentityService();
@@ -67,6 +69,8 @@ const id = (req: Request, name = 'id') => String(req.params[name]);
 
 export const AdminWebController = {
   overview: handle(() => overview.overview()),
+  /** Growth KPIs: actives, activation, retention, funnel, top errors (docs/ANALYTICS_PLAN.md) */
+  analytics: handle(() => analytics.kpis()),
 
   // ── Driver applications (UC-A01) ─────────────────────────────────────────
   applications: handle(async (req) => ({ applications: await users.applications(queryString(req, 'status')) })),

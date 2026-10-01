@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
 import { SignInPage } from './pages/SignIn';
 import { DashboardPage } from './pages/Dashboard';
+import { AnalyticsPage } from './pages/Analytics';
 import { SosListPage, SosDetailPage } from './pages/Sos';
 import { IdentityDetailPage, IdentityListPage } from './pages/Identity';
 import { ApplicationsPage, ApplicationDetailPage } from './pages/Applications';
@@ -60,6 +61,7 @@ export function App() {
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="support" element={<SupportPage />} />
             <Route path="support/:id" element={<SupportDetailPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="audit" element={<AuditPage />} />
