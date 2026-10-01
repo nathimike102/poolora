@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ─── Poolora ML Engine ──────────────────────────────────────────────────────
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ─── Production stage ────────────────────────────────────────────────────────
-FROM python:3.12-slim AS runner
+FROM python:3.14-slim AS runner
 WORKDIR /app
 
 # Security: non-root user
