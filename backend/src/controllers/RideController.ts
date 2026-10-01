@@ -193,9 +193,13 @@ export class RideController {
       const { User } = await import('../models/User');
       const { verifiedDriverStatus } = await import('../services/DriverService');
       const driverId = (ride.driver as unknown as { _id?: unknown })?._id ?? ride.driver;
-      const driver = await User.findById(driverId).select('kyc.status stats createdAt warnings isSuspended isBlocked').lean();
+      const driver = await User.findById(driverId).select('kyc.status stats createdAt warnings isSuspended isBlocked vehicles._id vehicles.tracker.lastReportAt').lean();
       const driverVerified = driver ? verifiedDriverStatus(driver as never).verified : false;
-      sendSuccess(res, { ride: { ...ride.toJSON(), driverVerified } }, 200, req.requestId);
+      // The "Tracked car" badge: a GPS tracker in this car reported in the last day (never where it was)
+      const { isTracked } = await import('../services/TrackerService');
+      const car = driver?.vehicles?.find((v) => String(v._id) === String(ride.vehicle?.vehicleId));
+      const trackedCar = isTracked(car?.tracker);
+      sendSuccess(res, { ride: { ...ride.toJSON(), driverVerified, trackedCar } }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -323,6 +327,21 @@ export class RideController {
     try {
       const user = (req as AuthenticatedRequest).user;
       const result = await rideService.getOptimizedRoute(String(req.params.id), user.userId);
+      sendSuccess(res, result, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /rides/:id/position — a phone on the ride (driver or rider) */
+  static async tripPosition(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const { location, speed, heading, accuracy, battery } = req.body as {
+        location: { lng: number; lat: number }; speed?: number; heading?: number; accuracy?: number; battery?: number;
+      };
+      const { receiveTripPosition } = await import('../services/TripTrailService');
+      const result = await receiveTripPosition(String(req.params.id), user.userId, location, { speed, heading, accuracy, battery });
       sendSuccess(res, result, 200, req.requestId);
     } catch (error) {
       next(error);

@@ -19,7 +19,7 @@ import { RideService } from '../../services/RideService';
 describe('RideService.searchRides', () => {
   it('searches by distance to the route near the pickup and requires the route to reach the destination', async () => {
     (User.findById as jest.Mock).mockResolvedValue({ _id: new Types.ObjectId(), gender: 'female' });
-    (User.find as jest.Mock).mockResolvedValue([]);
+    (User.find as jest.Mock).mockReturnValue({ select: jest.fn().mockResolvedValue([]) });
     (Ride.aggregate as jest.Mock).mockResolvedValue([]);
 
     await new RideService().searchRides(

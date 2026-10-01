@@ -29,6 +29,8 @@ export interface ProcessedError {
   isRetryable: boolean;
   originalError?: unknown;
   details?: unknown;
+  /** The server's error id, e.g. IDENTITY_NOT_VERIFIED, for screens that act on a specific refusal */
+  errorId?: string;
 }
 
 /**
@@ -41,6 +43,7 @@ export class ApiError extends Error implements ProcessedError {
   isRetryable: boolean;
   originalError?: unknown;
   details?: unknown;
+  errorId?: string;
 
   constructor(processed: ProcessedError) {
     super(processed.message);
@@ -49,6 +52,7 @@ export class ApiError extends Error implements ProcessedError {
     this.isRetryable = processed.isRetryable;
     this.originalError = processed.originalError;
     this.details = processed.details;
+    this.errorId = processed.errorId;
   }
 }
 
@@ -107,6 +111,7 @@ class ErrorHandler {
       isRetryable: this.isRetryable(status),
       originalError: error,
       details: response.data?.error?.details,
+      errorId: response.data?.error?.id,
     };
   }
 

@@ -7,6 +7,7 @@ import { Loading } from './components/ui';
 import { SignInPage } from './pages/SignIn';
 import { DashboardPage } from './pages/Dashboard';
 import { SosListPage, SosDetailPage } from './pages/Sos';
+import { IdentityDetailPage, IdentityListPage } from './pages/Identity';
 import { ApplicationsPage, ApplicationDetailPage } from './pages/Applications';
 import { DisputesPage, DisputeDetailPage } from './pages/Disputes';
 import { UsersPage, UserDetailPage } from './pages/Users';
@@ -43,6 +44,8 @@ export function App() {
             <Route index element={<DashboardPage />} />
             <Route path="sos" element={<SosListPage />} />
             <Route path="sos/:id" element={<SosDetailPage />} />
+            <Route path="identity" element={<IdentityListPage />} />
+            <Route path="identity/:id" element={<IdentityDetailPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="applications/:id" element={<ApplicationDetailPage />} />
             <Route path="disputes" element={<DisputesPage />} />

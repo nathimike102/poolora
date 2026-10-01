@@ -92,6 +92,12 @@ export interface User {
   profilePhotoUrl?: string;
   /** On a driver in search results: has the Verified Driver badge */
   verified?: boolean;
+  /** On a driver in search results: an admin checked their ID (every women-only ride's driver has) */
+  identityVerified?: boolean;
+  /** On a driver in search results: a GPS tracker in this car reported in the last day */
+  trackedCar?: boolean;
+  /** The identity check behind women-only rides */
+  identity?: { status: 'pending' | 'verified' | 'rejected' };
   capabilities: UserCapability[];
   isVerified: boolean;
   stats?: UserStats;
@@ -203,6 +209,8 @@ export interface Ride {
   matchScore?: number;
   /** The driver has the Verified Driver badge (UC-D10) */
   driverVerified?: boolean;
+  /** A GPS tracker in this car reported in the last day */
+  trackedCar?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -344,6 +352,9 @@ export interface Booking {
   /** The driver is at this rider's pickup; the no-show wait counts from here */
   driverArrivedAt?: string;
   actualPickupTime?: string;
+  /** Only on the rider's own bookings: the code the driver enters at pickup */
+  pickupPin?: string;
+  pickupConfirmedBy?: 'pin' | 'rider' | 'simulation';
   actualDropoffTime?: string;
   noShow?: boolean;
   refundAmount?: number;

@@ -82,7 +82,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 5. User applies filters (optional):
    - Price range
    - Number of seats needed
-   - Women-only rides
+   - Women-only rides (only for women whose identity check has passed; see Women-only rides below)
    - Driver rating
 6. System queries available rides
 7. AI service ranks rides by relevance
@@ -218,7 +218,8 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 **Business Rules**:
 
-- Location updates every 5 seconds during active ride
+- Location updates every 5 seconds during active ride, from the driver's phone in the background (the car stays on the map when the driver opens Maps or locks the phone)
+- Each rider's phone is traced from pickup to drop (every 15 s). The trip trail (one point every 15 s per phone, with the battery level) is kept 30 days, or with any SOS, safety report or dispute (decided 30 September 2026)
 - Route deviation alert if >500m off planned route
 - Automatic check-in prompts every 30 minutes for safety
 
@@ -240,7 +241,7 @@ This document outlines detailed use cases for the car pooling platform, covering
    - Driver behavior
    - Vehicle cleanliness
    - Punctuality
-4. User writes text review (optional)
+4. User answers "Did you feel safe?" (Yes / Mostly / No) and writes a text review (optional). The safety answer is confidential: only the safety team sees it, never the person rated
 5. User can report issues:
    - Safety concerns
    - Route problems
@@ -252,7 +253,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 **Extensions**:
 
-- 5a. Safety issue reported: System immediately alerts admin
+- 5a. Safety issue reported, or "No" to "Did you feel safe?": System immediately alerts admins (push and dashboard) and puts it first in the review queue
 - 3a. User skips rating: System sends reminder after 24 hours
 
 **Business Rules**:
@@ -260,52 +261,52 @@ This document outlines detailed use cases for the car pooling platform, covering
 - Rating can be submitted within 7 days of ride completion
 - Reviews are public after admin approval
 - Safety reports are private and prioritized
+- The "Did you feel safe?" answers are averaged apart from the public rating, shown only to admins, and count towards ride ranking once a driver has three (UC-AI01)
 
 ---
 
 ### UC-R07: Use SOS Emergency Feature
 
-**Primary Actor**: Rider  
-**Goal**: Alert emergency contacts and authorities in case of danger  
-**Preconditions**: User is in an active ride  
-**Postconditions**: Emergency alerts are sent
+**Primary Actor**: Rider or driver
+**Goal**: Get help fast when in danger during a ride
+**Preconditions**: A confirmed booking that is under way or leaves within 3 hours
+**Postconditions**: The safety team is handling the SOS, and the person's emergency contacts know where they are
 
 **Main Success Scenario**:
 
-1. User presses SOS button in app
-2. System asks for confirmation (3-second hold)
-3. User confirms by holding button
-4. System immediately:
-   - Captures current GPS location
-   - Starts continuous location tracking (every 5 seconds)
-   - Records ride data (driver info, route, time)
-5. System sends emergency alerts to:
-   - Pre-configured emergency contacts (SMS + notification)
-   - Platform admin team
-   - Local authorities (if configured)
-6. Alert includes:
-   - User's name and photo
-   - Current location (live link)
-   - Driver details
-   - Vehicle information
-   - Ride route
-7. System enables automatic call recording (if permitted)
-8. System keeps tracking until emergency is resolved
-9. Admin contacts user and driver separately
-10. System logs full incident details
+1. User presses and holds the SOS button (on the ride screen, in chat, or under Safety)
+2. After a 3-second hold the SOS is raised at once. There is no second countdown: 13 seconds before anyone hears is too long
+3. System immediately:
+   - Records the position: the phone's GPS fix, or if it has none within 4 seconds its last known position, or else the car's last reported position or the pickup point. A missing fix never stops the alert
+   - Pages the safety team (every admin) by push and SMS, and shows the SOS on the live dashboard with an alarm sound
+   - Records the ride: booking, driver, vehicle, route
+4. The screen shows "Texting your emergency contacts in 10 s" with a Cancel button
+5. After 10 seconds the contacts the user chose (UC-R10) get a text with a live tracking link; those with Poolora accounts also get a push
+6. The tracking link shows the person's first name, the latest position, the trip, the other person's first name and the car with its plate: what a relative would give the police. Never phone numbers
+7. The phone sends its position every 5 seconds while the SOS is open, also with the screen off or the app closed (an "SOS active" notification shows it). If the user has switched on "Record audio during an SOS" (off by default), the phone records in one-minute parts and uploads each as it ends, for the safety team only. The screen shows when an admin takes it ("Tendai from the safety team is on it and will call you") and when it is closed
+8. Admin calls the user and the other party separately (UC-A03) and closes the SOS with a note
 
 **Extensions**:
 
-- 3a. Accidental trigger: User can cancel within 10 seconds
-- 5a. No network: System queues alerts and sends when connected
-- 9a. User doesn't respond: Admin escalates to authorities
+- 3a. Accidental trigger: Cancel within the 10-second window closes it as a false alarm. The contacts are never texted; the safety team is told it was cancelled
+- 3b. The rider did not answer two in-ride check-ins (UC-R05): the safety team is paged at once, and the rider has 5 minutes to answer before the contacts are texted, because a phone in a bag misses prompts too. Answering "I'm OK" in that time stands it down
+- 5a. No network: the app keeps retrying every 5 seconds, and offers to call the emergency line and to text the contacts from the phone's own messaging app, which works without data
+- 7a. User taps "I'm safe": recorded, and passed on to the safety team and to the contacts who were texted. The SOS stays open until an admin has called to confirm, so a person made to tap it is still called
+- 7b. User reports danger, or raises it again: risk goes to high and the team is paged again; contacts told "safe" are told it is live again
+- 7c. The phone stops sending its position for three intervals: marked out of contact, risk high, the team paged, with what the battery says: near 0% it probably ran out; with charge left it was switched off, taken or lost signal. The other phones on the ride (the car, other riders) are still traced, and the family's link also shows where the car is
+- 7d. "What's happening?" (optional, after the alert): the driver, a passenger, someone outside, medical, accident. Naming someone on the ride raises the risk; in a medical emergency or an accident staff may ask the other person to help
+- 8a. Nobody takes the SOS within 5 minutes: every admin is paged again, every 5 minutes, until someone does
+- 8b. User leaves the SOS screen: the SOS stays open, and opening the screen again shows it
 
 **Business Rules**:
 
-- SOS button is always visible during active ride
-- Emergency contacts must be configured beforehand
-- Incident data is preserved for 30 days minimum
-- False SOS triggers are tracked (>3 false triggers = warning)
+- SOS button is always visible during an active ride, for riders and for drivers
+- One open SOS per person per booking; pressing again re-raises it instead of failing
+- Only the person who raised it, and admins, can see it. The other person on the ride cannot: they may be the reason for it
+- Emergency contacts are recommended, not required: without them the safety team is still paged
+- A real incident is kept indefinitely (UC-A03). A false alarm is deleted after 90 days
+- False alarms are counted and shown to the admin handling the next SOS. They never delay a response and never trigger an automatic warning: deterring someone from pressing SOS is the worst outcome. Warning a user who repeatedly misuses it is an admin decision (UC-A03 4a)
+- The 10-second window, the 5-minute paging interval and the silence intervals are admin settings (UC-A07)
 
 ---
 
@@ -430,6 +431,38 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 ---
 
+### UC-R11: Women-only Rides and the Identity Check
+
+**Primary Actor**: Rider or driver who is a woman
+**Goal**: Travel only with women
+**Preconditions**: Signed in
+**Postconditions**: She can post, find and book women-only rides
+
+**Main Success Scenario**:
+
+1. User opens Profile > Identity check
+2. User chooses her gender, takes or chooses a photo of her national ID, passport or driving licence, and takes a selfie in the app
+3. The photos are uploaded privately (the same store as driver documents)
+4. An admin checks the selfie is the person on the ID and the ID looks genuine, then confirms the gender she lives as (web admin, Identity checks). The ID proves identity, not gender: a trans woman is a woman here
+5. The ID photo and selfie are deleted as soon as the admin decides; only the decision is kept
+6. User is told the result. Once verified, the gender cannot be changed from the app
+7. A verified woman sees women-only rides in search, can filter to them, and can book them; a verified woman driver can post them. Riders see "Verified woman driver" on the ride
+
+**Extensions**:
+
+- 4a. Not approved: the user is told what to fix and can send it again
+- 4b. The sex printed on the ID differs from the gender she lives as: the admin confirms the gender she lives as. If the selfie does not fit what she told us, or anything looks wrong, the admin does not approve and says why
+- 7a. Anyone else (a man, or a woman not yet verified) never sees women-only rides, and is refused if they try to book one by its link; a woman is told how to verify
+
+**Business Rules**:
+
+- A declared gender alone is never enough: the rides exist to keep out men who would claim to be women
+- Only an admin can change a verified gender (through support)
+- Documents accepted: national ID, passport or driving licence
+- Photos are kept only until the decision (decided 30 September 2026)
+
+---
+
 ## 4. Driver Use Cases
 
 ### UC-D01: Register as Driver
@@ -503,7 +536,7 @@ This document outlines detailed use cases for the car pooling platform, covering
    - Demand
 7. Driver can adjust price (±30% of suggested)
 8. Driver adds ride preferences:
-   - Women-only (for female drivers)
+   - Women-only (only for women drivers whose identity check has passed)
    - Non-smoking
    - Baggage allowed
    - Music preference
@@ -592,7 +625,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 2. 30 minutes before: Driver marks "Ready to Start"
 3. System notifies all passengers
 4. Driver arrives at first pickup point
-5. Driver marks passenger as "Picked Up"
+5. Driver marks passenger as "Picked Up" by entering the rider's 4-digit pickup code, which only the rider sees in their app. The rider gets in only when their app says the code is confirmed, so nobody gets into the wrong car. If the code cannot be exchanged, the rider confirms in their own app instead; after 5 wrong codes only the rider can, the rider is warned to check the car, and admins are told
 6. System updates ETA for remaining passengers
 7. Driver picks up all passengers sequentially
 8. Driver starts ride (all passengers picked up)
@@ -911,6 +944,36 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 ---
 
+### UC-D11: Link a Car Tracker
+
+**Primary Actor**: Driver
+**Goal**: Keep the car traceable during rides even if every phone in it is off
+**Preconditions**: A registered vehicle, and a GPS tracker in it
+**Postconditions**: The car shows a "Tracked car" badge; its tracker feeds rides and SOS
+
+**Main Success Scenario**:
+
+1. Driver opens Profile > Car tracker and enters the tracker's device id (usually its 15-digit IMEI)
+2. Driver points the tracker at Poolora's tracker gateway (an SMS command shown in the app), or asks their tracking company to forward the car there
+3. The gateway (Traccar, forwarder only, storing nothing) decodes each report and posts it to Poolora
+4. Once it reports, the car's rides show "Tracked car" (a report within the last day)
+5. During a ride in progress, the tracker's positions join the trip trail as the car's own trail, apart from the driver's phone; during an SOS on the ride the safety team sees them live
+
+**Extensions**:
+
+- 5a. The tracker's panic button is pressed during a ride: an SOS is raised as the driver's (their contacts are texted after the 10-second window), on the booking of a rider in the car, marked "raised by the car's panic button": anyone in the car may have pressed it
+- 5b. The tracker loses power or is removed during a ride: the safety team is told; during an open SOS it goes on the incident and they are paged by SMS too
+- 2a. The tracker is already linked to another car: refused; support resolves it
+
+**Business Rules**:
+
+- Optional; a badge, not a requirement (decided 1 October 2026)
+- Outside rides and open SOS, Poolora keeps only when the tracker last reported, never where the car was
+- Poolora never cuts a car's engine (decided 1 October 2026)
+- One tracker, one car
+
+---
+
 ## 5. Admin Use Cases
 
 ### UC-A01: Review and Approve Driver Applications
@@ -1043,10 +1106,12 @@ This document outlines detailed use cases for the car pooling platform, covering
 2. Admin dashboard shows:
    - High-priority red alert
    - Alert sound/visual notification
-   - User details (photo, name, phone)
-   - Driver details
-   - Real-time location
-   - Ride details
+   - Both people, whoever raised it: photo, name, phone, ID-check status, the driver's licence number, and the mobile money numbers each has used (registered to a name at the network)
+   - The car in full: make, model, colour, year, plate, its photos, and a link to the driver's documents
+   - Every other rider on the ride (a witness, or the danger)
+   - Real-time location of every phone on the ride, each with its battery level: the person's SOS trail in red, the car and the others in their own colours
+   - What the person said is happening, if they said
+   - Ride details, and the messages and calls between them
 3. Admin immediately:
    a. Calls rider to assess situation
    b. Calls driver separately
@@ -1084,11 +1149,12 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 **Business Rules**:
 
-- SOS alerts are highest priority
-- Response required within 5 minutes
-- All calls recorded
-- Incident data preserved indefinitely
-- Driver suspended pending investigation
+- SOS alerts are highest priority. Every admin is paged by push and SMS when one is raised, whether or not anyone has the dashboard open
+- Response required within 5 minutes: an SOS nobody has taken pages every admin again every 5 minutes (an admin setting)
+- All calls recorded (masked rider–driver calls, when recording is on; admins log their own calls on the incident)
+- Incident data preserved indefinitely; false alarms are deleted after 90 days
+- The other party can be suspended pending investigation from the incident page. It is not automatic: the suspended person is told at once, so the admin waits until the person who raised the SOS is safe
+- A user who says they are safe is still called before the SOS is closed
 - User offered counseling/support
 
 ---

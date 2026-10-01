@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-30T05:24:50.900Z",
+  "generatedAt": "2026-10-01T08:36:52.632Z",
   "market": {
     "country": "Zimbabwe",
     "currency": "USD",
@@ -191,26 +191,26 @@
   "coinToUsdRate": 0.01,
   "supportBotModel": "claude-opus-5-5",
   "api": {
-    "routes": 236
+    "routes": 252
   },
-  "models": 33,
+  "models": 34,
   "linesOfCode": {
-    "backend": 26298,
-    "app": 28044,
-    "admin": 4410,
-    "website": 4759,
+    "backend": 28238,
+    "app": 29612,
+    "admin": 4915,
+    "website": 4771,
     "ml": 640
   },
   "tests": {
     "backend": {
-      "suites": 55,
-      "tests": 374,
-      "passed": 374
+      "suites": 58,
+      "tests": 410,
+      "passed": 410
     },
     "app": {
-      "suites": 31,
-      "tests": 107,
-      "passed": 107
+      "suites": 34,
+      "tests": 116,
+      "passed": 116
     },
     "admin": {
       "suites": 6,

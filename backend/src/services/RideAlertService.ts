@@ -8,6 +8,7 @@
  */
 
 import { Types } from 'mongoose';
+import { User } from '../models/User';
 import { RideAlert } from '../models/RideAlert';
 import { IRide, rideRoutePath } from '../models/Ride';
 import { config } from '../config';
@@ -15,6 +16,7 @@ import { AppError, NotFoundError } from '../utils/AppError';
 import { toGeoPoint } from '../utils/helpers';
 import { nearestOnPath } from '../utils/routeGeometry';
 import { logger } from '../utils/logger';
+import { isVerifiedWoman } from './IdentityService';
 import { NotificationService } from './NotificationService';
 import { money } from '../config/region';
 import { localTime } from '../config/region';
@@ -74,7 +76,8 @@ export class RideAlertService {
     let sent = 0;
     for (const alert of candidates) {
       if (alert.departureTime && Math.abs(alert.departureTime.getTime() - ride.departureTime.getTime()) > TIME_WINDOW_MS) continue;
-      if (ride.preferences?.womenOnly) continue; // women-only rides are shown only in the rider's own search
+      // A women-only ride is news only to a verified woman, as in search
+      if (ride.preferences?.womenOnly && !isVerifiedWoman(await User.findById(alert.rider).select('gender identity').lean())) continue;
       const [pl, pa] = alert.pickup.location.coordinates;
       const [dl, da] = alert.dropoff.location.coordinates;
       const board = nearestOnPath({ lat: pa, lng: pl }, path);

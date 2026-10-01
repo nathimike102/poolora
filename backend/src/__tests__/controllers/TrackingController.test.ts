@@ -53,7 +53,7 @@ describe('GET /track/sos/:token', () => {
     const res = await request(app).get(`/track/sos/${TOKEN}`);
 
     expect(res.status).toBe(200);
-    expect(res.text).toContain('This alert was closed at');
+    expect(res.text).toContain('This alert was closed by the Poolora safety team at');
     expect(res.text).not.toContain('http-equiv="refresh"');
   });
 

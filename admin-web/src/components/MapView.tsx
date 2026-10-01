@@ -9,19 +9,38 @@ export interface MapPoint {
   lat: number;
 }
 
+/** Another phone on the ride: the car, or another rider */
+export interface OtherTrail {
+  id: string;
+  label: string;
+  color: string;
+  points: MapPoint[];
+}
+
+function markerDot(color: string, label: string, pulse: boolean): HTMLElement {
+  const dot = document.createElement('div');
+  dot.style.cssText = `width:${pulse ? 18 : 14}px;height:${pulse ? 18 : 14}px;border-radius:50%;background:${color};border:3px solid #fff;${pulse ? `box-shadow:0 0 0 6px ${color}40` : 'box-shadow:0 1px 3px rgba(0,0,0,.4)'}`;
+  dot.setAttribute('aria-label', label);
+  dot.title = label;
+  return dot;
+}
+
 /**
- * The SOS map: the trail of positions as a line, the trigger point, and the
- * latest position as a pulsing marker that moves as updates arrive.
+ * The SOS map: the person's trail as a line, the trigger point, and their
+ * latest position as a pulsing marker that moves as updates arrive. Every
+ * other phone on the ride (the car, other riders) is drawn too, each in its
+ * own colour with a labelled marker at its latest position.
  */
-export function MapView({ trail, trigger, label }: { trail: MapPoint[]; trigger?: MapPoint; label: string }) {
+export function MapView({ trail, trigger, label, others = [] }: { trail: MapPoint[]; trigger?: MapPoint; label: string; others?: OtherTrail[] }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
+  const otherMarkers = useRef(new Map<string, maplibregl.Marker>());
   const fitted = useRef(false);
 
   useEffect(() => {
     if (!el.current) return;
-    const start = trail[trail.length - 1] ?? trigger ?? { lng: 78.9, lat: 20.6 };
+    const start = trail[trail.length - 1] ?? trigger ?? { lng: 0, lat: 0 };
     const m = new maplibregl.Map({ container: el.current, style: STYLE, center: [start.lng, start.lat], zoom: 14, attributionControl: { compact: true } });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     m.on('load', () => {
@@ -33,10 +52,12 @@ export function MapView({ trail, trigger, label }: { trail: MapPoint[]; trigger?
       map.current = m;
       draw();
     });
+    const markers = otherMarkers.current;
     return () => {
       m.remove();
       map.current = null;
       marker.current = null;
+      markers.clear();
       fitted.current = false;
     };
     // The map is created once; positions are drawn by the effect below
@@ -51,21 +72,41 @@ export function MapView({ trail, trigger, label }: { trail: MapPoint[]; trigger?
       properties: {},
       geometry: { type: 'LineString', coordinates: coords },
     });
+
+    for (const o of others) {
+      const source = `other-${o.id}`;
+      const line = { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: o.points.map((p) => [p.lng, p.lat]) } };
+      const existing = m.getSource(source) as maplibregl.GeoJSONSource | undefined;
+      if (existing) existing.setData(line);
+      else {
+        m.addSource(source, { type: 'geojson', data: line });
+        m.addLayer({ id: source, type: 'line', source, paint: { 'line-color': o.color, 'line-width': 3, 'line-opacity': 0.7, 'line-dasharray': [2, 1] } });
+      }
+      const last = o.points[o.points.length - 1];
+      if (!last) continue;
+      const mk = otherMarkers.current.get(o.id);
+      if (mk) mk.setLngLat([last.lng, last.lat]);
+      else {
+        otherMarkers.current.set(o.id, new maplibregl.Marker({ element: markerDot(o.color, o.label, false) })
+          .setLngLat([last.lng, last.lat])
+          .setPopup(new maplibregl.Popup().setText(o.label))
+          .addTo(m));
+      }
+    }
+
     const latest = trail[trail.length - 1] ?? trigger;
     if (!latest) return;
     if (!marker.current) {
-      const dot = document.createElement('div');
-      dot.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#c0282d;border:3px solid #fff;box-shadow:0 0 0 6px rgba(192,40,45,.25)';
-      dot.setAttribute('aria-label', label);
-      marker.current = new maplibregl.Marker({ element: dot }).setLngLat([latest.lng, latest.lat]).addTo(m);
+      marker.current = new maplibregl.Marker({ element: markerDot('#c0282d', label, true) }).setLngLat([latest.lng, latest.lat]).addTo(m);
     } else {
       marker.current.setLngLat([latest.lng, latest.lat]);
     }
-    if (!fitted.current && coords.length > 1) {
-      const bounds = coords.reduce((b, c) => b.extend(c as [number, number]), new maplibregl.LngLatBounds(coords[0] as [number, number], coords[0] as [number, number]));
+    const all = [...coords, ...others.flatMap((o) => o.points.map((p) => [p.lng, p.lat]))];
+    if (!fitted.current && all.length > 1) {
+      const bounds = all.reduce((b, c) => b.extend(c as [number, number]), new maplibregl.LngLatBounds(all[0] as [number, number], all[0] as [number, number]));
       m.fitBounds(bounds, { padding: 48, maxZoom: 16, duration: 0 });
       fitted.current = true;
-    } else {
+    } else if (fitted.current) {
       m.easeTo({ center: [latest.lng, latest.lat], duration: 600 });
     }
   };

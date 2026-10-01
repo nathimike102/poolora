@@ -291,6 +291,20 @@ export function RideDetailScreen() {
               <View style={styles.flex1}>
                 <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{driverName}</Text>
                 {ride.driverVerified ? <VerifiedBadge /> : null}
+                {ride.trackedCar ? (
+                  <View style={styles.idChecked} accessibilityLabel="Tracked car: a GPS tracker in this car keeps reporting even if every phone is off">
+                    <Icon name="crosshairs-gps" size={14} color={c.success} />
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.success }}>Tracked car</Text>
+                  </View>
+                ) : null}
+                {ride.driver?.identity?.status === 'verified' ? (
+                  <View style={styles.idChecked} accessibilityLabel={ride.womenOnly ? 'Verified woman driver: her ID was checked by Poolora' : 'ID checked by Poolora'}>
+                    <Icon name="card-account-details-star-outline" size={14} color={c.success} />
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.success }}>
+                      {ride.womenOnly ? 'Verified woman driver' : 'ID checked by Poolora'}
+                    </Text>
+                  </View>
+                ) : null}
                 <View style={styles.driverMeta}>
                   {ratingCount > 0 ? (
                     <View style={styles.ratingRow} accessibilityLabel={`Rated ${stats?.avgRatingAsDriver?.toFixed(1)} from ${ratingCount} ratings`}>
@@ -482,6 +496,7 @@ const styles = StyleSheet.create({
 
   /* Driver */
   driverHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
+  idChecked: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   driverAvatar: { width: 60, height: 60, borderRadius: 16 },
   verifiedBadge: {
     position: 'absolute',

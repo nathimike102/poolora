@@ -93,7 +93,8 @@ describe('per-rider pickup and drop (UC-D04)', () => {
 
     await bookings.markArrived(b.id, driverId.toString());
     await expect(bookings.markDroppedOff(b.id, driverId.toString())).rejects.toThrow('picked up first');
-    await bookings.markPickedUp(b.id, driverId.toString());
+    const { pickupPin } = (await Booking.findById(b._id).select('+pickupPin').lean())!;
+    await bookings.markPickedUp(b.id, driverId.toString(), pickupPin);
     const done = await bookings.markDroppedOff(b.id, driverId.toString());
 
     expect(done.status).toBe(BookingStatus.COMPLETED);
@@ -102,6 +103,42 @@ describe('per-rider pickup and drop (UC-D04)', () => {
     expect(saved?.actualPickupTime).toBeDefined();
     expect(saved?.actualDropoffTime).toBeDefined();
     expect(EventBridge.publish).toHaveBeenCalledWith('booking-events', expect.objectContaining({ eventType: 'booking.driver_arrived' }));
+  });
+
+  it('confirms the pickup only with the rider\'s code, which the driver never receives', async () => {
+    const ride = await makeRide(RideStatus.IN_PROGRESS, -10 * MIN);
+    const b = await makeBooking(ride._id);
+    const { pickupPin } = (await Booking.findById(b._id).select('+pickupPin').lean())!;
+    expect(pickupPin).toMatch(/^\d{4}$/);
+
+    // The driver's list never carries it; the rider's does
+    const asDriver = await bookings.getUserBookings(driverId.toString(), 'driver', undefined, 1, 10);
+    expect(JSON.stringify(asDriver)).not.toContain('pickupPin');
+    const asRider = await bookings.getUserBookings(riderId.toString(), 'rider', undefined, 1, 10);
+    expect(JSON.stringify(asRider)).toContain(`"pickupPin":"${pickupPin}"`);
+
+    const wrong = pickupPin === '1111' ? '2222' : '1111';
+    await expect(bookings.markPickedUp(b.id, driverId.toString())).rejects.toMatchObject({ errorId: 'WRONG_PICKUP_PIN' });
+    await expect(bookings.markPickedUp(b.id, driverId.toString(), wrong)).rejects.toThrow('3 tries left');
+    const picked = await bookings.markPickedUp(b.id, driverId.toString(), pickupPin);
+    expect(picked.actualPickupTime).toBeDefined();
+    expect(picked.pickupConfirmedBy).toBe('pin');
+  });
+
+  it('locks after five wrong codes; then the rider confirms in their own app', async () => {
+    const ride = await makeRide(RideStatus.IN_PROGRESS, -10 * MIN);
+    const b = await makeBooking(ride._id);
+    const { pickupPin } = (await Booking.findById(b._id).select('+pickupPin').lean())!;
+    const wrong = pickupPin === '1111' ? '2222' : '1111';
+    for (let i = 0; i < 4; i++) await expect(bookings.markPickedUp(b.id, driverId.toString(), wrong)).rejects.toMatchObject({ errorId: 'WRONG_PICKUP_PIN' });
+    await expect(bookings.markPickedUp(b.id, driverId.toString(), wrong)).rejects.toMatchObject({ errorId: 'PICKUP_PIN_LOCKED' });
+    // Even the right code no longer works from the driver's side
+    await expect(bookings.markPickedUp(b.id, driverId.toString(), pickupPin)).rejects.toMatchObject({ errorId: 'PICKUP_PIN_LOCKED' });
+
+    await expect(bookings.riderConfirmsPickup(b.id, driverId.toString())).rejects.toThrow('Only the rider');
+    const picked = await bookings.riderConfirmsPickup(b.id, riderId.toString());
+    expect(picked.pickupConfirmedBy).toBe('rider');
+    expect(picked.actualPickupTime).toBeDefined();
   });
 
   it('needs the ride to have started, and only the driver can do it', async () => {
@@ -176,7 +213,8 @@ describe('in-ride safety check-ins (UC-R05)', () => {
     const in11 = new Date(Date.now() + 11 * MIN);
     expect(await service.runDue(in11)).toEqual({ prompted: 1, escalated: 0 }); // repeated
     expect(await service.runDue(new Date(in11.getTime() + 11 * MIN))).toEqual({ prompted: 0, escalated: 1 });
-    expect(mockTriggerSOS).toHaveBeenCalledWith(riderId.toString(), expect.objectContaining({ bookingId: b.id }));
+    // Raised as automatic: the team is paged now, contacts after the longer window
+    expect(mockTriggerSOS).toHaveBeenCalledWith(riderId.toString(), expect.objectContaining({ bookingId: b.id, auto: true }));
   });
 
   it('an answer of OK resets the clock; "help" raises an SOS at once', async () => {
@@ -192,7 +230,7 @@ describe('in-ride safety check-ins (UC-R05)', () => {
 
     const result = await service.respond(riderId.toString(), b.id, 'help', { lng: 77.65, lat: 12.96 });
     expect(result).toMatchObject({ status: 'help', emergencyId: 'sos2' });
-    expect(mockTriggerSOS).toHaveBeenCalledWith(riderId.toString(), { bookingId: b.id, location: { lng: 77.65, lat: 12.96 } });
+    expect(mockTriggerSOS).toHaveBeenCalledWith(riderId.toString(), expect.objectContaining({ bookingId: b.id, location: { lng: 77.65, lat: 12.96 }, auto: false }));
   });
 });
 

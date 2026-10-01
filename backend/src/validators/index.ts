@@ -69,7 +69,7 @@ export const submitKycSchema = {
 
 export const presignKycUploadSchema = {
   body: Joi.object({
-    purpose: Joi.string().valid('licence', 'registration', 'insurance', 'vehicle-photo').required(),
+    purpose: Joi.string().valid('licence', 'registration', 'insurance', 'vehicle-photo', 'identity', 'selfie').required(),
     contentType: Joi.string().valid('image/jpeg', 'image/png', 'application/pdf').required(),
   }),
 };
@@ -228,6 +228,8 @@ export const createRatingSchema = {
       cleanliness: Joi.number().integer().min(1).max(5),
       punctuality: Joi.number().integer().min(1).max(5),
     }).optional(),
+    // Confidential "did you feel safe?", 1 (no) to 5 (yes)
+    safety: Joi.number().integer().min(1).max(5).optional(),
     issues: Joi.array().items(Joi.string().valid('safety', 'route', 'payment')).unique().max(3).default([]),
     issueDetails: Joi.string().trim().max(1000).allow('').optional(),
   }),
@@ -255,16 +257,32 @@ export const sendMessageSchema = {
 export const triggerSOSSchema = {
   body: Joi.object({
     bookingId: Joi.string().hex().length(24).required(),
+    // Optional: a phone without a GPS fix still raises the alert, from the ride's last position
     location: Joi.object({
       lng: Joi.number().min(-180).max(180).required(),
       lat: Joi.number().min(-90).max(90).required(),
-    }).required(),
+    }).optional(),
   }),
 };
 
 const objectIdParams = Joi.object({
   id: Joi.string().hex().length(24).required(),
 });
+
+/** POST /rides/:id/position: a phone on the ride, from the app's background task */
+export const tripPositionSchema = {
+  params: Joi.object({ id: Joi.string().hex().length(24).required() }),
+  body: Joi.object({
+    location: Joi.object({
+      lng: Joi.number().min(-180).max(180).required(),
+      lat: Joi.number().min(-90).max(90).required(),
+    }).required(),
+    speed: Joi.number().min(0).max(400).optional(),
+    heading: Joi.number().min(0).max(360).optional(),
+    accuracy: Joi.number().min(0).optional(),
+    battery: Joi.number().min(0).max(1).optional(),
+  }),
+};
 
 export const rideCheckInSchema = {
   body: Joi.object({
@@ -284,6 +302,16 @@ export const sosLocationSchema = {
       lng: Joi.number().min(-180).max(180).required(),
       lat: Joi.number().min(-90).max(90).required(),
     }).required(),
+    // 0 to 1: tells a flat battery from a phone switched off
+    battery: Joi.number().min(0).max(1).optional(),
+  }),
+};
+
+/** POST /safety/sos/:id/details: "What's happening?", after the alert has gone */
+export const sosDetailsSchema = {
+  params: objectIdParams,
+  body: Joi.object({
+    threat: Joi.string().valid('driver', 'passenger', 'outside', 'medical', 'accident', 'other').required(),
   }),
 };
 
@@ -291,7 +319,8 @@ export const sosEvidenceSchema = {
   params: objectIdParams,
   body: Joi.object({
     type: Joi.string().valid('audio', 'screenshot').required(),
-    url: Joi.string().uri({ scheme: ['https'] }).max(2048).required(),
+    // An https link, or a recording uploaded through /safety/sos/:id/audio-upload (s3://)
+    url: Joi.string().uri({ scheme: ['https', 's3'] }).max(2048).required(),
   }),
 };
 
@@ -341,7 +370,28 @@ export const updateMeSchema = {
     name: Joi.string().trim().min(2).max(100),
     email: Joi.string().trim().lowercase().email().max(254).allow('', null),
     dateOfBirth: adultDateOfBirth,
+    // Locked once an identity check has confirmed it (IdentityService)
+    gender: Joi.string().valid('male', 'female', 'other'),
   }).min(1),
+};
+
+export const vehicleParamSchema = {
+  params: Joi.object({ vehicleId: Joi.string().hex().length(24).required() }),
+};
+
+/** PUT /users/me/vehicles/:vehicleId/tracker */
+export const linkTrackerSchema = {
+  params: Joi.object({ vehicleId: Joi.string().hex().length(24).required() }),
+  body: Joi.object({ deviceId: Joi.string().trim().max(40).required() }),
+};
+
+/** POST /users/me/identity: files uploaded first with purpose identity and selfie */
+export const identitySubmitSchema = {
+  body: Joi.object({
+    documentUrl: Joi.string().max(1024).required(),
+    selfieUrl: Joi.string().max(1024).required(),
+    gender: Joi.string().valid('male', 'female', 'other').required(),
+  }),
 };
 
 /** DELETE /users/me: an explicit confirmation, so a stray request cannot close an account */

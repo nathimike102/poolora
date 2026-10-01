@@ -104,13 +104,13 @@ export const FEATURES: FeaturesConfig = {
       id: 'safety-women-only',
       iconName: 'WomenOnlyIcon',
       title: 'Women-only rides',
-      desc: 'A driver can mark a ride as women-only. Those rides are shown to, and bookable by, women riders only.',
+      desc: 'Women drivers can offer rides for women only. Everyone on them has had their ID checked by our team, so nobody gets in just by saying they are a woman.',
     },
     {
       id: 'safety-sos',
       iconName: 'SOSIcon',
       title: 'SOS during a ride',
-      desc: 'Hold the SOS button to alert the Poolora safety team and text your emergency contacts a link to your live location.',
+      desc: 'Hold SOS for 3 seconds. Our safety team is alerted at once, and your emergency contacts get a text with your live location 10 seconds later. It still works without GPS.',
     },
     {
       id: 'safety-tracking',

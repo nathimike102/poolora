@@ -42,7 +42,7 @@ const mutable = config as unknown as {
   zwgPerUsd: number;
   ride: Record<string, unknown>;
   tracking: Record<string, unknown>;
-  safety: { checkInSeconds: Record<string, number> };
+  safety: Record<string, unknown> & { checkInSeconds: Record<string, number> };
   matching: { weights: Record<string, number> };
 };
 
@@ -104,9 +104,11 @@ export const SETTINGS: SettingDefinition[] = [
   numberSetting('routeDeviationMeters', 'safety', 'Route deviation alert', 'The rider, driver and admins are alerted when the car is further than this from the planned route.', 'meters', 100, 5000, mutable.tracking, 'routeDeviationMeters'),
   numberSetting('safetyCheckInMins', 'safety', 'In-ride safety check-in', 'Riders in the car are asked "Are you OK?" this often. Two unanswered prompts raise an SOS.', 'minutes', 10, 120, mutable.ride, 'safetyCheckInMins'),
   numberSetting('noShowWaitMins', 'cancellation', 'No-show wait', 'How long a driver waits at the pickup before they can report a no-show.', 'minutes', 5, 30, mutable.ride, 'noShowWaitMins'),
-  numberSetting('sosCheckInLow', 'safety', 'SOS check-in, low risk', 'Time between check-in prompts during an SOS at low risk.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'low'),
-  numberSetting('sosCheckInMedium', 'safety', 'SOS check-in, medium risk', 'Time between check-in prompts at medium risk.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'medium'),
-  numberSetting('sosCheckInHigh', 'safety', 'SOS check-in, high risk', 'Time between check-in prompts at high risk.', 'seconds', 15, 300, mutable.safety.checkInSeconds, 'high'),
+  numberSetting('sosContactDelaySeconds', 'safety', 'SOS: time to cancel before contacts are texted', 'The safety team is alerted the moment an SOS is raised. The person\'s emergency contacts are texted after this, so an accidental press can be cancelled first. 0 texts them at once.', 'seconds', 0, 30, mutable.safety, 'contactDelaySeconds'),
+  numberSetting('sosAckTargetMins', 'safety', 'SOS: page again if nobody takes it', 'An SOS no admin has taken after this pages every admin again by push and SMS, and again at each interval until someone takes it.', 'minutes', 1, 15, mutable.safety, 'ackTargetMins'),
+  numberSetting('sosCheckInLow', 'safety', 'SOS signal, low risk', 'During an SOS the phone sends its position every few seconds. Three intervals of this long without it mark the phone out of contact and page the safety team.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'low'),
+  numberSetting('sosCheckInMedium', 'safety', 'SOS signal, medium risk', 'The same, once the person has said they are not fully safe.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'medium'),
+  numberSetting('sosCheckInHigh', 'safety', 'SOS signal, high risk', 'The same, once the person has reported danger.', 'seconds', 15, 300, mutable.safety.checkInSeconds, 'high'),
   {
     key: 'matchingWeights',
     group: 'matching',

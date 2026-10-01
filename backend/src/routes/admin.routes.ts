@@ -102,6 +102,12 @@ router.get('/disputes/:id', W.disputeDetail);
 router.post('/disputes/:id/assign', W.assignDispute);
 router.post('/disputes/:id/resolve', W.resolveDispute);
 
+// Identity checks for women-only rides
+router.get('/identity', W.identityQueue);
+router.get('/identity/:userId', W.identityDetail);
+router.post('/identity/:userId/approve', W.identityApprove);
+router.post('/identity/:userId/reject', W.identityReject);
+
 router.get('/sos', W.listSos);
 router.get('/sos/:id', W.sosDetail);
 router.post('/sos/:id/log', W.sosLog);

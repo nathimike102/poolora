@@ -47,6 +47,8 @@ type Place = LatLng & { address: string };
 
 const BOT_DRIVER_PHONE = '+263700000001';
 const BOT_RIDER_PHONE = '+263700000002';
+/** The simulated rider's pickup code, which the driver enters at "Picked up" */
+export const SIM_RIDER_PICKUP_PIN = '0000';
 
 /** The market's centre (Harare CBD), used when the app sends no location. */
 const DEFAULT_PICKUP: LatLng = { lat: REGION.center.lat, lng: REGION.center.lng };
@@ -250,6 +252,8 @@ export class RideSimulationService {
       dropoff: { ...pointOf(ride.dropoff.location), address: ride.dropoff.address },
       useWallet: true,
     });
+    // The bot rider has no phone to show its pickup code, so it says it in the note the driver sees
+    await Booking.updateOne({ _id: booking._id }, { $set: { pickupPin: SIM_RIDER_PICKUP_PIN, note: `Test rider: my pickup code is ${SIM_RIDER_PICKUP_PIN}` } });
 
     return { rideId: ride._id.toString(), bookingId: booking._id.toString() };
   }
@@ -368,7 +372,7 @@ export class RideSimulationService {
       // stops the approach alerts and starts the in-ride safety check-ins.
       for (const id of bookingIds) {
         await this.bookingService.markArrived(id, run.driverId).catch(() => undefined);
-        await this.bookingService.markPickedUp(id, run.driverId).catch((error) =>
+        await this.bookingService.markPickedUp(id, run.driverId, undefined, { simulation: true }).catch((error) =>
           logger.warn('Simulation could not mark the rider picked up', { bookingId: id, error: (error as Error).message }),
         );
       }

@@ -117,3 +117,6 @@ Gemfile.lock
 # Python bytecode
 __pycache__/
 *.pyc
+
+# The tracker gateway config holds the gateway key
+infra/traccar/traccar.xml

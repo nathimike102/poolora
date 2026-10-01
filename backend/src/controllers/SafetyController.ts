@@ -23,15 +23,43 @@ export class SafetyController {
   }
 
   /**
+   * GET /api/v1/safety/sos/current
+   * The caller's open SOS, or else the booking an SOS would be about.
+   */
+  static async getCurrent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const result = await safetyService.getCurrent(user.userId);
+      sendSuccess(res, result, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/safety/sos/:id/cancel
+   * Cancel an accidental SOS inside the window, before contacts are texted.
+   */
+  static async cancelSOS(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const record = await safetyService.cancelSOS(String(req.params.id), user.userId);
+      sendSuccess(res, { emergency: record }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/v1/safety/sos/:id/location
    * Update SOS location during high-frequency tracking.
    */
   static async updateSOSLocation(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      const { location } = req.body;
-      await safetyService.updateSOSLocation(String(req.params.id), user.userId, location);
-      sendSuccess(res, { message: 'Location updated' }, 200, req.requestId);
+      const { location, battery } = req.body as { location: { lng: number; lat: number }; battery?: number };
+      const open = await safetyService.updateSOSLocation(String(req.params.id), user.userId, location, battery);
+      sendSuccess(res, { message: open ? 'Location updated' : 'This SOS is closed', open }, 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -47,6 +75,34 @@ export class SafetyController {
       const { type, url } = req.body;
       await safetyService.addEvidence(String(req.params.id), user.userId, type, url);
       sendSuccess(res, { message: 'Evidence added' }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/safety/sos/:id/details
+   * "What's happening?": who or what the danger is. Body: threat.
+   */
+  static async details(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const record = await safetyService.setThreat(String(req.params.id), user.userId, req.body.threat);
+      sendSuccess(res, { emergency: record }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/safety/sos/:id/audio-upload
+   * A presigned upload for one chunk of SOS audio. Body: contentType.
+   */
+  static async audioUpload(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      const upload = await safetyService.audioUploadFor(String(req.params.id), user.userId, String(req.body?.contentType ?? ''));
+      sendSuccess(res, upload, 200, req.requestId);
     } catch (error) {
       next(error);
     }

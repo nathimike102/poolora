@@ -32,6 +32,7 @@ import { errorHandler } from '../../utils/errorHandler';
 import { decodePolyline } from '../../utils/polyline';
 import { initSocket } from '../../utils/socket';
 import { money, REGION } from '../../utils/region';
+import { startTripTracking, stopTripTracking } from '../../services/tripTracking';
 
 type Coordinate = { latitude: number; longitude: number };
 
@@ -104,6 +105,10 @@ export function DriverRideDetailsScreen() {
   const [simulating, setSimulating] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0);
   const [composing, setComposing] = useState(false);
+  // "Picked up" asks for the rider's pickup code
+  const [pinFor, setPinFor] = useState<Booking | null>(null);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
   const [broadcast, setBroadcast] = useState('');
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
 
@@ -151,11 +156,15 @@ export function DriverRideDetailsScreen() {
   const bookingIdsRef = useRef(bookingIds);
   bookingIdsRef.current = bookingIds;
 
-  // Share the phone's real position with riders while the ride is under way
+  // Share the phone's real position with riders while the ride is under way.
+  // The background task keeps sending when Maps is open or the screen is
+  // locked; this screen then only moves its own map. If the task cannot run,
+  // the screen sends while it is open, as before.
   useEffect(() => {
     if (!inProgress || simulating) return;
     let subscription: Location.LocationSubscription | undefined;
     let cancelled = false;
+    let inBackground = false;
     (async () => {
       const { status: permission } = await Location.requestForegroundPermissionsAsync();
       if (permission !== 'granted') {
@@ -163,12 +172,13 @@ export function DriverRideDetailsScreen() {
         return;
       }
       setGpsNote('');
+      inBackground = await startTripTracking(rideId, 'driver');
       subscription = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, timeInterval: GPS_INTERVAL_MS, distanceInterval: 10 },
         position => {
           const point = { latitude: position.coords.latitude, longitude: position.coords.longitude };
           setCarLocation(point);
-          shareLocation(
+          if (!inBackground) shareLocation(
             bookingIdsRef.current,
             point,
             Math.max(0, (position.coords.speed ?? 0) * 3.6),
@@ -183,7 +193,12 @@ export function DriverRideDetailsScreen() {
       cancelled = true;
       subscription?.remove();
     };
-  }, [inProgress, simulating]);
+  }, [inProgress, simulating, rideId]);
+
+  // The trip has ended (or is being simulated): stop sending
+  useEffect(() => {
+    if (status && (!inProgress || simulating)) stopTripTracking(rideId);
+  }, [status, inProgress, simulating, rideId]);
 
   // Positions of the simulated car, which the server sends to the driver
   useEffect(() => {
@@ -246,8 +261,32 @@ export function DriverRideDetailsScreen() {
 
   const route = useMemo(() => decodePolyline(ride?.routePolyline), [ride?.routePolyline]);
 
-  const step = (bookingId: string, which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow') =>
-    runNow(() => bookingService.driverStep(bookingId, which));
+  const step = (bookingId: string, which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow') => {
+    if (which === 'pickedUp') {
+      setPin('');
+      setPinError('');
+      setPinFor(riders.find(b => b._id === bookingId) ?? null);
+      return;
+    }
+    return runNow(() => bookingService.driverStep(bookingId, which));
+  };
+
+  const submitPin = async () => {
+    if (!pinFor || pin.length !== 4) return;
+    setActing(true);
+    setPinError('');
+    try {
+      await bookingService.driverStep(pinFor._id, 'pickedUp', pin);
+      setPinFor(null);
+      await load();
+    } catch (error) {
+      // Wrong code: say so in the sheet so the driver can ask again
+      setPinError(errorHandler.process(error).message);
+      setPin('');
+    } finally {
+      setActing(false);
+    }
+  };
 
   // One message to everyone booked on the ride (UC-D06 step 6)
   const sendBroadcast = async () => {
@@ -579,6 +618,44 @@ export function DriverRideDetailsScreen() {
         )}
       </ScrollView>
 
+      <Modal visible={Boolean(pinFor)} transparent animationType="slide" onRequestClose={() => setPinFor(null)}>
+        <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={[styles.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + 16 }]}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">
+              {`${pinFor?.rider?.name?.split(' ')[0] ?? 'The rider'}'s pickup code`}
+            </Text>
+            <Text style={{ fontSize: 13, color: c.textSec }}>
+              Ask the rider for the 4-digit code on their screen. It shows them they are getting into the right car.
+            </Text>
+            <TextInput
+              value={pin}
+              onChangeText={t => setPin(t.replace(/\D/g, '').slice(0, 4))}
+              keyboardType="number-pad"
+              maxLength={4}
+              autoFocus
+              accessibilityLabel="Pickup code"
+              style={[styles.sheetInput, { borderColor: pinError ? c.error : c.border, color: c.text, backgroundColor: c.bg, fontSize: 28, letterSpacing: 12, textAlign: 'center', minHeight: 64 }]}
+            />
+            {pinError ? <Text style={{ fontSize: 13, color: c.error }} accessibilityLiveRegion="assertive">{pinError}</Text> : null}
+            <View style={styles.statsRow}>
+              <Pressable onPress={() => setPinFor(null)} accessibilityRole="button" style={[styles.actionBtn, styles.flex1]}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: c.textSec }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={submitPin}
+                disabled={pin.length !== 4 || acting}
+                accessibilityRole="button"
+                style={[styles.actionBtn, styles.flex1, { backgroundColor: pin.length === 4 ? c.primary : c.border }]}
+              >
+                {acting ? <ActivityIndicator color={c.textOnPrimary} /> : (
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: pin.length === 4 ? c.textOnPrimary : c.textSec }}>Confirm pickup</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <Modal visible={composing} transparent animationType="slide" onRequestClose={() => setComposing(false)}>
         <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + 16 }]}>
@@ -627,6 +704,18 @@ export function DriverRideDetailsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Drivers need SOS too; it is about a rider on this ride, one in the car if any */}
+      {riders.length > 0 && (status === 'scheduled' || inProgress) && (
+        <Pressable
+          onPress={() => navigation.navigate('SOS', { bookingId: (riders.find(b => b.actualPickupTime && !b.actualDropoffTime) ?? riders[0])._id })}
+          accessibilityRole="button"
+          accessibilityLabel="SOS emergency"
+          style={[styles.sosFab, { backgroundColor: c.error }]}
+        >
+          <Text style={{ color: 'white', fontWeight: '800', fontSize: 14 }}>SOS</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -692,6 +781,21 @@ function RiderSteps({
 }
 
 const styles = StyleSheet.create({
+  sosFab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 120,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
   root: { flex: 1 },
   flex1: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },

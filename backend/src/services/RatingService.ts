@@ -39,10 +39,15 @@ export interface CreateRatingDto {
     categories?: Partial<Record<RatingCategory, number>>;
     issues?: RatingIssue[];
     issueDetails?: string;
+    /** "Did you feel safe?" 1 (no) to 5 (yes); confidential */
+    safety?: number;
 }
 
+/** A "did you feel safe?" answer this low goes to the safety team like a safety report */
+export const UNSAFE_AT_OR_BELOW = 2;
+
 /** Fields never shown to anyone but admins */
-const PRIVATE_FIELDS = '-issues -issueDetails -flagReason -moderatedBy -moderationNote';
+const PRIVATE_FIELDS = '-safety -issues -issueDetails -flagReason -moderatedBy -moderationNote';
 
 /** When a completed booking finished, for the rating window */
 function completedAt(booking: { actualDropoffTime?: Date; updatedAt: Date }): Date {
@@ -54,7 +59,8 @@ export class RatingService {
      * Submit a rating after a ride completion.
      */
     async createRating(userId: string, data: CreateRatingDto): Promise<IRating> {
-        const { bookingId, score, tags, categories, issues = [] } = data;
+        const { bookingId, score, tags, categories, issues = [], safety } = data;
+        const feltUnsafe = safety !== undefined && safety <= UNSAFE_AT_OR_BELOW;
         const comment = data.comment?.trim() || undefined;
         const issueDetails = data.issueDetails?.trim() || undefined;
 
@@ -93,6 +99,7 @@ export class RatingService {
             sanitizedComment = profanityFilter.clean(comment);
         }
         if (issues.includes('safety')) flagReason = flagReason ? `Safety report; ${flagReason}` : 'Safety report';
+        else if (feltUnsafe) flagReason = flagReason ? `Felt unsafe; ${flagReason}` : 'Felt unsafe';
 
         const rating = await Rating.create({
             booking: bookingId,
@@ -104,6 +111,7 @@ export class RatingService {
             tags: tags || [],
             comment: sanitizedComment,
             categories: categories && Object.keys(categories).length ? categories : undefined,
+            safety,
             issues: issues.length ? issues : undefined,
             issueDetails,
             commentStatus: sanitizedComment ? 'pending' : undefined,
@@ -131,7 +139,23 @@ export class RatingService {
             });
         }
 
-        if (issues.includes('safety')) await this.alertAdmins(rating);
+        if (safety !== undefined) {
+            // Running average, kept apart from the public rating
+            const key = isRider ? 'asDriver' : 'asRider';
+            const holder = await User.findById(rateeId).select('+safetyRating').lean();
+            const now = holder?.safetyRating?.[key] ?? { avg: 0, count: 0 };
+            const count = now.count + 1;
+            await User.updateOne({ _id: rateeId }, {
+                $set: { [`safetyRating.${key}`]: { avg: Math.round(((now.avg * now.count + safety) / count) * 100) / 100, count } },
+            });
+        }
+
+        if (issues.includes('safety') || feltUnsafe) {
+            // The trip's trail is kept with the report
+            const { keepTripTrail } = await import('./TripTrailService');
+            await keepTripTrail(booking.ride);
+            await this.alertAdmins(rating);
+        }
 
         // Thank-you message (step 8)
         try {
@@ -297,10 +321,10 @@ export class RatingService {
     async moderationQueue(status: 'pending' | 'reported' | 'done' = 'pending') {
         const filter: FilterQuery<IRating> =
             status === 'reported'
-                ? { issues: { $exists: true, $ne: [] } }
+                ? { $or: [{ issues: { $exists: true, $ne: [] } }, { safety: { $lte: UNSAFE_AT_OR_BELOW } }] }
                 : status === 'done'
                     ? { commentStatus: { $in: ['approved', 'rejected'] } }
-                    : { $or: [{ commentStatus: 'pending' }, { issues: 'safety', moderatedAt: { $exists: false } }] };
+                    : { $or: [{ commentStatus: 'pending' }, { $or: [{ issues: 'safety' }, { safety: { $lte: UNSAFE_AT_OR_BELOW } }], moderatedAt: { $exists: false } }] };
         const ratings = await Rating.find(filter)
             .populate('rater', 'name phone')
             .populate('ratee', 'name phone')
@@ -309,7 +333,8 @@ export class RatingService {
             .limit(200)
             .lean();
         if (status === 'pending') {
-            ratings.sort((a, b) => Number((b.issues ?? []).includes('safety')) - Number((a.issues ?? []).includes('safety')));
+            const urgent = (r: { issues?: string[]; safety?: number }) => Number((r.issues ?? []).includes('safety') || (r.safety !== undefined && r.safety <= UNSAFE_AT_OR_BELOW));
+            ratings.sort((a, b) => urgent(b) - urgent(a));
         }
         return { ratings };
     }
@@ -343,5 +368,9 @@ export class RatingService {
         } catch (error) {
             logger.debug('Could not alert admins about a safety report', { error: (error as Error).message });
         }
+        // Admins not at the dashboard hear too (UC-R06 5a: alerted at once)
+        const { pushAdmins } = await import('./SafetyAlerts');
+        const what = (rating.issues ?? []).includes('safety') ? 'A safety problem was reported on a trip' : 'Someone said they did not feel safe on a trip';
+        await pushAdmins('Safety report', `${what}. Open Reviews in the admin.`, { type: 'safety_report', ratingId: rating._id.toString() });
     }
 }

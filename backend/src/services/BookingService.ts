@@ -17,6 +17,8 @@ import { MatchingEngineClient } from './MatchingEngineClient';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
 import { WalletService } from './WalletService';
+import { NotificationService } from './NotificationService';
+import { isVerifiedWoman, womenOnlyRefusal } from './IdentityService';
 import type { FilterQuery } from 'mongoose';
 
 const walletService = new WalletService();
@@ -70,6 +72,9 @@ export function cancellationSplit(fare: number, refundRate: number, byPolicy: bo
   return { refund, retained, platformFee, driverEarnings: round2(retained - platformFee) };
 }
 
+/** Wrong pickup codes before only the rider can confirm the pickup */
+export const PICKUP_PIN_MAX_TRIES = 5;
+
 export class BookingService {
   private matchingEngine = new MatchingEngineClient();
 
@@ -99,6 +104,12 @@ export class BookingService {
     // Cannot book own ride
     if (ride.driver.toString() === riderId) {
       throw new AppError('Cannot book your own ride', 400, 'SELF_BOOKING');
+    }
+
+    // Search hides women-only rides from everyone else; a ride id alone must not get round it
+    if (ride.preferences?.womenOnly) {
+      const rider = await User.findById(riderId).select('gender identity').lean();
+      if (!isVerifiedWoman(rider)) throw womenOnlyRefusal(rider);
     }
 
     if (ride.status !== RideStatus.SCHEDULED && ride.status !== RideStatus.ACTIVE) {
@@ -561,20 +572,79 @@ export class BookingService {
   }
 
   /** The rider is in the car (UC-D04 step 5). */
-  async markPickedUp(bookingId: string, driverId: string): Promise<IBooking> {
-    const booking = await this.driverBookingOnRideUnderWay(bookingId, driverId);
-    if (!booking.actualPickupTime) {
-      booking.actualPickupTime = new Date();
-      booking.driverArrivedAt ??= booking.actualPickupTime;
-      booking.driverConfirmedPickup = true;
-      booking.safetyCheck = { missed: 0 };
-      await booking.save();
-      EventBridge.publish('booking-events', {
-        eventType: 'booking.picked_up',
-        data: { bookingId: booking._id, riderId: booking.rider.toString() },
-      });
+  /**
+   * The driver confirms the rider is in the car with the rider's 4-digit
+   * pickup code, so a rider never gets into the wrong car. Five wrong codes
+   * lock it: then only the rider can confirm, in their own app. The
+   * simulator skips the code.
+   */
+  async markPickedUp(bookingId: string, driverId: string, pin?: string, options: { simulation?: boolean } = {}): Promise<IBooking> {
+    const booking = await this.driverBookingOnRideUnderWay(bookingId, driverId, '+pickupPin +pickupPinAttempts');
+    if (booking.actualPickupTime) return booking;
+
+    if (booking.pickupPin && !options.simulation) {
+      const tries = booking.pickupPinAttempts ?? 0;
+      if (tries >= PICKUP_PIN_MAX_TRIES) {
+        throw new AppError('Too many wrong codes. Ask the rider to tap "I\'m in the car" in their app.', 409, 'PICKUP_PIN_LOCKED');
+      }
+      const given = typeof pin === 'string' ? pin.replace(/\D/g, '') : '';
+      if (given !== booking.pickupPin) {
+        booking.pickupPinAttempts = tries + 1;
+        await booking.save();
+        const left = PICKUP_PIN_MAX_TRIES - booking.pickupPinAttempts;
+        if (!left) await this.pickupPinLocked(booking);
+        throw new AppError(
+          given ? `That is not the rider's code.${left ? ` ${left} ${left === 1 ? 'try' : 'tries'} left.` : ' Ask the rider to confirm in their app.'}` : 'Ask the rider for their 4-digit pickup code',
+          422,
+          left ? 'WRONG_PICKUP_PIN' : 'PICKUP_PIN_LOCKED',
+        );
+      }
     }
+    return this.recordPickup(booking, options.simulation ? 'simulation' : booking.pickupPin ? 'pin' : undefined);
+  }
+
+  /**
+   * The rider confirms they are in the car, from their own app: the way in
+   * when the code cannot be exchanged, or after five wrong codes.
+   */
+  async riderConfirmsPickup(bookingId: string, riderId: string): Promise<IBooking> {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) throw new NotFoundError('Booking');
+    if (booking.rider.toString() !== riderId) throw new AuthorizationError('Only the rider can confirm this');
+    if (booking.status !== BookingStatus.CONFIRMED) throw new ConflictError('This booking is not active');
+    const ride = await Ride.findById(booking.ride).select('status');
+    if (ride?.status !== RideStatus.IN_PROGRESS) throw new ConflictError('The ride has not started');
+    if (booking.actualPickupTime) return booking;
+    return this.recordPickup(booking, 'rider');
+  }
+
+  /** `by` is absent for bookings made before pickup codes */
+  private async recordPickup(booking: IBooking, by?: 'pin' | 'rider' | 'simulation'): Promise<IBooking> {
+    booking.actualPickupTime = new Date();
+    booking.driverArrivedAt ??= booking.actualPickupTime;
+    booking.driverConfirmedPickup = true;
+    booking.pickupConfirmedBy = by;
+    booking.safetyCheck = { missed: 0 };
+    await booking.save();
+    EventBridge.publish('booking-events', {
+      eventType: 'booking.picked_up',
+      data: { bookingId: booking._id, riderId: booking.rider.toString() },
+    });
     return booking;
+  }
+
+  /** Five wrong codes: the rider is told to check the car, and admins hear of it. */
+  private async pickupPinLocked(booking: IBooking): Promise<void> {
+    const ride = await Ride.findById(booking.ride).select('vehicle.plateNumber').lean();
+    const plate = ride?.vehicle?.plateNumber ? ` Only get into ${ride.vehicle.plateNumber}.` : '';
+    await new NotificationService().sendPushNotification(
+      booking.rider.toString(),
+      'Check the car before you get in',
+      `Five wrong pickup codes were entered for your ride.${plate} If you are in the right car, tap "I'm in the car".`,
+      { type: 'pickup_pin', bookingId: booking._id.toString() },
+    ).catch(() => undefined);
+    const { pushAdmins } = await import('./SafetyAlerts');
+    await pushAdmins('Pickup codes', 'A driver entered five wrong pickup codes for a rider. Check the ride in the admin.', { type: 'pickup_pin', bookingId: booking._id.toString() });
   }
 
   /** The rider has been dropped (UC-D04 step 12): settles this booking. */
@@ -626,8 +696,8 @@ export class BookingService {
   }
 
   /** A confirmed booking of this driver's, on a ride that has started */
-  private async driverBookingOnRideUnderWay(bookingId: string, driverId: string): Promise<IBooking> {
-    const booking = await Booking.findById(bookingId);
+  private async driverBookingOnRideUnderWay(bookingId: string, driverId: string, select?: string): Promise<IBooking> {
+    const booking = select ? await Booking.findById(bookingId).select(select) : await Booking.findById(bookingId);
     if (!booking) throw new NotFoundError('Booking');
     if (booking.driver.toString() !== driverId) throw new AuthorizationError('Only the ride\'s driver can do this');
     if (booking.status !== BookingStatus.CONFIRMED) throw new ConflictError('This booking is not active');
@@ -733,7 +803,9 @@ export class BookingService {
     if (status) filter.status = status;
 
     const [bookings, total] = await Promise.all([
+      // Riders see their own pickup code; drivers never do
       Booking.find(filter)
+        .select(role === 'rider' ? '+pickupPin' : '')
         .populate('ride', 'pickup dropoff departureTime vehicle totalSeats availableSeats pricePerSeat')
         .populate(
           role === 'rider' ? 'driver' : 'rider',

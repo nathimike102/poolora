@@ -152,8 +152,11 @@ export class MatchingEngineClient {
     const acceptanceScore = acceptanceRate * 100;
 
     // ── Safety Score (5%) ──
+    // Riders' confidential "did you feel safe?" answers, once there are
+    // enough to mean something; until then, how reliably the driver turns up
     const cancellationRate = driver.stats.cancellationRate || 0;
-    const safetyScore = (1 - cancellationRate) * 100;
+    const felt = driver.safetyRating?.asDriver;
+    const safetyScore = felt && felt.count >= 3 ? ((felt.avg - 1) / 4) * 100 : (1 - cancellationRate) * 100;
 
     // ── Weighted Overall ──
     const overallScore =

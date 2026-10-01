@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, Link } from 'react-router';
 import { useAdmin } from '../App';
 import { signOut } from '../lib/auth';
-import { subscribeSos } from '../lib/socket';
+import { isUrgent, subscribeSos } from '../lib/socket';
+import { soundSosAlarm } from '../lib/alarm';
 import { useApi } from '../lib/useApi';
 
 interface Counts {
-  safety: { activeSos: number; openDisputes: number; pendingBlocks: number; fraudFlagged: number; reviewsWaiting?: number; supportOpen?: number; appealsOpen?: number; parcelClaimsOpen?: number; withdrawalsPending?: number; mergesPending?: number; settingsPending?: number };
+  safety: { activeSos: number; openDisputes: number; pendingBlocks: number; fraudFlagged: number; reviewsWaiting?: number; supportOpen?: number; appealsOpen?: number; parcelClaimsOpen?: number; withdrawalsPending?: number; mergesPending?: number; settingsPending?: number; identityPending?: number };
   users: { pendingApplications: number };
 }
 
@@ -42,10 +43,12 @@ export function Layout({ onSignedOut }: { onSignedOut: () => void }) {
   useEffect(
     () =>
       subscribeSos((e) => {
-        if (e.kind === 'alert') {
+        if (e.kind !== 'alert') return;
+        if (isUrgent(e)) {
           setLiveSos(e.emergencyId);
-          reload();
+          soundSosAlarm();
         }
+        reload();
       }),
     [reload],
   );
@@ -55,6 +58,7 @@ export function Layout({ onSignedOut }: { onSignedOut: () => void }) {
     ['/', 'Dashboard', 0],
     ['/sos', 'SOS incidents', activeSos],
     ['/applications', 'Driver applications', data?.users.pendingApplications ?? 0],
+    ['/identity', 'Identity checks', data?.safety.identityPending ?? 0],
     ['/disputes', 'Disputes', data?.safety.openDisputes ?? 0],
     ['/users', 'Users', data?.safety.pendingBlocks ?? 0],
     ['/fraud', 'Fraud flags', data?.safety.fraudFlagged ?? 0],

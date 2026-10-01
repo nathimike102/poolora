@@ -11,7 +11,7 @@ import { logger } from '../utils/logger';
 import { submitKycToBackend } from './authService';
 import type { ApiResponse, User, VehicleType } from '../types/api';
 
-export type KycDocumentPurpose = 'licence' | 'registration' | 'insurance' | 'vehicle-photo';
+export type KycDocumentPurpose = 'licence' | 'registration' | 'insurance' | 'vehicle-photo' | 'identity' | 'selfie';
 
 export interface LocalFile {
   uri: string;
@@ -36,7 +36,7 @@ export interface KycSubmission {
   vehiclePhoto: LocalFile;
 }
 
-async function uploadDocument(purpose: KycDocumentPurpose, file: LocalFile): Promise<string> {
+export async function uploadDocument(purpose: KycDocumentPurpose, file: LocalFile): Promise<string> {
   const { data } = await apiClient.post<
     ApiResponse<{ url: string; fields: Record<string, string>; fileUrl: string }>
   >(API_ENDPOINTS.uploads.kyc, { purpose, contentType: file.mimeType });

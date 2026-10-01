@@ -20,6 +20,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  Alert,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -39,6 +40,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import type { CreateRideResult, PriceSuggestion, User, Vehicle } from '../../types/api';
 import { money, moneyInput, REGION } from '../../utils/region';
 import { maxSeatsFor } from '../../utils/vehicles';
+import { identityService } from '../../services/identityService';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 /** 'from', 'to', or the index of a stop */
@@ -105,6 +107,28 @@ export function CreateRideScreen() {
   const [price, setPrice] = useState('');
   const [vehicleId, setVehicleId] = useState<string>('');
   const [womenOnly, setWomenOnly] = useState(false);
+
+  // Only a woman whose identity check passed can post a women-only ride; say so before posting fails
+  const chooseWomenOnly = async (on: boolean) => {
+    if (!on) {
+      setWomenOnly(false);
+      return;
+    }
+    const identity = await identityService.status().catch(() => null);
+    if (identity?.status === 'verified' && identity.gender === 'female') {
+      setWomenOnly(true);
+      return;
+    }
+    Alert.alert(
+      'Women-only rides',
+      identity?.status === 'pending'
+        ? 'You can offer women-only rides once your identity check is approved. We usually review it within a day.'
+        : 'Only women who have verified their identity can offer women-only rides, so the passengers know the driver is a woman.',
+      identity?.status === 'pending'
+        ? [{ text: 'OK' }]
+        : [{ text: 'Not now', style: 'cancel' }, { text: 'Verify my identity', onPress: () => navigation.navigate('IdentityCheck') }],
+    );
+  };
   const [smokingAllowed, setSmokingAllowed] = useState(false);
   const [petsAllowed, setPetsAllowed] = useState(false);
   const [luggage, setLuggage] = useState<Luggage>('medium');
@@ -604,7 +628,7 @@ export function CreateRideScreen() {
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Text style={[styles.label, { color: c.textSec }]}>Ride rules</Text>
             {[
-              { label: 'Women passengers only', value: womenOnly, set: setWomenOnly },
+              { label: 'Women passengers only', value: womenOnly, set: chooseWomenOnly },
               { label: 'Smoking allowed', value: smokingAllowed, set: setSmokingAllowed },
               { label: 'Pets allowed', value: petsAllowed, set: setPetsAllowed },
             ].map(p => (

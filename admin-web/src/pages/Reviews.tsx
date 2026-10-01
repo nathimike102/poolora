@@ -23,6 +23,8 @@ interface Review {
   comment?: string;
   commentStatus?: 'pending' | 'approved' | 'rejected';
   issues?: Array<'safety' | 'route' | 'payment'>;
+  /** Confidential "did you feel safe?", 1 (no) to 5 (yes) */
+  safety?: number;
   issueDetails?: string;
   flagReason?: string;
   moderatedBy?: { name?: string };
@@ -37,6 +39,8 @@ const VIEWS = [['pending', 'Waiting'], ['reported', 'Problems reported'], ['done
 function stars(n: number) {
   return <span aria-label={`${n} of 5 stars`}>{'★'.repeat(n)}<span className="faint">{'★'.repeat(5 - n)}</span></span>;
 }
+
+const SAFE_LABEL: Record<number, string> = { 1: 'No', 3: 'Mostly', 5: 'Yes' };
 
 export function ReviewsPage() {
   const [params, setParams] = useSearchParams();
@@ -71,7 +75,7 @@ export function ReviewsPage() {
                 </thead>
                 <tbody>
                   {reviews.map((r) => {
-                    const safety = r.issues?.includes('safety');
+                    const safety = r.issues?.includes('safety') || (r.safety !== undefined && r.safety <= 2);
                     return (
                       <tr key={r._id}>
                         <td>{when(r.createdAt)}<div className="faint">{ago(r.createdAt)}</div></td>
@@ -87,7 +91,8 @@ export function ReviewsPage() {
                           ) : null}
                         </td>
                         <td style={{ maxWidth: 360 }}>
-                          {safety ? <div><Badge tone="danger">Safety report</Badge></div> : null}
+                          {safety ? <div><Badge tone="danger">{r.issues?.includes('safety') ? 'Safety report' : 'Did not feel safe'}</Badge></div> : null}
+                          {r.safety !== undefined ? <div className="faint">Felt safe: {SAFE_LABEL[r.safety] ?? r.safety} (confidential)</div> : null}
                           {(r.issues ?? []).filter((i) => i !== 'safety').map((i) => <div key={i}><Badge tone="warn">{ISSUE[i]}</Badge></div>)}
                           {r.issueDetails ? <div><strong>Report:</strong> {r.issueDetails}</div> : null}
                           {r.comment ? <div><strong>Review:</strong> {r.comment}</div> : null}

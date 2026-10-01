@@ -20,6 +20,8 @@ export interface RatingInput {
   comment?: string;
   issues?: RatingIssue[];
   issueDetails?: string;
+  /** "Did you feel safe?" 1 (no) to 5 (yes). Confidential: only the safety team sees it */
+  safety?: number;
 }
 
 export interface RatingSummary {
@@ -55,6 +57,7 @@ export const ratingService = {
         comment: input.comment?.trim() || undefined,
         tags: input.tags ?? [],
         categories: input.categories && Object.keys(input.categories).length ? input.categories : undefined,
+        safety: input.safety,
         issues: input.issues ?? [],
         issueDetails: input.issueDetails?.trim() || undefined,
       });

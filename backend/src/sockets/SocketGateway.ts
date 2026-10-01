@@ -332,6 +332,13 @@ export class SocketGateway {
   ): Promise<void> {
     const bookingId = booking._id.toString();
     const { lng, lat } = position;
+    // The car's trail, kept 30 days, and live to any SOS open on the ride; never holds up the checks below
+    if (booking.ride) {
+      void import('../services/TripTrailService')
+        .then(({ recordTripPosition }) =>
+          recordTripPosition({ rideId: String(booking.ride), userId: driverId, role: 'driver', location: position, extra: { speed } }))
+        .catch((error: Error) => logger.warn('Car trail not recorded', { bookingId, error: error.message }));
+    }
     // Approach milestones matter only until the rider is in the car
     if (!booking.actualPickupTime) {
       const pickupLat = booking.pickup.location.coordinates[1];
@@ -620,25 +627,17 @@ export class SocketGateway {
      */
     socket.on('sos:trigger', async (data: {
       bookingId: string;
-      location: { lng: number; lat: number };
+      location?: { lng: number; lat: number };
     }) => {
       try {
         const { SafetyService } = await import('../services/SafetyService');
-        const safetyService = new SafetyService();
-        const record = await safetyService.triggerSOS(socket.userId, data);
-
-        // Acknowledge to triggerer
+        const location = data?.location && Number.isFinite(data.location.lng) && Number.isFinite(data.location.lat)
+          && Math.abs(data.location.lng) <= 180 && Math.abs(data.location.lat) <= 90 ? data.location : undefined;
+        // Pages the safety team and reaches the dashboard through the safety-events stream
+        const record = await new SafetyService().triggerSOS(socket.userId, { bookingId: String(data?.bookingId ?? ''), location });
         socket.emit('sos:triggered', {
           emergencyId: record._id,
           liveTrackingUrl: record.liveTrackingUrl,
-        });
-
-        // Broadcast to admin dashboard
-        this.io.to('admin:sos').emit('sos:alert', {
-          emergencyId: record._id,
-          userId: socket.userId,
-          location: data.location,
-          timestamp: Date.now(),
         });
       } catch (error) {
         logger.error('SOS trigger error', { error: (error as Error).message });
@@ -667,19 +666,8 @@ export class SocketGateway {
         const { SafetyService } = await import('../services/SafetyService');
         await new SafetyService().updateSOSLocation(emergencyId, socket.userId, location);
 
-        // Broadcast to admin dashboard
-        this.io.to('admin:sos').emit('sos:location:updated', {
-          emergencyId,
-          userId: socket.userId,
-          location,
-          timestamp: Date.now(),
-        });
+        // SafetyService relays it to the admins' live map
 
-        // Publish to Kafka
-        EventBridge.publish('safety-events', {
-          eventType: 'sos.location.updated',
-          data: { emergencyId, location, timestamp: Date.now() },
-        });
       } catch (error) {
         logger.error('SOS location update error', { error: (error as Error).message });
       }

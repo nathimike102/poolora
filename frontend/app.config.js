@@ -34,7 +34,7 @@ module.exports = {
       bundleIdentifier: 'com.poolora.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
-          'Poolora needs your location to show your position on the map and find rides near you.',
+          'Poolora needs your location to show your position on the map, find rides near you and, during an SOS, share where you are with the safety team.',
       },
     },
     plugins: [
@@ -57,7 +57,22 @@ module.exports = {
         'expo-location',
         {
           locationWhenInUsePermission:
-            'Poolora needs your location to show your position on the map and find rides near you.',
+            'Poolora needs your location to show your position on the map, find rides near you and, during an SOS, share where you are with the safety team.',
+          // During an SOS only: keeps sending the position with the screen off,
+          // as a foreground service with a visible "SOS active" notification.
+          // No background-location permission is needed for this on Android.
+          isAndroidForegroundServiceEnabled: true,
+          isAndroidBackgroundLocationEnabled: false,
+          isIosBackgroundLocationEnabled: true,
+        },
+      ],
+      [
+        'expo-audio',
+        {
+          // Only if the user switches on "Record audio during an SOS"
+          microphonePermission: 'Poolora records audio during an SOS only if you switch this on, so the safety team can hear what happened.',
+          recordAudioAndroid: true,
+          enableBackgroundRecording: true,
         },
       ],
       [

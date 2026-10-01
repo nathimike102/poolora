@@ -1,0 +1,37 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+<!--
+  Poolora's car tracker gateway: Traccar in forwarder-only mode
+  (https://www.traccar.org/forwarder-only/). It decodes what trackers send,
+  stores nothing, and posts each position to Poolora, which keeps positions
+  only while the car is on a ride (TrackerService).
+
+  Copy to traccar.xml (not committed: it holds the key), then fill in:
+  - forward.url: the backend's public address + /api/v1/trackers/traccar
+  - forward.header: the same key as TRACKER_GATEWAY_KEY in backend/.env
+-->
+<properties>
+
+  <entry key='database.memory'>true</entry>
+  <entry key='database.registerUnknown'>true</entry>
+
+  <entry key='forward.type'>json</entry>
+  <entry key='forward.url'>https://api.example.com/api/v1/trackers/traccar</entry>
+  <entry key='forward.header'>X-Poolora-Tracker-Key: CHANGE_ME</entry>
+  <entry key='forward.retry.enable'>true</entry>
+
+  <entry key='filter.enable'>false</entry>
+  <entry key='geocoder.enable'>false</entry>
+  <entry key='geolocation.enable'>false</entry>
+  <entry key='speedLimit.enable'>false</entry>
+  <entry key='server.statistics'></entry>
+
+  <!--
+    gt06 (port 5023): most low-cost trackers sold in Zimbabwe, with a panic button.
+    teltonika (5027) and h02 (5013): other common devices.
+    osmand (5055): a phone app, for testing without a device.
+    wialon (5039): a tracking company on Wialon can retranslate its cars here.
+  -->
+  <entry key='protocols.enable'>gt06,teltonika,h02,osmand,wialon</entry>
+
+</properties>

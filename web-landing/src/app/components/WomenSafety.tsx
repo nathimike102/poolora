@@ -21,7 +21,7 @@ const iconMap: Record<string, React.ReactNode> = {
 /** What a rider sees in the app during a trip. Every row is a shipped feature. */
 const rideChecks = [
   { label: 'Driver documents', status: 'Reviewed' },
-  { label: 'Emergency contacts', status: 'Up to 5' },
+  { label: 'Emergency contacts', status: 'Up to 3' },
   { label: 'Live location link', status: 'Sent on SOS' },
   { label: 'In-app chat', status: 'After booking' },
   { label: 'Rating after the trip', status: 'Both ways' },

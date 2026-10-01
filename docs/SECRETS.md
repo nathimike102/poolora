@@ -86,6 +86,8 @@ openssl rand -base64 756 | tr -d '\n'
 | `SUPPORT_BOT_MODEL` | no | The Claude model for the support assistant. Default `claude-opus-5-5`, the current Opus |
 | `ML_MATCHING` | no | `true` ranks search results with the ML service's `/api/match` (needs `ML_SERVICE_API_KEY`); otherwise the backend's own weighted score is used |
 | `TWILIO_VOICE_NUMBER` | for masked calls | A Twilio voice number that can call Zimbabwe; riders and drivers call each other through it. Defaults to `TWILIO_PHONE_NUMBER` |
+| `TRACKER_GATEWAY_KEY` | for car trackers | Any long random string (`openssl rand -hex 32`). The Traccar gateway sends it in `X-Poolora-Tracker-Key` (its `forward.header`, see `infra/traccar/README.md`). Without it the tracker endpoint is off |
+| `TRACKER_GATEWAY_HOST`, `TRACKER_GATEWAY_PORT` | for car trackers | Where drivers point their tracker, shown in the app (default port 5023, GT06) |
 | `CALL_RECORDING` | no | `false` turns off recording of masked calls (on by default; both sides hear a notice) |
 | `KYC_VERIFY_URL`, `KYC_VERIFY_API_KEY` | no | A background-check vendor for driver applications (UC-A01). The vendor answers at `<APP_BASE_URL>/kyc-verify/callback` with the key in `X-Kyc-Verify-Key`. Without it, only the automatic document checks run |
 | `INSURANCE_CLAIMS_URL`, `INSURANCE_API_KEY` | no | An insurer's endpoint for parcel claims (UC-P05). Without it, admins decide claims and pay them to the wallet |

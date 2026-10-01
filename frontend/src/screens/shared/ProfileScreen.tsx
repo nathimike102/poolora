@@ -73,6 +73,7 @@ export function ProfileScreen(): React.ReactElement {
       : []),
     { icon: 'shield-check-outline', label: 'Safety', onPress: () => navigation.navigate('SOS') },
     { icon: 'account-heart-outline', label: 'Trusted contacts', sub: 'Alerted if you raise an SOS', onPress: () => navigation.navigate('EmergencyContacts') },
+    { icon: 'card-account-details-star-outline', label: 'Identity check', sub: profile?.identity?.status === 'verified' ? 'Verified' : profile?.identity?.status === 'pending' ? 'Waiting for review' : 'Needed for women-only rides', onPress: () => navigation.navigate('IdentityCheck') },
     { icon: 'message-text-outline', label: 'Messages', onPress: () => navigation.navigate('Messages') },
     { icon: 'map-marker-path', label: 'Saved routes', onPress: () => navigation.navigate('AddSavedRoute') },
     {

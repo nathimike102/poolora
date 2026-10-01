@@ -96,12 +96,14 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/users/me` | Own profile |
-| PATCH | `/users/me` | Update name, email, photo and preferences |
+| PATCH | `/users/me` | Update name, email, photo and preferences. `gender` (`female`, `male`, `other`) can be set until an identity check confirms it; then `409 IDENTITY_VERIFIED` |
 | GET | `/users/saved-routes` | Routes the rider searches often |
 | GET | `/users/kyc/status` | Driver verification state |
 | GET | `/users/me/statement` | A driver's earnings for a month (UC-D09). `?month=2026-09` (local time; defaults to this month). Returns `lines` (date, `Trip` / `Late cancellation` / `No-show`, route, rider's first name, fare, platform fee, earnings) and `totals`. Add `&format=csv` for a spreadsheet download |
 | POST | `/users/me/statement/email` | Emails that statement to the profile's address with the CSV attached. Body: `month`. `409 NO_EMAIL` without an address, `503 EMAIL_UNAVAILABLE` when SMTP is not set up |
 | GET | `/users/me/verified-status` | Progress towards the Verified Driver badge (UC-D10): `verified` and one `checks` entry per rule (`label`, `met`, `progress`) |
+| GET | `/users/me/identity` | The caller's identity check for women-only rides: `status` (`none`, `pending`, `verified`, `rejected`), `gender`, `declaredGender`, `submittedAt`, `reviewedAt`, `rejectionReason` |
+| POST | `/users/me/identity` | Send an identity check. Body: `gender`, `documentUrl`, `selfieUrl` (both uploaded first through `/uploads/kyc` with purpose `identity` and `selfie`, and inside the caller's own folder, else `422 INVALID_DOCUMENT`). `409 IDENTITY_VERIFIED` once verified |
 | GET | `/users/me/closure` | Whether the account can be closed now: `canClose`, `blockers` (plain-language reasons), `walletBalance`, `coins` |
 | DELETE | `/users/me` | Close the account (data protection right to erasure; Google Play account deletion). Body: `confirm: true`, optional `reason`. Refused with `409 ACCOUNT_CLOSE_BLOCKED` while anything is under way (open bookings, upcoming rides, parcels, disputes, an SOS, an unfinished group trip, a withdrawal being paid) or the wallet holds money; admin accounts cannot close themselves. On closing: name, email, date of birth, photo, licence details, vehicles, KYC files in S3, emergency contacts, push tokens, ride alerts and notifications are removed; the Firebase user is deleted; every session is revoked; coins are forfeited. The phone number is freed and can sign up again as a new account. Bookings, payments, ratings and chats stay, attached to an anonymous "Deleted user", because tax law requires the payment records |
 | GET | `/users/:id` | Public profile of another user (no phone number) |
@@ -169,6 +171,10 @@ A ride nobody has booked is **cancelled automatically 1 hour before departure**,
 | `radiusKm` | no | 5 | 1–50 |
 | `timeDeviationMins` | no | 120 | 0–480 |
 | `maxPrice`, `womenOnly`, `hasAC`, `vehicleType`, `minRating`, `rideType` | no | | Filters |
+
+| POST | `/rides/:id/position` | the ride's driver or a rider on it | A phone on a ride in progress, from the app's background task: the driver's (the car) every 5 s, a rider's every 15 s from pickup to drop. Body: `location`, optional `speed`, `heading`, `accuracy`, `battery`. The car's position reaches each rider's live map as before. About one point every 15 s per phone is stored as the trip trail, kept 30 days, or for good once an SOS, safety report or dispute is attached. While an SOS is open on the ride, each phone's position goes to the admins live (`sos:alert` with `eventType: sos.trail`). Returns `tracking`; false once the ride is over or the rider dropped |
+
+**Women-only rides.** Only a verified woman (an admin-approved identity check, `/users/me/identity`) sees them in search, can filter with `womenOnly=true`, and can book one; anyone else never sees them, `womenOnly=true` answers `403`, and booking one by its id answers `403`. Only a verified woman driver can post one (`preferences.womenOnly`). Search results carry `driver.identityVerified`, and a ride's driver carries `identity.status`.
 | `page`, `limit` | no | 1, 20 | `limit` at most 50 |
 
 A ride matches when its **route** passes within `radiusKm` of the rider's pickup and of their drop, in that order, so riders can join part-way. Each ride stores its road route as a GeoJSON LineString (`routeLine`, `2dsphere` index); search runs `$geoNear` on it near the pickup, requires it to cross a circle around the drop, then drops rides going the other way. Up to 200 candidates are considered per search.
@@ -213,7 +219,8 @@ rider requests ──► pending ──(driver accepts, payment in)──► con
 | POST | `/bookings/:id/cancel` | rider or driver | Cancel. Body: optional `reason` |
 | POST | `/bookings/:id/complete` | the ride's driver | Complete one booking. Normally done for all bookings by `POST /rides/:id/complete` |
 | POST | `/bookings/:id/arrived` | the ride's driver | At this rider's pickup (the ride must have started). The rider gets a push, and the no-show wait starts |
-| POST | `/bookings/:id/picked-up` | the ride's driver | The rider is in the car. In-ride safety check-ins start |
+| POST | `/bookings/:id/picked-up` | the ride's driver | The rider is in the car. Body: `pin`, the rider's 4-digit pickup code, so the rider knows it is the right car before getting in (`422 WRONG_PICKUP_PIN`; after 5 wrong codes `409 PICKUP_PIN_LOCKED`, the rider is warned and admins are told). In-ride safety check-ins start |
+| POST | `/bookings/:id/in-car` | the booking's rider | The rider confirms the pickup in their own app, when the code cannot be exchanged or is locked |
 | POST | `/bookings/:id/dropped-off` | the ride's driver | The rider has been dropped. Settles this booking as `POST …/complete` does |
 | POST | `/bookings/:id/no-show` | the ride's driver | After waiting 10 minutes at the pickup (`WAIT_FOR_RIDER` before then). Cancels the booking with no refund; the fare goes to the driver less the platform fee (UC-D07) |
 | POST | `/bookings/:id/share` | the booking's rider | A link to `/track/trip/:token` for trusted contacts (UC-R08). Returns `url` and `expiresAt` |
@@ -340,7 +347,7 @@ Online payments go through **Paynow** (paynow.co.zw): EcoCash, OneMoney, InnBuck
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/ratings` | Body: `bookingId`, `score` 1–5 (overall), optional `categories` (`behavior`, `cleanliness`, `punctuality`, each 1–5), `tags` (`cleanliness`, `punctuality`, `driving`, `politeness`, `communication`, `safety`, `comfort`, `navigation`, `vehicle_condition`), `comment` (up to 500 characters), `issues` (any of `safety`, `route`, `payment`) and `issueDetails`. Only for a completed booking you were part of, within 7 days of the drop (`422 RATING_WINDOW_CLOSED`). The score counts at once; the comment is public only after an admin approves it. Issues are private, and a safety issue alerts admins at once (`rating:safety` socket event) |
+| POST | `/ratings` | Body: `bookingId`, `score` 1–5 (overall), optional `categories` (`behavior`, `cleanliness`, `punctuality`, each 1–5), `tags` (`cleanliness`, `punctuality`, `driving`, `politeness`, `communication`, `safety`, `comfort`, `navigation`, `vehicle_condition`), `comment` (up to 500 characters), `issues` (any of `safety`, `route`, `payment`), `issueDetails`, and `safety`: the confidential answer to "Did you feel safe?" (1 no, 3 mostly, 5 yes). `safety` is never returned by the rating endpoints; it is averaged apart from the public rating, shown only to admins, and used in ride ranking once a driver has three. An answer of 2 or less alerts admins like a safety issue. Only for a completed booking you were part of, within 7 days of the drop (`422 RATING_WINDOW_CLOSED`). The score counts at once; the comment is public only after an admin approves it. Issues are private, and a safety issue alerts admins at once (`rating:safety` socket event) |
 | GET | `/ratings/pending` | Trips the caller finished in the last 7 days and has not rated: `bookingId`, `role`, `rateeName`, `from`, `to`, `completedAt`, `closesAt` |
 | GET | `/ratings/user/:userId` | Ratings a user has received. Comments waiting for approval or rejected are left out, and reported issues are never included |
 | GET | `/ratings/user/:userId/summary` | `?as=driver` (default) or `rider`. `count`, `overall` and `categories` averages |
@@ -368,19 +375,25 @@ Messages also flow over the socket (section 13). Profanity is filtered.
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/safety/ride-check-in` | the booking's rider | Answer an in-ride "Are you OK?" prompt. Body: `bookingId`, `status` (`ok` or `help`), optional `location`. `help` raises an SOS at once |
-| POST | `/safety/sos` | signed in | Start an SOS. Body: `bookingId`, `location {lng, lat}`. Admins are alerted at once, and emergency contacts get an SMS with a tracking link when Twilio is enabled |
-| GET | `/safety/sos/:id` | participant or admin | SOS state |
-| POST | `/safety/sos/:id/location` | participant | Live position during an SOS |
-| POST | `/safety/sos/:id/check-in` | participant | Body: `status` (`ok`, `partial_ok`, `not_ok`), optional `notes`, `location`. `not_ok` or missed check-ins escalate |
-| POST | `/safety/sos/:id/evidence` | participant | Body: `type` (`audio` or `screenshot`), `url` (https) |
+| POST | `/safety/ride-check-in` | the booking's rider | Answer an in-ride "Are you OK?" prompt. Body: `bookingId`, `status` (`ok` or `help`), optional `location`. `help` raises an SOS at once. `ok` also stands down an SOS raised for missed prompts if the contacts have not been texted yet |
+| GET | `/safety/sos/current` | signed in | What the SOS screen opens with: `sos` (the caller's open SOS, or null) and `bookingId` (that SOS's booking, else the ride under way, else the confirmed ride leaving closest to now within 3 hours; never a later one) |
+| POST | `/safety/sos` | the booking's rider or driver | Raise an SOS. Body: `bookingId`, optional `location {lng, lat}`: without it the car's last reported position, else the pickup point, is used. Every admin is paged at once (push and SMS) and the dashboard is alerted. The caller's SOS contacts are texted `contactsDueAt` later (10 seconds by default, an admin setting). Raising again while one is open returns it re-raised (risk high, team paged again), never `409` |
+| POST | `/safety/sos/:id/cancel` | the person who raised it | Cancel an accidental SOS inside the window: closed as a false alarm, contacts never texted, team told. After the contacts are texted, `409 SOS_CANCEL_WINDOW_CLOSED` |
+| GET | `/safety/sos/:id` | the person who raised it, or an admin | SOS state. The other person on the ride gets `403`: they may be the reason for it |
+| POST | `/safety/sos/:id/location` | the person who raised it | Live position during an SOS, every 5 seconds, also from the app's background task with the screen off. Also shows the phone is still with them: three intervals without one (`checkInIntervalSeconds`, by risk level) mark it out of contact and page the team. Optional `battery` (0 to 1): when the phone goes quiet, staff are told whether it probably ran out or was switched off. Returns `open`; once it is false the app stops tracking |
+| POST | `/safety/sos/:id/check-in` | the person who raised it | Body: `status` (`ok`, `partial_ok`, `not_ok`), optional `notes`, `location`. `ok` inside the cancel window cancels; after it, it sets `userSafeAt` and tells the team and the texted contacts, but the SOS stays open until an admin closes it. `partial_ok` and `not_ok` raise the risk level; `not_ok` pages the team by SMS |
+| POST | `/safety/sos/:id/details` | the person who raised it | "What's happening?" after the alert has gone. Body: `threat` (`driver`, `passenger`, `outside`, `medical`, `accident`, `other`). Naming someone on the ride raises the risk; medical or accident tells the team the other person may help |
+| POST | `/safety/sos/:id/audio-upload` | the person who raised it | A presigned upload for one part of SOS audio. Body: `contentType` (`audio/mp4`, `audio/m4a` or `audio/aac`). Stored with the incident (`sos/<id>/`), not the user, so closing an account never deletes it |
+| POST | `/safety/sos/:id/evidence` | the person who raised it | Body: `type` (`audio` or `screenshot`), `url`: an https link, or an `s3://` file from this incident's audio upload (`422 INVALID_DOCUMENT` otherwise) |
 | GET | `/safety/sos/active` | admin | Open incidents |
-| POST | `/safety/sos/:id/acknowledge` | admin | Take the incident |
-| POST | `/safety/sos/:id/resolve` | admin | Close it, optionally as a false alarm |
+| POST | `/safety/sos/:id/acknowledge` | admin | Take the incident; the user is told who has it. `400` if someone already has |
+| POST | `/safety/sos/:id/resolve` | admin | Close it with a note, optionally as a false alarm. The user and texted contacts are told. `409 SOS_CLOSED` if already closed |
 | POST | `/safety/sos/:id/notify-police` | admin | Record that police were called |
 | GET | `/safety/emergency-contacts` | signed in | The caller's contacts, each with `_id`, `name`, `phone`, `relation`, `email`, `primary`, `notifyOnSos`, `verified` and `verificationSentAt` |
 | PUT | `/safety/emergency-contacts` | signed in | Replace the list (UC-R10). Each contact has `name`, `phone` (E.164), `relation`, optional `email`, `primary` and `notifyOnSos` (default true). At most 3, each with a different number. Exactly one is primary: the one marked, or the first. A contact whose number is unchanged stays verified. Only contacts with `notifyOnSos` get the SOS text |
 | POST | `/safety/emergency-contacts/:contactId/verify` | signed in | Texts the contact a link to confirm. The link works for 7 days. At most one text every 10 minutes per contact (`429 VERIFY_RATE_LIMITED`). Returns `503 SMS_UNAVAILABLE` when Twilio is not set up. An unconfirmed contact still gets SOS texts |
+
+An SOS record carries, besides the above: `contactsState` (`pending` in the cancel window, then `sent`, or `none`, `unavailable`, `cancelled`), `contactsDueAt`, `locationSource` (`device`, `ride`, `pickup`), `userSafeAt`, `lostContactAt`, `cancelledAt`, `lastPagedAt` and `pageCount`. A background job (`jobs/SosMonitor.ts`, every 15 seconds) sends due contact texts, marks phones out of contact, and pages every admin again while nobody has taken an SOS (every 5 minutes by default).
 
 ### 10.1 Public tracking page — `/track`
 
@@ -388,10 +401,10 @@ Messages also flow over the socket (section 13). Profanity is filtered.
 |---|---|---|---|
 | GET | `/track/contact/:token` | public, token in the link | The page an emergency contact opens from their verification text. It shows who added them and has a Confirm button. Opening it changes nothing, so link previews cannot confirm |
 | POST | `/track/contact/:token` | public, token in the link | Confirms the contact. The user gets a notification |
-| GET | `/track/sos/:token` | public, token in the link | A web page with the live SOS position, for emergency contacts without the app. The token is random and expires |
+| GET | `/track/sos/:token` | public, token in the link | A web page for emergency contacts without the app: the first name, the latest position, whether the safety team has it, whether the person says they are safe or the phone is out of contact, and while open the trip, the other person's first name and the car with its plate. Never phone numbers. Refreshes every 15 seconds; the token is random and lasts 7 days |
 | GET | `/track/trip/:token` | public, token in the link | A trip a rider shared (UC-R08): first names, the car, the route, the car's latest position and an ETA. Refreshes itself, has no scripts, stops working an hour after the trip ends or when it is cancelled, and logs every visit |
 
-**In-ride safety check-ins (UC-R05).** Every 30 minutes a rider who is in the car gets a push and a `safety:check-in` socket event asking "Are you OK?". An unanswered prompt is repeated after 10 minutes; a second miss raises an SOS automatically. The interval is an admin setting.
+**In-ride safety check-ins (UC-R05).** Every 30 minutes a rider who is in the car gets a push and a `safety:check-in` socket event asking "Are you OK?". An unanswered prompt is repeated after 10 minutes; a second miss raises an SOS automatically. That SOS pages the team at once but gives the rider 5 minutes to answer before their contacts are texted. The interval is an admin setting.
 
 ---
 
@@ -420,6 +433,19 @@ Under `osm`, the free services answer autocomplete, geocoding, reverse geocoding
 
 ---
 
+## 11.5 Car trackers
+
+A GPS tracker in a driver's car (UC-D11) reports to Poolora's Traccar gateway (`infra/traccar`), which stores nothing and posts each position here.
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `/users/me/trackers` | signed in | The caller's cars with their trackers (`deviceId`, `linkedAt`, `lastReportAt`, `tracked`: reported in the last day), and `gateway` (`host`, `port`, `protocol`) to point a tracker at |
+| PUT | `/users/me/vehicles/:vehicleId/tracker` | the car's owner | Body: `deviceId` (6 to 20 letters or digits; spaces are removed). `409 TRACKER_IN_USE` if another car has it |
+| DELETE | `/users/me/vehicles/:vehicleId/tracker` | the car's owner | Unlink |
+| POST | `/trackers/traccar` | the gateway, with `X-Poolora-Tracker-Key` (`TRACKER_GATEWAY_KEY`; off when unset) | One position as Traccar posts it (`forward.type=json`): `device.uniqueId`, `position.latitude`, `longitude`, `speed` (knots), `valid`, `attributes.batteryLevel` (%) and `attributes.alarm`. Stored as the car's trail (`role: vehicle`) only while the car is on a ride in progress or an SOS on one of its rides is open; otherwise only the report time is kept. Alarm `sos` during a ride raises an SOS (`raisedVia: tracker`); `powerCut`, `removing` and `tampering` alert the safety team. Each alarm counts once per ride per 5 minutes. Always `200`, so the gateway does not retry |
+
+Search results carry `driver.trackedCar`, and a ride carries `trackedCar`.
+
 ## 12. Other endpoints
 
 ### Notifications — `/notifications`
@@ -437,7 +463,7 @@ Push notifications go through Firebase Cloud Messaging using the service account
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/uploads/kyc` | Presigned S3 upload for one KYC document. The app uploads directly to S3, then sends the `s3://` reference in `POST /auth/kyc` |
+| POST | `/uploads/kyc` | Presigned S3 upload for one private document. Body: `purpose` (`licence`, `registration`, `insurance`, `vehicle-photo` for driver KYC; `identity`, `selfie` for the identity check), `contentType`. The app uploads directly to S3, then sends the `s3://` reference in `POST /auth/kyc` or `POST /users/me/identity` |
 
 ### Parcels — `/parcels` (Phase 4)
 
@@ -510,8 +536,12 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | GET | `/admin/disputes/:id` | The case file: both parties, booking, payments, chat, ratings, SOS, earlier disputes, and `refundable` (what can still be refunded) |
 | POST | `/admin/disputes/:id/assign` | Take the case |
 | POST | `/admin/disputes/:id/resolve` | Body: `outcome` (`rider`, `driver`, `both`, `dismissed`), `refundAmount`, `driverCompensation`, `warn` and `suspend` (arrays of `rider`/`driver`), `suspendDays`, `justification`. Carries out the refund and wallet payment, records warnings and suspensions, and notifies both parties. `decision.refundStatus` says whether the refund went through or needs a manual one |
+| GET | `/admin/identity` | Identity checks for women-only rides. Query: `status` (`pending` default, `verified`, `rejected`). Oldest first |
+| GET | `/admin/identity/:userId` | One check, with 5-minute links to the ID photo and the selfie while it waits. Both are deleted as soon as it is decided (`photosDeleted`) |
+| POST | `/admin/identity/:userId/approve` | Body: `gender`, the gender the person lives as. The ID proves identity, not gender. The user is told |
+| POST | `/admin/identity/:userId/reject` | Body: `reason` (at least 5 characters), shown to the user, who can send it again |
 | GET | `/admin/sos` | Incidents. Query: `status` (`open`, `resolved`, `false_alarm`, or empty for all) (UC-A03) |
-| GET | `/admin/sos/:id` | The incident with rider, driver (including emergency contacts), booking and ride |
+| GET | `/admin/sos/:id` | The incident with rider, driver (including emergency contacts), booking and ride; `history` (the person's other SOS and false alarms in the last 90 days), the market's `emergencyNumbers`, and `evidence` with 15-minute links to play recordings; to identify everyone: `vehicle` (make, model, colour, year, plate, photos), `coPassengers` (every other rider on the ride), `moneyNumbers` (mobile money numbers each person has paid or been paid with), `messages` and `calls` between them, and `trails` (every phone on the ride from the trip trail) |
 | POST | `/admin/sos/:id/acknowledge` | Take the incident |
 | POST | `/admin/sos/:id/log` | Add a call or action to the timeline. Body: `text` |
 | POST | `/admin/sos/:id/police` | Record that police were called. Body: optional `notes` |
@@ -532,7 +562,7 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | GET | `/admin/audit` | The audit log. Query: `action` (prefix such as `user` or `sos`), `actor`, `targetId`, `page`, `limit` |
 | GET | `/admin/metrics`, `/admin/rides`, `/admin/users`, `/admin/payments`, `/admin/demand-heatmap` | Older summary endpoints used by the app's admin screens |
 
-Settings an admin can change: platform commission, the ZiG exchange rate (ZiG per US dollar; 0 turns ZiG off), rider cancellation refund tiers, payment time limit, driver response time, empty-ride cancellation, SOS check-in intervals by risk level, match-score weights (must add up to 100%), distance from the route, default search radius and time window, active rides per driver, and open requests per rider. Payment credentials and message templates are deliberately not editable.
+Settings an admin can change: platform commission, the ZiG exchange rate (ZiG per US dollar; 0 turns ZiG off), rider cancellation refund tiers, payment time limit, driver response time, empty-ride cancellation, the SOS cancel window before contacts are texted, how often an untaken SOS pages admins again, the SOS signal intervals by risk level, match-score weights (must add up to 100%), distance from the route, default search radius and time window, active rides per driver, and open requests per rider. Payment credentials and message templates are deliberately not editable.
 
 ### Trips — `/trips` (Phase 4)
 
@@ -661,7 +691,8 @@ Every socket joins the room `user:<userId>`.
 | `route:deviated` | The car is more than 500 m (admin setting) from the ride's planned route. Sent to the rider, the driver (with `askReason`) and the `admin:sos` room, with a push to the rider; at most once every 5 minutes per booking |
 | `safety:check-in` | An in-ride "Are you OK?" prompt; answer with `POST /safety/ride-check-in` |
 | `chat:message:receive`, `chat:message:sent`, `chat:messages:read`, `chat:typing:*` | Chat |
-| `sos:triggered`, `sos:alert`, `sos:location:updated` | SOS (alerts go to the `admin:sos` room) |
+| `sos:triggered`, `sos:alert`, `sos:location:updated` | SOS (alerts go to the `admin:sos` room). `sos:alert` carries `eventType`: `sos.triggered`, `sos.escalated`, `sos.updated`, `sos.resolved`, `sos.police_notified`, `sos.location.updated` |
+| `sos:updated` | To the person who raised an SOS: `emergencyId` and `change` (`contacts`, `acknowledged`, `resolved`, `raised`). Their SOS screen reloads it |
 | `support:safety` | A user opened a safety support request; sent to the `admin:sos` room with `ticketId`, `userId` and `subject` |
 | `rating:safety` | A rider reported a safety problem in a rating; sent to the `admin:sos` room with `ratingId`, `bookingId`, `raterId` and `rateeId` |
 | `fraud:flagged` | The fraud check flagged (`action: flagged`) or suspended (`action: suspended`) an account; sent to the `admin:sos` room with `userId` and `flags` |
@@ -677,9 +708,9 @@ With several backend instances, events are shared through the Socket.IO Redis ad
 |---|---|---|
 | 400 | `BAD_REQUEST` and specific ids such as `PICKUP_TOO_FAR`, `DROPOFF_TOO_FAR`, `WRONG_DIRECTION`, `MAX_PENDING_BOOKINGS`, `INSUFFICIENT_SEATS`, `SELF_BOOKING` | The request cannot be carried out |
 | 401 | `UNAUTHORIZED` | Missing or expired token |
-| 403 | `FORBIDDEN`, `ACCOUNT_BLOCKED`, `ACCOUNT_SUSPENDED`, `SECOND_ADMIN_REQUIRED` | Signed in, but not allowed. A blocked account gets `ACCOUNT_BLOCKED` on every request; a suspended one gets `ACCOUNT_SUSPENDED` when it tries to post a ride, book or send a parcel |
+| 403 | `FORBIDDEN`, `ACCOUNT_BLOCKED`, `ACCOUNT_SUSPENDED`, `SECOND_ADMIN_REQUIRED`, `WOMEN_ONLY`, `IDENTITY_NOT_VERIFIED`, `IDENTITY_PENDING` | Signed in, but not allowed. A blocked account gets `ACCOUNT_BLOCKED` on every request; a suspended one gets `ACCOUNT_SUSPENDED` when it tries to post a ride, book or send a parcel. Women-only rides refuse anyone but a verified woman: `IDENTITY_NOT_VERIFIED` or `IDENTITY_PENDING` for a woman who has not finished the identity check, `WOMEN_ONLY` for anyone else |
 | 404 | `NOT_FOUND` | No such resource |
-| 409 | `CONFLICT`, `PAYMENT_PENDING`, `WITHDRAWAL_PENDING`, `ACCOUNT_CLOSE_BLOCKED` | The state does not allow it, for example a booking already answered |
+| 409 | `CONFLICT`, `PAYMENT_PENDING`, `WITHDRAWAL_PENDING`, `ACCOUNT_CLOSE_BLOCKED`, `SOS_CANCEL_WINDOW_CLOSED`, `SOS_CLOSED`, `IDENTITY_VERIFIED` | The state does not allow it, for example a booking already answered |
 | 422 | `VALIDATION_ERROR`, `TOO_SOON`, `RIDE_TOO_LONG`, `PRICE_OUT_OF_RANGE` | The body or query failed validation (`details` lists the fields), or a ride breaks a publishing rule (section 4.1) |
 | 429 | `RATE_LIMITED` | Too many requests |
 | 500 | `INTERNAL_ERROR` | Unexpected failure |

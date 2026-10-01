@@ -13,6 +13,7 @@ import { queryInt, queryString } from '../utils/request';
 import { AdminOverviewService } from '../services/AdminOverviewService';
 import { AdminUserService } from '../services/AdminUserService';
 import { AdminSosService } from '../services/AdminSosService';
+import { IdentityService } from '../services/IdentityService';
 import { DisputeService } from '../services/DisputeService';
 import { ReportService, REPORT_TYPES, ReportType, parseReportParams } from '../services/ReportService';
 import { ReportScheduleService } from '../services/ReportScheduleService';
@@ -32,6 +33,7 @@ import { AppError } from '../utils/AppError';
 const overview = new AdminOverviewService();
 const users = new AdminUserService();
 const sos = new AdminSosService();
+const identity = new IdentityService();
 const disputes = new DisputeService();
 const reports = new ReportService();
 const schedules = new ReportScheduleService();
@@ -134,6 +136,12 @@ export const AdminWebController = {
   disputeDetail: handle((req) => disputes.detail(id(req))),
   assignDispute: handle((req, admin) => disputes.assign(id(req), admin)),
   resolveDispute: handle((req, admin) => disputes.resolve(id(req), admin, req.body ?? {})),
+
+  // ── Identity checks (women-only rides) ────────────────────────────────────
+  identityQueue: handle(async (req) => ({ checks: await identity.queue(queryString(req, 'status') || 'pending') })),
+  identityDetail: handle((req) => identity.detail(String(req.params.userId))),
+  identityApprove: handle((req, admin) => identity.approve(String(req.params.userId), admin, req.body?.gender)),
+  identityReject: handle((req, admin) => identity.reject(String(req.params.userId), admin, req.body?.reason)),
 
   // ── SOS (UC-A03) ──────────────────────────────────────────────────────────
   listSos: handle((req) => sos.list({ status: queryString(req, 'status'), page: page(req), limit: limit(req) })),

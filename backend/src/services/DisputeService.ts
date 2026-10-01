@@ -81,6 +81,9 @@ export class DisputeService {
     if (open) throw new ConflictError('You already have an open dispute about this booking');
 
     const evidenceUrls = (data.evidenceUrls ?? []).filter((u) => /^https:\/\//.test(u)).slice(0, 5);
+    // Where the car and the riders went, kept with the dispute
+    const { keepTripTrail } = await import('./TripTrailService');
+    await keepTripTrail(booking.ride);
     return Dispute.create({
       booking: booking._id,
       ride: booking.ride,

@@ -21,6 +21,11 @@ export interface IUser extends Document {
   name: string;
   dateOfBirth?: Date;
   gender?: 'male' | 'female' | 'other';
+  /**
+   * An ID document and a selfie, checked by an admin (IdentityService). It
+   * confirms the person and their gender, which women-only rides rely on.
+   */
+  identity?: IIdentityCheck;
   profilePhotoUrl?: string;
   capabilities: UserCapability[];
   kyc: IKYCData;
@@ -41,6 +46,12 @@ export interface IUser extends Document {
   isBlocked: boolean;
   /** Why the account is suspended, shown to admins */
   suspensionReason?: string;
+  /**
+   * The confidential "did you feel safe?" answers about this person, as a
+   * driver and as a rider. Never sent to other users (select: false); used by
+   * the safety team and to rank rides.
+   */
+  safetyRating?: { asDriver?: { avg: number; count: number }; asRider?: { avg: number; count: number } };
   /** Warnings from dispute decisions (UC-A04) */
   warnings: number;
   /** A block waits for a second admin to approve it (UC-A05 3b) */
@@ -58,7 +69,37 @@ export interface IUser extends Document {
   updatedAt: Date;
 }
 
+export interface IIdentityCheck {
+  status: 'pending' | 'verified' | 'rejected';
+  /** The gender the user declared when they sent it; the admin confirms or corrects it */
+  declaredGender: 'male' | 'female' | 'other';
+  /** Deleted once an admin has decided; only the decision is kept */
+  documentUrl?: string;
+  selfieUrl?: string;
+  photosDeletedAt?: Date;
+  submittedAt: Date;
+  reviewedAt?: Date;
+  reviewedBy?: Types.ObjectId;
+  rejectionReason?: string;
+}
+
 // ─── Sub-schemas ─────────────────────────────────────────────────────────────
+
+const IdentitySchema = new Schema<IIdentityCheck>(
+  {
+    status: { type: String, enum: ['pending', 'verified', 'rejected'], required: true },
+    declaredGender: { type: String, enum: ['male', 'female', 'other'], required: true },
+    // Private files in S3 under kyc/<user>/; shown to admins through short-lived links
+    documentUrl: String,
+    selfieUrl: String,
+    photosDeletedAt: Date,
+    submittedAt: { type: Date, required: true },
+    reviewedAt: Date,
+    reviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    rejectionReason: String,
+  },
+  { _id: false },
+);
 
 const VehicleSchema = new Schema<IVehicle>(
   {
@@ -72,6 +113,10 @@ const VehicleSchema = new Schema<IVehicle>(
     registrationDocUrl: { type: String, required: true },
     insuranceDocUrl: { type: String, required: true },
     photos: [{ type: String }],
+    tracker: {
+      type: new Schema({ deviceId: { type: String, required: true }, linkedAt: { type: Date, required: true }, lastReportAt: Date }, { _id: false }),
+      default: undefined,
+    },
   },
   { _id: true },
 );
@@ -163,6 +208,14 @@ const UserSchema = new Schema<IUser>(
     name: { type: String, required: true, trim: true, maxlength: 100 },
     dateOfBirth: Date,
     gender: { type: String, enum: ['male', 'female', 'other'] },
+    identity: { type: IdentitySchema, default: undefined },
+    safetyRating: {
+      type: new Schema({
+        asDriver: { avg: Number, count: Number },
+        asRider: { avg: Number, count: Number },
+      }, { _id: false }),
+      select: false,
+    },
     profilePhotoUrl: String,
     capabilities: {
       type: [{ type: String, enum: Object.values(UserCapability) }],
@@ -219,6 +272,9 @@ const UserSchema = new Schema<IUser>(
 // ─── Compound indexes ────────────────────────────────────────────────────────
 UserSchema.index({ phone: 1, isActive: 1 });
 UserSchema.index({ 'kyc.status': 1 });
+UserSchema.index({ 'identity.status': 1, 'identity.submittedAt': 1 });
 UserSchema.index({ capabilities: 1 });
+// One car per tracker
+UserSchema.index({ 'vehicles.tracker.deviceId': 1 }, { unique: true, sparse: true });
 
 export const User = mongoose.model<IUser>('User', UserSchema);

@@ -28,7 +28,10 @@ router.post('/:id/complete', BookingController.completeBooking);
 
 // Per-rider steps during the ride (UC-D04, UC-D07)
 router.post('/:id/arrived', BookingController.arrived);
+// The driver enters the rider's 4-digit pickup code (body: pin)
 router.post('/:id/picked-up', BookingController.pickedUp);
+// The rider confirms they are in the car, when the code cannot be exchanged
+router.post('/:id/in-car', BookingController.riderInCar);
 router.post('/:id/dropped-off', BookingController.droppedOff);
 router.post('/:id/no-show', BookingController.noShow);
 

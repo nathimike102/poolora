@@ -15,6 +15,22 @@ describe('safetyService', () => {
     expect(res._id).toBe('s1');
   });
 
+  test('triggerSOS without a position still sends, and leaves the position to the server', async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { data: { emergency: { _id: 's2' } } } });
+    await safetyService.triggerSOS('b1', null);
+    expect(apiClient.post).toHaveBeenCalledWith('/safety/sos', { bookingId: 'b1' });
+  });
+
+  test('getCurrentSOS and cancelSOS use their endpoints', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: { data: { sos: null, bookingId: 'b9' } } });
+    expect(await safetyService.getCurrentSOS()).toEqual({ sos: null, bookingId: 'b9' });
+    expect(apiClient.get).toHaveBeenCalledWith('/safety/sos/current');
+
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { data: { emergency: { _id: 's3', status: 'false_alarm' } } } });
+    expect((await safetyService.cancelSOS('s3')).status).toBe('false_alarm');
+    expect(apiClient.post).toHaveBeenCalledWith('/safety/sos/s3/cancel', {});
+  });
+
   test('getActiveIncidents maps backend emergency records', async () => {
     // Shape returned by GET /safety/sos/active
     const recs = [{

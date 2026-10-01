@@ -233,10 +233,27 @@ jest.mock('expo-location', () => ({
     },
   }),
   installWebGeolocationPolyfill: jest.fn(),
+  getForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  getLastKnownPositionAsync: jest.fn().mockResolvedValue(null),
+  startLocationUpdatesAsync: jest.fn().mockResolvedValue(undefined),
+  stopLocationUpdatesAsync: jest.fn().mockResolvedValue(undefined),
+  hasStartedLocationUpdatesAsync: jest.fn().mockResolvedValue(false),
   Accuracy: {
     Balanced: 3,
     High: 4,
   },
+  ActivityType: { AutomotiveNavigation: 2 },
+}));
+
+jest.mock('expo-battery', () => ({ getBatteryLevelAsync: jest.fn().mockResolvedValue(0.8) }));
+
+// Background SOS tracking and SOS audio (native modules)
+jest.mock('expo-task-manager', () => ({ defineTask: jest.fn(), isTaskRegisteredAsync: jest.fn().mockResolvedValue(false) }));
+jest.mock('expo-audio', () => ({
+  RecordingPresets: { HIGH_QUALITY: {} },
+  requestRecordingPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
+  setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
+  useAudioRecorder: () => ({ prepareToRecordAsync: jest.fn(), record: jest.fn(), stop: jest.fn(), isRecording: false, uri: null }),
 }));
 
 // Mock react-native-paper

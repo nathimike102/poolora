@@ -180,8 +180,15 @@ export const bookingService = {
   },
 
   /** Driver steps during the ride: at the pickup, rider in the car, rider dropped, rider did not come */
-  async driverStep(bookingId: string, step: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow'): Promise<Booking> {
-    const response = await apiClient.post<ApiResponse<{ booking: Booking }>>(API_ENDPOINTS.bookings[step](bookingId));
+  async driverStep(bookingId: string, step: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow', pin?: string): Promise<Booking> {
+    // "Picked up" carries the rider's 4-digit pickup code
+    const response = await apiClient.post<ApiResponse<{ booking: Booking }>>(API_ENDPOINTS.bookings[step](bookingId), pin ? { pin } : undefined);
+    return response.data.data.booking;
+  },
+
+  /** The rider confirms they are in the car, when the code cannot be exchanged */
+  async riderInCar(bookingId: string): Promise<Booking> {
+    const response = await apiClient.post<ApiResponse<{ booking: Booking }>>(API_ENDPOINTS.bookings.inCar(bookingId));
     return response.data.data.booking;
   },
 

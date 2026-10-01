@@ -30,6 +30,8 @@ interface UserDetail {
     suspensionReason?: string;
     blockReason?: string;
     pendingBlock?: { requestedBy?: { _id: string; name: string }; reason: string; requestedAt: string };
+    /** Answers to "did you feel safe?" about this person, 1 to 5; never shown to users */
+    safetyRating?: { asDriver?: { avg: number; count: number }; asRider?: { avg: number; count: number } };
     stats: { totalRidesAsDriver: number; totalRidesAsRider: number; totalEarnings: number; totalSpent: number; avgRatingAsDriver: number; avgRatingAsRider: number; cancellationRate: number };
     vehicles?: Array<{ make: string; model: string; year: number; plateNumber: string }>;
   };
@@ -42,6 +44,11 @@ interface UserDetail {
   notes: Array<{ _id: string; text: string; createdAt: string; author?: { name: string } }>;
   auditLog: Array<{ _id: string; action: string; reason?: string; createdAt: string; actor?: { name: string } }>;
   cancelledAsRider: number;
+}
+
+/** "Did you feel safe?" averages, 1 (no) to 5 (yes), with how many answered */
+function feltSafe(r?: { avg: number; count: number }): string {
+  return r?.count ? `${r.avg.toFixed(1)} of 5 (${r.count})` : '—';
 }
 
 export function AccountBadges({ u }: { u: UserRow }) {
@@ -210,6 +217,7 @@ export function UserDetailPage() {
             <tr><td className="muted">Rides</td><td className="num">{u.stats.totalRidesAsRider}</td></tr>
             <tr><td className="muted">Spent</td><td className="num">{money(u.stats.totalSpent)}</td></tr>
             <tr><td className="muted">Rating</td><td className="num">{u.stats.avgRatingAsRider ? u.stats.avgRatingAsRider.toFixed(1) : '—'}</td></tr>
+            <tr><td className="muted">Felt safe (confidential)</td><td className="num">{feltSafe(u.safetyRating?.asRider)}</td></tr>
             <tr><td className="muted">Cancelled (last 20)</td><td className="num">{data.cancelledAsRider}</td></tr>
           </tbody></table>
         </div>
@@ -219,6 +227,7 @@ export function UserDetailPage() {
             <tr><td className="muted">Rides</td><td className="num">{u.stats.totalRidesAsDriver}</td></tr>
             <tr><td className="muted">Earned</td><td className="num">{money(u.stats.totalEarnings)}</td></tr>
             <tr><td className="muted">Rating</td><td className="num">{u.stats.avgRatingAsDriver ? u.stats.avgRatingAsDriver.toFixed(1) : '—'}</td></tr>
+            <tr><td className="muted">Felt safe (confidential)</td><td className="num">{feltSafe(u.safetyRating?.asDriver)}</td></tr>
             <tr><td className="muted">Vehicle</td><td>{u.vehicles?.length ? `${u.vehicles[u.vehicles.length - 1].plateNumber}` : '—'}</td></tr>
           </tbody></table>
         </div>

@@ -124,7 +124,7 @@ export class AccountClosureService {
           fcmTokens: [],
         },
         $unset: {
-          firebaseUid: 1, email: 1, dateOfBirth: 1, gender: 1, profilePhotoUrl: 1,
+          firebaseUid: 1, email: 1, dateOfBirth: 1, gender: 1, identity: 1, profilePhotoUrl: 1,
           lastKnownLocation: 1, pendingBlock: 1, otpLastAttemptAt: 1,
         },
       },

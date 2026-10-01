@@ -112,17 +112,19 @@ export class BookingController {
   /** POST /bookings/:id/arrived — the driver is at this rider's pickup */
   static arrived = BookingController.driverStep((id, driverId) => bookingService.markArrived(id, driverId));
   /** POST /bookings/:id/picked-up */
-  static pickedUp = BookingController.driverStep((id, driverId) => bookingService.markPickedUp(id, driverId));
+  static pickedUp = BookingController.driverStep((id, driverId, body) => bookingService.markPickedUp(id, driverId, typeof body?.pin === 'string' ? body.pin : undefined));
+  /** POST /bookings/:id/in-car — the rider confirms the pickup from their own app */
+  static riderInCar = BookingController.driverStep((id, riderId) => bookingService.riderConfirmsPickup(id, riderId));
   /** POST /bookings/:id/dropped-off — settles this rider's booking */
   static droppedOff = BookingController.driverStep((id, driverId) => bookingService.markDroppedOff(id, driverId));
   /** POST /bookings/:id/no-show — after the waiting time at the pickup */
   static noShow = BookingController.driverStep((id, driverId) => bookingService.reportNoShow(id, driverId));
 
-  private static driverStep(fn: (bookingId: string, driverId: string) => Promise<unknown>) {
+  private static driverStep(fn: (bookingId: string, userId: string, body?: Record<string, unknown>) => Promise<unknown>) {
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const user = (req as AuthenticatedRequest).user;
-        const booking = await fn(String(req.params.id), user.userId);
+        const booking = await fn(String(req.params.id), user.userId, req.body);
         sendSuccess(res, { booking }, 200, req.requestId);
       } catch (error) {
         next(error);

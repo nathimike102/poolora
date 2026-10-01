@@ -17,6 +17,7 @@ import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
 import { disputeService, type DisputeCategory } from '../../services/disputeService';
 import { errorHandler } from '../../utils/errorHandler';
+import { REGION } from '../../utils/region';
 
 const CATEGORIES: Array<{ value: DisputeCategory; label: string; hint: string }> = [
   { value: 'payment', label: 'Payment', hint: 'Charged wrongly, or a refund did not arrive' },
@@ -92,7 +93,7 @@ export function RaiseDisputeScreen() {
           style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
         />
         <Text style={{ fontSize: 13, color: c.textSec }}>
-          We look at the trip's chat, payments and route. For an emergency, use SOS or call 999 instead.
+          We look at the trip's chat, payments and route. For an emergency, use SOS or call {REGION.emergency.general} instead.
         </Text>
         <Pressable
           onPress={submit}

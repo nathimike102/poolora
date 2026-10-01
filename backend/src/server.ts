@@ -11,6 +11,7 @@ import { EventBridge } from './events';
 import { BookingSweeper } from './jobs/BookingSweeper';
 import { ReportScheduler } from './jobs/ReportScheduler';
 import { AlertMonitor } from './jobs/AlertMonitor';
+import { SosMonitor } from './jobs/SosMonitor';
 import { backfillRouteLines } from './jobs/backfillRouteLines';
 import { SettingsService } from './services/SettingsService';
 import { RideCheckInService } from './services/RideCheckInService';
@@ -110,6 +111,8 @@ async function bootstrap(): Promise<void> {
     BookingSweeper.start();
     // In-ride safety check-ins every 30 minutes (UC-R05)
     RideCheckInService.start();
+    // Open SOS incidents: contact texts, phones gone quiet, re-paging (UC-R07, UC-A03)
+    SosMonitor.start();
     // Scheduled admin report emails (UC-A06)
     ReportScheduler.start();
     // Admins' alert rules: dashboard, email and SMS (UC-A02)

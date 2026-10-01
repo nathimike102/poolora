@@ -5,7 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config';
 import { AppError } from '../utils/AppError';
 
-export type KycDocumentPurpose = 'licence' | 'registration' | 'insurance' | 'vehicle-photo';
+/** identity and selfie are for the identity check behind women-only rides (IdentityService) */
+export type KycDocumentPurpose = 'licence' | 'registration' | 'insurance' | 'vehicle-photo' | 'identity' | 'selfie';
 
 const CONTENT_TYPES: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -60,6 +61,59 @@ export async function presignKycUpload(
   return { url, fields, fileUrl: `s3://${config.aws.s3Bucket}/${key}` };
 }
 
+/**
+ * SOS audio lives with the incident, not the person: closing an account
+ * must not delete evidence of a real incident. Recordings are AAC in an
+ * MPEG-4 file (.m4a), which is what the app records on both platforms.
+ */
+const AUDIO_TYPES: Record<string, string> = { 'audio/mp4': 'm4a', 'audio/m4a': 'm4a', 'audio/aac': 'aac' };
+
+export function sosEvidencePrefix(emergencyId: string): string {
+  return `s3://${config.aws.s3Bucket}/sos/${emergencyId}/`;
+}
+
+/** Presigned POST for one chunk of SOS audio (UC-R07 step 7). */
+export async function presignSosAudioUpload(
+  emergencyId: string,
+  contentType: string,
+): Promise<{ url: string; fields: Record<string, string>; fileUrl: string }> {
+  const ext = AUDIO_TYPES[contentType];
+  if (!ext) throw new AppError('Upload an M4A or AAC recording', 400, 'UNSUPPORTED_FILE_TYPE');
+  const key = `sos/${emergencyId}/${new Date().toISOString().replace(/[:.]/g, '-')}-${uuidv4().slice(0, 8)}.${ext}`;
+  const { url, fields } = await createPresignedPost(s3(), {
+    Bucket: config.aws.s3Bucket,
+    Key: key,
+    Expires: EXPIRES_SECONDS,
+    Fields: { 'Content-Type': contentType, 'x-amz-server-side-encryption': 'AES256' },
+    Conditions: [
+      ['content-length-range', 1, MAX_BYTES],
+      ['eq', '$Content-Type', contentType],
+      ['eq', '$x-amz-server-side-encryption', 'AES256'],
+    ],
+  });
+  return { url, fields, fileUrl: `s3://${config.aws.s3Bucket}/${key}` };
+}
+
+/** Short-lived link for an admin to listen to SOS audio. */
+export async function presignSosDownload(fileUrl: string): Promise<string> {
+  const prefix = `s3://${config.aws.s3Bucket}/`;
+  if (!fileUrl.startsWith(`${prefix}sos/`)) throw new AppError('Not SOS evidence', 400, 'INVALID_DOCUMENT');
+  return getSignedUrl(
+    s3(),
+    new GetObjectCommand({ Bucket: config.aws.s3Bucket, Key: fileUrl.slice(prefix.length) }),
+    { expiresIn: 15 * 60 },
+  );
+}
+
+/** Deletes an incident's recordings (a false alarm past its retention). */
+export async function deleteSosEvidence(emergencyId: string): Promise<number> {
+  if (!config.aws.accessKeyId || !config.aws.secretAccessKey || !config.aws.s3Bucket) return 0;
+  const page = await s3().send(new ListObjectsV2Command({ Bucket: config.aws.s3Bucket, Prefix: `sos/${emergencyId}/` }));
+  const keys = (page.Contents ?? []).flatMap((o) => (o.Key ? [{ Key: o.Key }] : []));
+  if (keys.length) await s3().send(new DeleteObjectsCommand({ Bucket: config.aws.s3Bucket, Delete: { Objects: keys, Quiet: true } }));
+  return keys.length;
+}
+
 /** Short-lived link for an admin to view a stored KYC document. */
 export async function presignKycDownload(fileUrl: string): Promise<string> {
   const prefix = `s3://${config.aws.s3Bucket}/`;
@@ -71,6 +125,21 @@ export async function presignKycDownload(fileUrl: string): Promise<string> {
     new GetObjectCommand({ Bucket: config.aws.s3Bucket, Key: fileUrl.slice(prefix.length) }),
     { expiresIn: EXPIRES_SECONDS },
   );
+}
+
+/**
+ * Deletes particular private files, given their s3:// references (identity
+ * photos once reviewed). Throws if the store refuses, so the caller can keep
+ * the references and try again.
+ */
+export async function deleteKycFiles(fileUrls: string[]): Promise<number> {
+  if (!config.aws.accessKeyId || !config.aws.secretAccessKey || !config.aws.s3Bucket) return 0;
+  const prefix = `s3://${config.aws.s3Bucket}/`;
+  const keys = fileUrls.filter((u) => u.startsWith(`${prefix}kyc/`)).map((u) => ({ Key: u.slice(prefix.length) }));
+  if (!keys.length) return 0;
+  const result = await s3().send(new DeleteObjectsCommand({ Bucket: config.aws.s3Bucket, Delete: { Objects: keys, Quiet: true } }));
+  if (result.Errors?.length) throw new Error(`S3 refused ${result.Errors.length} deletions`);
+  return keys.length;
 }
 
 /**

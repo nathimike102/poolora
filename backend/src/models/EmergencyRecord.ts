@@ -1,17 +1,33 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 import { SOSStatus, SOSRiskLevel, SOSMonitoringState, GeoPoint } from '../types';
 
+export type SOSLocationSource = 'device' | 'ride' | 'pickup';
+/** Who or what the person says the danger is (optional, after raising) */
+export type SOSThreat = 'driver' | 'passenger' | 'outside' | 'medical' | 'accident' | 'other';
+export type SOSContactsState = 'pending' | 'sending' | 'sent' | 'unavailable' | 'none' | 'cancelled';
+
 export interface IEmergencyRecord extends Document {
   _id: Types.ObjectId;
   booking: Types.ObjectId;
   ride: Types.ObjectId;
   triggeredBy: Types.ObjectId;
   status: SOSStatus;
+  /** Set while the SOS is open, to "<booking>:<user>", so one person has one open SOS per booking */
+  openKey?: string;
   triggerLocation: GeoPoint;
+  /** Where the first position came from: the phone, or the ride when the phone had none */
+  locationSource: SOSLocationSource;
   locationHistory: Array<{
     location: GeoPoint;
     timestamp: Date;
+    /** 0 to 1, when the phone reports it */
+    battery?: number;
   }>;
+  /** The phone's battery at its last position: low means it probably ran out, high that it was switched off */
+  lastBattery?: number;
+  threat?: SOSThreat;
+  /** How it was raised: the app, a missed check-in, or the car's panic button */
+  raisedVia?: 'app' | 'check-in' | 'tracker';
   audioRecordingUrls: string[];
   screenshotUrls: string[];
   emergencyContactsNotified: Array<{
@@ -20,8 +36,23 @@ export interface IEmergencyRecord extends Document {
     notifiedAt: Date;
     method: 'sms' | 'call';
   }>;
+  /**
+   * Emergency contacts are texted after a short window in which the user can
+   * cancel an accidental SOS (UC-R07 3a); the safety team is told at once.
+   */
+  contactsState: SOSContactsState;
+  contactsDueAt?: Date;
   adminNotifiedAt?: Date;
   adminAssignee?: Types.ObjectId;
+  /** Admins were last paged at this time; repeated while nobody takes the SOS */
+  lastPagedAt?: Date;
+  pageCount: number;
+  /** The user said they are safe. The safety team still confirms and closes the SOS */
+  userSafeAt?: Date;
+  /** The phone stopped sending its position */
+  lostContactAt?: Date;
+  /** The user cancelled inside the window, before anyone outside Poolora was told */
+  cancelledAt?: Date;
   liveTrackingUrl: string;
   riskLevel: SOSRiskLevel;
   monitoringState: SOSMonitoringState;
@@ -64,13 +95,19 @@ const EmergencyRecordSchema = new Schema<IEmergencyRecord>(
       default: SOSStatus.TRIGGERED,
       index: true,
     },
+    openKey: { type: String },
     triggerLocation: { type: GeoPointSchema, required: true },
+    locationSource: { type: String, enum: ['device', 'ride', 'pickup'], default: 'device' },
     locationHistory: [
       {
         location: { type: GeoPointSchema, required: true },
         timestamp: { type: Date, required: true },
+        battery: { type: Number, min: 0, max: 1 },
       },
     ],
+    lastBattery: { type: Number, min: 0, max: 1 },
+    threat: { type: String, enum: ['driver', 'passenger', 'outside', 'medical', 'accident', 'other'] },
+    raisedVia: { type: String, enum: ['app', 'check-in', 'tracker'] },
     audioRecordingUrls: [String],
     screenshotUrls: [String],
     emergencyContactsNotified: [
@@ -81,8 +118,15 @@ const EmergencyRecordSchema = new Schema<IEmergencyRecord>(
         method: { type: String, enum: ['sms', 'call'], required: true },
       },
     ],
+    contactsState: { type: String, enum: ['pending', 'sending', 'sent', 'unavailable', 'none', 'cancelled'], default: 'none' },
+    contactsDueAt: Date,
     adminNotifiedAt: Date,
     adminAssignee: { type: Schema.Types.ObjectId, ref: 'User' },
+    lastPagedAt: Date,
+    pageCount: { type: Number, default: 0 },
+    userSafeAt: Date,
+    lostContactAt: Date,
+    cancelledAt: Date,
     liveTrackingUrl: { type: String, required: true },
     riskLevel: {
       type: String,
@@ -124,6 +168,8 @@ const EmergencyRecordSchema = new Schema<IEmergencyRecord>(
 EmergencyRecordSchema.index({ 'triggerLocation': '2dsphere' });
 EmergencyRecordSchema.index({ status: 1, createdAt: -1 });
 EmergencyRecordSchema.index({ status: 1, nextCheckInAt: 1 });
+EmergencyRecordSchema.index({ openKey: 1 }, { unique: true, sparse: true });
+EmergencyRecordSchema.index({ contactsState: 1, contactsDueAt: 1 });
 
 export const EmergencyRecord = mongoose.model<IEmergencyRecord>(
   'EmergencyRecord',

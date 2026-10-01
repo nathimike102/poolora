@@ -12,6 +12,11 @@ export interface IRating extends Document {
   comment?: string;
   /** Star ratings per category (UC-R06 step 3); `score` is the overall one */
   categories?: { behavior?: number; cleanliness?: number; punctuality?: number };
+  /**
+   * "Did you feel safe?" 1 (no) to 5 (yes). Confidential: only the safety
+   * team sees it, never the person rated (PRD: separate safety ratings).
+   */
+  safety?: number;
   /** Problems reported with the rating (step 5); private, never shown publicly */
   issues?: Array<'safety' | 'route' | 'payment'>;
   issueDetails?: string;
@@ -56,6 +61,7 @@ const RatingSchema = new Schema<IRating>(
       ),
       default: undefined,
     },
+    safety: { type: Number, min: 1, max: 5 },
     issues: { type: [{ type: String, enum: ['safety', 'route', 'payment'] }], default: undefined },
     issueDetails: { type: String, maxlength: 1000 },
     commentStatus: { type: String, enum: ['pending', 'approved', 'rejected'] },

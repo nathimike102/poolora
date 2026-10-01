@@ -149,7 +149,13 @@ export type RootStackParamList = {
   Messages: undefined;
   Settings: undefined;
   Notifications: undefined;
-  SOS: undefined;
+  /** bookingId: the ride on screen, so the SOS is about the right trip */
+  SOS: { bookingId?: string } | undefined;
+  FakeCall: undefined;
+  /** The identity check behind women-only rides */
+  IdentityCheck: undefined;
+  /** A GPS tracker in the driver's car */
+  CarTracker: undefined;
   EmergencyContacts: undefined;
 
   // Admin screens

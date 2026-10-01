@@ -42,6 +42,7 @@ import { decodePolyline } from '../../utils/polyline';
 import { errorHandler } from '../../utils/errorHandler';
 import { realPhone } from '../../utils/phone';
 import { REGION } from '../../utils/region';
+import { startTripTracking, stopTripTracking } from '../../services/tripTracking';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -68,6 +69,8 @@ export function ActiveRideScreen() {
   // An in-ride "Are you OK?" prompt waiting for an answer (UC-R05)
   const [checkIn, setCheckIn] = useState<{ repeat: boolean } | null>(null);
   const [answering, setAnswering] = useState(false);
+  // The rider's pickup code, and whether the pickup has been confirmed
+  const [pickup, setPickup] = useState<{ pin?: string; done: boolean } | null>(null);
   const route = useMemo(() => decodePolyline(ride?.routePolyline), [ride?.routePolyline]);
 
 
@@ -93,22 +96,66 @@ export function ActiveRideScreen() {
     };
   }, [rideId]);
 
-  // A prompt may be waiting when the rider opens the app from the push
+  // A prompt may be waiting when the rider opens the app from the push; the
+  // booking also carries the pickup code and whether the pickup is confirmed
   useEffect(() => {
     if (!bookingId) return;
-    bookingService
+    let active = true;
+    let first = true;
+    const load = () => bookingService
       .getRiderBookings(1, 20, 'confirmed')
       .then(page => {
         const mine = (page.data?.items ?? []).find(b => b._id === bookingId) as
-          | { safetyCheck?: { promptedAt?: string; answeredAt?: string; missed?: number } }
+          | { safetyCheck?: { promptedAt?: string; answeredAt?: string; missed?: number }; pickupPin?: string; actualPickupTime?: string }
           | undefined;
-        const check = mine?.safetyCheck;
-        if (check?.promptedAt && (!check.answeredAt || check.answeredAt < check.promptedAt)) {
+        if (!active || !mine) return;
+        setPickup({ pin: mine.pickupPin, done: Boolean(mine.actualPickupTime) });
+        const check = mine.safetyCheck;
+        if (first && check?.promptedAt && (!check.answeredAt || check.answeredAt < check.promptedAt)) {
           setCheckIn({ repeat: (check.missed ?? 0) > 0 });
         }
+        first = false;
       })
       .catch(() => undefined);
+    load();
+    const interval = setInterval(load, POLL_MS);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, [bookingId]);
+
+  // From pickup to drop the rider's phone is traced too (background task), so
+  // the safety team can find them even if separated from the car
+  const tripStatus = ride?.status as string | undefined;
+  useEffect(() => {
+    if (!pickup?.done || !rideId) return;
+    if (tripStatus === 'in_progress') startTripTracking(rideId, 'rider');
+    else if (tripStatus === 'completed' || tripStatus === 'cancelled') stopTripTracking(rideId);
+  }, [pickup?.done, tripStatus, rideId]);
+
+  const confirmInCar = () => {
+    if (!bookingId) return;
+    const car = ride?.vehicle?.plateNumber ? ` ${ride.vehicle.plateNumber}` : '';
+    Alert.alert(
+      "You're in the car?",
+      `Only confirm if you are in${car} with ${ride?.driver?.name ?? 'your driver'}, the car and person shown in the app.`,
+      [
+        { text: 'Not yet', style: 'cancel' },
+        {
+          text: "I'm in the car",
+          onPress: async () => {
+            try {
+              await bookingService.riderInCar(bookingId);
+              setPickup(p => ({ ...p, done: true }));
+            } catch (error) {
+              Alert.alert('Not confirmed', errorHandler.process(error).message);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const answerCheckIn = async (status: 'ok' | 'help') => {
     if (!bookingId) return;
@@ -116,11 +163,10 @@ export function ActiveRideScreen() {
     try {
       await safetyService.answerRideCheckIn(bookingId, status);
       setCheckIn(null);
-      if (status === 'help') {
-        Alert.alert('Help is on the way', 'The Poolora safety team and your emergency contacts have been alerted with your location.');
-      }
+      // The SOS screen shows the alert, the cancel window and the safety team's reply
+      if (status === 'help') navigation.navigate('SOS', { bookingId });
     } catch (error) {
-      Alert.alert('Not sent', `${errorHandler.process(error).message} If you are in danger, use SOS or call 999.`);
+      Alert.alert('Not sent', `${errorHandler.process(error).message} If you are in danger, use SOS or call ${REGION.emergency.general}.`);
     } finally {
       setAnswering(false);
     }
@@ -298,6 +344,24 @@ export function ActiveRideScreen() {
               </View>
             ) : null}
 
+            {/* Pickup code: the rider gets in only once the driver has entered it */}
+            {pickup?.pin && !pickup.done && !isCompleted && !isCancelled ? (
+              <View style={[styles.section, { backgroundColor: c.primaryLight, borderColor: c.primary }]} accessibilityLabel={`Your pickup code is ${pickup.pin.split('').join(' ')}`}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>Your pickup code</Text>
+                <Text style={{ fontSize: 34, fontWeight: '800', letterSpacing: 10, color: c.text }} selectable>{pickup.pin}</Text>
+                <Text style={{ fontSize: 13, color: c.text, lineHeight: 19 }}>
+                  Check the plate{ride.vehicle?.plateNumber ? ` (${ride.vehicle.plateNumber})` : ''} and the driver's photo, then tell the driver this code. Get in only when this screen says the code is confirmed.
+                </Text>
+                <Pressable onPress={confirmInCar} hitSlop={6} accessibilityRole="button" style={{ marginTop: 8 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary, textDecorationLine: 'underline' }}>Can't share the code? Confirm you're in the car</Text>
+                </Pressable>
+              </View>
+            ) : pickup?.done && !isCompleted && !isCancelled ? (
+              <View style={[styles.section, { backgroundColor: c.successLight, borderColor: c.success }]} accessibilityLiveRegion="polite">
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>Pickup confirmed. Enjoy the ride.</Text>
+              </View>
+            ) : null}
+
             {/* Trip */}
             <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Text style={{ fontSize: 12, fontWeight: '600', color: c.textSec }}>Pickup</Text>
@@ -405,7 +469,7 @@ export function ActiveRideScreen() {
 
       {!isCompleted && !isCancelled && (
         <Pressable
-          onPress={() => navigation.navigate('SOS')}
+          onPress={() => navigation.navigate('SOS', { bookingId })}
           accessibilityRole="button"
           accessibilityLabel="SOS emergency"
           style={[styles.sosFab, { backgroundColor: c.error }]}

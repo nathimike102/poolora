@@ -94,10 +94,10 @@ function createRateLimiter(tier: RateLimitConfig, keyPrefix: string, keyOf: KeyO
 }
 
 /**
- * Callbacks from Paynow, Twilio and the background-check vendor come from a
+ * Callbacks from Paynow, Twilio, the background-check vendor and the car tracker gateway come from a
  * few IPs, carry their own signatures, and must not be turned away at volume.
  */
-const SIGNED_CALLBACK = /^\/(api\/v1\/)?(payments\/paynow\/result|calls\/twilio\/|kyc-verify\/callback)/;
+const SIGNED_CALLBACK = /^\/(api\/v1\/)?(payments\/paynow\/result|calls\/twilio\/|kyc-verify\/callback|trackers\/traccar)/;
 
 export const globalRateLimit = createRateLimiter(config.rateLimit.global, 'ip', byIp, (req) => SIGNED_CALLBACK.test(req.originalUrl));
 export const authRateLimit = createRateLimiter(config.rateLimit.auth, 'auth', byIp);

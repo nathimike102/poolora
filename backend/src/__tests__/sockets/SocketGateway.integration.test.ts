@@ -48,6 +48,7 @@ jest.mock('../../config/redis', () => ({
 }));
 jest.mock('../../models/Booking');
 jest.mock('../../models/Message');
+jest.mock('../../services/TripTrailService', () => ({ recordTripPosition: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../../events', () => ({ EventBridge: { publish: jest.fn() } }));
 jest.mock('../../services/NotificationService', () => ({
   NotificationService: jest.fn().mockImplementation(() => ({
@@ -244,31 +245,32 @@ describe('SocketGateway Integration Tests', () => {
   });
 
   describe('SOS Emergency Handling', () => {
-    it('should broadcast an SOS alert to admins monitoring SOS', async () => {
+    it('should raise the SOS through the service and confirm it to the sender', async () => {
+      // Admins are paged and the dashboard alerted by the service (safety-events), not here
       mockTriggerSOS.mockResolvedValue({ _id: EMERGENCY_ID, liveTrackingUrl: 'https://example.com/t' });
-      const admin = await connect('admin-token');
-      admin.emit('admin:sos:join');
-      await tick();
-
       const rider = await connect('rider-token');
-      const alert = waitFor<{ emergencyId: string }>(admin, 'sos:alert');
+      const confirmed = waitFor<{ emergencyId: string }>(rider, 'sos:triggered');
       rider.emit('sos:trigger', { bookingId: BOOKING_ID, location: { lng: 77.1, lat: 28.7 } });
 
-      expect((await alert).emergencyId).toBe(EMERGENCY_ID);
-      expect(mockTriggerSOS).toHaveBeenCalledWith(RIDER_ID, expect.objectContaining({ bookingId: BOOKING_ID }));
+      expect((await confirmed).emergencyId).toBe(EMERGENCY_ID);
+      expect(mockTriggerSOS).toHaveBeenCalledWith(RIDER_ID, { bookingId: BOOKING_ID, location: { lng: 77.1, lat: 28.7 } });
     });
 
-    it('should relay SOS location updates through the ownership-checked service', async () => {
-      mockUpdateSOSLocation.mockResolvedValue(undefined);
-      const admin = await connect('admin-token');
-      admin.emit('admin:sos:join');
-      await tick();
-
+    it('should raise the SOS without a position when the phone sends a bad one', async () => {
+      mockTriggerSOS.mockResolvedValue({ _id: EMERGENCY_ID, liveTrackingUrl: 'https://example.com/t' });
       const rider = await connect('rider-token');
-      const update = waitFor<{ location: unknown }>(admin, 'sos:location:updated');
-      rider.emit('sos:location:update', { emergencyId: EMERGENCY_ID, location: { lng: 77.105, lat: 28.705 } });
+      const confirmed = waitFor<{ emergencyId: string }>(rider, 'sos:triggered');
+      rider.emit('sos:trigger', { bookingId: BOOKING_ID, location: { lng: 999, lat: 0 } });
 
-      expect((await update).location).toEqual({ lng: 77.105, lat: 28.705 });
+      await confirmed;
+      expect(mockTriggerSOS).toHaveBeenCalledWith(RIDER_ID, { bookingId: BOOKING_ID, location: undefined });
+    });
+
+    it('should pass SOS location updates to the ownership-checked service', async () => {
+      mockUpdateSOSLocation.mockResolvedValue(undefined);
+      const rider = await connect('rider-token');
+      rider.emit('sos:location:update', { emergencyId: EMERGENCY_ID, location: { lng: 77.105, lat: 28.705 } });
+      await tick();
       expect(mockUpdateSOSLocation).toHaveBeenCalledWith(EMERGENCY_ID, RIDER_ID, { lng: 77.105, lat: 28.705 });
     });
 

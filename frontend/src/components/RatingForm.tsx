@@ -14,6 +14,7 @@ import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
 import { errorHandler } from '../utils/errorHandler';
 import type { RatingCategory, RatingInput, RatingIssue } from '../services/ratingService';
+import { REGION } from '../utils/region';
 
 const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
 
@@ -33,7 +34,7 @@ const CATEGORIES: { key: RatingCategory; label: string }[] = [
 ];
 
 const ISSUES: { key: RatingIssue; label: string }[] = [
-  { key: 'safety', label: 'I felt unsafe' },
+  { key: 'safety', label: 'A safety problem' },
   { key: 'route', label: 'Route or timing problem' },
   { key: 'payment', label: 'Payment problem' },
 ];
@@ -66,6 +67,13 @@ export function StarRating({ value, onChange, size = 36, label }: { value: numbe
   );
 }
 
+/** A plain question gets honest answers; stored as 5, 3 and 1 */
+const SAFETY_ANSWERS = [
+  { value: 5, label: 'Yes' },
+  { value: 3, label: 'Mostly' },
+  { value: 1, label: 'No' },
+];
+
 export function RatingForm({
   rateeName,
   onSubmit,
@@ -82,6 +90,7 @@ export function RatingForm({
   const [comment, setComment] = useState('');
   const [issues, setIssues] = useState<RatingIssue[]>([]);
   const [issueDetails, setIssueDetails] = useState('');
+  const [safety, setSafety] = useState<number | undefined>(undefined);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
@@ -92,7 +101,7 @@ export function RatingForm({
     setSending(true);
     setError('');
     try {
-      await onSubmit({ score, categories, tags, comment, issues, issueDetails });
+      await onSubmit({ score, categories, tags, comment, issues, issueDetails, safety });
     } catch (e) {
       setError(errorHandler.process(e).message);
       setSending(false);
@@ -156,6 +165,29 @@ export function RatingForm({
             <Text style={{ fontSize: 12, color: c.textSec }}>Reviews appear on the driver's profile after our team checks them.</Text>
           ) : null}
 
+          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginTop: 4 }}>Did you feel safe?</Text>
+          <View style={styles.tags} accessibilityRole="radiogroup">
+            {SAFETY_ANSWERS.map(a => {
+              const selected = safety === a.value;
+              return (
+                <Pressable
+                  key={a.value}
+                  onPress={() => {
+                    setSafety(a.value);
+                    // "No" is a safety report: open the box to say what happened
+                    if (a.value === 1) setIssues(prev => (prev.includes('safety') ? prev : [...prev, 'safety']));
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  style={[styles.chip, { backgroundColor: selected ? c.primaryLight : c.surface, borderColor: selected ? c.primary : c.border }]}
+                >
+                  <Text style={{ fontSize: 13, color: selected ? c.primary : c.text, fontWeight: selected ? '600' : '400' }}>{a.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={{ fontSize: 12, color: c.textSec }}>Private: only Poolora's safety team sees this answer, never {rateeName}.</Text>
+
           <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginTop: 4 }}>Anything wrong?</Text>
           {ISSUES.map(issue => {
             const checked = issues.includes(issue.key);
@@ -186,7 +218,7 @@ export function RatingForm({
               />
               {issues.includes('safety') ? (
                 <Text style={{ fontSize: 13, color: c.error }}>
-                  Our safety team is alerted as soon as you submit. If you are in danger now, call 999.
+                  Our safety team is alerted as soon as you submit. If you are in danger now, call {REGION.emergency.general}.
                 </Text>
               ) : null}
             </>

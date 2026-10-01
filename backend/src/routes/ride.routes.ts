@@ -4,7 +4,7 @@ import { authenticate } from '../middlewares/auth.middleware';
 import { requireActiveAccount } from '../middlewares/accountStatus.middleware';
 import { requireDriverVerification } from '../middlewares/capability.middleware';
 import { validate } from '../middlewares/validation.middleware';
-import { createRideSchema, updateRideSchema, priceSuggestionSchema, searchRideSchema, updateDriverLocationSchema } from '../validators';
+import { createRideSchema, updateRideSchema, priceSuggestionSchema, searchRideSchema, updateDriverLocationSchema, tripPositionSchema } from '../validators';
 
 const router = Router();
 
@@ -33,6 +33,10 @@ router.post(
 	validate(updateDriverLocationSchema),
 	RideController.updateDriverLocation,
 );
+
+// Any phone on a ride in progress, from the app's background task: the car
+// (driver) every 5 s, riders from pickup to drop. Stored as the trip trail.
+router.post('/:id/position', validate(tripPositionSchema), RideController.tripPosition);
 
 // Create ride — requires verified driver
 router.post('/', requireDriverVerification(), requireActiveAccount, validate(createRideSchema), RideController.createRide);

@@ -101,6 +101,28 @@ it('keeps reported problems private and alerts admins about safety at once, ahea
   expect(queue.ratings.map((r) => r.booking.toString())).toEqual([second, first]);
 });
 
+it('keeps "did you feel safe?" confidential, averages it apart, and treats "no" as a safety report', async () => {
+  await User.collection.insertOne({ _id: new Types.ObjectId(adminId), name: 'Admin', phone: '+263771000009', capabilities: ['rider', 'admin'], stats: {} });
+  const first = await completedBooking(1);
+  const second = await completedBooking(1);
+  await service.createRating(riderId.toString(), { bookingId: first, score: 5, safety: 5 });
+  await service.createRating(riderId.toString(), { bookingId: second, score: 4, safety: 1 });
+
+  const { ratings } = await service.getUserRatings(driverId.toString(), 1, 10);
+  expect(ratings.every((r) => (r as { safety?: number }).safety === undefined)).toBe(true);
+  const publicDriver = await User.findById(driverId).lean();
+  expect(publicDriver).not.toHaveProperty('safetyRating');
+  const withSafety = await User.findById(driverId).select('+safetyRating').lean();
+  expect(withSafety?.safetyRating?.asDriver).toEqual({ avg: 3, count: 2 });
+
+  expect(mockEmit).toHaveBeenCalledWith('rating:safety', expect.objectContaining({ bookingId: second }));
+  expect(mockPush).toHaveBeenCalledWith(adminId, 'Safety report', expect.stringContaining('did not feel safe'), expect.objectContaining({ type: 'safety_report' }));
+  const reported = await service.moderationQueue('reported');
+  expect(reported.ratings.map((r) => String(r.booking))).toEqual([second]);
+  const pending = await service.moderationQueue('pending');
+  expect(String(pending.ratings[0].booking)).toBe(second);
+});
+
 it('lists trips still to rate, and reminds once a day after the trip', async () => {
   const unrated = await completedBooking(1.5);
   const rated = await completedBooking(2);

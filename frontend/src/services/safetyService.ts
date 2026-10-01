@@ -15,6 +15,8 @@ export interface SOSRequest {
   emergencyContacts?: string[]; // contact IDs
 }
 
+export type SOSThreat = 'driver' | 'passenger' | 'outside' | 'medical' | 'accident' | 'other';
+
 export interface SOSResponse {
   _id: string;
   status: string;
@@ -34,6 +36,17 @@ export interface SOSResponse {
   liveTrackingUrl?: string;
   /** Contacts whose SMS was accepted by the provider. Empty if none could be reached. */
   emergencyContactsNotified?: Array<{ name: string; phone: string; notifiedAt: string }>;
+  /**
+   * Contacts are texted at contactsDueAt, after a window to cancel an
+   * accidental SOS; the safety team is alerted at once.
+   */
+  contactsState?: 'pending' | 'sending' | 'sent' | 'unavailable' | 'none' | 'cancelled';
+  contactsDueAt?: string;
+  /** The user said they are safe; the safety team still confirms and closes it */
+  userSafeAt?: string;
+  cancelledAt?: string;
+  threat?: SOSThreat;
+  resolvedAt?: string;
 }
 
 export interface IncidentData {
@@ -96,11 +109,12 @@ export const safetyService = {
   /**
    * Trigger SOS alert
    */
-  async triggerSOS(bookingId: string, location: { lat: number; lng: number }): Promise<SOSResponse> {
+  async triggerSOS(bookingId: string, location: { lat: number; lng: number } | null): Promise<SOSResponse> {
     try {
       const response = await apiClient.post<ApiResponse<{ emergency: SOSResponse }>>(
         API_ENDPOINTS.safety.triggerSos,
-        { bookingId, location },
+        // Without a position the server uses the car's last one; the alert still goes
+        location ? { bookingId, location } : { bookingId },
       );
       logger.info('SOS triggered');
       return response.data.data.emergency;
@@ -110,12 +124,30 @@ export const safetyService = {
     }
   },
 
+  /** The caller's open SOS, if any, or else the booking an SOS would be about. */
+  async getCurrentSOS(): Promise<{ sos: SOSResponse | null; bookingId: string | null }> {
+    const response = await apiClient.get<ApiResponse<{ sos: SOSResponse | null; bookingId: string | null }>>(API_ENDPOINTS.safety.currentSos);
+    return response.data.data;
+  },
+
+  /** "What's happening?": who or what the danger is, after the alert has gone */
+  async setSOSThreat(sosId: string, threat: SOSThreat): Promise<SOSResponse> {
+    const response = await apiClient.post<ApiResponse<{ emergency: SOSResponse }>>(API_ENDPOINTS.safety.sosDetails(sosId), { threat });
+    return response.data.data.emergency;
+  },
+
+  /** Cancel an accidental SOS before emergency contacts are texted. */
+  async cancelSOS(sosId: string): Promise<SOSResponse> {
+    const response = await apiClient.post<ApiResponse<{ emergency: SOSResponse }>>(API_ENDPOINTS.safety.cancelSos(sosId), {});
+    return response.data.data.emergency;
+  },
+
   /**
    * Push the user's current position to an active SOS.
    */
-  async updateSOSLocation(sosId: string, location: { lat: number; lng: number }): Promise<void> {
+  async updateSOSLocation(sosId: string, location: { lat: number; lng: number }, battery?: number): Promise<void> {
     try {
-      await apiClient.post(API_ENDPOINTS.safety.updateSosLocation(sosId), { location });
+      await apiClient.post(API_ENDPOINTS.safety.updateSosLocation(sosId), { location, battery });
     } catch (error) {
       logger.error('Failed to update SOS location', { sosId, error });
       throw error;

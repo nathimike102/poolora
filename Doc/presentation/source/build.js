@@ -107,6 +107,8 @@ function nodesOf(name) {
     idea: [md.MdLightbulb, C.teal], flag: [md.MdFlag, C.teal], school: [md.MdSchool, C.white], clock: [md.MdSchedule, C.teal],
     post: [md.MdAddRoad, C.white], searchW: [md.MdSearch, C.white], payW: [md.MdPayments, C.white], liveW: [md.MdNearMe, C.white], starW: [md.MdStar, C.white],
     holiday: [md.MdEvent, C.white], phoneT: [md.MdPhoneAndroid, C.teal], globe: [md.MdPublic, C.white], cash: [md.MdSavings, C.white],
+    pin: [md.MdPassword, C.white], gps: [md.MdGpsFixed, C.white], battery: [md.MdBatteryAlert, C.white], female: [md.MdFemale, C.white],
+    timer: [md.MdTimer, C.white], sms: [md.MdTextsms, C.white], eye: [md.MdVisibility, C.teal],
   };
   for (const [k, [comp, col]] of Object.entries(need)) I[k] = await icon(comp, col);
 
@@ -609,7 +611,7 @@ function nodesOf(name) {
     if (!ACADEMIC) {
       const c = card(s, 8.05, 3.65, 4.7, 2.85, { fill: C.navy, line: C.navy });
       const h = text(s, 'Safety built in', 8.35, 3.85, 4.2, 0.4, { fontFace: HEAD, fontSize: 17, bold: true, color: C.white });
-      const b = bullets(s, ['Verified drivers: licence, registration book, insurance', 'SOS to our safety desk and your contacts', 'Live trip link, route-deviation alerts, check-ins', 'Adults only (18+), masked phone numbers'], 8.35, 4.35, 4.2, 2.1, { fontSize: 13, color: C.white });
+      const b = bullets(s, ['Verified drivers; women-only rides for ID-checked women', 'SOS: safety desk at once, family in 10 s', 'Every phone and car tracker traced on a ride', 'A pickup code: never the wrong car'], 8.35, 4.35, 4.2, 2.1, { fontSize: 13, color: C.white });
       together(s, [c, h, b], 'rise', 1400);
     }
     footer(s);
@@ -617,25 +619,57 @@ function nodesOf(name) {
 
   // 17 Safety (academic)
   if (ACADEMIC) {
-    const s = slide({ dark: true, notes: 'Safety features, most of which are already exercised by tests and the simulator: SOS, live link, route deviation, check-ins, verified contacts, verified drivers, and the account protections added in the review.' });
-    title(s, 'Safety by design');
+    const s = slide({ dark: true, notes: 'Safety is what sets Poolora apart, and it covers the driver as much as the rider. SOS reaches the safety desk at once and the family ten seconds later. Every phone on a ride is traced, and a GPS tracker in the car keeps it traceable even if every phone is switched off. A pickup code means nobody gets into the wrong car. Women-only rides are for women whose ID our team has checked. All of it is covered by tests against a real database.' });
+    title(s, 'Safety by design', { sub: 'For riders and drivers alike: the reason to choose Poolora.' });
     const feats = [
-      ['sos', 'One-tap SOS', 'Alerts the admin safety desk and texts emergency contacts a live-location link; 999 one tap away'],
-      ['share', 'Live trip link', 'A public link with the car\'s position, for anyone the rider chooses'],
-      ['map', 'Route deviation', `Alert when the car is more than ${500} m off the planned route`],
-      ['alarm', 'Check-ins', '"Are you OK?" during the ride; two missed prompts raise an SOS'],
-      ['contacts', 'Emergency contacts', 'Confirmed by SMS; the user picks who is alerted'],
-      ['lock', 'Verified people', 'Licence, registration book and insurance checked; adults only; permanent blocks need two admins'],
+      ['sos', 'SOS in 3 seconds', 'Safety desk alerted at once; family get a live link 10 s later. No GPS needed; offline, it texts them from the phone'],
+      ['pin', 'Pickup code', 'The rider gets in only when the driver has entered their 4-digit code: never the wrong car'],
+      ['gps', 'Every phone traced', 'The car and each rider during the ride, screen off too. Kept 30 days, or with any incident'],
+      ['carW', 'Car trackers', 'A GPS tracker in the car keeps it traceable with every phone off; its panic button raises an SOS'],
+      ['female', 'Women-only, verified', 'Our team checks an ID and a selfie: only verified women post, find or book these rides'],
+      ['alarm', 'Check-ins and alerts', '"Are you OK?" every 30 min, route-deviation alerts, and a live trip link for family'],
     ];
     feats.forEach(([k, h, b], i) => {
       const x = 0.6 + (i % 3) * 4.1;
-      const y = 1.5 + Math.floor(i / 3) * 2.6;
-      const c = card(s, x, y, 3.85, 2.35, { fill: '251D62', line: '3A3182' });
+      const y = 1.8 + Math.floor(i / 3) * 2.45;
+      const c = card(s, x, y, 3.85, 2.25, { fill: '251D62', line: '3A3182' });
       const ic = iconCircle(s, k, x + 0.3, y + 0.3, 0.75, i === 0 ? C.pink : C.teal);
       const t1 = text(s, h, x + 1.25, y + 0.38, 2.45, 0.5, { fontFace: HEAD, fontSize: 17, bold: true, color: C.white });
       const t2 = text(s, b, x + 0.3, y + 1.2, 3.3, 1.05, { fontSize: 13, color: C.lilac });
       together(s, [c, ic, ic + ' glyph', t1, t2], 'rise', 120 * i);
     });
+    footer(s);
+  }
+
+  // 17b When an SOS is raised (both decks)
+  {
+    const s = slide({ dark: true, notes: 'What happens second by second when someone raises an SOS, whether rider or driver. The safety desk knows at once; the family ten seconds later, so an accidental press can be cancelled. Every phone on the ride and the car\'s own tracker keep reporting with the screen off. If a phone goes off, its last battery level tells the team whether it ran out or was switched off. Nobody can leave an SOS waiting: every admin is paged again every five minutes until someone takes it. And the team can identify everyone: both people, the car, the other riders, and the mobile money numbers they used, which are registered to a name.' });
+    title(s, 'When an SOS is raised', { sub: 'Rider or driver, second by second, and even when a phone is switched off.' });
+    const steps = [
+      ['sos', '0 s', 'Hold 3 s. The safety desk is paged by push and SMS and sees it live'],
+      ['sms', '10 s', 'Family get a link: where they are, the car and its plate. Cancel before then if pressed by mistake'],
+      ['gps', 'Every 5 s', 'Every phone on the ride and the car\'s own tracker report, screen off too'],
+      ['battery', 'Phone off?', 'Its battery says why: ran out, or switched off. The car and other phones still report'],
+      ['timer', '5 min', 'Nobody has taken it? Every admin is paged again until someone does'],
+    ];
+    steps.forEach(([k, when, what], i) => {
+      const x = 0.6 + i * 2.47;
+      const ic = iconCircle(s, k, x + 0.78, 1.85, 0.7, i === 0 ? C.pink : C.teal);
+      const t1 = text(s, when, x, 2.65, 2.25, 0.45, { fontFace: HEAD, fontSize: 20, bold: true, color: C.white, align: 'center' });
+      const t2 = text(s, what, x, 3.12, 2.25, 1.2, { fontSize: 12.5, color: C.lilac, align: 'center' });
+      together(s, [ic, ic + ' glyph', t1, t2], 'rise', 200 * i);
+    });
+    const c = card(s, 0.6, 4.55, W - 1.2, 2.05, { fill: '251D62', line: '3A3182' });
+    const h = text(s, 'What the safety team sees, to find everyone', 0.95, 4.72, 8, 0.4, { fontFace: HEAD, fontSize: 16, bold: true, color: C.white });
+    const left = bullets(s, [
+      'Both people: photo, ID check, licence, mobile money numbers (registered to a name)',
+      'The car: make, colour, plate, photos, and its tracker',
+    ], 0.95, 5.2, 5.6, 1.3, { fontSize: 13, color: C.white });
+    const right = bullets(s, [
+      'Every other rider on the ride, and the messages and calls between them',
+      'Who the danger is, if they said: the driver, a passenger, someone outside, medical',
+    ], 6.85, 5.2, 5.6, 1.3, { fontSize: 13, color: C.white });
+    together(s, [c, h, left, right], 'rise', 1200);
     footer(s);
   }
 
@@ -779,8 +813,8 @@ function nodesOf(name) {
   {
     const s = slide({ notes: 'What is done and what is left before real users. The legal and payment items are paperwork, not code. The e-hailing regulations are being written during a five-month transition from 8 September 2026.' });
     title(s, ACADEMIC ? 'Status and future scope' : 'Where we are', { sub: 'The product is built and tested; launch depends on licences, live payments and the new e-hailing rules.' });
-    const done = ['Rider and driver app, admin web, website', 'Paynow payments (test mode), wallet and withdrawals', 'Live tracking, SOS, check-ins, trip sharing', 'Parcels and group trips', 'In-app support assistant (Claude)', 'Account closure, 18+, per-user rate limits'];
-    const next = ['POTRAZ data controller licence and a Data Protection Officer', 'Lawyer\'s review of the terms and privacy policy', 'Paynow live mode and a business mobile money account', 'A Zimbabwe support number (today +91)', 'Align with the e-hailing regulations (transition ends about February 2027)', 'Next markets through the market registry'];
+    const done = ['Rider and driver app, admin web, website', 'Paynow payments (test mode), wallet and withdrawals', 'Safety: SOS, every phone traced, car trackers, pickup codes', 'Parcels and group trips', 'In-app support assistant (Claude)', 'Account closure, 18+, per-user rate limits'];
+    const next = ['POTRAZ data controller licence and a Data Protection Officer', 'Lawyer\'s review of the terms and privacy policy', 'Paynow live mode and a business mobile money account', 'A Zimbabwe support number (today +91)', 'Align with the e-hailing regulations (transition ends about February 2027)', 'App rebuild and Play Store safety declarations'];
     const col = (x, heading, items, key, colr, after) => {
       const c = card(s, x, 1.85, 5.9, 4.6);
       const h = text(s, heading, x + 0.35, 2.05, 5.2, 0.45, { fontFace: HEAD, fontSize: 18, bold: true, color: colr });

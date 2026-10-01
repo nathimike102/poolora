@@ -23,6 +23,7 @@ import { rideAlertService } from '../../services/rideAlertService';
 import { errorHandler } from '../../utils/errorHandler';
 import { VEHICLE_CATEGORIES, vehicleCategory, type VehicleCategory } from '../../utils/vehicles';
 import { REGION, money } from '../../utils/region';
+import { identityService } from '../../services/identityService';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'RideResults'>;
 type ResultsRoute = RouteProp<RootStackParamList, 'RideResults'>;
@@ -42,6 +43,8 @@ interface ResultRide {
   category: VehicleCategory;
   driver: string;
   driverVerified: boolean;
+  /** A GPS tracker in the car: it can be followed even with every phone off */
+  trackedCar: boolean;
   rating: number;
   ratingCount: number;
   vehicleName: string;
@@ -61,6 +64,7 @@ function toResult(r: ApiRide): ResultRide {
     category: vehicleCategory(v?.vehicleType),
     driver: r.driver?.name || 'Driver',
     driverVerified: Boolean(r.driver?.verified),
+    trackedCar: Boolean(r.driver?.trackedCar),
     rating: stats?.avgRatingAsDriver ?? 0,
     ratingCount: stats?.totalRatingsAsDriver ?? 0,
     vehicleName: v ? [v.color, v.make, v.model].filter(Boolean).join(' ') : '',
@@ -151,6 +155,28 @@ export function RideResultsScreen() {
   const [category, setCategory] = useState<VehicleCategory | 'all'>(route.params?.category ?? 'all');
   const [sortBy, setSortBy] = useState<SortBy>('best');
   const [womenOnly, setWomenOnly] = useState(false);
+
+  // Women-only rides reach only women whose identity check passed; explain rather than show an empty list
+  const toggleWomenOnly = async () => {
+    if (womenOnly) {
+      setWomenOnly(false);
+      return;
+    }
+    const identity = await identityService.status().catch(() => null);
+    if (identity?.status === 'verified' && identity.gender === 'female') {
+      setWomenOnly(true);
+      return;
+    }
+    Alert.alert(
+      'Women-only rides',
+      identity?.status === 'pending'
+        ? 'Women-only rides open to you once your identity check is approved. We usually review it within a day.'
+        : 'Women-only rides are for women who have verified their identity, so nobody can join one just by saying they are a woman.',
+      identity?.status === 'pending'
+        ? [{ text: 'OK' }]
+        : [{ text: 'Not now', style: 'cancel' }, { text: 'Verify my identity', onPress: () => navigation.navigate('IdentityCheck') }],
+    );
+  };
   const [acOnly, setAcOnly] = useState(false);
   const [seats, setSeats] = useState(searched?.seats ?? 1);
 
@@ -278,7 +304,7 @@ export function RideResultsScreen() {
             {SORTS.map(s => (
               <Chip key={s.key} label={s.label} on={sortBy === s.key} onPress={() => setSortBy(sortBy === s.key ? 'best' : s.key)} />
             ))}
-            <Chip label="Women only" icon="gender-female" on={womenOnly} onPress={() => setWomenOnly(v => !v)} />
+            <Chip label="Women only" icon="gender-female" on={womenOnly} onPress={toggleWomenOnly} />
             <Chip label="AC" icon="snowflake" on={acOnly} onPress={() => setAcOnly(v => !v)} />
           </ScrollView>
         )}
@@ -365,6 +391,12 @@ export function RideResultsScreen() {
                         {r.vehicleName ? ` · ${r.vehicleName}` : ''}
                       </Text>
                     </View>
+                    {r.trackedCar ? (
+                      <View style={styles.trackedLine} accessibilityLabel="Tracked car: a GPS tracker in the car">
+                        <Icon name="crosshairs-gps" size={13} color={c.success} />
+                        <Text style={[styles.rideMeta, { color: c.success }]}>Tracked car</Text>
+                      </View>
+                    ) : null}
                     <Text style={[styles.rideMeta, { color: full ? c.error : c.textSec }]} numberOfLines={1}>
                       {formatLeaves(r.departureAt)} · {r.seatsLeft} {r.seatsLeft === 1 ? 'seat' : 'seats'} left
                     </Text>
@@ -458,6 +490,7 @@ function Chip({ label, on, onPress, icon }: { label: string; on: boolean; onPres
 }
 
 const styles = StyleSheet.create({
+  trackedLine: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   driverLine: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   root: { flex: 1 },
   flex1: { flex: 1 },

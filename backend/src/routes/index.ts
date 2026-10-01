@@ -22,6 +22,7 @@ import tripRoutes from './trip.routes';
 import appealRoutes from './appeal.routes';
 import callRoutes from './call.routes';
 import kycVerifyRoutes from './kycVerify.routes';
+import trackerRoutes from './tracker.routes';
 
 const router = Router();
 
@@ -48,6 +49,8 @@ router.use('/trips', tripRoutes);
 router.use('/appeals', appealRoutes);
 router.use('/calls', callRoutes);
 router.use('/kyc-verify', kycVerifyRoutes);
+// Car GPS trackers, from the Traccar gateway
+router.use('/trackers', trackerRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {

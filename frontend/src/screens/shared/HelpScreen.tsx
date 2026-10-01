@@ -38,8 +38,9 @@ const FAQ: Array<{ topic: string; items: Array<{ q: string; a: string }> }> = [
     topic: 'During a ride',
     items: [
       { q: 'How do I share my trip?', a: 'On the ride screen, tap Share trip. Anyone with the link can follow the car without the app until an hour after you arrive.' },
-      { q: 'What does SOS do?', a: 'It alerts the Poolora safety team at once, and texts your emergency contacts a link to your live location. If you are in danger, also call 999 (police 995, ambulance 994).' },
-      { q: 'Why am I asked "Are you OK?"', a: 'During longer rides we check in every 30 minutes. If you do not answer twice, we treat it as an SOS.' },
+      { q: 'What does SOS do?', a: `Hold the SOS button for 3 seconds. The Poolora safety team is alerted at once and can see where you are. Ten seconds later your emergency contacts get a text with a link to your live location, unless you cancel because you pressed it by accident. If you are in danger, also call ${REGION.emergency.general} (police ${REGION.emergency.police}, ambulance ${REGION.emergency.ambulance}).` },
+      { q: 'What if I have no signal or no GPS?', a: 'The alert still goes: without a GPS fix we use the car\'s last position. With no data at all, the app keeps trying and offers to text your contacts from your phone and to call the emergency line.' },
+      { q: 'Why am I asked "Are you OK?"', a: 'During longer rides we check in every 30 minutes. If you do not answer twice, our safety team is alerted, and if you still do not answer within 5 minutes we text your emergency contacts.' },
       { q: 'The driver did not come', a: 'If the driver cancels, you are refunded in full automatically. If they never arrived, tap the trip in My rides and choose Report a problem.' },
     ],
   },
@@ -101,7 +102,7 @@ export function HelpScreen() {
           <Icon name="phone-alert" size={22} color={c.error} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Urgent safety or payment problem?</Text>
-            <Text style={{ fontSize: 13, color: c.text }}>Call us on {COMPANY.supportPhoneDisplay}. In danger now? Call 999.</Text>
+            <Text style={{ fontSize: 13, color: c.text }}>Call us on {COMPANY.supportPhoneDisplay}. In danger now? Call {REGION.emergency.general}.</Text>
           </View>
           <Pressable
             onPress={() => Linking.openURL(`tel:${COMPANY.supportPhone}`)}

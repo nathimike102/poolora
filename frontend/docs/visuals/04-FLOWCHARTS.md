@@ -539,120 +539,98 @@ Wallet → mobile money (withdrawal)
 
 ## 5. Emergency SOS Flow
 
+As built (UC-R07, UC-A03). The safety team hears first and at once; emergency contacts hear 10 seconds later, so an accidental press can be cancelled without frightening anyone.
+
 ```
-START
+START: rider or driver in a confirmed ride feels unsafe
   │
   ▼
-┌──────────────────────────┐
-│ User in Ride              │
-│ Feels Unsafe              │
-└────────┬─────────────────┘
+┌────────────────────────────────────┐
+│ Hold SOS for 3 seconds             │  (ride screen, chat, or Safety)
+│ Let go early: nothing happens      │
+└────────┬───────────────────────────┘
+         │ hold completes
+         ▼
+┌────────────────────────────────────┐
+│ Position: GPS fix (4 s at most),   │
+│ else last known, else the car's    │
+│ last position, else the pickup     │
+│ (no position never blocks the SOS) │
+└────────┬───────────────────────────┘
          │
          ▼
-┌──────────────────────────┐
-│ User Presses SOS Button  │
-│ (5-second hold)          │
-└────────┬─────────────────┘
+┌────────────────────────────────────┐      no network
+│ POST /safety/sos                   │───────────────┐
+└────────┬───────────────────────────┘               ▼
+         │ raised                      ┌──────────────────────────────┐
+         │                             │ Retry every 5 s. Offer:      │
+         │                             │ - Call the emergency line    │
+         │                             │ - Text my contacts from the  │
+         │                             │   phone (works without data) │
+         │                             └──────────────────────────────┘
+         ▼
+┌────────────────────────────────────┐
+│ AT ONCE                            │
+│ - Every admin: push + SMS          │
+│ - Dashboard: red banner + alarm    │
+│ - Screen: "Texting your contacts   │
+│   in 10 s"  [Cancel]               │
+└────────┬───────────────┬───────────┘
+         │               │ Cancel within 10 s
+         │               ▼
+         │     ┌────────────────────────────┐
+         │     │ Closed as false alarm.     │
+         │     │ Contacts never texted.     │
+         │     │ Team told it was cancelled │
+         │     └────────────────────────────┘
+         ▼ after 10 s
+┌────────────────────────────────────┐
+│ Chosen contacts: SMS with tracking │
+│ link (+ push if they use Poolora). │
+│ Link shows: first name, position,  │
+│ trip, other person's first name,   │
+│ car and plate. No phone numbers.   │
+└────────┬───────────────────────────┘
          │
          ▼
-┌──────────────────────────┐
-│ Show Confirmation        │
-│ Countdown: 3 seconds     │
-└────────┬──────┬──────────┘
-         │      │
-      Confirm Cancel
-         │      │
-         │      ▼
-         │   ┌────────────┐
-         │   │ SOS Aborted│
-         │   └────────────┘
+┌────────────────────────────────────┐
+│ WHILE OPEN                         │
+│ - Phone sends position every 5 s   │
+│ - Quiet for 3 intervals: "out of   │
+│   contact", risk high, team paged  │
+│ - Nobody has taken it after 5 min: │
+│   every admin paged again, every   │
+│   5 min                            │
+└────────┬───────────────────────────┘
          │
          ▼
-┌──────────────────────────────┐
-│ SOS TRIGGERED               │
-│ Immediate Actions:          │
-│ 1. Record GPS Location      │
-│ 2. Start Audio Recording    │
-│ 3. Take Ride Screenshot     │
-│ 4. Log Timestamp            │
-└────────┬─────────────────────┘
+┌────────────────────────────────────┐
+│ Admin takes it: user sees "<name>  │
+│ from the safety team is on it"     │
+│ Admin calls user, then other party │
+│ Logs calls; police (995) if needed │
+│ May suspend the other party        │
+└────────┬───────────────────────────┘
          │
-         ▼
-┌──────────────────────────────┐
-│ Send Notifications to:       │
-│ - All Emergency Contacts    │
-│ - App Admin/Support Team    │
-│ - Police (if configured)    │
-└────────┬─────────────────────┘
-         │
-         ├──────────────┬─────────────┬───────────┐
-         │              │             │           │
-         ▼              ▼             ▼           ▼
-    Emergency      Admin          Police       Contact
-    Contact        Alert          Alert        Notified
-         │              │             │           │
-         └──────┬───────┴─────┬───────┴───────────┘
-                │             │
-                ▼             ▼
-         ┌─────────────┐ ┌──────────────┐
-         │ Notification│ │ Real-time    │
-         │ with Location│ │ Dashboard    │
-         │ Link        │ │ Alert        │
-         └─────────────┘ └──────────────┘
-                │             │
-                ▼             ▼
-         ┌────────────────────────────────┐
-         │ User Options:                  │
-         │ 1. Call Emergency Contact      │
-         │ 2. Text Support Team           │
-         │ 3. Keep App Open (Help Active) │
-         │ 4. Call Police Directly        │
-         └────────┬───────────────────────┘
-                  │
-         ┌────────┴──────────┬──────────────┐
-         │                   │              │
-         ▼                   ▼              ▼
-    Call Made           Chat Open       Police Called
-         │                  │              │
-         │                  ▼              │
-         │          ┌──────────────┐      │
-         │          │ Real-time    │      │
-         │          │ Support Chat │      │
-         │          │ with Admin   │      │
-         │          └──────────────┘      │
-         │                  │              │
-         ▼                  ▼              ▼
-    ┌──────────────────────────────────────┐
-    │ Admin Monitors SOS in Dashboard:     │
-    │ - Live Location                      │
-    │ - Ride Details                       │
-    │ - Other Party Info                   │
-    │ - Can Call Driver/Rider              │
-    │ - Can Dispatch Help                  │
-    │ - Can Share with Police              │
-    └────────┬─────────────────────────────┘
-             │
+   ┌─────┴──────────────┬──────────────────────┐
+   ▼                    ▼                      ▼
+"I'm safe"         "I'm not safe" /       User unreachable
+recorded, told     raised again           → police, contacts
+to team and        → risk high,
+contacts; stays    team paged again
+open
+   │                    │                      │
+   └─────────┬──────────┴──────────────────────┘
              ▼
-    ┌──────────────────────────────────────┐
-    │ Resolution:                          │
-    │ - Help Arrives                       │
-    │ - User Confirms Safety               │
-    │ - False Alarm Dismissed              │
-    │ - Situation Resolved                 │
-    └────────┬─────────────────────────────┘
-             │
-             ▼
-    ┌──────────────────────────────────────┐
-    │ SOS Incident Logged:                 │
-    │ - Full Details                       │
-    │ - All Records                        │
-    │ - Audio/Video (if available)         │
-    │ - Timeline                           │
-    │ - Admin Notes                        │
-    └────────┬─────────────────────────────┘
-             │
-             ▼
-           END
+┌────────────────────────────────────┐
+│ Admin resolves with a note         │
+│ (or as a false alarm)              │
+│ User and texted contacts told      │
+│ Real incident kept; false alarm    │
+│ deleted after 90 days              │
+└────────┬───────────────────────────┘
+         ▼
+        END
 ```
 
 ---
@@ -735,7 +713,7 @@ START (Driver Reaches Dropoff)
 │   * Driving                      │
 │   * Politeness                   │
 │   * Communication                │
-│ - Safety Rating (separate)       │
+│ - Did you feel safe? (private)   │
 └────────┬─────────────────────────┘
          │
          ▼

@@ -6,7 +6,7 @@ import { subscribeSos } from '../lib/socket';
 import { ago, titleCase, when } from '../lib/format';
 import { Badge, Empty, ErrorBox, Field, Loading, PageHead, Pager, type Tone } from '../components/ui';
 import { ActionDialog } from '../components/Dialog';
-import type { MapPoint } from '../components/MapView';
+import type { MapPoint, OtherTrail } from '../components/MapView';
 
 // The map library is large; load it only when an incident is opened
 const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
@@ -23,6 +23,10 @@ interface Incident {
   resolvedAt?: string;
   policeNotifiedAt?: string;
   triggeredBy?: { name: string; phone: string };
+  userSafeAt?: string;
+  lostContactAt?: string;
+  cancelledAt?: string;
+  contactsState?: 'pending' | 'sending' | 'sent' | 'unavailable' | 'none' | 'cancelled';
 }
 
 interface Person {
@@ -32,7 +36,31 @@ interface Person {
   gender?: string;
   warnings?: number;
   isSuspended?: boolean;
+  profilePhotoUrl?: string;
+  identity?: { status?: string };
+  kyc?: { licenseNumber?: string; status?: string };
+  createdAt?: string;
   emergencyContacts?: Array<{ name: string; phone: string; relation: string }>;
+}
+
+type Threat = 'driver' | 'passenger' | 'outside' | 'medical' | 'accident' | 'other';
+const THREAT_TEXT: Record<Threat, string> = {
+  driver: 'the driver',
+  passenger: 'a passenger',
+  outside: 'someone outside the car',
+  medical: 'a medical emergency',
+  accident: 'an accident',
+  other: 'something else',
+};
+/** Distinct from the SOS red; the car first, then other riders */
+const TRAIL_COLORS = ['#1d4ed8', '#7c3aed', '#b45309', '#0f766e', '#be185d'];
+
+interface Trail {
+  /** userId, or userId:vehicle for the car's own tracker */
+  id: string;
+  userId: string;
+  role: 'driver' | 'rider' | 'vehicle';
+  points: Array<{ lng: number; lat: number; at: string; battery?: number }>;
 }
 
 interface SosDetail {
@@ -46,6 +74,11 @@ interface SosDetail {
     audioRecordingUrls?: string[];
     screenshotUrls?: string[];
     escalationReason?: string;
+    threat?: Threat;
+    lastBattery?: number;
+    triggeredBy: string;
+    locationSource?: 'device' | 'ride' | 'pickup';
+    contactsDueAt?: string;
   };
   booking: {
     _id: string;
@@ -56,7 +89,40 @@ interface SosDetail {
   rider: Person | null;
   driver: Person | null;
   triggeredByRole: 'rider' | 'driver';
+  history: { days: number; earlier: number; falseAlarms: number };
+  emergencyNumbers: { general: string; police: string; ambulance: string; fire: string };
+  /** Recordings and screenshots, with 15-minute links */
+  evidence: Array<{ type: 'audio' | 'screenshot'; url: string | null }>;
+  vehicle: { make?: string; model?: string; color?: string; year?: number; plateNumber: string; vehicleType?: string; photos: string[]; tracker?: { deviceId: string; lastReportAt: string | null } | null } | null;
+  coPassengers: Array<{ _id: string; status: string; rider: { _id: string; name: string; phone: string; profilePhotoUrl?: string; identity?: { status?: string } }; pickup: { address: string }; dropoff: { address: string }; actualPickupTime?: string; actualDropoffTime?: string }>;
+  /** Mobile money numbers each person has paid or been paid with: registered to a real name */
+  moneyNumbers: Record<string, Array<{ phone: string; channel: string }>>;
+  messages: Array<{ sender: string; content: string; contentType: string; createdAt: string }>;
+  calls: Array<{ caller: string; callee: string; status: string; createdAt: string; recordingDurationSec?: number }>;
+  /** Every phone on the ride, from the trip trail */
+  trails: Trail[];
 }
+
+/** What is happening now, in words: the badges an admin scans the list for */
+function SosNow({ i }: { i: Incident }) {
+  if (i.cancelledAt) return <Badge tone="neutral">Cancelled by the user</Badge>;
+  if (i.status !== 'triggered' && i.status !== 'acknowledged') return <span className="faint">—</span>;
+  return (
+    <span className="row">
+      {i.lostContactAt && !i.userSafeAt ? <Badge tone="danger">Phone out of contact</Badge> : null}
+      {i.userSafeAt ? <Badge tone="info">Says they are safe</Badge> : null}
+      {i.status === 'triggered' ? <Badge tone="danger">Nobody has it · {ago(i.createdAt)}</Badge> : null}
+    </span>
+  );
+}
+
+const CONTACTS_TEXT: Record<string, string> = {
+  pending: 'Waiting out the cancel window; they are texted in a few seconds.',
+  sending: 'Texting them now.',
+  none: 'No emergency contacts are set to get SOS texts.',
+  unavailable: 'Could not text them: SMS is off (TWILIO_ENABLED) or not set up. Call them.',
+  cancelled: 'Not texted: the user cancelled inside the window.',
+};
 
 const STATUS_TONE: Record<string, Tone> = { triggered: 'danger', acknowledged: 'warn', resolved: 'good', false_alarm: 'neutral' };
 const RISK_TONE: Record<string, Tone> = { high: 'danger', medium: 'warn', low: 'info' };
@@ -75,7 +141,8 @@ export function SosListPage() {
   );
   const navigate = useNavigate();
 
-  useEffect(() => subscribeSos(() => reload()), [reload]);
+  // New, changed or closed incidents; not every live position
+  useEffect(() => subscribeSos((e) => { if (e.kind === 'alert') reload(); }), [reload]);
 
   return (
     <div className="stack">
@@ -100,7 +167,7 @@ export function SosListPage() {
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Raised</th><th>By</th><th>Status</th><th>Risk</th><th>Missed check-ins</th><th>Police</th></tr>
+                  <tr><th>Raised</th><th>By</th><th>Status</th><th>Now</th><th>Risk</th><th>Police</th></tr>
                 </thead>
                 <tbody>
                   {data.incidents.map((i) => (
@@ -108,8 +175,8 @@ export function SosListPage() {
                       <td><Link to={`/sos/${i._id}`}>{when(i.createdAt)}</Link><div className="faint">{ago(i.createdAt)}</div></td>
                       <td>{i.triggeredBy?.name ?? '—'}<div className="faint">{i.triggeredBy?.phone}</div></td>
                       <td><SosStatus status={i.status} /></td>
+                      <td><SosNow i={i} /></td>
                       <td><Badge tone={RISK_TONE[i.riskLevel] ?? 'neutral'}>{titleCase(i.riskLevel)}</Badge></td>
-                      <td className="num">{i.missedCheckIns ?? 0}</td>
                       <td>{i.policeNotifiedAt ? when(i.policeNotifiedAt) : '—'}</td>
                     </tr>
                   ))}
@@ -124,19 +191,33 @@ export function SosListPage() {
   );
 }
 
-function PersonCard({ title, person, raised }: { title: string; person: Person | null; raised: boolean }) {
+function PersonCard({ title, person, raised, named, money }: { title: string; person: Person | null; raised: boolean; named: boolean; money?: Array<{ phone: string; channel: string }> }) {
   if (!person) return null;
   return (
     <div className="card">
       <div className="spread">
         <h2 style={{ margin: 0 }}>{title}</h2>
-        {raised ? <Badge tone="danger">Raised the SOS</Badge> : null}
+        <span className="row">
+          {raised ? <Badge tone="danger">Raised the SOS</Badge> : null}
+          {named ? <Badge tone="danger">Named as the danger</Badge> : null}
+        </span>
       </div>
-      <p style={{ marginTop: 8 }}>
-        <Link to={`/users/${person._id}`}><strong>{person.name}</strong></Link>
-        {person.gender ? <span className="faint"> · {person.gender}</span> : null}
-      </p>
+      <div className="row" style={{ marginTop: 8, alignItems: 'center' }}>
+        {person.profilePhotoUrl ? <img src={person.profilePhotoUrl} alt={`Photo of ${person.name}`} style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }} /> : null}
+        <div>
+          <Link to={`/users/${person._id}`}><strong>{person.name}</strong></Link>
+          {person.gender ? <span className="faint"> · {person.gender}</span> : null}
+          <div className="faint">
+            {person.identity?.status === 'verified' ? 'ID checked by Poolora' : 'ID not checked'}
+            {person.kyc?.licenseNumber ? ` · Licence ${person.kyc.licenseNumber}` : ''}
+            {person.createdAt ? ` · Member since ${when(person.createdAt)}` : ''}
+          </div>
+        </div>
+      </div>
       <p><a className="btn small" href={`tel:${person.phone}`}>Call {person.phone}</a></p>
+      {money?.length ? (
+        <p className="faint">Mobile money used: {money.map((m) => `${m.phone} (${titleCase(m.channel)})`).join(', ')}. Registered to a name at the network: the police can ask the network.</p>
+      ) : null}
       {person.emergencyContacts?.length ? (
         <>
           <h3 style={{ marginTop: 12 }}>Emergency contacts</h3>
@@ -156,17 +237,26 @@ export function SosDetailPage() {
   const { id = '' } = useParams();
   const { data, error, loading, reload } = useApi<SosDetail>(`/admin/sos/${id}`, 20_000);
   const [live, setLive] = useState<MapPoint[]>([]);
-  const [dialog, setDialog] = useState<'resolve' | 'police' | 'log' | null>(null);
+  // Other phones on the ride, as positions arrive
+  const [liveOthers, setLiveOthers] = useState<Record<string, MapPoint[]>>({});
+  const [dialog, setDialog] = useState<'resolve' | 'police' | 'log' | 'suspend' | null>(null);
   const [text, setText] = useState('');
   const [falseAlarm, setFalseAlarm] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  useEffect(() => setLive([]), [id]);
+  useEffect(() => {
+    setLive([]);
+    setLiveOthers({});
+  }, [id]);
   useEffect(
     () =>
       subscribeSos((e) => {
         if (e.emergencyId !== id) return;
-        if (e.location) setLive((l) => [...l, e.location!]);
+        if (e.kind === 'trail' && e.location && (e.trailId ?? e.userId)) {
+          const key = (e.trailId ?? e.userId)!;
+          const { location } = e;
+          setLiveOthers((o) => ({ ...o, [key]: [...(o[key] ?? []), location] }));
+        } else if (e.kind === 'location' && e.location) setLive((l) => [...l, e.location!]);
         else reload();
       }),
     [id, reload],
@@ -177,9 +267,40 @@ export function SosDetailPage() {
     return [...history, ...live];
   }, [data, live]);
 
+  const others = useMemo<OtherTrail[]>(() => {
+    if (!data) return [];
+    const names = new Map<string, string>();
+    if (data.rider) names.set(data.rider._id, data.rider.name);
+    if (data.driver) names.set(data.driver._id, data.driver.name);
+    for (const p of data.coPassengers ?? []) names.set(p.rider._id, p.rider.name);
+    const ids = new Set([...(data.trails ?? []).map((t) => t.id), ...Object.keys(liveOthers)]);
+    ids.delete(data.record.triggeredBy); // their own SOS trail is the red line
+    // The car's tracker first, then the driver's phone, then riders
+    const rank = (k: string) => (k.endsWith(':vehicle') ? 2 : k === data.driver?._id ? 1 : 0);
+    const ordered = [...ids].sort((a, b) => rank(b) - rank(a));
+    return ordered.map((key, i) => {
+      const stored = data.trails?.find((t) => t.id === key)?.points ?? [];
+      const uid = key.replace(/:vehicle$/, '');
+      const label = key.endsWith(':vehicle')
+        ? `The car's own GPS tracker${data.vehicle?.plateNumber ? ` (${data.vehicle.plateNumber})` : ''}`
+        : uid === data.driver?._id ? `The car (${names.get(uid) ?? 'driver'}'s phone)` : `${names.get(uid) ?? 'Rider'}'s phone`;
+      return {
+        id: key,
+        color: TRAIL_COLORS[i % TRAIL_COLORS.length],
+        label,
+        points: [...stored.map((p) => ({ lng: p.lng, lat: p.lat })), ...(liveOthers[uid] ?? [])],
+      };
+    });
+  }, [data, liveOthers]);
+
   if (loading && !data) return <Loading />;
   if (!data) return <ErrorBox error={error} onRetry={reload} />;
-  const { record, booking, rider, driver } = data;
+  const { record, booking, rider, driver, history, emergencyNumbers: numbers, vehicle } = data;
+  const threat = record.threat;
+  const namedRole = threat === 'driver' ? 'driver' : threat === 'passenger' ? 'rider' : null;
+  const lastOf = (key?: string) => data.trails?.find((t) => t.id === key)?.points.at(-1);
+  const other = data.triggeredByRole === 'rider' ? driver : rider;
+  const otherRole = data.triggeredByRole === 'rider' ? 'driver' : 'rider';
   const open = record.status === 'triggered' || record.status === 'acknowledged';
   const trigger = { lng: record.triggerLocation.coordinates[0], lat: record.triggerLocation.coordinates[1] };
   const lastSeen = record.locationHistory[record.locationHistory.length - 1]?.timestamp;
@@ -204,13 +325,21 @@ export function SosDetailPage() {
       <PageHead
         back={{ to: '/sos', label: 'SOS incidents' }}
         title={`SOS raised by the ${data.triggeredByRole}`}
-        sub={<span className="row"><SosStatus status={record.status} /><Badge tone={RISK_TONE[record.riskLevel] ?? 'neutral'}>{titleCase(record.riskLevel)} risk</Badge> Raised {when(record.createdAt)} ({ago(record.createdAt)})</span>}
+        sub={
+          <span className="row">
+            <SosStatus status={record.status} />
+            <Badge tone={RISK_TONE[record.riskLevel] ?? 'neutral'}>{titleCase(record.riskLevel)} risk</Badge>
+            Raised {when(record.createdAt)} ({ago(record.createdAt)})
+            {history.earlier ? <span className="faint">· {history.earlier} earlier SOS in {history.days} days{history.falseAlarms ? `, ${history.falseAlarms} false alarm${history.falseAlarms === 1 ? '' : 's'}` : ''}</span> : null}
+          </span>
+        }
         actions={
           open ? (
             <>
               {record.status === 'triggered' ? <button className="btn primary" onClick={() => act(() => api.post(`/admin/sos/${id}/acknowledge`))}>Take this incident</button> : null}
               <button className="btn" onClick={() => openDialog('log')}>Log a call or action</button>
               {!record.policeNotifiedAt ? <button className="btn danger" onClick={() => openDialog('police')}>Police called</button> : null}
+              {other && !other.isSuspended ? <button className="btn" onClick={() => openDialog('suspend')}>Suspend the {otherRole}</button> : null}
               <button className="btn" onClick={() => openDialog('resolve')}>Resolve</button>
             </>
           ) : (
@@ -219,7 +348,27 @@ export function SosDetailPage() {
         }
       />
       {actionError ? <div className="banner danger" role="alert">{actionError}</div> : null}
-      {record.escalationReason ? <div className="banner danger"><div><strong>Escalated</strong>{record.escalationReason}</div></div> : null}
+      {open && record.lostContactAt && !record.userSafeAt ? (
+        <div className="banner danger" role="alert"><div><strong>Phone out of contact</strong>No position since {when(record.lostContactAt)}. Call them now; if there is no answer, call the police ({numbers.police}).</div></div>
+      ) : null}
+      {open && record.userSafeAt ? (
+        <div className="banner"><div><strong>Says they are safe</strong>Since {when(record.userSafeAt)}. Call to confirm in their own words before you resolve: someone may have made them tap it.</div></div>
+      ) : null}
+      {record.escalationReason && !record.userSafeAt ? <div className="banner danger"><div><strong>Escalated</strong>{record.escalationReason}</div></div> : null}
+      {threat ? (
+        <div className={`banner${threat === 'driver' || threat === 'passenger' || threat === 'outside' ? ' danger' : ''}`}>
+          <div>
+            <strong>They say the danger is {THREAT_TEXT[threat]}</strong>
+            {threat === 'medical' || threat === 'accident'
+              ? 'The other person on the ride may be able to help: consider calling them to stop and assist, or to get the person to a hospital.'
+              : threat === 'passenger'
+                ? 'Another rider on this ride (below) may be the danger, or a witness.'
+                : threat === 'driver'
+                  ? 'Do not tell the driver about the SOS. Follow the car on the map.'
+                  : 'Call the person to find out more.'}
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid cols-2" style={{ gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)' }}>
         <div className="card stack" style={{ gap: 8 }}>
@@ -228,13 +377,28 @@ export function SosDetailPage() {
             <span className="faint">{lastSeen ? `Last update ${ago(lastSeen)}` : 'No updates since the alert'}{live.length ? ' · live' : ''}</span>
           </div>
           <Suspense fallback={<div className="map"><Loading label="Loading the map" /></div>}>
-            <MapView trail={trail} trigger={trigger} label="Map of the person's position during the SOS" />
+            <MapView trail={trail} trigger={trigger} others={others} label="Map of the person's position during the SOS" />
           </Suspense>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 12 }}>
+            <span className="faint"><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 5, background: '#c0282d' }} /> The person who raised it{typeof record.lastBattery === 'number' ? ` · battery ${Math.round(record.lastBattery * 100)}%` : ''}</span>
+            {others.map((o) => {
+              const last = lastOf(o.id);
+              return (
+                <span key={o.id} className="faint">
+                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 5, background: o.color }} /> {o.label}
+                  {last ? ` · seen ${ago(last.at)}${typeof last.battery === 'number' ? `, battery ${Math.round(last.battery * 100)}%` : ''}` : ''}
+                </span>
+              );
+            })}
+          </div>
+          {record.locationSource && record.locationSource !== 'device' ? (
+            <p className="faint">The phone had no GPS fix when the SOS was raised; the first point is {record.locationSource === 'ride' ? "the car's last reported position" : 'the pickup point'}.</p>
+          ) : null}
           {record.liveTrackingUrl ? <p className="faint">Public tracking link sent to emergency contacts: <a href={record.liveTrackingUrl} target="_blank" rel="noreferrer">open</a></p> : null}
         </div>
         <div className="stack">
-          <PersonCard title="Rider" person={rider} raised={data.triggeredByRole === 'rider'} />
-          <PersonCard title="Driver" person={driver} raised={data.triggeredByRole === 'driver'} />
+          <PersonCard title="Rider" person={rider} raised={data.triggeredByRole === 'rider'} named={namedRole === 'rider' && data.triggeredByRole === 'driver'} money={rider ? data.moneyNumbers?.[rider._id] : undefined} />
+          <PersonCard title="Driver" person={driver} raised={data.triggeredByRole === 'driver'} named={namedRole === 'driver'} money={driver ? data.moneyNumbers?.[driver._id] : undefined} />
         </div>
       </div>
 
@@ -248,19 +412,76 @@ export function SosDetailPage() {
                 <tr><td className="muted">To</td><td>{booking.dropoff.address}</td></tr>
                 <tr><td className="muted">Departure</td><td>{when(booking.ride?.departureTime)}</td></tr>
                 <tr><td className="muted">Ride status</td><td>{booking.ride ? titleCase(booking.ride.status) : '—'}</td></tr>
-                <tr><td className="muted">Vehicle</td><td>{booking.ride?.vehicle ? `${booking.ride.vehicle.plateNumber} · ${booking.ride.vehicle.vehicleType}` : '—'}</td></tr>
+                <tr><td className="muted">Vehicle</td><td>{vehicle ? <strong>{[vehicle.color, vehicle.make, vehicle.model, vehicle.year].filter(Boolean).join(' ')}{vehicle.plateNumber ? `, plate ${vehicle.plateNumber}` : ''}</strong> : booking.ride?.vehicle ? `${booking.ride.vehicle.plateNumber} · ${booking.ride.vehicle.vehicleType}` : '—'}</td></tr>
               </tbody>
             </table>
           ) : <p className="muted">The booking could not be found.</p>}
+          {vehicle?.photos?.length ? (
+            <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
+              {vehicle.photos.map((u, i) => <a key={i} href={u} target="_blank" rel="noreferrer"><img src={u} alt={`Photo ${i + 1} of the car`} style={{ width: 120, height: 80, objectFit: 'cover', borderRadius: 6 }} /></a>)}
+            </div>
+          ) : null}
+          <p className="faint">
+            {vehicle?.tracker
+              ? `GPS tracker linked (device ${vehicle.tracker.deviceId})${vehicle.tracker.lastReportAt ? `, last reported ${ago(vehicle.tracker.lastReportAt)}` : ', not reported yet'}. It keeps reporting if every phone is off; for the full history outside the ride, ask the tracking company or the police.`
+              : 'No GPS tracker linked to this car.'}
+          </p>
+          {driver ? <p className="faint">Driver's licence and car papers: <Link to={`/applications/${driver._id}`}>open the driver's documents</Link>.</p> : null}
+
+          <h3 style={{ marginTop: 16 }}>Other riders on this ride</h3>
+          {data.coPassengers?.length ? (
+            <table>
+              <tbody>
+                {data.coPassengers.map((p) => {
+                  const last = lastOf(p.rider._id);
+                  return (
+                    <tr key={p._id}>
+                      <td>
+                        <Link to={`/users/${p.rider._id}`}>{p.rider.name}</Link>{' '}
+                        <a href={`tel:${p.rider.phone}`}>{p.rider.phone}</a>
+                        <div className="faint">
+                          {p.actualPickupTime ? (p.actualDropoffTime ? `Dropped ${when(p.actualDropoffTime)}` : 'In the car') : 'Not picked up'}
+                          {p.rider.identity?.status === 'verified' ? ' · ID checked' : ''}
+                          {last ? ` · phone seen ${ago(last.at)}` : ''}
+                          {data.moneyNumbers?.[p.rider._id]?.length ? ` · mobile money ${data.moneyNumbers[p.rider._id].map((m) => m.phone).join(', ')}` : ''}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : <p className="faint">None: only these two were on the ride.</p>}
+
+          <details style={{ marginTop: 16 }}>
+            <summary>Messages and calls between them ({data.messages?.length ?? 0} messages, {data.calls?.length ?? 0} calls)</summary>
+            {data.messages?.map((m, i) => (
+              <div key={i} style={{ padding: '4px 0' }}>
+                <span className="faint">{when(m.createdAt)} · {m.sender === rider?._id ? rider?.name : m.sender === driver?._id ? driver?.name : 'Someone'}: </span>
+                {m.contentType === 'text' ? m.content : `[${m.contentType}]`}
+              </div>
+            ))}
+            {data.calls?.map((c, i) => (
+              <div key={`c${i}`} className="faint" style={{ padding: '4px 0' }}>
+                {when(c.createdAt)} · call from {c.caller === rider?._id ? rider?.name : driver?.name} · {c.status}{c.recordingDurationSec ? ` · recorded ${c.recordingDurationSec} s (user page)` : ''}
+              </div>
+            ))}
+          </details>
+
           <h3 style={{ marginTop: 16 }}>Contacts alerted by SMS</h3>
           {record.emergencyContactsNotified.length ? record.emergencyContactsNotified.map((c) => (
             <div key={c.phone + c.notifiedAt} className="spread"><span>{c.name} · {c.phone}</span><span className="faint">{when(c.notifiedAt)}</span></div>
-          )) : <p className="faint">None. SMS may be off (TWILIO_ENABLED), or no contacts are saved.</p>}
-          {(record.audioRecordingUrls?.length || record.screenshotUrls?.length) ? (
+          )) : <p className="faint">{CONTACTS_TEXT[record.contactsState ?? ''] ?? 'None were reached. Call them if you can.'}</p>}
+          {data.evidence.length ? (
             <>
               <h3 style={{ marginTop: 16 }}>Evidence</h3>
-              {[...(record.audioRecordingUrls ?? []), ...(record.screenshotUrls ?? [])].map((u, i) => (
-                <div key={u}><a href={u} target="_blank" rel="noreferrer">Evidence {i + 1}</a></div>
+              <p className="faint">Recorded on the phone during the SOS, in parts of about a minute. Links last 15 minutes; reload for new ones.</p>
+              {data.evidence.map((e, i) => (
+                <div key={i} style={{ padding: '4px 0' }}>
+                  {!e.url ? <span className="faint">Part {i + 1} could not be loaded</span>
+                    : e.type === 'audio' ? <audio controls preload="none" src={e.url} aria-label={`Recording part ${i + 1}`} style={{ width: '100%' }} />
+                      : <a href={e.url} target="_blank" rel="noreferrer">Screenshot {i + 1}</a>}
+                </div>
               ))}
             </>
           ) : null}
@@ -300,9 +521,26 @@ export function SosDetailPage() {
         onConfirm={() => api.post(`/admin/sos/${id}/police`, { notes: text }).then(reload)}
         onClose={() => setDialog(null)}
       >
-        <p className="muted">Call the police first (dial 995, or 999 for any emergency), then record it here. Share the live tracking link with them if they ask for the location.</p>
+        <p className="muted">Call the police first (dial {numbers.police}, or {numbers.general} for any emergency), then record it here. Share the live tracking link with them if they ask for the location.</p>
         <Field label="Station, officer or reference (optional)">
           <input className="input" value={text} onChange={(e) => setText(e.target.value)} />
+        </Field>
+      </ActionDialog>
+
+      <ActionDialog
+        open={dialog === 'suspend'}
+        title={`Suspend ${other?.name ?? `the ${otherRole}`} pending investigation`}
+        confirmLabel="Suspend"
+        tone="danger"
+        canConfirm={text.trim().length >= 5}
+        onConfirm={() => api.post(`/admin/accounts/${other!._id}/suspend`, { days: null, reason: text }).then(reload)}
+        onClose={() => setDialog(null)}
+      >
+        <p className="muted">
+          They can still see their rides but cannot post or book until an admin lifts it (UC-A03). They are told at once, so if the person who raised the SOS may still be with them, wait until that person is safe.
+        </p>
+        <Field label="Reason (shown to them)">
+          <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Under investigation after a safety report on a ride" />
         </Field>
       </ActionDialog>
 

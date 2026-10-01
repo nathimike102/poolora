@@ -31,6 +31,26 @@ services:
     networks:
       - mobility-net
 
+  # ─── Car tracker gateway (Traccar, forwarder only; infra/traccar) ─────────
+  # Decodes car GPS trackers and posts each position to the app; stores nothing.
+  traccar:
+    image: traccar/traccar:6
+    volumes:
+      - ../infra/traccar/traccar.xml:/opt/traccar/conf/traccar.xml:ro
+    ports:
+      - "5023:5023"   # GT06
+      - "5027:5027"   # Teltonika
+      - "5013:5013"   # H02
+      - "5055:5055"   # OsmAnd (phone app, for testing)
+      - "5039:5039"   # Wialon retranslation from a tracking company
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    networks:
+      - mobility-net
+
   # ─── ML Engine (Demand Prediction, Fraud Detection, Ride Matching) ────────
   ml-engine:
     build: ../ml-service

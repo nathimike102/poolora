@@ -40,6 +40,9 @@ import { PaperLightTheme, PaperDarkTheme } from './src/theme';
 import { setupAllInterceptors } from './src/api/interceptors';
 import { logger } from './src/utils/logger';
 import { initErrorTracking } from './src/config/errorTracking';
+// Defines the SOS background location task, which must exist before the system wakes the app for it
+import './src/services/sosTracking';
+import './src/services/tripTracking';
 
 initErrorTracking();
 

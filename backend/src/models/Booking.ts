@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import mongoose, { Schema, Document, Types } from 'mongoose';
 import { BookingStatus, GeoPoint } from '../types';
 
@@ -52,6 +53,16 @@ export interface IBooking extends Document {
   rideChangedAt?: Date;
   /** In-ride safety check-ins (UC-R05): the open prompt and how many went unanswered */
   safetyCheck?: { promptedAt?: Date; answeredAt?: Date; missed: number };
+  /**
+   * A 4-digit code only the rider sees. The driver enters it to confirm the
+   * pickup, so the rider knows it is the right car before getting in. Never
+   * sent to the driver (select: false). Bookings made before it have none.
+   */
+  pickupPin?: string;
+  /** Wrong codes entered; at PICKUP_PIN_MAX_TRIES only the rider can confirm the pickup */
+  pickupPinAttempts?: number;
+  /** Who confirmed the pickup: the driver with the code, or the rider in their app */
+  pickupConfirmedBy?: 'pin' | 'rider' | 'simulation';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -118,12 +129,21 @@ const BookingSchema = new Schema<IBooking>(
       answeredAt: Date,
       missed: { type: Number, default: 0 },
     },
+    pickupPin: { type: String, select: false },
+    pickupPinAttempts: { type: Number, select: false },
+    pickupConfirmedBy: { type: String, enum: ['pin', 'rider', 'simulation'] },
   },
   {
     timestamps: true,
     toJSON: { transform(_doc, ret) { delete (ret as Record<string, unknown>).__v; return ret; } },
   },
 );
+
+// Every new booking gets its pickup code
+BookingSchema.pre('validate', function (next) {
+  if (this.isNew && !this.pickupPin) this.pickupPin = String(randomInt(0, 10_000)).padStart(4, '0');
+  next();
+});
 
 BookingSchema.index({ rider: 1, status: 1 });
 BookingSchema.index({ driver: 1, status: 1 });

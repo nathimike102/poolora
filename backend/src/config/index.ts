@@ -96,6 +96,18 @@ export const config = {
     apiKey: process.env.KYC_VERIFY_API_KEY || '',
   },
 
+  trackers: {
+    /**
+     * Car GPS trackers reach Poolora through a Traccar gateway (forwarder
+     * only), which posts each position with this key in X-Poolora-Tracker-Key.
+     * Empty turns the endpoint off.
+     */
+    gatewayKey: process.env.TRACKER_GATEWAY_KEY || '',
+    /** Where drivers point their tracker: shown in the app */
+    gatewayHost: process.env.TRACKER_GATEWAY_HOST || '',
+    gatewayPort: Number(process.env.TRACKER_GATEWAY_PORT || 5023),
+  },
+
   admin: {
     /** Where the web admin is served, for links in alert emails */
     webUrl: (process.env.ADMIN_WEB_URL || '').replace(/\/$/, ''),
@@ -220,8 +232,30 @@ export const config = {
   },
 
   safety: {
-    /** Seconds between SOS check-ins, by risk level. Admin-editable. */
+    /**
+     * During an SOS the phone sends its position every 5 seconds. It should
+     * be heard from at least this often, by risk level; three intervals of
+     * silence mark it out of contact and page the safety team. Admin-editable.
+     */
     checkInSeconds: { low: 120, medium: 60, high: 30 },
+    /**
+     * The safety team is alerted the moment an SOS is raised. Emergency
+     * contacts are texted after this many seconds, so an accidental press can
+     * be cancelled first (UC-R07 3a). Admin-editable.
+     */
+    contactDelaySeconds: 10,
+    /**
+     * An SOS raised because the rider missed two check-ins (a phone in a bag
+     * looks the same) gives them this long to answer before their contacts
+     * are texted. The safety team is paged at once.
+     */
+    autoContactDelaySeconds: 300,
+    /** An SOS nobody has taken after this pages every admin again, at each interval (UC-A03: 5 minutes). Admin-editable. */
+    ackTargetMins: 5,
+    /** A false alarm's record, with its location trail, is deleted after this; real incidents are kept */
+    falseAlarmRetentionDays: 90,
+    /** The SOS tracking link works for this long */
+    trackingTokenTtlSeconds: 7 * 24 * 3600,
   },
 
   matching: {

@@ -127,6 +127,11 @@ const schemas = {
     resolutionNotes: Joi.string().optional(),
     timestamp: TIMESTAMP,
   }),
+  'sos.updated': Joi.object({
+    emergencyId: Joi.string().hex().length(24).required(),
+    change: Joi.string().required(),
+    timestamp: TIMESTAMP,
+  }),
   'sos.police_notified': Joi.object({
     emergencyId: Joi.string().hex().length(24).required(),
     notifiedBy: Joi.string().hex().length(24).required(),

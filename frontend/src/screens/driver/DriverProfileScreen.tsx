@@ -92,8 +92,10 @@ export function DriverProfileScreen() {
       onPress: () => navigation.navigate('UpcomingRides'),
     },
     { icon: 'card-account-details-outline', label: 'Driver verification', sub: kycInfo.label, onPress: () => navigation.navigate('KYC') },
+    { icon: 'crosshairs-gps', label: 'Car tracker', sub: 'Optional: a "Tracked car" badge on your rides', onPress: () => navigation.navigate('CarTracker') },
     { icon: 'shield-check-outline', label: 'Safety', onPress: () => navigation.navigate('SOS') },
     { icon: 'account-heart-outline', label: 'Trusted contacts', sub: 'Alerted if you raise an SOS', onPress: () => navigation.navigate('EmergencyContacts') },
+    { icon: 'card-account-details-star-outline', label: 'Identity check', sub: 'Needed for women-only rides', onPress: () => navigation.navigate('IdentityCheck') },
     { icon: 'account-switch-outline', label: 'Switch to riding', onPress: switchRole },
     { icon: 'cog-outline', label: 'Settings', onPress: () => navigation.navigate('Settings') },
   ];

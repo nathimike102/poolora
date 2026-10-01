@@ -71,7 +71,9 @@ async function secondAdminQueues() {
     ParcelClaim.countDocuments({ status: { $in: ['submitted', 'with_insurer'] } }),
     WithdrawalRequest.countDocuments({ status: 'pending' }),
   ]);
-  return { appealsOpen, mergesPending, settingsPending, parcelClaimsOpen, withdrawalsPending };
+  const { IdentityService } = await import('./IdentityService');
+  const identityPending = await IdentityService.waiting();
+  return { appealsOpen, mergesPending, settingsPending, parcelClaimsOpen, withdrawalsPending, identityPending };
 }
 
 export class AdminOverviewService {

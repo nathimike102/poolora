@@ -129,6 +129,7 @@ export class TrackingController {
     try {
       res.setHeader('Cache-Control', 'no-store');
       res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      res.setHeader('Referrer-Policy', 'no-referrer');
       res.setHeader(
         'Content-Security-Policy',
         "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
@@ -151,18 +152,35 @@ export class TrackingController {
 
       const name = escapeHtml(tracking.firstName);
       const isActive = tracking.status === SOSStatus.TRIGGERED || tracking.status === SOSStatus.ACKNOWLEDGED;
+      const zone = escapeHtml(REGION.timeZoneLabel);
+      const at = (d: Date) => `${escapeHtml(formatTime(d))} (${zone})`;
 
       let status: string;
       if (isActive) {
         status = `<p class="alert">${name} raised an SOS alert. It is still active.</p>`;
-        if (tracking.status === SOSStatus.ACKNOWLEDGED) {
-          status += '<p>The Poolora safety team has seen this alert.</p>';
+        if (tracking.userSafeAt) {
+          status += `<p class="ok">${name} said they were safe at ${at(tracking.userSafeAt)}. The Poolora safety team is checking with them.</p>`;
+        } else if (tracking.acknowledged) {
+          status += '<p>The Poolora safety team is handling this alert.</p>';
+        } else {
+          status += '<p>The Poolora safety team has been alerted.</p>';
+        }
+        if (tracking.lostContactAt && !tracking.userSafeAt) {
+          status += `<p class="alert">${name}'s phone has stopped sending its location.</p>`;
         }
       } else {
-        const closedAt = tracking.resolvedAt ? ` at ${escapeHtml(formatTime(tracking.resolvedAt))}` : '';
+        const closedAt = tracking.resolvedAt ? ` at ${at(tracking.resolvedAt)}` : '';
         status = tracking.status === SOSStatus.FALSE_ALARM
           ? `<p class="ok">This alert was closed as a false alarm${closedAt}.</p>`
-          : `<p class="ok">This alert was closed${closedAt}.</p>`;
+          : `<p class="ok">This alert was closed by the Poolora safety team${closedAt}.</p>`;
+      }
+
+      // What someone would need to tell the police
+      let trip = '';
+      if (tracking.trip && isActive) {
+        const other = tracking.trip.otherRole === 'driver' ? 'Driver' : 'Passenger';
+        trip = `<p><strong>${escapeHtml(tracking.trip.from)}</strong> to <strong>${escapeHtml(tracking.trip.to)}</strong></p>
+<p>${other}: ${escapeHtml(tracking.trip.otherFirstName)}${tracking.trip.vehicle ? `<br>Car: ${escapeHtml(tracking.trip.vehicle)}` : ''}</p>`;
       }
 
       let location = '<p>No location has been shared yet.</p>';
@@ -170,21 +188,28 @@ export class TrackingController {
         const { lat, lng } = tracking.lastLocation;
         const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
         const updated = tracking.lastUpdatedAt
-          ? `<p class="muted">Location last updated ${escapeHtml(formatTime(tracking.lastUpdatedAt))} (CAT).</p>`
+          ? `<p class="muted">Location last updated ${at(tracking.lastUpdatedAt)}.</p>`
           : '';
-        location = `<a class="button" href="${escapeHtml(mapsUrl)}" rel="noopener noreferrer">Open last known location in Google Maps</a>${updated}`;
+        location = `<a class="button" href="${escapeHtml(mapsUrl)}" rel="noopener noreferrer">Open ${isActive ? 'the latest' : 'the last known'} location in Maps</a>${updated}`;
+      }
+
+      // The car is traced separately: if the phone is switched off or taken, it may still be moving
+      if (isActive && tracking.car) {
+        const carUrl = `https://www.google.com/maps/search/?api=1&query=${tracking.car.lat},${tracking.car.lng}`;
+        location += `<a class="button" href="${escapeHtml(carUrl)}" rel="noopener noreferrer">Open where the car is in Maps</a>
+<p class="muted">Car position updated ${at(tracking.car.at)}.</p>`;
       }
 
       const footer = isActive
-        ? `<p>If you think ${name} is in danger, call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a>.</p>
-<p class="muted">This page refreshes every 30 seconds.</p>`
+        ? `<p>If you think ${name} is in danger, call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a> (police <a href="tel:${REGION.emergency.police}">${REGION.emergency.police}</a>) and give them the car and location above.</p>
+<p class="muted">This page refreshes every 15 seconds.</p>`
         : '';
 
       res.status(200).type('html').send(
         page(
           isActive ? `SOS alert from ${tracking.firstName}` : 'SOS alert closed',
-          `<h1>Poolora SOS alert</h1>${status}${location}${footer}`,
-          isActive ? 30 : undefined,
+          `<h1>Poolora SOS alert</h1>${status}${trip}${location}${footer}`,
+          isActive ? 15 : undefined,
         ),
       );
     } catch (error) {
@@ -228,7 +253,7 @@ export class TrackingController {
         const { lat, lng } = trip.position;
         const url = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
         location = `<a class="button" href="${escapeHtml(url)}" rel="noopener noreferrer">See where the car is on a map</a>
-<p class="muted">Position updated ${escapeHtml(formatTime(trip.position.at))} (CAT).</p>`;
+<p class="muted">Position updated ${escapeHtml(formatTime(trip.position.at))} (${escapeHtml(REGION.timeZoneLabel)}).</p>`;
       }
       const live = trip.status === 'on_the_way' || trip.status === 'in_car';
       res.status(200).type('html').send(
@@ -237,7 +262,7 @@ export class TrackingController {
           `<h1>${rider} is sharing a Poolora trip</h1>
 <p class="${trip.status === 'arrived' ? 'ok' : ''}">${statusText[trip.status]}</p>
 <p><strong>${escapeHtml(trip.from)}</strong> to <strong>${escapeHtml(trip.to)}</strong><br>
-<span class="muted">Leaves ${escapeHtml(formatTime(trip.departure))} (CAT)</span></p>
+<span class="muted">Leaves ${escapeHtml(formatTime(trip.departure))} (${escapeHtml(REGION.timeZoneLabel)})</span></p>
 <p>Driver ${escapeHtml(trip.driverFirstName)} · ${escapeHtml(trip.vehicle)}</p>
 ${location}
 <p>If you think ${rider} is in danger, call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a>.</p>

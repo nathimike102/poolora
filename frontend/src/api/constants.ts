@@ -75,6 +75,9 @@ export const API_ENDPOINTS = {
     emailStatement: '/users/me/statement/email',
     verifiedStatus: '/users/me/verified-status',
     closure: '/users/me/closure',
+    identity: '/users/me/identity',
+    trackers: '/users/me/trackers',
+    vehicleTracker: (vehicleId: string) => `/users/me/vehicles/${vehicleId}/tracker`,
   },
 
   // Rides
@@ -88,6 +91,8 @@ export const API_ENDPOINTS = {
     complete: (id: string) => `/rides/${id}/complete`,
     upcoming: '/rides/upcoming',
     updateLocation: '/rides/driver/location',
+    /** Any phone on a ride in progress (background task): the trip trail */
+    position: (id: string) => `/rides/${id}/position`,
     priceSuggestion: '/rides/price-suggestion',
     messageRiders: (id: string) => `/rides/${id}/message`,
   },
@@ -104,6 +109,7 @@ export const API_ENDPOINTS = {
     complete: (id: string) => `/bookings/${id}/complete`,
     arrived: (id: string) => `/bookings/${id}/arrived`,
     pickedUp: (id: string) => `/bookings/${id}/picked-up`,
+    inCar: (id: string) => `/bookings/${id}/in-car`,
     droppedOff: (id: string) => `/bookings/${id}/dropped-off`,
     noShow: (id: string) => `/bookings/${id}/no-show`,
     share: (id: string) => `/bookings/${id}/share`,
@@ -234,9 +240,13 @@ export const API_ENDPOINTS = {
   safety: {
     activeIncidents: '/safety/sos/active', // admin
     triggerSos: '/safety/sos',
+    currentSos: '/safety/sos/current',
+    cancelSos: (id: string) => `/safety/sos/${id}/cancel`,
     sosStatus: (id: string) => `/safety/sos/${id}`,
     updateSosLocation: (id: string) => `/safety/sos/${id}/location`,
     addEvidence: (id: string) => `/safety/sos/${id}/evidence`,
+    sosAudioUpload: (id: string) => `/safety/sos/${id}/audio-upload`,
+    sosDetails: (id: string) => `/safety/sos/${id}/details`,
     checkIn: (id: string) => `/safety/sos/${id}/check-in`,
     acknowledge: (id: string) => `/safety/sos/${id}/acknowledge`,
     resolve: (id: string) => `/safety/sos/${id}/resolve`,

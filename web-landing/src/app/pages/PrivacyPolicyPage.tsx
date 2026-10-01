@@ -57,12 +57,24 @@ export function PrivacyPolicyPage() {
           text: 'To offer rides you upload your driving licence, the vehicle registration book, insurance and a photo of the vehicle, plus the licence and vehicle details. A member of our team looks at these to approve or reject you. We do not ask for your national ID number.',
         },
         {
+          sub: 'Identity check (optional)',
+          text: 'To post or book women-only rides you send a photo of an ID document (national ID, passport or driving licence), a selfie taken in the app, and your gender. A member of our team checks that the selfie is the person on the ID and confirms the gender you live as. The photos are stored privately, seen only by our team, and deleted as soon as we have decided; we keep only the decision.',
+        },
+        {
+          sub: 'Car tracker (drivers, optional)',
+          text: 'If you link a GPS tracker in your car, we receive its reports through our tracker server. We keep where the car is only while it is on a Poolora ride or an SOS on one of its rides is open, kept like the trip trail; the rest of the time we note only when it last reported. We never control the car.',
+        },
+        {
+          sub: 'Audio during an SOS (off unless you switch it on)',
+          text: 'If you switch on "Record audio during an SOS", your phone records what it hears while an SOS is open and sends it to our safety team in parts of a minute. Only our safety team can play it. Recordings of a real incident are kept with it, as they may be needed by the police; recordings of a false alarm are deleted after 90 days.',
+        },
+        {
           sub: 'Location',
-          text: 'Your pickup and drop-off points when you search or publish a ride, and your live location during an active ride so the trip can be tracked. If you trigger SOS, your location is included in the alert sent to your emergency contacts.',
+          text: 'Your pickup and drop-off points when you search or publish a ride. While a ride is under way, the driver\'s phone sends the car\'s position and each rider\'s phone sends theirs from pickup to drop, also with the screen off (a "Ride in progress" notification shows this), with the battery level. We keep this trip trail for 30 days so a safety report or dispute can be looked into, and for as long as needed when one is made. If you raise an SOS, your phone keeps sending its location to our safety team until the alert is closed, and your emergency contacts get a link to it.',
         },
         {
           sub: 'Emergency contacts',
-          text: 'The names and phone numbers you add, up to five. We use them only to send an SOS alert, which means those numbers reach our SMS provider at that moment.',
+          text: 'The names and phone numbers you add, up to three. We text a contact once to ask them to confirm, if you choose to, and otherwise only when you raise an SOS: then they get a link to your live location, and a message when you say you are safe or the alert is closed. Those numbers reach our SMS provider when we text them.',
         },
         {
           sub: 'Payments',
@@ -108,7 +120,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'Your emergency contacts',
-          text: 'Only when you trigger SOS. They receive a text message with a link showing your live location for that trip.',
+          text: 'When you ask us to confirm them, and when you raise an SOS: 10 seconds later, unless you cancel, they get a text with a link showing your live location for that trip, the car and its plate.',
         },
         {
           sub: 'Service providers',

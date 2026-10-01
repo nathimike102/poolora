@@ -137,7 +137,7 @@ export function ChatScreen(): React.ReactElement {
 
         {/* SOS */}
         <Pressable
-          onPress={() => navigation.navigate('SOS')}
+          onPress={() => navigation.navigate('SOS', { bookingId: chatId })}
           style={[s.headerBtn, { backgroundColor: c.errorLight }]}
           accessibilityRole="button"
           accessibilityLabel="SOS emergency"

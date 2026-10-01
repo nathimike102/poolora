@@ -13,6 +13,7 @@ import {
   idParamSchema,
   paginationSchema,
   rideCheckInSchema,
+  sosDetailsSchema,
 } from '../validators';
 
 const router = Router();
@@ -27,6 +28,9 @@ router.get('/emergency-contacts', SafetyController.getEmergencyContacts);
 router.put('/emergency-contacts', validate(emergencyContactsSchema), SafetyController.updateEmergencyContacts);
 router.post('/emergency-contacts/:contactId/verify', validate(contactIdParamSchema), SafetyController.verifyEmergencyContact);
 
+// The caller's open SOS, or the booking one would be about (the SOS screen opens with this)
+router.get('/sos/current', SafetyController.getCurrent);
+
 // SOS status
 router.get('/sos/:id', validate(idParamSchema), SafetyController.getSOSStatus);
 
@@ -36,7 +40,13 @@ router.post('/sos', validate(triggerSOSSchema), SafetyController.triggerSOS);
 router.post('/ride-check-in', validate(rideCheckInSchema), SafetyController.rideCheckIn);
 router.post('/sos/:id/location', validate(sosLocationSchema), SafetyController.updateSOSLocation);
 router.post('/sos/:id/evidence', validate(sosEvidenceSchema), SafetyController.addEvidence);
+// "What's happening?": who or what the danger is, after the alert has gone
+router.post('/sos/:id/details', validate(sosDetailsSchema), SafetyController.details);
+// Audio during an SOS, when the user has switched it on (uploaded in chunks)
+router.post('/sos/:id/audio-upload', validate(idParamSchema), SafetyController.audioUpload);
 router.post('/sos/:id/check-in', validate(sosCheckInSchema), SafetyController.updateSOSCheckIn);
+// Cancel an accidental SOS before emergency contacts are texted (UC-R07 3a)
+router.post('/sos/:id/cancel', validate(idParamSchema), SafetyController.cancelSOS);
 
 // Admin SOS actions
 router.post('/sos/:id/acknowledge', requireAdmin(), validate(idParamSchema), SafetyController.acknowledgeSOS);

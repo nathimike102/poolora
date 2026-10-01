@@ -6,10 +6,20 @@ import { io, type Socket } from 'socket.io-client';
 import { API_URL, tokens } from './api';
 
 export interface SosEvent {
-  kind: 'alert' | 'location';
+  /** location: the person who raised it; trail: another phone on the same ride */
+  kind: 'alert' | 'location' | 'trail';
+  /** sos.triggered, sos.escalated, sos.updated, sos.resolved, ... */
+  eventType?: string;
   emergencyId: string;
   location?: { lng: number; lat: number };
+  /** For a trail: whose phone, and which trail (the car's tracker is apart from the driver's phone) */
+  userId?: string;
+  trailId?: string;
+  role?: 'driver' | 'rider' | 'vehicle';
 }
+
+/** Events that need someone to look now: a new SOS, or one that got worse */
+export const isUrgent = (e: SosEvent) => e.kind === 'alert' && (e.eventType === undefined || e.eventType === 'sos.triggered' || e.eventType === 'sos.escalated');
 
 let socket: Socket | null = null;
 const listeners = new Set<(e: SosEvent) => void>();
@@ -21,9 +31,13 @@ function normalise(kind: SosEvent['kind'], payload: Record<string, unknown>): So
   if (!emergencyId) return null;
   const eventType = payload.eventType as string | undefined;
   return {
-    kind: eventType === 'sos.location.updated' ? 'location' : kind,
+    kind: eventType === 'sos.location.updated' ? 'location' : eventType === 'sos.trail' ? 'trail' : kind,
+    eventType,
     emergencyId,
     location: (data.location ?? payload.location) as SosEvent['location'],
+    userId: data.userId as string | undefined,
+    trailId: (data.trailId ?? data.userId) as string | undefined,
+    role: data.role as SosEvent['role'],
   };
 }
 

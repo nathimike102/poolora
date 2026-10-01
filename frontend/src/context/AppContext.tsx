@@ -253,6 +253,8 @@ export function AppProvider({ children }: AppProviderProps) {
     setRoleState(null);
     setActiveTab("home");
     AsyncStorage.removeItem("@poolora_role").catch(() => {});
+    // The emergency contacts kept for texting them offline belong to this account
+    AsyncStorage.removeItem("@poolora_sos_contacts").catch(() => {});
   }, []);
 
   // Toggling back to the phone's own setting drops the override, so the app

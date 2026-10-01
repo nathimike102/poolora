@@ -330,7 +330,7 @@ export class EventBridge {
         await notificationService.sendPushNotification(
           data.riderId,
           'Booking Confirmed',
-          'Your booking has been confirmed by the driver.',
+          'Your seat is confirmed. At pickup, tell the driver the 4-digit code on your ride screen, and get in only when your app says it is confirmed.',
           { bookingId: data.bookingId || '', type: 'booking' },
         );
       } else if (event.eventType === 'booking.cancelled' && data.riderId) {
@@ -345,7 +345,7 @@ export class EventBridge {
         await notificationService.sendPushNotification(
           data.riderId,
           'Your driver has arrived',
-          `Your driver is at the pickup and will wait ${waitMins} minutes.`,
+          `Your driver is at the pickup and will wait ${waitMins} minutes. Check the plate, then tell them your pickup code.`,
           { bookingId: data.bookingId || '', type: 'ride' },
         );
       } else if (event.eventType === 'booking.no_show' && data.riderId) {
@@ -416,7 +416,9 @@ export class EventBridge {
         event.eventType === 'sos.triggered' ||
         event.eventType === 'sos.location.updated' ||
         event.eventType === 'sos.escalated' ||
-        event.eventType === 'sos.resolved'
+        event.eventType === 'sos.updated' ||
+        event.eventType === 'sos.resolved' ||
+        event.eventType === 'sos.police_notified'
       ) {
         const { SocketGateway } = await import('../sockets/SocketGateway');
         const gateway = SocketGateway.getInstance();

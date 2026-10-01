@@ -145,6 +145,16 @@ export interface IVehicle {
   registrationDocUrl: string;
   insuranceDocUrl: string;
   photos: string[];
+  /**
+   * A GPS tracker fitted in the car, linked by its device id (usually the
+   * IMEI), reporting through the Traccar gateway. Outside rides only the time
+   * of its last report is kept, never where the car was.
+   */
+  tracker?: {
+    deviceId: string;
+    linkedAt: Date;
+    lastReportAt?: Date;
+  };
 }
 
 export interface IKYCData {

@@ -86,7 +86,7 @@ export class AdminUserService {
 
   /** Everything an admin needs to judge an account (UC-A05 step 2). */
   async detail(userId: string) {
-    const user = await User.findById(userId).select(PRIVATE_FIELDS).populate('pendingBlock.requestedBy', 'name email').lean();
+    const user = await User.findById(userId).select(`${PRIVATE_FIELDS} +safetyRating`).populate('pendingBlock.requestedBy', 'name email').lean();
     if (!user) throw new NotFoundError('User');
     const id = new Types.ObjectId(userId);
     const [bookingsAsRider, ridesAsDriver, ratings, payments, disputes, sos, notes, auditLog] = await Promise.all([

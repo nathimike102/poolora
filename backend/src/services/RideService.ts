@@ -27,6 +27,8 @@ import { MatchingEngineClient } from './MatchingEngineClient';
 import { getRoute } from './MapsService';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
+import { isVerifiedWoman, womenOnlyRefusal } from './IdentityService';
+import { isTracked } from './TrackerService';
 import { money } from '../config/region';
 
 /**
@@ -131,6 +133,10 @@ export class RideService {
     if (!driver) throw new NotFoundError('User');
     if (driver.kyc.status !== KYCStatus.APPROVED) {
       throw new AuthorizationError('Driver KYC not approved');
+    }
+    // A women-only ride is only as safe as its driver: she must be a verified woman
+    if (data.preferences?.womenOnly && !isVerifiedWoman(driver)) {
+      throw new AppError('Only women who have verified their identity can post women-only rides. Verify it in Profile > Identity check.', 403, 'IDENTITY_NOT_VERIFIED');
     }
 
     // Check max active rides
@@ -303,12 +309,13 @@ export class RideService {
     const currentUser = await User.findById(authenticatedUserId);
     if (!currentUser) throw new NotFoundError('User');
 
-    if (currentUser.gender !== 'female') {
-      // Men (and other/unspecified) cannot see women-only rides
-      filter['preferences.womenOnly'] = { $ne: true };
-    } else if (params.womenOnly === true) {
-      // Female riders can explicitly request women-only rides
+    // Only women whose identity check passed see women-only rides; a declared
+    // gender alone is not enough (IdentityService)
+    if (params.womenOnly === true) {
+      if (!isVerifiedWoman(currentUser)) throw womenOnlyRefusal(currentUser);
       filter['preferences.womenOnly'] = true;
+    } else if (!isVerifiedWoman(currentUser)) {
+      filter['preferences.womenOnly'] = { $ne: true };
     }
     if (params.hasAC !== undefined) {
       filter['vehicle.hasAC'] = params.hasAC;
@@ -352,7 +359,8 @@ export class RideService {
     });
 
     const driverIds = sameDirection.map((r) => r.driver);
-    const drivers = await User.find({ _id: { $in: driverIds } });
+    // With the confidential safety answers, for ranking only; they are not sent back
+    const drivers = await User.find({ _id: { $in: driverIds } }).select('+safetyRating');
     const driverMap = new Map(drivers.map((d) => [d._id.toString(), d]));
 
     // Minimum rating needs the driver, so it is applied here, before paging
@@ -387,6 +395,10 @@ export class RideService {
         },
         // Verified Driver badge (UC-D10)
         verified: verifiedDriverStatus(driver).verified,
+        // Identity checked by an admin; every women-only ride's driver has this
+        identityVerified: driver.identity?.status === 'verified',
+        // A GPS tracker in this car reported in the last day
+        trackedCar: isTracked(driver.vehicles?.find((v) => String(v._id) === String(ride.vehicle?.vehicleId))?.tracker),
       },
       matchScore: scoreByRide.get(ride._id.toString())?.overallScore,
     }));
@@ -406,7 +418,7 @@ export class RideService {
     const canSeeContact =
       ride.driver.toString() === viewerId ||
       Boolean(await Booking.exists({ ride: ride._id, rider: viewerId, status: BookingStatus.CONFIRMED }));
-    const driverFields = canSeeContact ? 'name phone profilePhotoUrl stats' : 'name profilePhotoUrl stats';
+    const driverFields = canSeeContact ? 'name phone profilePhotoUrl stats identity.status' : 'name profilePhotoUrl stats identity.status';
 
     return ride.populate('driver', driverFields);
   }

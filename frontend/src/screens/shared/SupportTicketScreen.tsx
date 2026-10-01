@@ -62,7 +62,7 @@ export function SupportTicketScreen() {
       Alert.alert(
         'Request sent',
         urgent
-          ? 'Safety and payment requests are answered first. If you are in danger, call 999.'
+          ? `Safety and payment requests are answered first. If you are in danger, call ${REGION.emergency.general}.`
           : 'We usually reply within a day. You will get a notification and an email.',
         [{ text: 'OK', onPress: () => navigation.replace('SupportTicket', { ticketId: created._id }) }],
       );
@@ -117,7 +117,7 @@ export function SupportTicketScreen() {
             </View>
             {category === 'safety' ? (
               <Text style={{ fontSize: 13, color: c.error }}>
-                If you are in danger now, call 999. During a ride, use SOS: it reaches our safety team fastest.
+                If you are in danger now, call {REGION.emergency.general}. During a ride, use SOS: it reaches our safety team fastest.
               </Text>
             ) : null}
             <Text style={[styles.label, { color: c.text }]}>Subject</Text>

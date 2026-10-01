@@ -15,7 +15,7 @@ export class UserController {
     try {
       const { userId } = (req as AuthenticatedRequest).user;
       const user = await User.findById(userId).select(
-        'name phone email profilePhotoUrl capabilities gender stats kyc.status kyc.rejectionReason vehicles createdAt',
+        'name phone email profilePhotoUrl capabilities gender identity.status stats kyc.status kyc.rejectionReason vehicles createdAt',
       );
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, req.requestId);
@@ -59,7 +59,11 @@ export class UserController {
   static async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = (req as AuthenticatedRequest).user;
-      const { name, email, dateOfBirth } = req.body as { name?: string; email?: string | null; dateOfBirth?: Date };
+      const { name, email, dateOfBirth, gender } = req.body as { name?: string; email?: string | null; dateOfBirth?: Date; gender?: string };
+      if (gender !== undefined) {
+        const { IdentityService } = await import('../services/IdentityService');
+        await new IdentityService().setDeclaredGender(userId, gender);
+      }
       const update: Record<string, unknown> = {};
       const unset: Record<string, ''> = {};
       if (name !== undefined) update.name = name;
@@ -71,9 +75,64 @@ export class UserController {
         userId,
         { ...(Object.keys(update).length ? { $set: update } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
         { new: true, runValidators: true },
-      ).select('name phone email dateOfBirth profilePhotoUrl capabilities gender stats kyc.status kyc.rejectionReason createdAt');
+      ).select('name phone email dateOfBirth profilePhotoUrl capabilities gender identity.status stats kyc.status kyc.rejectionReason createdAt');
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** GET /users/me/identity: the caller's identity check (women-only rides) */
+  static async identityStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { IdentityService } = await import('../services/IdentityService');
+      sendSuccess(res, { identity: await new IdentityService().status(userId) }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /users/me/identity: send an ID document and a selfie for review */
+  static async submitIdentity(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { IdentityService } = await import('../services/IdentityService');
+      sendSuccess(res, { identity: await new IdentityService().submit(userId, req.body) }, 201, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** GET /users/me/trackers: the driver's cars and their GPS trackers */
+  static async trackers(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { TrackerService } = await import('../services/TrackerService');
+      sendSuccess(res, await new TrackerService().status(userId), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** PUT /users/me/vehicles/:vehicleId/tracker: link a tracker. Body: deviceId */
+  static async linkTracker(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { TrackerService } = await import('../services/TrackerService');
+      sendSuccess(res, await new TrackerService().link(userId, String(req.params.vehicleId), req.body.deviceId), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** DELETE /users/me/vehicles/:vehicleId/tracker */
+  static async unlinkTracker(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { TrackerService } = await import('../services/TrackerService');
+      sendSuccess(res, await new TrackerService().unlink(userId, String(req.params.vehicleId)), 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -94,7 +153,7 @@ export class UserController {
     try {
       const { id } = req.params;
       const user = await User.findById(id).select(
-        'name profilePhotoUrl capabilities gender stats createdAt',
+        'name profilePhotoUrl capabilities gender identity.status stats createdAt',
       );
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, req.requestId);

@@ -4,7 +4,9 @@
  * "Are you OK?" prompts for riders during a ride (UC-R05: every 30 minutes).
  * A prompt that goes unanswered is repeated after 10 minutes; a second miss,
  * or an answer of "I need help", raises an SOS so the safety team and the
- * rider's emergency contacts are alerted. Runs every minute with a Redis lock
+ * rider's emergency contacts are alerted. An SOS from missed prompts pages the
+ * safety team at once but gives the rider 5 minutes to answer before their
+ * contacts are texted: a phone in a bag misses prompts too. Runs every minute with a Redis lock
  * so only one backend instance prompts.
  */
 
@@ -12,25 +14,16 @@ import { Booking, IBooking } from '../models/Booking';
 import { Ride } from '../models/Ride';
 import { config } from '../config';
 import { getRedisClient } from '../config/redis';
-import { BookingStatus, RideStatus } from '../types';
+import { BookingStatus, RideStatus, SOSStatus } from '../types';
 import { AppError, AuthorizationError, ConflictError, NotFoundError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 import { NotificationService } from './NotificationService';
 import { SafetyService } from './SafetyService';
+import { tellUser } from './SafetyAlerts';
+import { EmergencyRecord } from '../models/EmergencyRecord';
 
 const MINUTE = 60_000;
 const LOCK_KEY = 'jobs:ride-check-in';
-
-async function lastKnownPosition(booking: IBooking): Promise<{ lng: number; lat: number }> {
-  const redis = getRedisClient();
-  const cached = redis ? await redis.get(`booking:${booking._id}:driver:location`).catch(() => null) : null;
-  if (cached) {
-    const { lng, lat } = JSON.parse(cached) as { lng: number; lat: number };
-    if (Number.isFinite(lng) && Number.isFinite(lat)) return { lng, lat };
-  }
-  const [lng, lat] = booking.pickup.location.coordinates;
-  return { lng, lat };
-}
 
 export class RideCheckInService {
   private notifications = new NotificationService();
@@ -79,7 +72,7 @@ export class RideCheckInService {
         if (now.getTime() - check.promptedAt!.getTime() < grace) continue;
         const missed = (check.missed ?? 0) + 1;
         if (missed >= 2) {
-          await this.escalate(booking, 'The rider did not answer two safety check-ins in a row');
+          await this.escalate(booking, 'The rider did not answer two safety check-ins in a row', { auto: true });
           booking.safetyCheck = { missed: 0, answeredAt: now };
           escalated++;
         } else {
@@ -112,8 +105,13 @@ export class RideCheckInService {
 
     booking.safetyCheck = { missed: 0, promptedAt: booking.safetyCheck?.promptedAt, answeredAt: new Date() };
     await booking.save();
+    if (status === 'ok') {
+      // A late answer stands down an SOS raised for missed prompts, if the contacts have not been texted yet
+      const open = await EmergencyRecord.findOne({ booking: booking._id, triggeredBy: booking.rider, status: { $in: [SOSStatus.TRIGGERED, SOSStatus.ACKNOWLEDGED] }, contactsState: 'pending' }).select('_id');
+      if (open) await this.safety.cancelSOS(String(open._id), userId).catch(() => undefined);
+    }
     if (status === 'help') {
-      const emergency = await this.escalate(booking, 'The rider asked for help at a safety check-in', location);
+      const emergency = await this.escalate(booking, 'The rider asked for help at a safety check-in', { location, auto: false });
       return { status, emergencyId: emergency?._id };
     }
     return { status };
@@ -130,16 +128,28 @@ export class RideCheckInService {
     SocketGateway.getInstance()?.getIO().to(`user:${riderId}`).emit('safety:check-in', { bookingId: booking._id.toString(), repeat });
   }
 
-  private async escalate(booking: IBooking, reason: string, location?: { lng: number; lat: number }) {
+  private async escalate(booking: IBooking, reason: string, options: { location?: { lng: number; lat: number }; auto: boolean }) {
     try {
-      const where = location ?? (await lastKnownPosition(booking));
-      const record = await this.safety.triggerSOS(booking.rider.toString(), { bookingId: booking._id.toString(), location: where });
-      record.timeline.push({ event: 'Raised automatically', timestamp: new Date(), details: reason });
-      await record.save();
+      // Without a position from the phone, SafetyService uses the car's last one
+      const record = await this.safety.triggerSOS(booking.rider.toString(), {
+        bookingId: booking._id.toString(),
+        location: options.location,
+        reason,
+        auto: options.auto,
+      });
+      // Only for an SOS raised just now; an open one already has the team on it
+      const raisedNow = Date.now() - new Date(record.createdAt).getTime() < 60_000;
+      if (options.auto && raisedNow) {
+        await tellUser(booking.rider.toString(), {
+          emergencyId: String(record._id),
+          change: 'raised',
+          title: 'We have alerted the Poolora safety team',
+          body: `You did not answer two safety check-ins. Tap to tell us you are OK, or we will text your emergency contacts in ${Math.round(config.safety.autoContactDelaySeconds / 60)} minutes.`,
+        });
+      }
       logger.warn('SOS raised from a safety check-in', { bookingId: booking._id, reason });
       return record;
     } catch (error) {
-      // An SOS that is already open for this booking is fine: the team is on it
       logger.error('Could not raise SOS from a safety check-in', { bookingId: booking._id, error: (error as Error).message });
       return null;
     }

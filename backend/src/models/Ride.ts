@@ -15,6 +15,8 @@ export interface IRide extends Document {
   driver: Types.ObjectId;
   rideType: RideType;
   status: RideStatus;
+  /** Keep the trip trail past 30 days: an incident is attached (TripTrailService) */
+  keepTrail?: boolean;
   vehicle: {
     vehicleId: Types.ObjectId;
     vehicleType: VehicleType;
@@ -96,6 +98,7 @@ const RideSchema = new Schema<IRide>(
       default: RideStatus.SCHEDULED,
       index: true,
     },
+    keepTrail: Boolean,
     vehicle: {
       vehicleId: { type: Schema.Types.ObjectId, required: true },
       vehicleType: { type: String, enum: Object.values(VehicleType), required: true },
