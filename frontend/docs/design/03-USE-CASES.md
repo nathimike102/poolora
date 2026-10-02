@@ -1994,3 +1994,168 @@ Settlement: Bob owes Alice US$10, Carol owes Alice US$10
 - **Dispute resolution**: Within 7 days
 
 ---
+
+## 13. Phase 2 and 3 Use Cases
+
+Designed on 1 October 2026 from the future phases in `planning/01-PROJECT-PLAN.md` §3.2. The reasoning behind each is in [12-NEXT-PHASES](../planning/12-NEXT-PHASES.md). Loyalty and rewards, also listed there, is already built (coins and tiers in the wallet).
+
+### UC-R11: See My Carbon Savings
+
+**Primary Actor**: Rider or Driver
+**Goal**: Know how much CO₂ sharing rides has saved
+**Preconditions**: At least one completed booking
+**Postconditions**: None (read only)
+
+**Main Success Scenario**:
+
+1. When a booking completes, the system measures the rider's leg along the ride's route and works out the CO₂ saved against the rider going alone in an average car
+2. The saving is stored on the booking and added to the totals of the rider and the driver
+3. User opens Profile > Your impact
+4. System shows CO₂ saved, kilometres shared and trips shared, all time and this month, and the last six months
+5. User taps "How we count" and sees the method and its assumptions
+6. The trip's receipt shows what that trip saved
+
+**Extensions**:
+
+- 1a. The ride has no usable route: the straight-line distance between pickup and drop is used
+- 1b. The car emits more per passenger than an average car alone (a large car with one rider): the saving is zero, never negative
+- 4a. No completed trips yet: the screen explains what will be counted
+
+**Business Rules**:
+
+- One car per booking is the baseline, however many seats it holds
+- The figure is an estimate and is always called one
+- Emission factors are platform settings, per vehicle class and per market
+- The driver sees the savings of the seats they shared; the platform total is shown to admins
+
+### UC-X03: Use the App in My Language
+
+**Primary Actor**: Any user
+**Goal**: Read the app, its pushes and its messages in their own language
+**Preconditions**: The language is offered in the user's market and its translation has been reviewed
+**Postconditions**: The app, and what the backend sends this user, use that language
+
+**Main Success Scenario**:
+
+1. On first start, the app uses the phone's language if the market offers it, otherwise English
+2. User opens Settings > Language and picks a language (English, Shona or Ndebele in Zimbabwe)
+3. The app changes at once, without signing out
+4. The choice is saved on the phone and on the account
+5. Pushes, texts and emails to the user are written in that language
+
+**Extensions**:
+
+- 3a. A phrase has no translation yet: it is shown in English
+- 5a. An SOS text to an emergency contact: written in the language of the person who raised it, with the English beneath it
+
+**Business Rules**:
+
+- A language is offered only once native speakers have reviewed it, safety screens first
+- Emergency numbers, money and dates follow the market, not the language
+- Each market lists its languages in the market registry
+
+### UC-C01: Set Up a Company Programme
+
+**Primary Actor**: Admin, with the company's representative
+**Goal**: Let a company's staff pool rides to work, optionally paid in part by the company
+**Preconditions**: A signed agreement with the company
+**Postconditions**: The organisation exists with its email domains, policy and company admins
+
+**Main Success Scenario**:
+
+1. Admin creates the organisation: name, email domains, billing contact
+2. Admin sets the policy: who may join (any address on the domains), the share of the fare the company pays (0–100%), the monthly cap per person, and the days and places it applies to
+3. Admin invites the company's own admins, who get a company dashboard limited to their organisation
+4. The company tells its staff
+
+**Business Rules**:
+
+- The company sees who rode, when and what it cost; never routes, positions, ratings or safety reports
+- Changes to the policy apply from the next booking
+
+### UC-C02: Join My Company's Programme
+
+**Primary Actor**: Rider or Driver
+**Goal**: Ride with colleagues and get the company's contribution
+**Preconditions**: The user's company has a programme
+**Postconditions**: The user is a member of the organisation
+
+**Main Success Scenario**:
+
+1. User opens Profile > Work and enters their work email
+2. System sends a link to that address
+3. User opens the link; system adds them to the organisation
+4. Colleagues see a "Works at …" badge on the user's rides; the public does not
+5. A driver can now post a ride for colleagues only; members see such rides in search
+6. On an eligible booking, the fare shows the company's share and what the rider pays
+
+**Extensions**:
+
+- 3a. The link expires (24 hours): the user asks for a new one
+- 6a. The monthly cap is reached: the rider pays the full fare and is told why
+
+**Business Rules**:
+
+- Leaving the company (removed by a company admin, or the email bounces at the yearly recheck) ends membership; past rides keep their contribution
+
+### UC-C03: Bill a Company
+
+**Primary Actor**: System
+**Goal**: Charge the company its share each month
+**Preconditions**: Company-paid bookings completed in the month
+**Postconditions**: A statement is sent and recorded as owed
+
+**Main Success Scenario**:
+
+1. On the 1st, the system totals the company's share of last month's completed bookings
+2. It emails the billing contact a statement (PDF and Excel, as the scheduled reports are), with members, trips, amounts and CO₂ saved
+3. Admin records the bank transfer when it arrives
+
+**Extensions**:
+
+- 3a. Not paid in 30 days: the company's contribution stops until it is paid; staff are told and pay full fares
+
+### UC-X04: Video Call During an SOS
+
+**Primary Actor**: Safety team member
+**Goal**: See what is happening when the person in danger cannot speak freely
+**Preconditions**: An open SOS
+**Postconditions**: The call, if recorded, is stored with the incident
+
+**Main Success Scenario**:
+
+1. From the incident, the safety team member asks for video
+2. The person's phone shows "The safety team is asking to see. Turn on the camera?"
+3. The person accepts; video goes to the team at low resolution, with an audio-only button
+4. The call is recorded and stored with the incident, as SOS audio is
+
+**Extensions**:
+
+- 3a. The person declines or does not answer: nothing changes; the SOS continues as before
+- 3b. The connection is too weak for video: it falls back to audio
+
+**Business Rules**:
+
+- Only the safety team can start an SOS video call; it is never automatic
+- Recordings are kept and deleted on the SOS audio's rules
+- Later uses (an identity check by video, rider and driver before pickup) follow the same pattern and are opt-in
+
+### UC-R12: Pool to a Rank or Terminus
+
+**Primary Actor**: Rider
+**Goal**: Share the first or last part of a journey made by kombi or bus
+**Preconditions**: The market lists its ranks and termini
+**Postconditions**: A booking to or from a rank, with the bus time if given
+
+**Main Success Scenario**:
+
+1. Rider searches for a place; ranks and termini are suggested first
+2. Rider books a ride to a terminus and optionally adds "catching a bus at …"
+3. The driver sees the bus time on the request and on the ride screen
+
+**Business Rules**:
+
+- No timetable is shown where no reliable feed exists (none in Zimbabwe today)
+- A market that publishes a GTFS feed can add departures later
+
+---
