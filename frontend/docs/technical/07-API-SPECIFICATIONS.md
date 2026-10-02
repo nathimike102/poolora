@@ -103,7 +103,7 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 | POST | `/users/me/statement/email` | Emails that statement to the profile's address with the CSV attached. Body: `month`. `409 NO_EMAIL` without an address, `503 EMAIL_UNAVAILABLE` when SMTP is not set up |
 | GET | `/users/me/verified-status` | Progress towards the Verified Driver badge (UC-D10): `verified` and one `checks` entry per rule (`label`, `met`, `progress`) |
 | GET | `/users/me/impact` | CO₂ saved by the caller's shared trips, as rider and driver (UC-R11): `allTime` and `thisMonth` (`co2SavedKg`, `kmShared`, `trips`), `months` (the last six, oldest first, `month` as YYYY-MM in market time) and `method` (the emission factors used). An estimate |
-| GET | `/users/me/work` | The caller's company programme (UC-C02): `work` (`organisation` with `name` and `active`, `email`, `since`) or `null`, and `pending` (a work email waiting for its link, `email`, `sentAt`) or `null` |
+| GET | `/users/me/work` | The caller's company programme (UC-C02): `work` (`organisation` with `name` and `active`, `email`, `since`) or `null`, and `pending` (a work email waiting for its link, `email`, `sentAt`) or `null`. A member's `work.contribution` says what the company pays (`sharePercent`, `monthlyCapUsd`, `weekdaysOnly`, site names, `usedThisMonth`), or is `null` when it pays nothing |
 | POST | `/users/me/work` | Body: `email`. Emails a confirmation link to a work address on a company's domain; the user joins when they confirm it. `404 NO_COMPANY_PROGRAMME` when no active company has the domain; `409` when the address belongs to another account; `429 WORK_LINK_RATE_LIMITED` within 10 minutes of the last link; `503 MAIL_UNAVAILABLE` without email |
 | DELETE | `/users/me/work` | Leave the company programme |
 | GET | `/users/me/identity` | The caller's identity check for women-only rides: `status` (`none`, `pending`, `verified`, `rejected`), `gender`, `declaredGender`, `submittedAt`, `reviewedAt`, `rejectionReason` |
@@ -181,6 +181,8 @@ A ride nobody has booked is **cancelled automatically 1 hour before departure**,
 **Women-only rides.** Only a verified woman (an admin-approved identity check, `/users/me/identity`) sees them in search, can filter with `womenOnly=true`, and can book one; anyone else never sees them, `womenOnly=true` answers `403`, and booking one by its id answers `403`. Only a verified woman driver can post one (`preferences.womenOnly`). Search results carry `driver.identityVerified`, and a ride's driver carries `identity.status`.
 
 **Colleagues-only rides (UC-C02).** A driver in an active company programme (`/users/me/work`) can post one (`preferences.colleaguesOnly`); anyone else gets `403 NOT_A_COMPANY_MEMBER`. The ride keeps the driver's company, and only that company's members see it in search, get ride alerts for it and can book it; booking it by id from outside answers `403 COLLEAGUES_ONLY`. While the company is suspended nobody sees it. Search results carry `driver.colleagueAt` (the company's name) only when the driver works at the searcher's company, and `GET /rides/:id` carries `colleagueAt` the same way; a driver's `GET /bookings/driver` carries `rider.colleagueAt` for riders from their company. Nobody's work email is ever sent to another user.
+
+**Company-paid fares (UC-C01).** When a rider's company pays (an active programme with a share and sites; on weekdays and outside public holidays if it says so; a trip that starts or ends within a site's radius; within the person's monthly cap), the booking stores `companyShare`, `organisation` and `companyMonth`. The rider is charged, refunded and cancelled on their own part only (`estimatedFare` − `companyShare`); a cancelled trip costs the company nothing; when the company pays it all the request needs no payment. On completion the platform keeps `platformFeeRate` of the rider's part and `companyFeeRate` (a setting, 10% by default) of the company's part. Receipts carry `companyPaid` and `company`.
 | `page`, `limit` | no | 1, 20 | `limit` at most 50 |
 
 A ride matches when its **route** passes within `radiusKm` of the rider's pickup and of their drop, in that order, so riders can join part-way. Each ride stores its road route as a GeoJSON LineString (`routeLine`, `2dsphere` index); search runs `$geoNear` on it near the pickup, requires it to cross a circle around the drop, then drops rides going the other way. Up to 200 candidates are considered per search.
@@ -217,6 +219,7 @@ rider requests ──► pending ──(driver accepts, payment in)──► con
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | POST | `/bookings` | signed in | Request seats |
+| POST | `/bookings/quote` | signed in | Same body as `/bookings`. What it would cost: `fare`, `companyShare` (what the rider's company pays, UC-C01), `youPay`, `company`, and `limitedBy: 'cap'` when the company's monthly cap cuts its share |
 | GET | `/bookings/as-rider` | signed in | The caller's bookings as a rider. Query: `status`, `page`, `limit` |
 | GET | `/bookings/as-driver` | signed in | Requests and bookings on the caller's rides |
 | POST | `/bookings/:id/confirm` | the ride's driver | Accept. Reserves the seats atomically; `409 PAYMENT_PENDING` until an online payment is in |
@@ -529,7 +532,7 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | GET | `/admin/organisations` | Companies with a programme (UC-C01), with their member counts |
 | POST | `/admin/organisations` | Body: `name`, `domains` (the company's own email domains; public services such as gmail.com are refused, and a domain belongs to one company), `billingContact` (`name`, `email`, `phone`), `notes`. Audited |
 | GET | `/admin/organisations/:id` | The company and its members (name, phone, work email, joined) |
-| PATCH | `/admin/organisations/:id` | Any of the fields above, and `status` (`active`, `suspended`). Removing a domain stops new joins with it; members stay. Audited |
+| PATCH | `/admin/organisations/:id` | Any of the fields above, and `status` (`active`, `suspended`). Removing a domain stops new joins with it; members stay. Audited. `policy` (UC-C01): `sharePercent` (0–100), `monthlyCapUsd` (0 for no limit), `weekdaysOnly`, and `sites` (up to 10: `name`, `address`, `radiusKm` 0.2–20; a site without `lat`/`lng` is found on the map from its address, else `422 SITE_NOT_FOUND`). Applies to bookings made afterwards |
 | DELETE | `/admin/organisations/:id/members/:userId` | Removes someone from the company. `?reason=` for the audit log |
 | GET | `/admin/parcel-claims` | Parcel claims |
 | POST | `/admin/parcel-claims/:id/decide` | Body: `decision` (`approve`, `reject`), `note` (the claimant sees it), optional `payout` (up to the cover limit; paid to the wallet) and `insurerReference` |

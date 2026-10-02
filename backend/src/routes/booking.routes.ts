@@ -14,6 +14,7 @@ router.get('/as-rider', BookingController.getRiderBookings);
 router.get('/as-driver', BookingController.getDriverBookings);
 
 // Create booking
+router.post('/quote', validate(createBookingSchema), BookingController.quote);
 router.post('/', requireActiveAccount, validate(createBookingSchema), BookingController.createBooking);
 
 // Booking actions

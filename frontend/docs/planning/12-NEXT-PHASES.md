@@ -119,7 +119,7 @@ Built in slices:
 
 1. **Companies and joining** (done): the web admin's Companies page sets a company up with its email domains and billing contact; staff confirm a work email from Profile → Work by a link valid for 24 hours; one work email per account; public email services cannot be a company domain.
 2. **Colleagues-only rides** (done): a driver in a programme can keep a ride to colleagues; only that company's members see it, hear of it or book it, and nobody while the company is suspended. Colleagues see "Works at …" on each other's rides and requests, and can filter results to colleagues; the public never sees where anyone works.
-3. Company-paid fares: share, monthly cap, weekdays and sites.
+3. **Company-paid fares** (done): each company's share, monthly cap per person, weekdays-only (public holidays excluded) and sites, set on its page in the web admin; the booking screen shows the company's part before booking and charges the rider only the rest; refunds, cancellation splits and no-shows work on the rider's part; completion keeps 10% of the company's part (the "Commission on company-paid fares" setting) and the usual commission on the rider's; receipts show what the company paid.
 4. Monthly billing.
 5. The company's own dashboard.
 

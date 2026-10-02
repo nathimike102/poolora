@@ -67,6 +67,14 @@ export interface IBooking extends Document {
   distanceKm?: number;
   /** CO₂ this shared seat saved against going alone, set on completion (UC-R11) */
   co2SavedKg?: number;
+  /**
+   * The rider's company pays this much of the fare (UC-C01); the rider pays
+   * the rest. It is billed to the company only if the trip completes.
+   */
+  companyShare?: number;
+  organisation?: Types.ObjectId;
+  /** The month the company's contribution counts against its cap, YYYY-MM in market time */
+  companyMonth?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -138,6 +146,9 @@ const BookingSchema = new Schema<IBooking>(
     pickupConfirmedBy: { type: String, enum: ['pin', 'rider', 'simulation'] },
     distanceKm: { type: Number, min: 0 },
     co2SavedKg: { type: Number, min: 0 },
+    companyShare: { type: Number, min: 0 },
+    organisation: { type: Schema.Types.ObjectId, ref: 'Organisation' },
+    companyMonth: { type: String },
   },
   {
     timestamps: true,
@@ -152,6 +163,8 @@ BookingSchema.pre('validate', function (next) {
 });
 
 BookingSchema.index({ rider: 1, status: 1 });
+// A company's monthly cap per person (UC-C01)
+BookingSchema.index({ rider: 1, organisation: 1, companyMonth: 1 }, { sparse: true });
 BookingSchema.index({ driver: 1, status: 1 });
 BookingSchema.index({ status: 1, createdAt: 1 }); // booking sweeper
 BookingSchema.index(

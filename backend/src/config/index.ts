@@ -272,6 +272,8 @@ export const config = {
     defaultSearchRadiusKm: 5,
     defaultTimeDeviationMins: 120,
     platformFeeRate: parseFloat(process.env.PLATFORM_FEE_RATE || '0.15'), // 15% default
+    /** Commission on the part of a fare a company pays (UC-C01; decided 2 October 2026) */
+    companyFeeRate: parseFloat(process.env.COMPANY_FEE_RATE || '0.10'),
     /**
      * When a rider cancels a confirmed seat, keep the platform fee on the whole
      * fare instead of refunding it with the fare (UC-R09 "platform fee is

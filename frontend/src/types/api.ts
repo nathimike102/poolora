@@ -224,6 +224,16 @@ export interface Ride {
 }
 
 /** A rider's booked ride as returned by /rides/upcoming */
+/** POST /bookings/quote (UC-C01): the fare, what the rider's company pays and the rest */
+export interface BookingQuote {
+  fare: number;
+  companyShare: number;
+  youPay: number;
+  company?: string;
+  /** The company pays less than its share because the month's cap is nearly used */
+  limitedBy?: 'cap';
+}
+
 /** GET /bookings/:id/cancellation-quote */
 export interface CancellationQuote {
   fare: number;
@@ -324,7 +334,13 @@ export interface Impact {
 
 /** GET /users/me/work (UC-C02): the user's company programme, or a work email waiting to be confirmed */
 export interface WorkStatus {
-  work: { organisation: { _id: string; name: string; active: boolean }; email: string; since: string } | null;
+  work: {
+    organisation: { _id: string; name: string; active: boolean };
+    email: string;
+    since: string;
+    /** What the company pays towards fares (UC-C01), or null when it pays nothing */
+    contribution?: { sharePercent: number; monthlyCapUsd: number; weekdaysOnly: boolean; sites: string[]; usedThisMonth: number } | null;
+  } | null;
   pending: { email: string; sentAt: string } | null;
 }
 
@@ -411,6 +427,9 @@ export interface Receipt {
   paymentMethod: string;
   /** Estimated kg of CO₂ the shared seat saved; completed trips only (UC-R11) */
   co2SavedKg?: number;
+  /** What the rider's company paid, and its name (UC-C01) */
+  companyPaid?: number;
+  company?: string;
 }
 
 export interface CreateBookingRequest {

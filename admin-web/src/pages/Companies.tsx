@@ -15,6 +15,52 @@ interface Company {
   notes?: string;
   createdAt: string;
   members?: number;
+  policy: Policy;
+}
+
+interface Site { name: string; address: string; radiusKm: number; lat?: number; lng?: number }
+interface Policy { sharePercent: number; monthlyCapUsd: number; weekdaysOnly: boolean; sites: Site[] }
+
+const money = (n: number) => `US$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+
+/** What the company pays, in a sentence */
+function policyLine(p: Policy): string {
+  if (!(p.sharePercent > 0) || !p.sites.length) return 'Pays nothing yet: set a share and at least one site.';
+  const when = p.weekdaysOnly ? 'weekday trips' : 'trips';
+  const cap = p.monthlyCapUsd > 0 ? `, up to ${money(p.monthlyCapUsd)} a person a month` : ', with no monthly limit';
+  return `Pays ${p.sharePercent}% of ${when} to or from ${p.sites.map((s) => s.name).join(', ')}${cap}.`;
+}
+
+/** Edits the company's contribution (UC-C01). New sites are found on the map from their address. */
+function PolicyFields({ policy, set }: { policy: Policy; set: (p: Policy) => void }) {
+  const site = (i: number, patch: Partial<Site>) =>
+    set({ ...policy, sites: policy.sites.map((s, j) => (j === i ? { ...s, ...patch, ...(patch.address !== undefined ? { lat: undefined, lng: undefined } : {}) } : s)) });
+  return (
+    <>
+      <Field label="Share of each eligible fare the company pays (%)">
+        <input className="input" type="number" min={0} max={100} value={policy.sharePercent} onChange={(e) => set({ ...policy, sharePercent: Number(e.target.value) })} />
+      </Field>
+      <Field label="Most it pays for one person in a month (US$, 0 for no limit)">
+        <input className="input" type="number" min={0} value={policy.monthlyCapUsd} onChange={(e) => set({ ...policy, monthlyCapUsd: Number(e.target.value) })} />
+      </Field>
+      <label className="row">
+        <input type="checkbox" checked={policy.weekdaysOnly} onChange={(e) => set({ ...policy, weekdaysOnly: e.target.checked })} />
+        <span>Weekdays only (not weekends or public holidays)</span>
+      </label>
+      <p className="faint" style={{ margin: 0 }}>Sites: a trip that starts or ends within a site's radius is eligible.</p>
+      {policy.sites.map((s, i) => (
+        <div key={i} className="card stack" style={{ gap: 6 }}>
+          <Field label="Site name"><input className="input" value={s.name} onChange={(e) => site(i, { name: e.target.value })} placeholder="Head office" /></Field>
+          <Field label="Address"><input className="input" value={s.address} onChange={(e) => site(i, { address: e.target.value })} placeholder="Street, area, city" /></Field>
+          <Field label="Radius (km)"><input className="input" type="number" min={0.2} max={20} step={0.1} value={s.radiusKm} onChange={(e) => site(i, { radiusKm: Number(e.target.value) })} /></Field>
+          <button className="btn" onClick={() => set({ ...policy, sites: policy.sites.filter((_, j) => j !== i) })}>Remove site</button>
+        </div>
+      ))}
+      {policy.sites.length < 10 ? (
+        <button className="btn" onClick={() => set({ ...policy, sites: [...policy.sites, { name: '', address: '', radiusKm: 1 }] })}>Add a site</button>
+      ) : null}
+    </>
+  );
 }
 
 interface Member {
@@ -126,6 +172,7 @@ export function CompanyDetailPage() {
   const [form, setForm] = useState<Form>(EMPTY);
   const [suspending, setSuspending] = useState(false);
   const [removing, setRemoving] = useState<Member | null>(null);
+  const [policy, setPolicy] = useState<Policy | null>(null);
   const [reason, setReason] = useState('');
 
   useEffect(() => { if (editing && data) setForm(fromCompany(data.organisation)); }, [editing, data]);
@@ -158,6 +205,20 @@ export function CompanyDetailPage() {
           {c.status === 'suspended' ? <p className="faint" style={{ margin: 0 }}>Suspended: nobody new can join, and members get none of the programme's benefits.</p> : null}
           {c.notes ? <p style={{ margin: 0 }}>{c.notes}</p> : null}
         </div>
+      ) : null}
+
+      {c ? (
+        <section className="stack">
+          <div className="spread">
+            <h2 className="section-label">Contribution</h2>
+            <button className="btn" onClick={() => setPolicy(c.policy)}>Change</button>
+          </div>
+          <div className="card stack" style={{ gap: 6 }}>
+            <p style={{ margin: 0 }}>{policyLine(c.policy)}</p>
+            <p className="faint" style={{ margin: 0 }}>Staff pay the rest. The company is billed only for completed trips. Changes apply to bookings made from now on.</p>
+            {c.policy.sites.length ? <div className="faint">{c.policy.sites.map((s) => `${s.name}: ${s.address}, within ${s.radiusKm} km`).join(' · ')}</div> : null}
+          </div>
+        </section>
       ) : null}
 
       {data ? (
@@ -195,6 +256,18 @@ export function CompanyDetailPage() {
       >
         <CompanyFields form={form} set={setForm} />
         <p className="faint" style={{ margin: 0 }}>Removing a domain stops new people joining with it; members who joined with it stay.</p>
+      </ActionDialog>
+
+      <ActionDialog
+        open={policy !== null}
+        title={`What ${c?.name ?? 'the company'} pays`}
+        confirmLabel="Save"
+        tone="primary"
+        canConfirm={Boolean(policy) && policy!.sharePercent >= 0 && policy!.sharePercent <= 100 && policy!.monthlyCapUsd >= 0 && policy!.sites.every((s) => s.name.trim().length >= 2 && s.address.trim().length >= 3)}
+        onConfirm={() => api.patch(`/admin/organisations/${id}`, { policy }).then(reload)}
+        onClose={() => setPolicy(null)}
+      >
+        {policy ? <PolicyFields policy={policy} set={setPolicy} /> : null}
       </ActionDialog>
 
       <ActionDialog

@@ -23,6 +23,8 @@ import { isVerifiedWoman, womenOnlyRefusal } from './IdentityService';
 import type { FilterQuery } from 'mongoose';
 import { phrase } from '../i18n';
 import { activeOrganisationOf, colleaguesOf } from './OrganisationService';
+import { companyContribution } from './OrganisationService';
+import { riderPays } from '../utils/fares';
 
 const walletService = new WalletService();
 const carbonService = new CarbonService();
@@ -174,13 +176,20 @@ export class BookingService {
       throw new AppError('This ride goes the other way: your drop comes before your pickup on its route', 400, 'WRONG_DIRECTION');
     }
 
-    // Calculate estimated fare
+    // Calculate estimated fare, and what the rider's company pays of it (UC-C01)
     const estimatedFare = ride.pricePerSeat * data.seatsBooked;
-
-    // Compute match score
     const rider = await User.findById(riderId);
     const driver = await User.findById(ride.driver);
     if (!rider || !driver) throw new NotFoundError('User');
+    const company = await companyContribution({
+      riderId, rider, fare: estimatedFare, departure: ride.departureTime, pickup: data.pickup, dropoff: data.dropoff,
+    });
+    const companyFields = company && company.share > 0
+      ? { companyShare: company.share, organisation: company.organisation, companyMonth: company.month }
+      : {};
+    const youPay = riderPays({ estimatedFare, companyShare: company?.share });
+
+    // Compute match score
 
     const [matchResult] = await this.matchingEngine.scoreRides(
       [{ ride, driver, pickupDistanceKm: boarding.distanceKm }],
@@ -195,7 +204,8 @@ export class BookingService {
 
     // ── Payment: wallet now, or online next ─────────────────────────────────
 
-    if (data.useWallet) {
+    // Nothing to charge when the company pays it all: it goes the wallet way with no debit
+    if (data.useWallet || youPay <= 0) {
       // Wallet payment. Create the booking first so the debit is keyed to its
       // real id (one debit per booking), then roll back if the debit fails.
       const booking = await Booking.create({
@@ -213,12 +223,13 @@ export class BookingService {
           address: data.dropoff.address,
         },
         estimatedFare,
+        ...companyFields,
         matchScore: matchResult?.overallScore || 0,
         note: data.note?.trim() || undefined,
         paymentMethod: 'wallet',
       });
       try {
-        await walletService.deductForBooking(riderId, booking._id.toString(), estimatedFare);
+        if (youPay > 0) await walletService.deductForBooking(riderId, booking._id.toString(), youPay);
       } catch (error) {
         await Booking.deleteOne({ _id: booking._id });
         throw error;
@@ -255,6 +266,7 @@ export class BookingService {
         address: data.dropoff.address,
       },
       estimatedFare,
+      ...companyFields,
       matchScore: matchResult?.overallScore || 0,
       note: data.note?.trim() || undefined,
       paymentMethod: 'online',
@@ -372,7 +384,7 @@ export class BookingService {
     booking: IBooking,
     reason: string,
     _actorId: string,
-    amount: number = booking.estimatedFare,
+    amount: number = riderPays(booking),
     /** A dispute passes its own, so it is not deduplicated against a cancellation refund */
     walletIdempotencyKey?: string,
   ): Promise<RefundOutcome> {
@@ -495,7 +507,7 @@ export class BookingService {
     // refunded in full.
     // Full refund when the driver moved the departure after this booking was made (UC-D08)
     const byPolicy = Boolean(isRider && ride && !booking.rideChangedAt);
-    const split = cancellationSplit(booking.estimatedFare, byPolicy ? riderRefundRate(ride!.departureTime, new Date(), booking.confirmedAt) : 1, byPolicy);
+    const split = cancellationSplit(riderPays(booking), byPolicy ? riderRefundRate(ride!.departureTime, new Date(), booking.confirmedAt) : 1, byPolicy);
     const refundAmount = split.refund;
     const cancellationFee = split.retained;
     booking.refundAmount = refundAmount;
@@ -545,12 +557,14 @@ export class BookingService {
         if (freeUntil && freeUntil.getTime() < now.getTime()) freeUntil = null;
       }
     }
-    const { refund: refundAmount, platformFee } = cancellationSplit(booking.estimatedFare, refundRate, byPolicy);
+    // The rider's own part: a cancelled trip costs the company nothing
+    const paid = riderPays(booking);
+    const { refund: refundAmount, platformFee } = cancellationSplit(paid, refundRate, byPolicy);
     const feeKept = byPolicy && config.ride.keepPlatformFeeOnCancel;
     return {
-      fare: booking.estimatedFare,
+      fare: paid,
       refundAmount,
-      refundPercent: booking.estimatedFare ? Math.round((refundAmount / booking.estimatedFare) * 100) : 0,
+      refundPercent: paid ? Math.round((refundAmount / paid) * 100) : 0,
       /** The platform fee kept from this cancellation when the fee is non-refundable */
       platformFeeKept: feeKept ? platformFee : 0,
       platformFeeRefundable: !config.ride.keepPlatformFeeOnCancel,
@@ -681,7 +695,8 @@ export class BookingService {
       throw new AppError(`Wait ${left} more minute${left === 1 ? '' : 's'} before reporting a no-show`, 409, 'WAIT_FOR_RIDER');
     }
 
-    const fee = booking.estimatedFare;
+    // The rider's own part; the company pays nothing for a trip that did not happen
+    const fee = riderPays(booking);
     const platformFee = round2(fee * config.ride.platformFeeRate);
     booking.status = BookingStatus.CANCELLED;
     booking.noShow = true;
@@ -718,6 +733,23 @@ export class BookingService {
   }
 
   /**
+   * What a booking would cost the rider, before they make it: the fare, what
+   * their company pays (UC-C01) and the rest, which is theirs to pay.
+   */
+  async quote(riderId: string, data: { rideId: string; seatsBooked: number; pickup: { lat: number; lng: number }; dropoff: { lat: number; lng: number } }) {
+    const ride = await Ride.findById(data.rideId).select('pricePerSeat departureTime');
+    if (!ride) throw new NotFoundError('Ride');
+    const fare = round2(ride.pricePerSeat * data.seatsBooked);
+    const company = await companyContribution({ riderId, fare, departure: ride.departureTime, pickup: data.pickup, dropoff: data.dropoff });
+    return {
+      fare,
+      companyShare: company?.share ?? 0,
+      youPay: riderPays({ estimatedFare: fare, companyShare: company?.share }),
+      ...(company ? { company: company.company, ...(company.limitedBy ? { limitedBy: company.limitedBy } : {}) } : {}),
+    };
+  }
+
+  /**
    * Complete a booking — calculate final fare, settle payment.
    */
   async completeBooking(bookingId: string, driverId: string): Promise<IBooking> {
@@ -732,9 +764,11 @@ export class BookingService {
 
     // Calculate final fare (in production, use actual distance/time)
     const finalFare = booking.estimatedFare;
-    const platformFeeRate = config.ride.platformFeeRate;
-    const platformFee = Math.round(finalFare * platformFeeRate * 100) / 100;
-    const driverEarnings = finalFare - platformFee;
+    // The company's part carries its own, lower commission (UC-C01)
+    const companyPart = booking.companyShare ?? 0;
+    const riderPart = riderPays(booking);
+    const platformFee = round2(riderPart * config.ride.platformFeeRate + (companyPart > 0 ? companyPart * config.ride.companyFeeRate : 0));
+    const driverEarnings = round2(finalFare - platformFee);
 
     booking.status = BookingStatus.COMPLETED;
     booking.finalFare = finalFare;
@@ -766,7 +800,7 @@ export class BookingService {
       User.findByIdAndUpdate(booking.rider, {
         $inc: {
           'stats.totalRidesAsRider': 1,
-          'stats.totalSpent': finalFare,
+          'stats.totalSpent': riderPart,
           ...shared,
         },
       }),
@@ -795,7 +829,7 @@ export class BookingService {
         walletService.awardCoinsForRide(
           booking.rider.toString(),
           bookingId,
-          finalFare,
+          riderPart,
         ),
       ]);
     } catch (coinError) {

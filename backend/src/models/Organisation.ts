@@ -15,6 +15,20 @@ export interface IOrganisation extends Document {
   status: 'active' | 'suspended';
   /** Contract notes for admins; never shown to members */
   notes?: string;
+  /**
+   * What the company pays towards its staff's fares (UC-C01). Nothing is
+   * paid until both a share and at least one site are set.
+   */
+  policy: {
+    /** Percent of each eligible fare, 0 to 100 */
+    sharePercent: number;
+    /** Most the company pays for one person in a month, in US$; 0 means no limit */
+    monthlyCapUsd: number;
+    /** Only Monday to Friday, and not on public holidays */
+    weekdaysOnly: boolean;
+    /** Trips that start or end within a site's radius are eligible */
+    sites: Array<{ name: string; address: string; location: { type: 'Point'; coordinates: [number, number] }; radiusKm: number }>;
+  };
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +48,21 @@ const OrganisationSchema = new Schema<IOrganisation>(
     },
     status: { type: String, enum: ['active', 'suspended'], default: 'active', index: true },
     notes: { type: String, maxlength: 2000 },
+    policy: {
+      sharePercent: { type: Number, min: 0, max: 100, default: 0 },
+      monthlyCapUsd: { type: Number, min: 0, default: 0 },
+      weekdaysOnly: { type: Boolean, default: true },
+      sites: {
+        type: [{
+          _id: false,
+          name: { type: String, required: true, trim: true, maxlength: 80 },
+          address: { type: String, required: true, trim: true, maxlength: 300 },
+          location: { type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], required: true } },
+          radiusKm: { type: Number, min: 0.2, max: 20, required: true },
+        }],
+        default: [],
+      },
+    },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   {

@@ -17,7 +17,7 @@ import { Icon } from '../../components/Icon';
 import { userService } from '../../services/userService';
 import type { WorkStatus } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
-import { REGION } from '../../utils/region';
+import { money, REGION } from '../../utils/region';
 
 export function WorkScreen() {
   const navigation = useNavigation();
@@ -100,6 +100,21 @@ export function WorkScreen() {
                 date: new Date(status.work.since).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short', year: 'numeric' }),
               })}
             </Text>
+            {status.work.contribution ? (
+              <Text style={{ color: c.text, lineHeight: 20 }}>
+                {t('work.pays', {
+                  company: status.work.organisation.name,
+                  percent: status.work.contribution.sharePercent,
+                  trips: status.work.contribution.weekdaysOnly ? t('work.tripsWeekday') : t('work.tripsAll'),
+                  sites: status.work.contribution.sites.join(', '),
+                })}{' '}
+                {status.work.contribution.monthlyCapUsd > 0
+                  ? t('work.capUsed', { used: money(status.work.contribution.usedThisMonth), cap: money(status.work.contribution.monthlyCapUsd) })
+                  : t('work.noCap')}
+              </Text>
+            ) : (
+              <Text style={{ color: c.textSec }}>{t('work.paysNothing', { company: status.work.organisation.name })}</Text>
+            )}
             {!status.work.organisation.active ? <Text style={{ color: c.warning }}>{t('work.suspended')}</Text> : null}
             <Pressable onPress={leave} disabled={busy} accessibilityRole="button" style={s.link}>
               <Text style={{ color: c.error, fontWeight: '600' }}>{t('work.leave')}</Text>

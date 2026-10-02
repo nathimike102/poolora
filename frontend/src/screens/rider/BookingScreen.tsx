@@ -29,7 +29,7 @@ import { rideService } from '../../services/rideService';
 import { walletService } from '../../services/walletService';
 import { BackButton } from '../../components/BackButton';
 import { Icon } from '../../components/Icon';
-import type { Ride } from '../../types/api';
+import type { BookingQuote, Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { money, REGION } from '../../utils/region';
 import { useTranslation } from 'react-i18next';
@@ -110,7 +110,21 @@ export function BookingScreen(): React.ReactElement {
     },
     [riderDropoff, ride],
   );
-  const walletCovers = walletBalance !== null && walletBalance >= total;
+  // What the rider's company pays of this fare (UC-C01); the rider is charged the rest
+  const [quote, setQuote] = useState<BookingQuote | null>(null);
+  useEffect(() => {
+    if (!ride) return;
+    let active = true;
+    bookingService
+      .quote({ rideId, seatsBooked: seats, pickup: boardAt, dropoff: leaveAt })
+      .then(q => { if (active) setQuote(q); })
+      .catch(() => { if (active) setQuote(null); });
+    return () => { active = false; };
+  }, [ride, rideId, seats, boardAt, leaveAt]);
+  // Only a quote for the fare on screen counts
+  const companyPart = quote && Math.abs(quote.fare - total) < 0.005 ? quote.companyShare : 0;
+  const youPay = Math.round((total - companyPart) * 100) / 100;
+  const walletCovers = walletBalance !== null && walletBalance >= youPay;
 
   const handleConfirm = useCallback(async () => {
     if (!ride || isSubmitting) return;
@@ -132,7 +146,7 @@ export function BookingScreen(): React.ReactElement {
       }
       navigation.replace('Payment', {
         bookingId: result.booking._id,
-        amount: result.booking.estimatedFare ?? total,
+        amount: youPay,
         summary: t('booking.summary', { from: boardAt.address || t('booking.pickup'), to: leaveAt.address || t('booking.dropLower'), seats: seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats }) }),
       });
     } catch (error) {
@@ -140,7 +154,7 @@ export function BookingScreen(): React.ReactElement {
     } finally {
       setIsSubmitting(false);
     }
-  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, total, t]);
+  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, youPay, t]);
 
   // ── Booked with wallet ──────────────────────────────────────────
   if (walletBooked) {
@@ -153,7 +167,7 @@ export function BookingScreen(): React.ReactElement {
           {t('booking.sent')}
         </Text>
         <Text style={[styles.confirmedSub, { color: c.textSec }]}>
-          {t('booking.paidFromWallet', { amount: money(total) })}
+          {t('booking.paidFromWallet', { amount: money(youPay) })}
         </Text>
         <Pressable
           onPress={() => navigation.navigate('RiderTabs', { screen: 'MyRides' })}
@@ -323,6 +337,23 @@ export function BookingScreen(): React.ReactElement {
             </Text>
             <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }}>{money(total)}</Text>
           </View>
+          {companyPart > 0 && quote?.company ? (
+            <>
+              <View style={styles.fareRow}>
+                <Text style={{ fontSize: 14, color: c.success }}>{t('booking.companyPays', { company: quote.company })}</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.success }}>−{money(companyPart)}</Text>
+              </View>
+              <View style={styles.fareRow}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{t('booking.youPay')}</Text>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }}>{money(youPay)}</Text>
+              </View>
+            </>
+          ) : null}
+          {quote?.company && quote.limitedBy === 'cap' ? (
+            <Text style={{ fontSize: 12, color: c.textSec, marginTop: 6 }}>
+              {companyPart > 0 ? t('booking.capNearly', { company: quote.company }) : t('booking.capUsed', { company: quote.company })}
+            </Text>
+          ) : null}
           <Text style={{ fontSize: 12, color: c.textSec, marginTop: 8, lineHeight: 18 }}>
             {t('booking.refundNote')}
           </Text>
@@ -345,7 +376,7 @@ export function BookingScreen(): React.ReactElement {
             <ActivityIndicator color={c.textOnPrimary} />
           ) : (
             <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>
-              {method === 'wallet' ? t('booking.payWallet', { amount: money(total) }) : t('booking.payOnline', { amount: money(total) })}
+              {youPay <= 0 && quote?.company ? t('booking.requestCompanyPays', { company: quote.company }) : method === 'wallet' ? t('booking.payWallet', { amount: money(youPay) }) : t('booking.payOnline', { amount: money(youPay) })}
             </Text>
           )}
         </Pressable>

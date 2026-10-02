@@ -103,6 +103,7 @@ export const API_ENDPOINTS = {
   // Bookings
   bookings: {
     create: '/bookings',
+    quote: '/bookings/quote',
     riderBookings: '/bookings/as-rider',
     driverBookings: '/bookings/as-driver',
     confirm: (id: string) => `/bookings/${id}/confirm`,

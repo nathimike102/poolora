@@ -64,6 +64,7 @@ const WEIGHT_KEYS = ['proximity', 'time', 'rating', 'acceptance', 'safety'] as c
 
 export const SETTINGS: SettingDefinition[] = [
   { ...numberSetting('platformFeeRate', 'fees', 'Platform commission', 'Share of each fare the platform keeps. Applies to rides completed after the change.', 'percent', 0, 0.3, mutable.ride, 'platformFeeRate'), critical: true },
+  { ...numberSetting('companyFeeRate', 'fees', 'Commission on company-paid fares', 'Share the platform keeps of the part of a fare a company pays; the rider\'s own part keeps the platform commission. Applies to rides completed after the change.', 'percent', 0, 0.3, mutable.ride, 'companyFeeRate'), critical: true },
   {
     key: 'zwgPerUsd',
     group: 'fees',

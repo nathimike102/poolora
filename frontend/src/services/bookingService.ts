@@ -14,6 +14,7 @@ import type {
   BookingStatus,
   CancellationQuote,
   Receipt,
+  BookingQuote,
   CreateBookingRequest,
   CreateBookingResult,
   PaginatedResponse,
@@ -30,6 +31,12 @@ export const bookingService = {
    * @param bookingData - Booking creation data
    * @returns Created booking
    */
+  /** The fare, what the rider's company pays and the rest, before booking (UC-C01) */
+  async quote(data: Omit<CreateBookingRequest, 'useWallet' | 'note'>): Promise<BookingQuote> {
+    const response = await apiClient.post<ApiResponse<BookingQuote>>(API_ENDPOINTS.bookings.quote, data);
+    return response.data.data;
+  },
+
   async createBooking(bookingData: CreateBookingRequest): Promise<CreateBookingResult> {
     try {
       const response = await apiClient.post<ApiResponse<CreateBookingResult>>(

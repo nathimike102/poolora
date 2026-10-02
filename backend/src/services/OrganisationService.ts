@@ -17,6 +17,11 @@ import { audit } from './AuditService';
 import { emailLayout, escapeHtml, mailEnabled, sendMail } from './Mailer';
 import { phrase, translate } from '../i18n';
 import { NotificationService } from './NotificationService';
+import { Booking } from '../models/Booking';
+import { BookingStatus } from '../types';
+import { demandTime, toLocalClock } from '../config/region';
+import { haversineDistanceKm } from '../utils/helpers';
+import { round2 } from '../utils/fares';
 
 /** How long a work-email link works (UC-C02 3a) */
 export const WORK_LINK_TTL_MS = 24 * 3_600_000;
@@ -45,7 +50,54 @@ type OrganisationInput = {
   billingContact?: { name?: unknown; email?: unknown; phone?: unknown };
   status?: unknown;
   notes?: unknown;
+  policy?: {
+    sharePercent?: unknown;
+    monthlyCapUsd?: unknown;
+    weekdaysOnly?: unknown;
+    sites?: Array<{ name?: unknown; address?: unknown; radiusKm?: unknown; lat?: unknown; lng?: unknown }>;
+  };
 };
+
+type Policy = IOrganisation['policy'];
+
+/** Checks a policy, finding each new site's address on the map */
+async function cleanPolicy(input: NonNullable<OrganisationInput['policy']>, current?: Policy): Promise<Policy> {
+  const share = input.sharePercent === undefined ? current?.sharePercent ?? 0 : Number(input.sharePercent);
+  if (!Number.isFinite(share) || share < 0 || share > 100) throw new AppError('The company\'s share is a percent from 0 to 100', 422, 'VALIDATION_ERROR');
+  const cap = input.monthlyCapUsd === undefined ? current?.monthlyCapUsd ?? 0 : Number(input.monthlyCapUsd);
+  if (!Number.isFinite(cap) || cap < 0 || cap > 10_000) throw new AppError('The monthly cap is from 0 (no limit) to 10,000', 422, 'VALIDATION_ERROR');
+  const weekdaysOnly = input.weekdaysOnly === undefined ? current?.weekdaysOnly ?? true : input.weekdaysOnly === true;
+  let sites = current?.sites ?? [];
+  if (input.sites !== undefined) {
+    if (!Array.isArray(input.sites) || input.sites.length > 10) throw new AppError('Up to 10 sites', 422, 'VALIDATION_ERROR');
+    sites = [];
+    for (const raw of input.sites) {
+      const name = String(raw.name ?? '').trim();
+      const address = String(raw.address ?? '').trim();
+      const radiusKm = Number(raw.radiusKm ?? 1);
+      if (name.length < 2 || address.length < 3) throw new AppError('Each site needs a name and an address', 422, 'VALIDATION_ERROR');
+      if (!(radiusKm >= 0.2 && radiusKm <= 20)) throw new AppError('A site\'s radius is from 0.2 to 20 km', 422, 'VALIDATION_ERROR');
+      let lat = Number(raw.lat);
+      let lng = Number(raw.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+        const { geocodeAddress } = await import('./MapsService');
+        const found = await geocodeAddress(address).catch(() => null);
+        if (!found) throw new AppError(`Could not find "${address}" on the map. Add the area or city.`, 422, 'SITE_NOT_FOUND');
+        lat = found.lat;
+        lng = found.lng;
+      }
+      sites.push({ name, address, radiusKm: round2(radiusKm), location: { type: 'Point', coordinates: [lng, lat] } });
+    }
+  }
+  return { sharePercent: round2(share), monthlyCapUsd: round2(cap), weekdaysOnly, sites };
+}
+
+const policyView = (p?: Policy) => ({
+  sharePercent: p?.sharePercent ?? 0,
+  monthlyCapUsd: p?.monthlyCapUsd ?? 0,
+  weekdaysOnly: p?.weekdaysOnly ?? true,
+  sites: (p?.sites ?? []).map((s) => ({ name: s.name, address: s.address, radiusKm: s.radiusKm, lat: s.location.coordinates[1], lng: s.location.coordinates[0] })),
+});
 
 function cleanDomains(value: unknown): string[] {
   if (!Array.isArray(value)) throw new AppError('Give the company\'s email domains', 422, 'VALIDATION_ERROR');
@@ -67,6 +119,7 @@ function view(org: IOrganisation | (Record<string, unknown> & { _id: Types.Objec
     billingContact: o.billingContact,
     status: o.status,
     notes: o.notes,
+    policy: policyView(o.policy),
     createdAt: o.createdAt,
     ...(members === undefined ? {} : { members }),
   };
@@ -101,6 +154,75 @@ export async function colleaguesOf(
   const others = await User.find({ _id: { $in: userIds }, 'work.organisation': mine._id }).select('_id').lean();
   for (const o of others) found.set(o._id.toString(), mine.name);
   return found;
+}
+
+export interface CompanyContribution {
+  organisation: Types.ObjectId;
+  company: string;
+  /** US$ the company pays; 0 when the trip qualifies but the month's cap is used up */
+  share: number;
+  /** YYYY-MM in market time, the month the share counts against the cap */
+  month: string;
+  /** Why the company pays less than its share, if it does */
+  limitedBy?: 'cap';
+}
+
+/**
+ * What the rider's company pays towards this fare (UC-C01), or null when it
+ * pays nothing: no active programme, no share or sites set, a weekend or
+ * public holiday when the company pays on weekdays only, or neither end of
+ * the trip near one of its sites.
+ */
+export async function companyContribution(input: {
+  riderId: string;
+  fare: number;
+  departure: Date;
+  pickup: { lat: number; lng: number };
+  dropoff: { lat: number; lng: number };
+  /** The rider, when already loaded, saves a query */
+  rider?: { work?: { organisation?: Types.ObjectId } } | null;
+}): Promise<CompanyContribution | null> {
+  const user = input.rider !== undefined ? input.rider : await User.findById(input.riderId).select('work.organisation').lean();
+  if (!user?.work?.organisation) return null;
+  const org = await Organisation.findOne({ _id: user.work.organisation, status: 'active' }).lean();
+  const policy = org?.policy;
+  if (!org || !policy || !(policy.sharePercent > 0) || !policy.sites?.length) return null;
+
+  const when = demandTime(input.departure);
+  if (policy.weekdaysOnly && (when.weekday >= 5 || when.isHoliday)) return null;
+
+  const nearSite = (p: { lat: number; lng: number }) => policy.sites.some((site) => {
+    const [lng, lat] = site.location.coordinates;
+    return haversineDistanceKm(p.lat, p.lng, lat, lng) <= site.radiusKm;
+  });
+  if (!nearSite(input.pickup) && !nearSite(input.dropoff)) return null;
+
+  const month = toLocalClock(input.departure).toISOString().slice(0, 7);
+  let share = round2((input.fare * Math.min(100, policy.sharePercent)) / 100);
+  let limitedBy: CompanyContribution['limitedBy'];
+  if (policy.monthlyCapUsd > 0) {
+    // Requests still open count too, so two at once cannot both use the last of the cap
+    const [used] = await Booking.aggregate<{ total: number }>([
+      { $match: { rider: new Types.ObjectId(input.riderId), organisation: org._id, companyMonth: month, status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.COMPLETED] } } },
+      { $group: { _id: null, total: { $sum: '$companyShare' } } },
+    ]);
+    const left = round2(Math.max(0, policy.monthlyCapUsd - (used?.total ?? 0)));
+    if (share > left) {
+      share = left;
+      limitedBy = 'cap';
+    }
+  }
+  return { organisation: org._id, company: org.name, share, month, ...(limitedBy ? { limitedBy } : {}) };
+}
+
+/** What the company has paid, or holds for open requests, towards this person's fares this month */
+async function usedThisMonth(userId: string, organisation: Types.ObjectId): Promise<number> {
+  const month = toLocalClock(new Date()).toISOString().slice(0, 7);
+  const [used] = await Booking.aggregate<{ total: number }>([
+    { $match: { rider: new Types.ObjectId(userId), organisation, companyMonth: month, status: { $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.COMPLETED] } } },
+    { $group: { _id: null, total: { $sum: '$companyShare' } } },
+  ]);
+  return round2(used?.total ?? 0);
 }
 
 export class OrganisationService {
@@ -150,6 +272,7 @@ export class OrganisationService {
       domains,
       billingContact,
       notes: typeof input.notes === 'string' ? input.notes.trim().slice(0, 2000) : undefined,
+      policy: await cleanPolicy(input.policy ?? {}),
       createdBy: adminId,
     });
     await audit(adminId, 'organisation.create', 'organisation', org._id.toString(), undefined, { name, domains });
@@ -186,9 +309,14 @@ export class OrganisationService {
       org.notes = String(input.notes).trim().slice(0, 2000) || undefined;
       changed.push('notes');
     }
+    if (input.policy !== undefined) {
+      // Applies to bookings made from now on; ones already made keep their share
+      org.policy = await cleanPolicy(input.policy, org.policy);
+      changed.push('contribution');
+    }
     await org.save();
     // Members already in stay; a removed domain only stops new people joining with it
-    await audit(adminId, 'organisation.update', 'organisation', id, undefined, { changed });
+    await audit(adminId, 'organisation.update', 'organisation', id, undefined, { changed, ...(input.policy !== undefined ? { policy: { sharePercent: org.policy.sharePercent, monthlyCapUsd: org.policy.monthlyCapUsd, weekdaysOnly: org.policy.weekdaysOnly, sites: org.policy.sites.length } } : {}) });
     return { organisation: view(org) };
   }
 
@@ -221,7 +349,7 @@ export class OrganisationService {
 
   /** The caller's company, or the address waiting to be confirmed */
   async status(userId: string) {
-    const user = await User.findById(userId).select('work +workPending').populate<{ work?: { organisation: IOrganisation; email: string; verifiedAt: Date } }>('work.organisation', 'name status').lean();
+    const user = await User.findById(userId).select('work +workPending').populate<{ work?: { organisation: IOrganisation; email: string; verifiedAt: Date } }>('work.organisation', 'name status policy').lean();
     if (!user) throw new NotFoundError('User');
     const pending = user.workPending && user.workPending.sentAt.getTime() > Date.now() - WORK_LINK_TTL_MS
       ? { email: user.workPending.email, sentAt: user.workPending.sentAt }
@@ -229,7 +357,21 @@ export class OrganisationService {
     const org = user.work?.organisation as unknown as IOrganisation | undefined;
     return {
       work: user.work && org
-        ? { organisation: { _id: org._id.toString(), name: org.name, active: org.status === 'active' }, email: user.work.email, since: user.work.verifiedAt }
+        ? {
+          organisation: { _id: org._id.toString(), name: org.name, active: org.status === 'active' },
+          email: user.work.email,
+          since: user.work.verifiedAt,
+          // What the company pays, so staff know before they book (UC-C01)
+          contribution: org.policy?.sharePercent > 0 && org.policy.sites?.length
+            ? {
+              sharePercent: org.policy.sharePercent,
+              monthlyCapUsd: org.policy.monthlyCapUsd,
+              weekdaysOnly: org.policy.weekdaysOnly,
+              sites: org.policy.sites.map((site) => site.name),
+              usedThisMonth: await usedThisMonth(userId, org._id),
+            }
+            : null,
+        }
         : null,
       pending,
     };

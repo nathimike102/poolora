@@ -577,7 +577,12 @@
     "fareLine": "{{price}} × {{seats}}",
     "refundNote": "No extra fees for riders. If the driver declines or cancels, or you cancel before they accept, the full amount is refunded. After that, what you get back depends on how soon the ride leaves.",
     "payWallet": "Pay {{amount}} from wallet",
-    "payOnline": "Continue to pay {{amount}}"
+    "payOnline": "Continue to pay {{amount}}",
+    "companyPays": "{{company}} pays",
+    "youPay": "You pay",
+    "capNearly": "{{company}}'s monthly limit for you is nearly used, so it pays less on this trip.",
+    "capUsed": "{{company}}'s monthly limit for you is used up, so you pay the full fare.",
+    "requestCompanyPays": "Send request ({{company}} pays)"
   },
   "payment": {
     "methods": {
@@ -1236,7 +1241,9 @@
     "paidBy": "Paid by",
     "savedLabel": "Sharing this trip saved about {{amount}} of CO₂. See your impact",
     "saved": "Sharing this trip saved about {{amount}} of CO₂",
-    "driver": "Driver {{name}}"
+    "driver": "Driver {{name}}",
+    "companyPaid": "Paid by {{company}}",
+    "yourCompany": "your company"
   },
   "services": {
     "allServices": "All services",
@@ -2061,6 +2068,12 @@
     "leaveBody": "You will no longer see colleagues-only rides, and your company will stop contributing to your fares.",
     "cancel": "Cancel",
     "notSent": "Not sent",
-    "couldNotLoad": "Could not load"
+    "couldNotLoad": "Could not load",
+    "pays": "{{company}} pays {{percent}}% of your {{trips}} to or from {{sites}}.",
+    "tripsWeekday": "weekday trips",
+    "tripsAll": "trips",
+    "capUsed": "This month: {{used}} of {{cap}}.",
+    "noCap": "No monthly limit.",
+    "paysNothing": "{{company}} does not pay towards fares yet."
   }
 }

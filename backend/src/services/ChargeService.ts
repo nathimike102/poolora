@@ -38,6 +38,7 @@ import { WalletService } from './WalletService';
 import { NotificationService } from './NotificationService';
 import { channelFits } from './WithdrawalService';
 import { phrase } from '../i18n';
+import { riderPays } from '../utils/fares';
 
 const PREFIX: Record<ChargePurpose, string> = { booking: 'BK', parcel: 'PC', topup: 'WT' };
 const LABEL: Record<PayChannel, string> = { ecocash: 'EcoCash', onemoney: 'OneMoney', innbucks: 'InnBucks', card: 'card' };
@@ -381,7 +382,7 @@ export class ChargeService {
       if (!booking || booking.rider.toString() !== userId) throw new NotFoundError('Booking');
       if (booking.status !== BookingStatus.PENDING || booking.paymentMethod !== 'online') throw new AppError('This request does not need paying', 409, 'NOTHING_TO_PAY');
       if (await Payment.exists({ booking: booking._id, status: PaymentStatus.CAPTURED })) throw new AppError('This request is already paid', 409, 'ALREADY_PAID');
-      return { amountUsd: booking.estimatedFare, target: booking._id, description: `Poolora seat: ${booking.pickup.address.split(',')[0]} to ${booking.dropoff.address.split(',')[0]}` };
+      return { amountUsd: riderPays(booking), target: booking._id, description: `Poolora seat: ${booking.pickup.address.split(',')[0]} to ${booking.dropoff.address.split(',')[0]}` };
     }
 
     const parcel = await ParcelPooling.findById(input.targetId);

@@ -13,6 +13,7 @@ import { BookingStatus, PaymentStatus } from '../types';
 import { AppError, AuthorizationError, NotFoundError } from '../utils/AppError';
 import { emailLayout, escapeHtml, mailEnabled, sendMail } from './Mailer';
 import { localTime, money, number } from '../config/region';
+import { riderPays } from '../utils/fares';
 
 export interface Receipt {
   receiptNumber: string;
@@ -31,6 +32,15 @@ export interface Receipt {
   paymentMethod: string;
   /** Estimated kg of CO₂ the shared seat saved; completed trips only (UC-R11) */
   co2SavedKg?: number;
+  /** What the rider's company paid of the fare, and its name (UC-C01) */
+  companyPaid?: number;
+  company?: string;
+}
+
+async function companyName(id?: unknown): Promise<string | undefined> {
+  if (!id) return undefined;
+  const { Organisation } = await import('../models/Organisation');
+  return (await Organisation.findById(id).select('name').lean())?.name;
 }
 
 const METHOD_LABEL: Record<string, string> = { ecocash: 'EcoCash', onemoney: 'OneMoney', innbucks: 'InnBucks', card: 'Card' };
@@ -79,7 +89,9 @@ export class ReceiptService {
       pricePerSeat: booking.ride?.pricePerSeat ?? fare / booking.seatsBooked,
       serviceFee: booking.platformFee ?? 0,
       refunded,
-      paid: Math.round((fare - refunded) * 100) / 100,
+      // The rider's own part; a company's part is on the company's bill
+      paid: Math.round((riderPays(booking) - refunded) * 100) / 100,
+      ...(booking.companyShare && status !== 'cancelled' && status !== 'no_show' ? { companyPaid: booking.companyShare, company: await companyName(booking.organisation) } : {}),
       ...(status === 'completed' && booking.co2SavedKg ? { co2SavedKg: booking.co2SavedKg } : {}),
       paymentMethod: payment ? `${METHOD_LABEL[String(payment.method)] ?? 'Online'}${payment.chargedCurrency === 'ZWG' && payment.chargedAmount ? ` (charged ${money(payment.chargedAmount, 'ZWG')})` : ''}` : 'Poolora wallet',
     };
@@ -92,6 +104,7 @@ export class ReceiptService {
       `${when(r.trip.departure)} · ${r.trip.seats} seat${r.trip.seats === 1 ? '' : 's'} · driver ${r.driver.name}${r.driver.vehicle ? ` (${r.driver.vehicle})` : ''}`,
       `Fare ${money(r.fare)} (${r.trip.seats} × ${money(r.pricePerSeat)})`,
       ...(r.serviceFee ? [`Includes Poolora service fee ${money(r.serviceFee)}`] : []),
+      ...(r.companyPaid ? [`Paid by ${r.company ?? 'your company'}: ${money(r.companyPaid)}`] : []),
       ...(r.refunded ? [`Refunded ${money(r.refunded)}`] : []),
       `Paid ${money(r.paid)} by ${r.paymentMethod}`,
       r.co2SavedKg ? `Sharing saved about ${number(r.co2SavedKg, 1)} kg of CO₂` : '',
@@ -118,6 +131,7 @@ ${row('Driver', `${r.driver.name}${r.driver.vehicle ? ` · ${r.driver.vehicle}` 
 ${row('Seats', `${r.trip.seats} × ${money(r.pricePerSeat)}`)}
 ${row('Fare', money(r.fare))}
 ${r.serviceFee ? row('Includes Poolora service fee', money(r.serviceFee)) : ''}
+${r.companyPaid ? row(`Paid by ${r.company ?? 'your company'}`, `− ${money(r.companyPaid)}`) : ''}
 ${r.refunded ? row('Refunded', `− ${money(r.refunded)}`) : ''}
 ${row('Total paid', money(r.paid), true)}
 ${row('Paid by', r.paymentMethod)}

@@ -89,6 +89,7 @@ export function ReceiptScreen() {
             {row(t('receipt.seats'), `${r.trip.seats} × ${money(r.pricePerSeat)}`)}
             {row(t('receipt.fare'), money(r.fare))}
             {r.serviceFee ? row(t('receipt.serviceFee'), money(r.serviceFee)) : null}
+            {r.companyPaid ? row(t('receipt.companyPaid', { company: r.company ?? t('receipt.yourCompany') }), `− ${money(r.companyPaid)}`) : null}
             {r.refunded ? row(t('receipt.refunded'), `− ${money(r.refunded)}`) : null}
             <View style={[styles.divider, { backgroundColor: c.border }]} />
             {row(t('receipt.totalPaid'), money(r.paid), true)}
