@@ -177,5 +177,15 @@
     "pausedBody": "We paused your account while our team checks some unusual payment activity. This usually takes a few hours. Contact support if you think this is a mistake.",
     "mergedTitle": "Accounts merged",
     "mergedBody": "Your other Poolora account (phone ending {{lastFour}}) has been merged into this one. Its trips, ratings and wallet balance are now here."
+  },
+  "work": {
+    "email": {
+      "subject": "Confirm your work email for {{company}} on Poolora",
+      "body": "Hi {{name}}. Confirm this address to join the {{company}} programme on Poolora, so you can share rides with colleagues.",
+      "button": "Confirm my work email",
+      "ignore": "If you did not ask for this, ignore this email. Nothing changes until the address is confirmed."
+    },
+    "joinedTitle": "Work email confirmed",
+    "joinedBody": "You are now part of the {{company}} programme on Poolora."
   }
 }

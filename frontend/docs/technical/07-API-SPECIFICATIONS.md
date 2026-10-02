@@ -103,6 +103,9 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 | POST | `/users/me/statement/email` | Emails that statement to the profile's address with the CSV attached. Body: `month`. `409 NO_EMAIL` without an address, `503 EMAIL_UNAVAILABLE` when SMTP is not set up |
 | GET | `/users/me/verified-status` | Progress towards the Verified Driver badge (UC-D10): `verified` and one `checks` entry per rule (`label`, `met`, `progress`) |
 | GET | `/users/me/impact` | CO₂ saved by the caller's shared trips, as rider and driver (UC-R11): `allTime` and `thisMonth` (`co2SavedKg`, `kmShared`, `trips`), `months` (the last six, oldest first, `month` as YYYY-MM in market time) and `method` (the emission factors used). An estimate |
+| GET | `/users/me/work` | The caller's company programme (UC-C02): `work` (`organisation` with `name` and `active`, `email`, `since`) or `null`, and `pending` (a work email waiting for its link, `email`, `sentAt`) or `null` |
+| POST | `/users/me/work` | Body: `email`. Emails a confirmation link to a work address on a company's domain; the user joins when they confirm it. `404 NO_COMPANY_PROGRAMME` when no active company has the domain; `409` when the address belongs to another account; `429 WORK_LINK_RATE_LIMITED` within 10 minutes of the last link; `503 MAIL_UNAVAILABLE` without email |
+| DELETE | `/users/me/work` | Leave the company programme |
 | GET | `/users/me/identity` | The caller's identity check for women-only rides: `status` (`none`, `pending`, `verified`, `rejected`), `gender`, `declaredGender`, `submittedAt`, `reviewedAt`, `rejectionReason` |
 | POST | `/users/me/identity` | Send an identity check. Body: `gender`, `documentUrl`, `selfieUrl` (both uploaded first through `/uploads/kyc` with purpose `identity` and `selfie`, and inside the caller's own folder, else `422 INVALID_DOCUMENT`). `409 IDENTITY_VERIFIED` once verified |
 | GET | `/users/me/closure` | Whether the account can be closed now: `canClose`, `blockers` (plain-language reasons), `walletBalance`, `coins` |
@@ -402,6 +405,8 @@ An SOS record carries, besides the above: `contactsState` (`pending` in the canc
 |---|---|---|---|
 | GET | `/track/contact/:token` | public, token in the link | The page an emergency contact opens from their verification text. It shows who added them and has a Confirm button. Opening it changes nothing, so link previews cannot confirm |
 | POST | `/track/contact/:token` | public, token in the link | Confirms the contact. The user gets a notification |
+| GET | `/track/work/:token` | public, token in the link | The page opened from a work-email link (UC-C02), with a Confirm button. Opening it changes nothing, so mail scanners cannot confirm. Links work for 24 hours |
+| POST | `/track/work/:token` | public, token in the link | Confirms the work email: the user joins the company and is notified |
 | GET | `/track/sos/:token` | public, token in the link | A web page for emergency contacts without the app: the first name, the latest position, whether the safety team has it, whether the person says they are safe or the phone is out of contact, and while open the trip, the other person's first name and the car with its plate. Never phone numbers. Refreshes every 15 seconds; the token is random and lasts 7 days |
 | GET | `/track/trip/:token` | public, token in the link | A trip a rider shared (UC-R08): first names, the car, the route, the car's latest position and an ETA. Refreshes itself, has no scripts, stops working an hour after the trip ends or when it is cancelled, and logs every visit |
 
@@ -519,6 +524,11 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | GET | `/admin/withdrawals` | Wallet withdrawals. `?status=pending` (default), `paid`, `rejected` |
 | POST | `/admin/withdrawals/:id/paid` | Record that the money was sent. Body: `payoutReference` (the mobile money transaction id). The user is notified |
 | POST | `/admin/withdrawals/:id/reject` | Body: `note`. The amount goes back to the wallet |
+| GET | `/admin/organisations` | Companies with a programme (UC-C01), with their member counts |
+| POST | `/admin/organisations` | Body: `name`, `domains` (the company's own email domains; public services such as gmail.com are refused, and a domain belongs to one company), `billingContact` (`name`, `email`, `phone`), `notes`. Audited |
+| GET | `/admin/organisations/:id` | The company and its members (name, phone, work email, joined) |
+| PATCH | `/admin/organisations/:id` | Any of the fields above, and `status` (`active`, `suspended`). Removing a domain stops new joins with it; members stay. Audited |
+| DELETE | `/admin/organisations/:id/members/:userId` | Removes someone from the company. `?reason=` for the audit log |
 | GET | `/admin/parcel-claims` | Parcel claims |
 | POST | `/admin/parcel-claims/:id/decide` | Body: `decision` (`approve`, `reject`), `note` (the claimant sees it), optional `payout` (up to the cover limit; paid to the wallet) and `insurerReference` |
 | GET | `/admin/parcels/:id/photos/:photoId` | A parcel photo |

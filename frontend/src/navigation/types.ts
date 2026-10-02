@@ -156,6 +156,7 @@ export type RootStackParamList = {
   IdentityCheck: undefined;
   Impact: undefined;
   Language: undefined;
+  Work: undefined;
   /** A GPS tracker in the driver's car */
   CarTracker: undefined;
   EmergencyContacts: undefined;

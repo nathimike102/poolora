@@ -106,6 +106,39 @@ export class UserController {
     }
   }
 
+  /** GET /users/me/work: the caller's company programme, or the address waiting to be confirmed (UC-C02) */
+  static async work(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { OrganisationService } = await import('../services/OrganisationService');
+      sendSuccess(res, await new OrganisationService().status(userId), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /users/me/work: send a confirmation link to a work email. Body: email */
+  static async joinWork(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { OrganisationService } = await import('../services/OrganisationService');
+      sendSuccess(res, await new OrganisationService().requestJoin(userId, req.body?.email), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** DELETE /users/me/work: leave the company programme */
+  static async leaveWork(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { OrganisationService } = await import('../services/OrganisationService');
+      sendSuccess(res, await new OrganisationService().leave(userId), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /** GET /users/me/impact: CO₂ saved by the caller's shared trips (UC-R11) */
   static async impact(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

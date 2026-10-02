@@ -314,6 +314,12 @@ export interface Impact {
   method: { baselineKgPerKm: number; kgPerKm: Record<string, number> };
 }
 
+/** GET /users/me/work (UC-C02): the user's company programme, or a work email waiting to be confirmed */
+export interface WorkStatus {
+  work: { organisation: { _id: string; name: string; active: boolean }; email: string; since: string } | null;
+  pending: { email: string; sentAt: string } | null;
+}
+
 /** GET /users/me/statement (UC-D09) */
 export interface EarningsStatement {
   month: string;

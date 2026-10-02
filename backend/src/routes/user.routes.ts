@@ -16,6 +16,9 @@ router.get('/me/statement', UserController.statement);
 router.post('/me/statement/email', UserController.emailStatement);
 router.get('/me/verified-status', UserController.verifiedStatus);
 router.get('/me/impact', UserController.impact);
+router.get('/me/work', UserController.work);
+router.post('/me/work', UserController.joinWork);
+router.delete('/me/work', UserController.leaveWork);
 router.get('/me/closure', UserController.closureCheck);
 // Identity check for women-only rides
 router.get('/me/identity', UserController.identityStatus);

@@ -21,6 +21,7 @@ import { SupportPage, SupportDetailPage } from './pages/Support';
 import { AppealsPage } from './pages/Appeals';
 import { ParcelClaimsPage } from './pages/ParcelClaims';
 import { WithdrawalsPage } from './pages/Withdrawals';
+import { CompaniesPage, CompanyDetailPage } from './pages/Companies';
 import { AlertsPage } from './pages/Alerts';
 
 const AdminContext = createContext<AdminUser | null>(null);
@@ -57,6 +58,8 @@ export function App() {
             <Route path="appeals" element={<AppealsPage />} />
             <Route path="parcel-claims" element={<ParcelClaimsPage />} />
             <Route path="withdrawals" element={<WithdrawalsPage />} />
+            <Route path="companies" element={<CompaniesPage />} />
+            <Route path="companies/:id" element={<CompanyDetailPage />} />
             <Route path="alerts" element={<AlertsPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="support" element={<SupportPage />} />

@@ -7,7 +7,7 @@
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';
 import { logger } from '../utils/logger';
-import type { ApiResponse, EarningsStatement, Impact, User, VerifiedStatus } from '../types/api';
+import type { ApiResponse, EarningsStatement, Impact, User, VerifiedStatus, WorkStatus } from '../types/api';
 
 /**
  * Service for user profile operations
@@ -92,6 +92,23 @@ export const userService = {
   async getVerifiedStatus(): Promise<VerifiedStatus> {
     const response = await apiClient.get<ApiResponse<VerifiedStatus>>(API_ENDPOINTS.users.verifiedStatus);
     return response.data.data;
+  },
+
+  /** The user's company programme (UC-C02) */
+  async getWork(): Promise<WorkStatus> {
+    const response = await apiClient.get<ApiResponse<WorkStatus>>(API_ENDPOINTS.users.work);
+    return response.data.data;
+  },
+
+  /** Sends a confirmation link to a work email; they join when they confirm it */
+  async joinWork(email: string): Promise<{ sentTo: string; company: string }> {
+    const response = await apiClient.post<ApiResponse<{ sentTo: string; company: string }>>(API_ENDPOINTS.users.work, { email });
+    return response.data.data;
+  },
+
+  /** Leaves the company programme */
+  async leaveWork(): Promise<void> {
+    await apiClient.delete(API_ENDPOINTS.users.work);
   },
 
   /** CO₂ saved by the user's shared trips (UC-R11) */

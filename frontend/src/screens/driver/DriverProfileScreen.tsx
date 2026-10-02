@@ -97,6 +97,7 @@ export function DriverProfileScreen() {
     { icon: 'crosshairs-gps', label: t('driverProfile.menu.tracker'), sub: t('driverProfile.menu.trackerSub'), onPress: () => navigation.navigate('CarTracker') },
     { icon: 'shield-check-outline', label: t('driverProfile.menu.safety'), onPress: () => navigation.navigate('SOS') },
     { icon: 'account-heart-outline', label: t('driverProfile.menu.contacts'), sub: t('driverProfile.menu.contactsSub'), onPress: () => navigation.navigate('EmergencyContacts') },
+    { icon: 'briefcase-outline', label: t('profile.menu.work'), sub: t('profile.menu.workSub'), onPress: () => navigation.navigate('Work') },
     { icon: 'card-account-details-star-outline', label: t('driverProfile.menu.identity'), sub: t('driverProfile.menu.identitySub'), onPress: () => navigation.navigate('IdentityCheck') },
     { icon: 'account-switch-outline', label: t('driverProfile.menu.switch'), onPress: switchRole },
     { icon: 'cog-outline', label: t('driverProfile.menu.settings'), onPress: () => navigation.navigate('Settings') },

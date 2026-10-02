@@ -30,6 +30,7 @@ import { RatingService } from '../services/RatingService';
 import { SupportService } from '../services/SupportService';
 import { WithdrawalService } from '../services/WithdrawalService';
 import { AppError } from '../utils/AppError';
+import { OrganisationService } from '../services/OrganisationService';
 
 const overview = new AdminOverviewService();
 const analytics = new ProductAnalyticsService();
@@ -48,6 +49,7 @@ const documentChecks = new DocumentCheckService();
 const ratings = new RatingService();
 const support = new SupportService();
 const withdrawals = new WithdrawalService();
+const organisations = new OrganisationService();
 
 type Handler = (req: Request, adminId: string) => Promise<unknown>;
 
@@ -183,6 +185,13 @@ export const AdminWebController = {
   updateAlertRule: handle((req, admin) => alerts.update(id(req), req.body ?? {}, admin)),
   deleteAlertRule: handle((req, admin) => alerts.remove(id(req), admin)),
   testAlertRule: handle((req, admin) => alerts.test(id(req), admin)),
+
+  // ── Company programmes (UC-C01) ────────────────────────────────────────
+  organisations: handle(() => organisations.list()),
+  organisation: handle((req) => organisations.get(id(req))),
+  createOrganisation: handle((req, admin) => organisations.create(req.body ?? {}, admin)),
+  updateOrganisation: handle((req, admin) => organisations.update(id(req), req.body ?? {}, admin)),
+  removeOrganisationMember: handle((req, admin) => organisations.removeMember(id(req), id(req, 'userId'), admin, req.body?.reason ?? queryString(req, 'reason'))),
 
   // ── Parcel claims (UC-P05) ─────────────────────────────────────────────
   withdrawals: handle(async (req) => ({ withdrawals: await withdrawals.adminList(queryString(req, 'status') ?? 'pending') })),

@@ -70,6 +70,12 @@ const CONTACT_LINK_EXPIRED = page(
 <p>Confirmation links work for 7 days. Ask the person who added you to send a new one from the Poolora app.</p>`,
 );
 
+const WORK_LINK_EXPIRED = page(
+  'Link expired',
+  `<h1>This link is no longer active</h1>
+<p>Work email links work for 24 hours. Open Poolora and send a new one from Profile, Work.</p>`,
+);
+
 export class TrackingController {
   /**
    * GET /track/contact/:token
@@ -97,6 +103,43 @@ export class TrackingController {
 <p class="muted">Poolora does not use your number for anything else.</p>
 <form method="post"><button type="submit" style="width:100%;padding:12px 16px;border:0;border-radius:6px;background:var(--link);color:#fff;font:inherit;font-weight:600;cursor:pointer">Confirm I'm ${who}'s contact</button></form>
 <p class="muted">If you don't know ${who}, you can ignore this message.</p>`));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** GET /track/work/:token: asks the person to confirm their work email (UC-C02) */
+  static async workPage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      contactHeaders(res);
+      const { OrganisationService } = await import('../services/OrganisationService');
+      const found = await new OrganisationService().peek(String(req.params.token));
+      if (!found) {
+        res.status(404).type('html').send(WORK_LINK_EXPIRED);
+        return;
+      }
+      const company = escapeHtml(found.company);
+      res.status(200).type('html').send(page(`Join ${found.company} on Poolora`, `<h1>Join ${company} on Poolora</h1>
+<p>Hi ${escapeHtml(found.firstName)}. Confirm that ${escapeHtml(found.email)} is your work email to share rides with colleagues at ${company}.</p>
+<form method="post"><button type="submit" style="width:100%;padding:12px 16px;border:0;border-radius:6px;background:var(--link);color:#fff;font:inherit;font-weight:600;cursor:pointer">Confirm my work email</button></form>
+<p class="muted">If you did not ask for this, close this page. Nothing changes until you confirm.</p>`));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /track/work/:token: the person pressed Confirm */
+  static async confirmWork(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      contactHeaders(res);
+      const { OrganisationService } = await import('../services/OrganisationService');
+      const done = await new OrganisationService().confirm(String(req.params.token));
+      if (!done) {
+        res.status(404).type('html').send(WORK_LINK_EXPIRED);
+        return;
+      }
+      res.status(200).type('html').send(page('Confirmed', `<h1>You're in</h1>
+<p class="ok">You are now part of the ${escapeHtml(done.company)} programme on Poolora. Go back to the app to see rides with your colleagues.</p>`));
     } catch (error) {
       next(error);
     }

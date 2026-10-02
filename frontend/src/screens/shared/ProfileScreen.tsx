@@ -79,6 +79,7 @@ export function ProfileScreen(): React.ReactElement {
     { icon: 'shield-check-outline', label: t('profile.menu.safety'), onPress: () => navigation.navigate('SOS') },
     { icon: 'account-heart-outline', label: t('profile.menu.contacts'), sub: t('profile.menu.contactsSub'), onPress: () => navigation.navigate('EmergencyContacts') },
     { icon: 'card-account-details-star-outline', label: t('profile.menu.identity'), sub: profile?.identity?.status === 'verified' ? t('profile.menu.verified') : profile?.identity?.status === 'pending' ? t('profile.waitingForReview') : t('profile.neededForWomenOnlyRides'), onPress: () => navigation.navigate('IdentityCheck') },
+    { icon: 'briefcase-outline', label: t('profile.menu.work'), sub: t('profile.menu.workSub'), onPress: () => navigation.navigate('Work') },
     { icon: 'leaf', label: t('profile.menu.impact'), sub: (stats?.co2SavedKg ?? 0) > 0 ? t('profile.menu.impactSaved', { amount: formatKg(stats?.co2SavedKg ?? 0) }) : t('profile.menu.impactSub'), onPress: () => navigation.navigate('Impact') },
     { icon: 'message-text-outline', label: t('profile.menu.messages'), onPress: () => navigation.navigate('Messages') },
     { icon: 'map-marker-path', label: t('profile.menu.savedRoutes'), onPress: () => navigation.navigate('AddSavedRoute') },

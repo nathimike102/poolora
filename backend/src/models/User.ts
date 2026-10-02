@@ -23,6 +23,10 @@ export interface IUser extends Document {
   gender?: 'male' | 'female' | 'other';
   /** The language the app, pushes and messages use for this person (UC-X03); absent means English */
   language?: string;
+  /** A confirmed work email at a company on Poolora (UC-C02) */
+  work?: { organisation: Types.ObjectId; email: string; verifiedAt: Date };
+  /** A work email waiting for its link to be opened; the token hash is never sent out */
+  workPending?: { organisation: Types.ObjectId; email: string; tokenHash: string; sentAt: Date };
   /**
    * An ID document and a selfie, checked by an admin (IdentityService). It
    * confirms the person and their gender, which women-only rides rely on.
@@ -213,6 +217,24 @@ const UserSchema = new Schema<IUser>(
     dateOfBirth: Date,
     gender: { type: String, enum: ['male', 'female', 'other'] },
     language: { type: String, trim: true, maxlength: 8 },
+    work: {
+      type: new Schema({
+        organisation: { type: Schema.Types.ObjectId, ref: 'Organisation', required: true },
+        email: { type: String, required: true, lowercase: true, trim: true },
+        verifiedAt: { type: Date, required: true },
+      }, { _id: false }),
+      default: undefined,
+    },
+    workPending: {
+      type: new Schema({
+        organisation: { type: Schema.Types.ObjectId, ref: 'Organisation', required: true },
+        email: { type: String, required: true, lowercase: true, trim: true },
+        tokenHash: { type: String, required: true },
+        sentAt: { type: Date, required: true },
+      }, { _id: false }),
+      default: undefined,
+      select: false,
+    },
     identity: { type: IdentitySchema, default: undefined },
     safetyRating: {
       type: new Schema({
@@ -281,5 +303,9 @@ UserSchema.index({ 'identity.status': 1, 'identity.submittedAt': 1 });
 UserSchema.index({ capabilities: 1 });
 // One car per tracker
 UserSchema.index({ 'vehicles.tracker.deviceId': 1 }, { unique: true, sparse: true });
+// A work email belongs to one account; colleagues are found by company
+UserSchema.index({ 'work.email': 1 }, { unique: true, sparse: true });
+UserSchema.index({ 'work.organisation': 1 }, { sparse: true });
+UserSchema.index({ 'workPending.tokenHash': 1 }, { sparse: true });
 
 export const User = mongoose.model<IUser>('User', UserSchema);

@@ -78,6 +78,12 @@ router.post('/alert-rules', W.createAlertRule);
 router.patch('/alert-rules/:id', W.updateAlertRule);
 router.delete('/alert-rules/:id', W.deleteAlertRule);
 router.post('/alert-rules/:id/test', W.testAlertRule);
+// Company programmes (UC-C01)
+router.get('/organisations', W.organisations);
+router.post('/organisations', W.createOrganisation);
+router.get('/organisations/:id', W.organisation);
+router.patch('/organisations/:id', W.updateOrganisation);
+router.delete('/organisations/:id/members/:userId', W.removeOrganisationMember);
 router.get('/withdrawals', W.withdrawals);
 router.post('/withdrawals/:id/paid', W.withdrawalPaid);
 router.post('/withdrawals/:id/reject', W.withdrawalReject);

@@ -113,7 +113,15 @@ Commuting is where pooling works best: the same route at the same time every day
 - **Company dashboard**: a role in `admin-web/` limited to its own organisation: members, rides, spend, CO₂ saved (UC-R11 feeds a company sustainability report, which is often why a company signs up).
 - **Privacy**: the company sees who rode, when and what it cost; never routes, positions, ratings or safety reports.
 
-Open questions for the business: the commission on company-paid rides; whether to charge companies a fee; the minimum contract.
+Decided on 2 October 2026: Poolora takes 10% on the part of a fare the company pays (riders' own part keeps the normal fee); companies pay no fee to start; the monthly bill is paid by bank transfer within 30 days, and the company's contribution pauses if it is not. A cancelled trip costs the company nothing, and Poolora pays drivers in full when a trip completes and collects from the company afterwards.
+
+Built in slices:
+
+1. **Companies and joining** (done): the web admin's Companies page sets a company up with its email domains and billing contact; staff confirm a work email from Profile → Work by a link valid for 24 hours; one work email per account; public email services cannot be a company domain.
+2. Colleagues-only rides and the "Works at" badge.
+3. Company-paid fares: share, monthly cap, weekdays and sites.
+4. Monthly billing.
+5. The company's own dashboard.
 
 ---
 

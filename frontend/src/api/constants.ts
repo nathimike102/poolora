@@ -76,6 +76,7 @@ export const API_ENDPOINTS = {
     emailStatement: '/users/me/statement/email',
     verifiedStatus: '/users/me/verified-status',
     impact: '/users/me/impact',
+    work: '/users/me/work',
     closure: '/users/me/closure',
     identity: '/users/me/identity',
     trackers: '/users/me/trackers',
