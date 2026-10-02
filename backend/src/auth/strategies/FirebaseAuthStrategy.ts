@@ -45,7 +45,12 @@ export class FirebaseAuthStrategy implements AuthStrategy {
   // ─── User Synchronization ───────────────────────────────────────────────
 
   private async syncUser(decoded: DecodedIdToken): Promise<IUser> {
-    const { uid, phone_number: phone, email, name, picture } = decoded;
+    const { uid, phone_number: phone, name, picture } = decoded;
+    // An email is trusted only once Firebase has verified it: anyone can make a
+    // Firebase email-and-password account with someone else's address, and
+    // linking on it would hand them that person's account (an admin's included)
+    const claimed = decoded.email?.toLowerCase();
+    const email = claimed && decoded.email_verified === true ? claimed : undefined;
 
     // 1. Fast path — user already linked
     let user = await User.findOne({ firebaseUid: uid, isActive: true });
@@ -83,8 +88,13 @@ export class FirebaseAuthStrategy implements AuthStrategy {
       }
     }
 
+    // An unverified address someone already uses cannot be claimed or reused
+    if (!email && claimed && (await User.exists({ email: claimed }))) {
+      throw new AuthenticationError('Verify this email address before signing in: choose "Forgot password" to get a link by email.');
+    }
+
     // 4. Brand-new user — create
-    if (!phone && !email) {
+    if (!phone && !email && !claimed) {
       throw new AuthenticationError(
         'Firebase token contains neither phone nor email. Cannot create user.',
       );
