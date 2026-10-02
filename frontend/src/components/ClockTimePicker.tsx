@@ -24,6 +24,7 @@ import {
 import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useApp } from '../context/AppContext';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
+import { useTranslation } from 'react-i18next';
 
 // ── Clock geometry ────────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ export function ClockTimePicker({
   onDismiss,
 }: ClockTimePickerProps) {
   const { c } = useApp();
+  const { t } = useTranslation();
 
   const [hour,   setHour]   = useState(9);
   const [minute, setMinute] = useState(0);
@@ -156,7 +158,7 @@ export function ClockTimePicker({
 
           {/* ── Header ──────────────────────────────────────────────── */}
           <View style={[styles.header, { backgroundColor: c.primary }]}>
-            <Text style={styles.headerLabel}>SELECT TIME</Text>
+            <Text style={styles.headerLabel}>{t('clockTimePicker.selectTime')}</Text>
 
             <View style={styles.timeRow}>
               {/* Hour — tap to switch to hour-selection mode */}
@@ -188,14 +190,14 @@ export function ClockTimePicker({
                   onPress={() => setIsPm(false)}
                   style={[styles.amPmChip, !isPm && styles.amPmChipActive]}
                 >
-                  <Text style={styles.amPmText}>AM</Text>
+                  <Text style={styles.amPmText}>{t('clockTimePicker.am')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity accessibilityRole="button"
                   testID="pm-chip"
                   onPress={() => setIsPm(true)}
                   style={[styles.amPmChip, isPm && styles.amPmChipActive]}
                 >
-                  <Text style={styles.amPmText}>PM</Text>
+                  <Text style={styles.amPmText}>{t('clockTimePicker.pm')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -274,7 +276,7 @@ export function ClockTimePicker({
 
           {/* ── Mode hint ────────────────────────────────────────────── */}
           <Text style={[styles.modeHint, { color: c.textSec }]}>
-            {mode === 'hours' ? 'Select hour' : 'Select minute'}
+            {mode === 'hours' ? t('clockTimePicker.selectHour') : t('clockTimePicker.selectMinute')}
           </Text>
 
           {/* ── Action buttons ───────────────────────────────────────── */}
@@ -284,7 +286,7 @@ export function ClockTimePicker({
               onPress={onDismiss}
               activeOpacity={0.7}
             >
-              <Text style={[styles.btnText, { color: c.textSec }]}>CANCEL</Text>
+              <Text style={[styles.btnText, { color: c.textSec }]}>{t('clockTimePicker.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button"
               testID="confirm-btn"
@@ -293,7 +295,7 @@ export function ClockTimePicker({
               activeOpacity={0.7}
             >
               <Text style={[styles.btnText, { color: c.primary, fontWeight: Typography.bold }]}>
-                OK
+                {t('clockTimePicker.ok')}
               </Text>
             </TouchableOpacity>
           </View>

@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { BackButton } from '../../components/BackButton';
 import { Icon } from '../../components/Icon';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type Phase = 'setup' | 'waiting' | 'ringing' | 'talking';
 
@@ -40,9 +42,10 @@ function clock(totalSeconds: number): string {
 
 export function FakeCallScreen() {
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
-  const [caller, setCaller] = useState('Mum');
+  const [caller, setCaller] = useState(() => i18n.t('fakeCall.defaultCaller'));
   const [delay, setDelay] = useState(DELAYS[0].seconds);
   const [phase, setPhase] = useState<Phase>('setup');
   const [elapsed, setElapsed] = useState(0);
@@ -70,7 +73,7 @@ export function FakeCallScreen() {
     return () => clearInterval(timer);
   }, [phase]);
 
-  const name = caller.trim() || 'Mum';
+  const name = caller.trim() || t('fakeCall.defaultCaller');
 
   if (phase === 'ringing' || phase === 'talking') {
     return (
@@ -82,21 +85,21 @@ export function FakeCallScreen() {
           </View>
           <Text style={s.callerName} accessibilityRole="header">{name}</Text>
           <Text style={s.callerSub} accessibilityLiveRegion="polite">
-            {phase === 'ringing' ? 'Incoming call' : clock(elapsed)}
+            {phase === 'ringing' ? t('fakeCall.incoming') : clock(elapsed)}
           </Text>
         </View>
         {phase === 'ringing' ? (
           <View style={s.callButtons}>
-            <Pressable onPress={() => setPhase('setup')} style={[s.round, { backgroundColor: '#E53935' }]} accessibilityRole="button" accessibilityLabel="Decline">
+            <Pressable onPress={() => setPhase('setup')} style={[s.round, { backgroundColor: '#E53935' }]} accessibilityRole="button" accessibilityLabel={t('fakeCall.decline')}>
               <Icon name="phone-hangup" size={32} color="white" />
             </Pressable>
-            <Pressable onPress={() => setPhase('talking')} style={[s.round, { backgroundColor: '#2E7D32' }]} accessibilityRole="button" accessibilityLabel="Answer">
+            <Pressable onPress={() => setPhase('talking')} style={[s.round, { backgroundColor: '#2E7D32' }]} accessibilityRole="button" accessibilityLabel={t('fakeCall.answer')}>
               <Icon name="phone" size={32} color="white" />
             </Pressable>
           </View>
         ) : (
           <View style={s.callButtons}>
-            <Pressable onPress={() => setPhase('setup')} style={[s.round, { backgroundColor: '#E53935' }]} accessibilityRole="button" accessibilityLabel="End call">
+            <Pressable onPress={() => setPhase('setup')} style={[s.round, { backgroundColor: '#E53935' }]} accessibilityRole="button" accessibilityLabel={t('fakeCall.endCall')}>
               <Icon name="phone-hangup" size={32} color="white" />
             </Pressable>
           </View>
@@ -108,9 +111,9 @@ export function FakeCallScreen() {
   if (phase === 'waiting') {
     // Deliberately plain, so a glance at the screen gives nothing away
     return (
-      <Pressable style={[s.waitRoot, { paddingTop: insets.top }]} onLongPress={() => setPhase('setup')} accessibilityHint="Long-press to stop the fake call">
+      <Pressable style={[s.waitRoot, { paddingTop: insets.top }]} onLongPress={() => setPhase('setup')} accessibilityHint={t('fakeCall.longPressToStopThe')}>
         <StatusBar barStyle="light-content" />
-        <Text style={s.waitText}>Keep Poolora open. Your phone will ring soon. Long-press to stop.</Text>
+        <Text style={s.waitText}>{t('fakeCall.keepPooloraOpenYourPhone')}</Text>
       </Pressable>
     );
   }
@@ -119,21 +122,21 @@ export function FakeCallScreen() {
     <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>Fake call</Text>
+        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>{t('fakeCall.fakeCall')}</Text>
       </View>
       <View style={s.body}>
         <Text style={{ fontSize: 14, color: c.textSec, lineHeight: 20 }}>
-          Your phone will ring with a pretend call, so you have a reason to step away. If you are in danger, use SOS instead.
+          {t('fakeCall.yourPhoneWillRingWith')}
         </Text>
-        <Text style={[s.label, { color: c.text }]}>Who is calling</Text>
+        <Text style={[s.label, { color: c.text }]}>{t('fakeCall.whoIsCalling')}</Text>
         <TextInput
           value={caller}
           onChangeText={setCaller}
           maxLength={30}
           style={[s.input, { color: c.text, borderColor: c.border, backgroundColor: c.surface }]}
-          accessibilityLabel="Caller name"
+          accessibilityLabel={t('fakeCall.callerName')}
         />
-        <Text style={[s.label, { color: c.text }]}>Ring in</Text>
+        <Text style={[s.label, { color: c.text }]}>{t('fakeCall.ringIn')}</Text>
         <View style={s.delays} accessibilityRole="radiogroup">
           {DELAYS.map(d => (
             <Pressable
@@ -148,7 +151,7 @@ export function FakeCallScreen() {
           ))}
         </View>
         <Pressable onPress={() => setPhase('waiting')} style={[s.start, { backgroundColor: c.primary }]} accessibilityRole="button">
-          <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Start</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>{t('fakeCall.start')}</Text>
         </Pressable>
       </View>
     </View>

@@ -137,34 +137,34 @@ export function SettingsScreen() {
     try {
       const check = await userService.getClosureCheck();
       if (!check.canClose) {
-        Alert.alert('You cannot close your account yet', check.blockers.join('\n\n'));
+        Alert.alert(t('settings.youCannotCloseYourAccount'), check.blockers.join('\n\n'));
         return;
       }
       const coins = check.coinsValue > 0
-        ? ` Your ${check.coins} coins, worth ${money(check.coinsValue)}, will be lost. To keep their value, convert them in Wallet and withdraw the money first.`
-        : check.coins > 0 ? ` Your ${check.coins} coins will be lost.` : '';
+        ? t('settings.closing.coinsValue', { coins: check.coins, value: money(check.coinsValue) })
+        : check.coins > 0 ? t('settings.closing.coins', { coins: check.coins }) : '';
       Alert.alert(
-        'Close your account?',
-        `This removes your name, email, photo, driver documents, vehicles and emergency contacts, and signs you out on every phone. Trip and payment records are kept, without your name, as the law requires.${coins} This cannot be undone.`,
+        t('settings.closeYourAccount'),
+        t('settings.closing.body', { coins }),
         [
-          { text: 'Keep my account', style: 'cancel' },
+          { text: t('settings.keepMyAccount'), style: 'cancel' },
           {
-            text: 'Close account',
+            text: t('settings.closeAccount'),
             style: 'destructive',
             onPress: async () => {
               try {
                 await userService.closeAccount();
-                Alert.alert('Account closed', 'Your account has been closed. You can sign up again with the same number at any time.');
+                Alert.alert(t('settings.accountClosed'), t('settings.yourAccountHasBeenClosed'));
                 await logout();
               } catch (error) {
-                Alert.alert('Could not close your account', errorHandler.process(error).message);
+                Alert.alert(t('settings.couldNotCloseYourAccount'), errorHandler.process(error).message);
               }
             },
           },
         ],
       );
     } catch (error) {
-      Alert.alert('Could not check your account', errorHandler.process(error).message);
+      Alert.alert(t('settings.couldNotCheckYourAccount'), errorHandler.process(error).message);
     } finally {
       setClosing(false);
     }
@@ -199,12 +199,12 @@ export function SettingsScreen() {
         const { rideId } = await simulationService.asDriver(near);
         navigation.navigate('DriverRideDetails', { rideId });
         Alert.alert(
-          'A test rider wants a seat',
-          'Sim Rider asked to join this ride. Accept the request in Requests, start the ride, then tap "Simulate the drive".',
+          t('settings.aTestRiderWantsA'),
+          t('settings.simRiderAskedToJoin'),
         );
       }
     } catch (error) {
-      Alert.alert('Could not start the simulation', errorHandler.process(error).message);
+      Alert.alert(t('settings.couldNotStartTheSimulation'), errorHandler.process(error).message);
     } finally {
       setSimulatingAs(null);
     }
@@ -219,7 +219,7 @@ export function SettingsScreen() {
 
   const handleSaveProfile = async () => {
     if (profileName.trim().length < 2) {
-      setSaveError('Enter your full name.');
+      setSaveError(t('settings.enterName'));
       return;
     }
     setSaving(true);
@@ -243,32 +243,32 @@ export function SettingsScreen() {
       {/* ── Header ──────────────────────────────────────────── */}
       <View style={[st.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={{ fontSize: 20, fontWeight: '800', color: c.text }}>Settings</Text>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: c.text }}>{t('settings.settings')}</Text>
       </View>
 
       {/* ── Body ────────────────────────────────────────────── */}
       <ScrollView style={st.flex1} contentContainerStyle={st.scrollBody} showsVerticalScrollIndicator={false}>
         {/* ACCOUNT */}
-        <Section title="ACCOUNT" c={c}>
-          <SettingsRow c={c} iconBg="#E8EEF9" iconColor="#2B6CC4" iconPath={IC_EDIT} label="Edit profile" onPress={openEditProfile} />
+        <Section title={t('settings.account')} c={c}>
+          <SettingsRow c={c} iconBg="#E8EEF9" iconColor="#2B6CC4" iconPath={IC_EDIT} label={t('settings.editProfile')} onPress={openEditProfile} />
           <Divider c={c} />
-          <SettingsRow c={c} iconBg="#E3F2F1" iconColor="#0B7A75" iconPath={IC_PEOPLE} label={isDriver ? 'Switch to Rider' : 'Switch to Driver'} onPress={switchRole} />
+          <SettingsRow c={c} iconBg="#E3F2F1" iconColor="#0B7A75" iconPath={IC_PEOPLE} label={isDriver ? t('settings.switchToRider') : t('settings.switchToDriver')} onPress={switchRole} />
         </Section>
 
         {profile?.capabilities?.includes('admin') && (
-          <Section title="ADMIN" c={c}>
-            <SettingsRow c={c} iconBg="#E8EEF9" iconColor="#2B6CC4" iconPath={IC_SHIELD} label="Admin tools" onPress={() => navigation.navigate('AdminDashboard')} />
+          <Section title={t('settings.admin')} c={c}>
+            <SettingsRow c={c} iconBg="#E8EEF9" iconColor="#2B6CC4" iconPath={IC_SHIELD} label={t('settings.adminTools')} onPress={() => navigation.navigate('AdminDashboard')} />
           </Section>
         )}
 
         {/* WALLET */}
-        <Section title="WALLET" c={c}>
+        <Section title={t('settings.wallet')} c={c}>
           <SettingsRow
             c={c}
             iconBg="#FFFBEB"
             iconColor="#8A5A00"
             iconPath={IC_WALLET}
-            label="Wallet"
+            label={t('settings.wallet2')}
             onPress={() => navigation.navigate('Wallet')}
             rightEl={
               <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>
@@ -279,19 +279,19 @@ export function SettingsScreen() {
         </Section>
 
         {/* SAFETY */}
-        <Section title="SAFETY" c={c}>
-          <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_SHIELD} label="Emergency contacts" onPress={() => navigation.navigate('EmergencyContacts')} />
+        <Section title={t('settings.safety')} c={c}>
+          <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_SHIELD} label={t('settings.emergencyContacts')} onPress={() => navigation.navigate('EmergencyContacts')} />
         </Section>
 
         {/* TESTING (development servers only) */}
         {simulationEnabled && (
-          <Section title="TESTING" c={c}>
+          <Section title={t('settings.testing')} c={c}>
             <SettingsRow
               c={c}
               iconBg="#E3F2F1"
               iconColor="#0B7A75"
               iconPath={IC_PLAY}
-              label="Simulate a ride as rider"
+              label={t('settings.simulateARideAsRider')}
               value={simulatingAs === 'rider' ? 'Starting…' : undefined}
               onPress={simulatingAs ? undefined : () => simulate('rider')}
             />
@@ -301,7 +301,7 @@ export function SettingsScreen() {
               iconBg="#E8EEF9"
               iconColor="#2B6CC4"
               iconPath={IC_PLAY}
-              label="Simulate a ride as driver"
+              label={t('settings.simulateARideAsDriver')}
               value={simulatingAs === 'driver' ? 'Starting…' : undefined}
               onPress={simulatingAs ? undefined : () => simulate('driver')}
             />
@@ -309,13 +309,13 @@ export function SettingsScreen() {
         )}
 
         {/* PREFERENCES */}
-        <Section title="PREFERENCES" c={c}>
+        <Section title={t('settings.preferences')} c={c}>
           <SettingsRow
             c={c}
             iconBg={darkMode ? '#10302E' : '#E3F2F1'}
             iconColor={darkMode ? '#5CC5BE' : '#0B7A75'}
             iconPath={IC_MOON}
-            label="Dark mode"
+            label={t('settings.darkMode')}
             onPress={toggleDarkMode}
             rightEl={<Switch value={darkMode} onValueChange={toggleDarkMode} trackColor={{ false: '#D1D5DB', true: c.primary }} thumbColor="white" />}
           />
@@ -334,32 +334,32 @@ export function SettingsScreen() {
             </>
           ) : null}
           <Divider c={c} />
-          <SettingsRow c={c} iconBg="#FFFBEB" iconColor="#8A5A00" iconPath={IC_BELL} label="Notifications" onPress={() => navigation.navigate('Notifications')} />
+          <SettingsRow c={c} iconBg="#FFFBEB" iconColor="#8A5A00" iconPath={IC_BELL} label={t('settings.notifications')} onPress={() => navigation.navigate('Notifications')} />
         </Section>
 
         {/* ABOUT */}
-        <Section title="ABOUT" c={c}>
-          <SettingsRow c={c} iconBg="#F3F4F6" iconColor="#4B5563" iconPath={IC_HELP} label="Privacy policy" onPress={() => Linking.openURL(COMPANY.privacyUrl)} />
+        <Section title={t('settings.about')} c={c}>
+          <SettingsRow c={c} iconBg="#F3F4F6" iconColor="#4B5563" iconPath={IC_HELP} label={t('settings.privacyPolicy')} onPress={() => Linking.openURL(COMPANY.privacyUrl)} />
           <Divider c={c} />
-          <SettingsRow c={c} iconBg="#F3F4F6" iconColor="#4B5563" iconPath={IC_HELP} label="Terms of service" onPress={() => Linking.openURL(COMPANY.termsUrl)} />
+          <SettingsRow c={c} iconBg="#F3F4F6" iconColor="#4B5563" iconPath={IC_HELP} label={t('settings.termsOfService')} onPress={() => Linking.openURL(COMPANY.termsUrl)} />
           <Divider c={c} />
           <SettingsRow
             c={c}
             iconBg="#F0FDF4"
             iconColor="#1B7F3B"
             iconPath={IC_CHECK_CIRCLE}
-            label="App version"
+            label={t('settings.appVersion')}
             rightEl={<Text style={{ fontSize: 13, color: c.textSec }}>{Constants.expoConfig?.version ?? ''}</Text>}
           />
           <Divider c={c} />
-          <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_LOGOUT} label="Log out" onPress={() => logout()} />
+          <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_LOGOUT} label={t('settings.logOut')} onPress={() => logout()} />
           <Divider c={c} />
           <SettingsRow
             c={c}
             iconBg="#FEF2F2"
             iconColor="#B42318"
             iconPath={IC_LOGOUT}
-            label="Close account"
+            label={t('settings.closeAccount')}
             rightEl={closing ? <ActivityIndicator size="small" color={c.textSec} /> : undefined}
             onPress={closeAccount}
           />
@@ -374,12 +374,12 @@ export function SettingsScreen() {
 
           {/* Title row */}
           <View style={[st.sheetTitleRow, { borderBottomColor: c.border }]}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }} accessibilityRole="header">Edit profile</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }} accessibilityRole="header">{t('settings.editProfile')}</Text>
             <Pressable
               onPress={() => setShowEditProfile(false)}
               style={[st.closeBtn, { backgroundColor: c.bg }]}
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t('settings.close')}
             >
               <Svg width={14} height={14} viewBox="0 0 24 24">
                 <Path d={IC_CLOSE} fill={c.textSec} />
@@ -390,8 +390,8 @@ export function SettingsScreen() {
           <View style={st.sheetBody}>
             {/* Inputs */}
             {([
-              { label: 'Full name', value: profileName, setter: setProfileName, kb: 'default' as const, ac: 'name' as const },
-              { label: 'Email address (optional)', value: profileEmail, setter: setProfileEmail, kb: 'email-address' as const, ac: 'email' as const },
+              { label: t('settings.fullName'), value: profileName, setter: setProfileName, kb: 'default' as const, ac: 'name' as const },
+              { label: t('settings.emailOptional'), value: profileEmail, setter: setProfileEmail, kb: 'email-address' as const, ac: 'email' as const },
             ]).map(f => (
               <View key={f.label}>
                 <Text style={[st.fieldLabel, { color: c.textSec }]}>{f.label}</Text>
@@ -407,10 +407,10 @@ export function SettingsScreen() {
               </View>
             ))}
             <View>
-              <Text style={[st.fieldLabel, { color: c.textSec }]}>Phone number</Text>
-              <Text style={{ fontSize: 15, color: c.text }}>{displayPhone(profile?.phone) ?? 'Not added'}</Text>
+              <Text style={[st.fieldLabel, { color: c.textSec }]}>{t('settings.phoneNumber')}</Text>
+              <Text style={{ fontSize: 15, color: c.text }}>{displayPhone(profile?.phone) ?? t('settings.notAdded')}</Text>
               <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
-                Your phone number is verified at sign-in and can't be changed here.
+                {t('settings.yourPhoneNumberIsVerified')}
               </Text>
             </View>
             {saveError ? (
@@ -428,7 +428,7 @@ export function SettingsScreen() {
               {saving ? (
                 <ActivityIndicator color={c.textOnPrimary} />
               ) : (
-                <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>Save changes</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>{t('settings.saveChanges')}</Text>
               )}
             </Pressable>
           </View>

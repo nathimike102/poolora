@@ -192,7 +192,7 @@ export function PaymentScreen() {
           <Text style={{ fontSize: Typography.base, color: c.textSec }}>{t('payment.amountToPay')}</Text>
           <Text style={{ fontSize: 34, fontWeight: '800', color: c.text, marginTop: 4 }}>{waiting && charge ? money(charge.chargedAmount, charge.currency) : toPay}</Text>
           {currency === 'ZWG' && zwgRate && !waiting ? (
-            <Text style={{ fontSize: Typography.base, color: c.textSec, marginTop: 4 }}>{money(params.amount)} at {zwgRate} ZiG per US dollar</Text>
+            <Text style={{ fontSize: Typography.base, color: c.textSec, marginTop: 4 }}>{t('payment.zwgRate', { amount: money(params.amount), rate: zwgRate })}</Text>
           ) : null}
           <Text style={{ fontSize: Typography.md, color: c.textSec, marginTop: 8 }}>{params.summary}</Text>
         </View>

@@ -10,13 +10,14 @@ import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 import { parcelService, type ParcelPhoto } from '../services/parcelService';
 import { errorHandler } from './errorHandler';
+import i18n from '../i18n';
 
 export async function takeParcelPhoto(parcelId: string, stage: ParcelPhoto['stage'], from: 'camera' | 'library' = 'camera'): Promise<ParcelPhoto | null> {
   const permission = from === 'camera'
     ? await ImagePicker.requestCameraPermissionsAsync()
     : await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
-    Alert.alert('Camera needed', 'Allow Poolora to use the camera to photograph the parcel.');
+    Alert.alert(i18n.t('parcelPhoto.cameraTitle'), i18n.t('parcelPhoto.cameraBody'));
     return null;
   }
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.5, base64: true, exif: false };
@@ -36,7 +37,7 @@ export async function takeParcelPhoto(parcelId: string, stage: ParcelPhoto['stag
   try {
     return await parcelService.addPhoto(parcelId, stage, asset.base64, at);
   } catch (e) {
-    Alert.alert('The photo did not upload', errorHandler.process(e).message);
+    Alert.alert(i18n.t('parcelPhoto.uploadFailed'), errorHandler.process(e).message);
     return null;
   }
 }

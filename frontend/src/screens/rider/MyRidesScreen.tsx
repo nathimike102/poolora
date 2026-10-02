@@ -32,6 +32,8 @@ import type { RootStackParamList, RiderTabParamList } from '../../navigation/typ
 import { Icon } from '../../components/Icon';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import { REGION, money } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<RiderTabParamList, 'MyRides'>,
@@ -77,53 +79,50 @@ function toItem(b: Booking): RideItem {
   return {
     id: b._id,
     rideId: ride?._id ?? '',
-    from: b.pickup?.address || 'Pickup point',
-    to: b.dropoff?.address || 'Drop point',
+    from: b.pickup?.address || i18n.t('myRides.pickupPoint'),
+    to: b.dropoff?.address || i18n.t('myRides.dropPoint'),
     departure: ride?.departureTime ? new Date(ride.departureTime) : null,
-    driver: b.driver?.name || 'Driver',
+    driver: b.driver?.name || i18n.t('myRides.driver'),
     price: b.finalFare ?? b.estimatedFare ?? 0,
     status: b.status,
-    reason: b.noShow ? 'Marked as a no-show' : b.status === 'rejected' ? 'Declined by driver' : b.cancellationReason || 'Cancelled',
+    reason: b.noShow ? i18n.t('myRides.reason.noShow') : b.status === 'rejected' ? i18n.t('myRides.reason.declined') : b.cancellationReason || i18n.t('myRides.reason.cancelled'),
     refunded: b.refundAmount ?? 0,
   };
 }
 
 
-const DEFAULT_POLICY_TEXT =
-  'Full refund 24 hours or more before departure, 50% from 2 hours, and nothing after that. Cancelling within 30 minutes of the driver accepting is free while the ride is an hour or more away.';
 
 /** The refund tiers in words, from the policy the server sent */
 function policyText(quote: CancellationQuote | null): string {
-  if (!quote?.policy?.length) return DEFAULT_POLICY_TEXT;
-  const parts = quote.policy.map((t) =>
-    t.minHoursBeforeDeparture > 0
-      ? `${t.refundPercent}% from ${t.minHoursBeforeDeparture} hours before departure`
-      : `${t.refundPercent ? `${t.refundPercent}%` : 'nothing'} after that`,
+  if (!quote?.policy?.length) return i18n.t('myRides.policy.default');
+  const parts = quote.policy.map((tier) =>
+    tier.minHoursBeforeDeparture > 0
+      ? i18n.t('myRides.policy.tier', { percent: tier.refundPercent, hours: tier.minHoursBeforeDeparture })
+      : tier.refundPercent ? i18n.t('myRides.policy.after', { percent: tier.refundPercent }) : i18n.t('myRides.policy.nothingAfter'),
   );
-  const grace = quote.freeCancelMins
-    ? ` Cancelling within ${quote.freeCancelMins} minutes of the driver accepting is free while the ride is an hour or more away.`
-    : '';
-  const fee = quote.platformFeeRefundable === false ? ' The platform fee is not refunded.' : '';
-  return `Refunds: ${parts.join(', ')}.${grace}${fee}`;
+  const grace = quote.freeCancelMins ? i18n.t('myRides.policy.grace', { minutes: quote.freeCancelMins }) : '';
+  const fee = quote.platformFeeRefundable === false ? i18n.t('myRides.policy.feeKept') : '';
+  return i18n.t('myRides.policy.summary', { tiers: parts.join(', '), grace, fee });
 }
 
 /** What the rider gets back, in words, for the cancel sheet. */
 function refundMessage(quote: CancellationQuote | null): string {
   const policy = policyText(quote);
-  if (!quote) return `Refunds depend on how soon the ride leaves. ${policy}`;
+  if (!quote) return i18n.t('myRides.refund.unknown', { policy });
   if (quote.refundAmount >= quote.fare) {
-    const until = quote.freeCancelUntil ? ` Free cancellation ends at ${formatTime(quote.freeCancelUntil)}.` : '';
-    return `You get the full ${money(quote.refundAmount)} back to your Poolora wallet, which you can withdraw to mobile money.${until}`;
+    const until = quote.freeCancelUntil ? i18n.t('myRides.refund.freeUntil', { time: formatTime(quote.freeCancelUntil) }) : '';
+    return i18n.t('myRides.refund.full', { amount: money(quote.refundAmount), until });
   }
   if (quote.refundAmount <= 0) {
-    return `This cancellation is not refunded. ${policy}`;
+    return i18n.t('myRides.refund.none', { policy });
   }
-  const fee = quote.platformFeeKept ? ` The ${money(quote.platformFeeKept)} platform fee is not refunded.` : '';
-  return `You get ${money(quote.refundAmount)} back of ${money(quote.fare)}.${fee} ${policy}`;
+  const fee = quote.platformFeeKept ? i18n.t('myRides.refund.feeKept', { fee: money(quote.platformFeeKept) }) : '';
+  return i18n.t('myRides.refund.partial', { amount: money(quote.refundAmount), fare: money(quote.fare), fee, policy });
 }
 
 export function MyRidesScreen() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
@@ -206,11 +205,11 @@ export function MyRidesScreen() {
       await bookingService.cancelBooking(cancelTarget.id);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setUpcoming(prev => prev.filter(r => r.id !== cancelTarget.id));
-      setHistory(prev => [{ ...cancelTarget, status: 'cancelled', reason: 'Cancelled by you' }, ...prev]);
+      setHistory(prev => [{ ...cancelTarget, status: 'cancelled', reason: t('myRides.reason.byYou') }, ...prev]);
       setCancelDone(true);
     } catch (error) {
       logger.error('Failed to cancel booking', { error });
-      Alert.alert('Not cancelled', 'Your booking could not be cancelled. Check your connection and try again.');
+      Alert.alert(t('myRides.notCancelled'), t('myRides.yourBookingCouldNotBe'));
     } finally {
       setCancelling(false);
     }
@@ -230,13 +229,13 @@ export function MyRidesScreen() {
           <View style={[styles.status, { backgroundColor: confirmed ? c.successLight : c.warningLight }]}>
             <Icon name={confirmed ? 'check-circle' : 'clock-outline'} size={14} color={confirmed ? c.successDark : c.text} />
             <Text style={[styles.statusText, { color: confirmed ? c.successDark : c.text }]}>
-              {confirmed ? 'Seat confirmed' : 'Waiting for driver'}
+              {confirmed ? t('myRides.seatConfirmed') : t('myRides.waitingForDriver')}
             </Text>
           </View>
           <Text style={[styles.price, { color: c.text }]}>{money(r.price)}</Text>
         </View>
         <Text style={[styles.cardTitle, { color: c.text }]} numberOfLines={1}>{placeName(r.to)}</Text>
-        <Text style={[styles.meta, { color: c.textSec }]} numberOfLines={1}>From {r.from}</Text>
+        <Text style={[styles.meta, { color: c.textSec }]} numberOfLines={1}>{t('myRides.from', { place: r.from })}</Text>
         <Text style={[styles.meta, { color: c.textSec }]}>{formatDate(r.departure)} · {r.driver}</Text>
         <View style={styles.actions}>
           {confirmed && r.rideId !== '' && (
@@ -246,16 +245,16 @@ export function MyRidesScreen() {
               style={[styles.actionBtn, { backgroundColor: c.primary }]}
             >
               <Icon name="map-marker-radius-outline" size={18} color={c.textOnPrimary} />
-              <Text style={[styles.actionText, { color: c.textOnPrimary }]}>Track ride</Text>
+              <Text style={[styles.actionText, { color: c.textOnPrimary }]}>{t('myRides.trackRide')}</Text>
             </Pressable>
           )}
           <Pressable
             onPress={() => { setCancelDone(false); setCancelTarget(r); }}
             accessibilityRole="button"
-            accessibilityLabel={`Cancel ride to ${placeName(r.to)}`}
+            accessibilityLabel={t('myRides.cancelLabel', { place: placeName(r.to) })}
             style={[styles.actionBtn, styles.actionOutline, { borderColor: c.border }]}
           >
-            <Text style={[styles.actionText, { color: c.error }]}>Cancel</Text>
+            <Text style={[styles.actionText, { color: c.error }]}>{t('myRides.cancel')}</Text>
           </Pressable>
         </View>
       </View>
@@ -270,23 +269,23 @@ export function MyRidesScreen() {
     const pending = toRate.get(r.id);
     if (pending) {
       options.push({
-        text: 'Rate this trip',
+        text: t('myRides.rateThisTrip'),
         onPress: () => navigation.navigate('RateTrip', { bookingId: r.id, rateeName: pending.rateeName, summary: `${placeName(r.from)} to ${placeName(r.to)}, ${formatDate(r.departure)}` }),
       });
     }
     if (hadSeat(r)) {
-      options.push({ text: 'Receipt', onPress: () => navigation.navigate('Receipt', { bookingId: r.id }) });
-      options.push({ text: 'Report a problem', onPress: () => navigation.navigate('RaiseDispute', { bookingId: r.id, summary: `${placeName(r.from)} to ${placeName(r.to)}, ${formatDate(r.departure)}` }) });
+      options.push({ text: t('myRides.receipt'), onPress: () => navigation.navigate('Receipt', { bookingId: r.id }) });
+      options.push({ text: t('myRides.reportAProblem'), onPress: () => navigation.navigate('RaiseDispute', { bookingId: r.id, summary: `${placeName(r.from)} to ${placeName(r.to)}, ${formatDate(r.departure)}` }) });
     }
-    options.push({ text: 'Book again', onPress: () => rebook(r) });
-    options.push({ text: 'Close', style: 'cancel' });
+    options.push({ text: t('myRides.bookAgain'), onPress: () => rebook(r) });
+    options.push({ text: t('myRides.close'), style: 'cancel' });
     Alert.alert(placeName(r.to), formatDate(r.departure), options);
   };
 
   const priceLine = (r: RideItem) => {
-    if (r.status === 'completed') return `${money(r.price)} · Completed`;
-    if (r.refunded > 0 && r.refunded < r.price) return `${money(r.refunded)} of ${money(r.price)} refunded · ${r.reason}`;
-    if (r.refunded > 0) return `Refunded in full · ${r.reason}`;
+    if (r.status === 'completed') return t('myRides.price.completed', { price: money(r.price) });
+    if (r.refunded > 0 && r.refunded < r.price) return t('myRides.price.partRefund', { refunded: money(r.refunded), price: money(r.price), reason: r.reason });
+    if (r.refunded > 0) return t('myRides.price.fullRefund', { reason: r.reason });
     return r.reason;
   };
 
@@ -296,7 +295,7 @@ export function MyRidesScreen() {
       <Pressable
         onPress={() => openHistory(r)}
         accessibilityRole="button"
-        accessibilityLabel={`${placeName(r.to)}, ${formatDate(r.departure)}, ${priceLine(r)}. ${toRate.has(r.id) ? "Not rated yet. " : ""}Receipt, report a problem or book again`}
+        accessibilityLabel={t('myRides.historyLabel', { place: placeName(r.to), when: formatDate(r.departure), price: priceLine(r), rate: toRate.has(r.id) ? t('myRides.notRatedYet') : '' })}
         style={({ pressed }) => [
           styles.historyRow,
           index < history.length - 1 && { borderBottomColor: c.border, borderBottomWidth: StyleSheet.hairlineWidth },
@@ -315,7 +314,7 @@ export function MyRidesScreen() {
         </View>
         {toRate.has(r.id) ? (
           <View style={[styles.rateChip, { backgroundColor: c.primaryLight }]}>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: c.primary }}>Rate</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: c.primary }}>{t('myRides.rate')}</Text>
           </View>
         ) : null}
         <Icon name="chevron-right" size={22} color={c.textSec} />
@@ -325,29 +324,29 @@ export function MyRidesScreen() {
 
   const emptyText =
     tab === 'upcoming'
-      ? { title: 'No upcoming rides', sub: 'Rides you book will appear here.' }
-      : { title: 'No past rides yet', sub: 'Finished and cancelled trips will appear here.' };
+      ? { title: t('myRides.empty.upcomingTitle'), sub: t('myRides.empty.upcomingSub') }
+      : { title: t('myRides.empty.historyTitle'), sub: t('myRides.empty.historySub') };
 
   return (
     <View style={[styles.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
-      <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">My rides</Text>
+      <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">{t('myRides.myRides')}</Text>
 
       <View style={[styles.segment, { backgroundColor: c.surfaceVariant }]} accessibilityRole="tablist">
         {([
-          { id: 'upcoming' as const, label: 'Upcoming', count: upcoming.length },
-          { id: 'history' as const, label: 'History', count: history.length },
-        ]).map(t => {
-          const on = tab === t.id;
+          { id: 'upcoming' as const, label: t('myRides.tabs.upcoming'), count: upcoming.length },
+          { id: 'history' as const, label: t('myRides.tabs.history'), count: history.length },
+        ]).map(tabItem => {
+          const on = tab === tabItem.id;
           return (
             <Pressable
-              key={t.id}
-              onPress={() => setTab(t.id)}
+              key={tabItem.id}
+              onPress={() => setTab(tabItem.id)}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
               style={[styles.segmentItem, on && [{ backgroundColor: c.surface }, Shadow.sm]]}
             >
               <Text style={[styles.segmentText, { color: on ? c.text : c.textSec }]}>
-                {t.label}{t.count > 0 ? ` ${t.count}` : ''}
+                {tabItem.label}{tabItem.count > 0 ? ` ${tabItem.count}` : ''}
               </Text>
             </Pressable>
           );
@@ -355,7 +354,7 @@ export function MyRidesScreen() {
       </View>
 
       {loading && upcoming.length + history.length === 0 ? (
-        <ActivityIndicator style={styles.loader} color={c.primary} size="large" accessibilityLabel="Loading your rides" />
+        <ActivityIndicator style={styles.loader} color={c.primary} size="large" accessibilityLabel={t('myRides.loadingYourRides')} />
       ) : (
         <FlatList
           data={tab === 'upcoming' ? upcoming : history}
@@ -369,10 +368,10 @@ export function MyRidesScreen() {
             <View style={styles.empty}>
               <Icon name={loadError ? 'wifi-off' : 'car-clock'} size={48} color={c.textSec} />
               <Text style={[styles.emptyTitle, { color: c.text }]}>
-                {loadError ? "Your rides couldn't be loaded" : emptyText.title}
+                {loadError ? t('myRides.loadFailed') : emptyText.title}
               </Text>
               <Text style={[styles.emptySub, { color: c.textSec }]}>
-                {loadError ? 'Check your connection and pull down to try again.' : emptyText.sub}
+                {loadError ? t('myRides.pullToRetry') : emptyText.sub}
               </Text>
               {!loadError && tab === 'upcoming' && (
                 <Pressable
@@ -380,7 +379,7 @@ export function MyRidesScreen() {
                   accessibilityRole="button"
                   style={[styles.emptyBtn, { backgroundColor: c.primary }]}
                 >
-                  <Text style={[styles.emptyBtnText, { color: c.textOnPrimary }]}>Find a ride</Text>
+                  <Text style={[styles.emptyBtnText, { color: c.textOnPrimary }]}>{t('myRides.findARide')}</Text>
                 </Pressable>
               )}
             </View>
@@ -390,7 +389,7 @@ export function MyRidesScreen() {
 
       {/* ── Cancel sheet ────────────────────────────────────────── */}
       <Modal visible={Boolean(cancelTarget)} transparent animationType="slide" onRequestClose={closeCancel}>
-        <Pressable style={styles.scrim} onPress={closeCancel} accessibilityRole="button" accessibilityLabel="Close" />
+        <Pressable style={styles.scrim} onPress={closeCancel} accessibilityRole="button" accessibilityLabel={t('myRides.close')} />
         <View style={[styles.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + Spacing.lg }]}>
           <View style={[styles.handle, { backgroundColor: c.border }]} />
           {cancelDone ? (
@@ -398,17 +397,17 @@ export function MyRidesScreen() {
               <View style={[styles.doneIcon, { backgroundColor: c.successLight }]}>
                 <Icon name="check" size={36} color={c.successDark} />
               </View>
-              <Text style={[styles.sheetTitle, { color: c.text }]}>Ride cancelled</Text>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>{t('myRides.rideCancelled')}</Text>
               <Text style={[styles.sheetText, { color: c.textSec }]}>
-                {quote && quote.refundAmount === 0 ? 'No refund was due for this cancellation.' : 'Your refund has been started.'}
+                {quote && quote.refundAmount === 0 ? t('myRides.noRefundWasDueFor') : t('myRides.yourRefundHasBeenStarted')}
               </Text>
               <Pressable onPress={closeCancel} accessibilityRole="button" style={[styles.sheetBtn, styles.doneBtn, { backgroundColor: c.primary }]}>
-                <Text style={[styles.sheetBtnText, { color: c.textOnPrimary }]}>Done</Text>
+                <Text style={[styles.sheetBtnText, { color: c.textOnPrimary }]}>{t('myRides.done')}</Text>
               </Pressable>
             </View>
           ) : cancelTarget ? (
             <>
-              <Text style={[styles.sheetTitle, { color: c.text }]}>Cancel this ride?</Text>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>{t('myRides.cancelThisRide')}</Text>
               <View style={[styles.summary, { backgroundColor: c.surfaceVariant }]}>
                 <Text style={[styles.historyTitle, { color: c.text }]} numberOfLines={1}>{placeName(cancelTarget.to)}</Text>
                 <Text style={[styles.meta, { color: c.textSec }]}>
@@ -418,7 +417,7 @@ export function MyRidesScreen() {
               <View style={[styles.refund, { backgroundColor: c.infoLight }]}>
                 <Icon name="cash-refund" size={20} color={c.info} />
                 {quote === undefined ? (
-                  <ActivityIndicator color={c.info} accessibilityLabel="Checking your refund" />
+                  <ActivityIndicator color={c.info} accessibilityLabel={t('myRides.checkingYourRefund')} />
                 ) : (
                   <Text style={[styles.sheetText, styles.flex1, { color: c.text, textAlign: 'left' }]}>
                     {refundMessage(quote)}
@@ -432,7 +431,7 @@ export function MyRidesScreen() {
                   accessibilityRole="button"
                   style={[styles.sheetBtn, styles.flex1, styles.actionOutline, { borderColor: c.border }]}
                 >
-                  <Text style={[styles.sheetBtnText, { color: c.text }]}>Keep ride</Text>
+                  <Text style={[styles.sheetBtnText, { color: c.text }]}>{t('myRides.keepRide')}</Text>
                 </Pressable>
                 <Pressable
                   onPress={confirmCancel}
@@ -444,7 +443,7 @@ export function MyRidesScreen() {
                   {cancelling ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={[styles.sheetBtnText, { color: '#FFFFFF' }]}>Yes, cancel</Text>
+                    <Text style={[styles.sheetBtnText, { color: '#FFFFFF' }]}>{t('myRides.yesCancel')}</Text>
                   )}
                 </Pressable>
               </View>

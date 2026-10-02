@@ -19,6 +19,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { notificationService } from '../../services/notificationService';
 import type { Notification } from '../../types/api';
 import { logger } from '../../utils/logger';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -33,6 +34,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 export function NotificationsScreen() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<Notification[]>([]);
@@ -110,10 +112,10 @@ export function NotificationsScreen() {
       {/* ── Header ──────────────────────────────────────────── */}
       <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[s.headerTitle, { color: c.text }]}>Notifications</Text>
+        <Text style={[s.headerTitle, { color: c.text }]}>{t('notifications.notifications')}</Text>
         <Pressable accessibilityRole="button" onPress={onMarkAllRead} disabled={unreadCount === 0}>
           <Text style={{ fontSize: 13, color: unreadCount ? c.primary : c.textSec, fontWeight: '600' }}>
-            Mark all read
+            {t('notifications.markAllRead')}
           </Text>
         </Pressable>
       </View>
@@ -134,12 +136,11 @@ export function NotificationsScreen() {
           <View style={s.empty} accessibilityLiveRegion="polite">
             <Icon name={loadError ? 'wifi-off' : 'bell-check-outline'} size={48} color={c.textSec} />
             <Text style={[s.emptyTitle, { color: c.text }]}>
-              {loadError ? "Notifications couldn't be loaded" : "You're all caught up"}
+              {loadError ? t('notifications.loadFailed') : t('notifications.caughtUp')}
             </Text>
             <Text style={[s.emptySub, { color: c.textSec }]}>
               {loadError
-                ? 'Check your connection and pull down to try again.'
-                : 'Booking updates, messages and ride alerts will show up here.'}
+                ? t('notifications.checkYourConnectionAndPull') : t('notifications.bookingUpdatesMessagesAndRide')}
             </Text>
           </View>
         )}

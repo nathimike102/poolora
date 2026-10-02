@@ -40,6 +40,7 @@ import { MAPS_ENABLED, MAP_STYLE } from '../config/maps';
 import { Icon } from './Icon';
 import { MapPlaceholder } from './MapPlaceholder';
 import { REGION } from '../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Coordinate = { latitude: number; longitude: number };
 
@@ -86,6 +87,7 @@ function OpenLiveMap({
   driverLocation,
 }: LiveMapProps) {
   const { isDarkMode, c } = useApp();
+  const { t } = useTranslation();
   const cameraRef = useRef<CameraRef>(null);
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
   const [locationGranted, setLocationGranted] = useState(false);
@@ -224,7 +226,7 @@ function OpenLiveMap({
           {/* ── Driver marker ─────────────────────────────────── */}
           {canShowDriver && driverLocation && (
             <Marker id="driver" lngLat={toLngLat(driverLocation)} anchor="center">
-              <View style={styles.driverMarkerOuter} accessibilityLabel="Driver">
+              <View style={styles.driverMarkerOuter} accessibilityLabel={t('liveMap.driver')}>
                 <View style={styles.driverMarkerInner}>
                   <Icon name="car" size={20} color="#FFFFFF" />
                 </View>

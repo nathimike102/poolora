@@ -22,6 +22,7 @@ import { API_ENDPOINTS } from '../api/constants';
 import type { ApiResponse } from '../types/api';
 import { batteryLevel } from '../utils/battery';
 import { logger } from '../utils/logger';
+import i18n from '../i18n';
 
 export const TRIP_LOCATION_TASK = 'poolora-trip-location';
 const ACTIVE_TRIP_KEY = '@poolora_active_trip';
@@ -72,10 +73,8 @@ export async function startTripTracking(rideId: string, role: Role): Promise<boo
       showsBackgroundLocationIndicator: true,
       activityType: Location.ActivityType.AutomotiveNavigation,
       foregroundService: {
-        notificationTitle: 'Ride in progress',
-        notificationBody: role === 'driver'
-          ? 'Sharing the car\'s position with your riders and the Poolora safety team.'
-          : 'Sharing your position with the Poolora safety team until you are dropped off.',
+        notificationTitle: i18n.t('tracking.rideTitle'),
+        notificationBody: role === 'driver' ? i18n.t('tracking.rideDriver') : i18n.t('tracking.rideRider'),
         notificationColor: '#0B7A75',
         killServiceOnDestroy: false,
       },

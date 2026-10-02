@@ -253,7 +253,7 @@ export function RiderHomeScreen() {
                 onPress={() => openCategory(key)}
               />
             ))}
-            <Tile icon="shield-check-outline" label="Safety" onPress={() => navigation.navigate('SOS')} />
+            <Tile icon="shield-check-outline" label={t('home.safety')} onPress={() => navigation.navigate('SOS')} />
           </View>
 
           {/* Saved routes */}

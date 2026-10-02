@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COMPANY } from '../config/company';
+import { useTranslation } from 'react-i18next';
 
 const STORAGE_KEY = '@poolora_policy_accepted';
 
@@ -12,6 +13,7 @@ interface Props {
 
 export function PolicyModal({ visible, onAccept }: Props) {
   const [internalVisible, setInternalVisible] = useState(visible);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setInternalVisible(visible);
@@ -32,20 +34,19 @@ export function PolicyModal({ visible, onAccept }: Props) {
       <View style={styles.backdrop}>
         <View style={styles.container}>
           <ScrollView>
-            <Text style={styles.title} accessibilityRole="header">Before you continue</Text>
+            <Text style={styles.title} accessibilityRole="header">{t('policyModal.beforeYouContinue')}</Text>
             <Text style={styles.body}>
-              Poolora uses your phone number, location during rides and the details you share with drivers and
-              riders to arrange trips and keep them safe. Please read how we handle this before you continue.
+              {t('policyModal.intro')}
             </Text>
             <Pressable onPress={() => Linking.openURL(COMPANY.termsUrl)} accessibilityRole="link" style={styles.link}>
-              <Text style={styles.linkText}>Read the Terms of Service</Text>
+              <Text style={styles.linkText}>{t('policyModal.readTheTermsOfService')}</Text>
             </Pressable>
             <Pressable onPress={() => Linking.openURL(COMPANY.privacyUrl)} accessibilityRole="link" style={styles.link}>
-              <Text style={styles.linkText}>Read the Privacy Policy</Text>
+              <Text style={styles.linkText}>{t('policyModal.readThePrivacyPolicy')}</Text>
             </Pressable>
           </ScrollView>
           <Pressable onPress={accept} accessibilityRole="button" style={styles.acceptBtn}>
-            <Text style={styles.acceptText}>I agree to the Terms and Privacy Policy</Text>
+            <Text style={styles.acceptText}>{t('policyModal.iAgreeToTheTerms')}</Text>
           </Pressable>
         </View>
       </View>

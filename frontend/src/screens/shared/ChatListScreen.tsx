@@ -21,6 +21,7 @@ import { ImageWithFallback } from '../../components/ImageWithFallback';
 import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -37,6 +38,7 @@ interface Conversation {
 
 export function ChatListScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c, role } = useApp();
   const insets = useSafeAreaInsets();
   // Riders open this from their profile; drivers have it as a tab
@@ -69,7 +71,7 @@ export function ChatListScreen(): React.ReactElement {
                 const otherParty = role === 'driver' ? b.rider : b.driver;
                 return {
                   id: b._id,
-                  name: otherParty?.name || (role === 'driver' ? 'Rider' : 'Driver'),
+                  name: otherParty?.name || (role === 'driver' ? t('chatList.rider') : t('chatList.driver')),
                   avatar: otherParty?.profilePhotoUrl,
                   time: new Date(b.createdAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' }),
                   ride: `${b.pickup?.address || 'Pickup'} to ${b.dropoff?.address || 'drop'}`,
@@ -88,7 +90,7 @@ export function ChatListScreen(): React.ReactElement {
       
       fetchChats();
       return () => { isActive = false; };
-    }, [role])
+    }, [role, t])
   );
 
   const filtered = React.useMemo(() => {
@@ -103,7 +105,7 @@ export function ChatListScreen(): React.ReactElement {
       <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <View style={s.headerTop}>
           {pushed && <BackButton onPress={() => navigation.goBack()} />}
-          <Text style={{ flex: 1, fontSize: 22, fontWeight: '800', color: c.text }} accessibilityRole="header">Messages</Text>
+          <Text style={{ flex: 1, fontSize: 22, fontWeight: '800', color: c.text }} accessibilityRole="header">{t('chatList.messages')}</Text>
           {totalUnread > 0 && (
             <View style={[s.newBadge, { backgroundColor: c.errorLight }]}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: c.error }}>{totalUnread} new</Text>
@@ -122,9 +124,9 @@ export function ChatListScreen(): React.ReactElement {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search by name or place"
+            placeholder={t('chatList.searchByNameOrPlace')}
             placeholderTextColor={c.textSec}
-            accessibilityLabel="Search conversations"
+            accessibilityLabel={t('chatList.searchConversations')}
             style={[s.searchInput, { color: c.text }]}
           />
         </View>
@@ -149,20 +151,20 @@ export function ChatListScreen(): React.ReactElement {
               />
             </Svg>
             <Text style={{ fontSize: 12, color: '#7A5200', flex: 1 }}>
-              Chats open once a booking is confirmed. Messages are deleted <Text style={{ fontWeight: '700' }}>90 days</Text> after they are sent.
+              Chats open once a booking is confirmed. Messages are deleted <Text style={{ fontWeight: '700' }}>{t('chatList.n90Days')}</Text> after they are sent.
             </Text>
           </View>
         }
         ListEmptyComponent={
           <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', paddingTop: 24, paddingHorizontal: 24 }}>
-            {query ? 'No conversations match your search.' : 'You have no chats yet. They appear here when a booking is confirmed.'}
+            {query ? t('chatList.noConversationsMatchYourSearch') : t('chatList.youHaveNoChatsYet')}
           </Text>
         }
         renderItem={({ item: convo }) => (
           <Pressable
             onPress={() => navigation.navigate('Chat', { chatId: convo.id, recipientName: convo.name })}
             accessibilityRole="button"
-            accessibilityLabel={`Chat with ${convo.name}, ${convo.ride}`}
+            accessibilityLabel={t('chatList.chatWith', { name: convo.name, ride: convo.ride })}
             style={[s.convoRow, { borderBottomColor: c.border }]}
           >
             {convo.avatar ? (
@@ -183,7 +185,7 @@ export function ChatListScreen(): React.ReactElement {
                 {convo.ride}
               </Text>
               <Text style={{ fontSize: 13, color: c.textSec }}>
-                {convo.status === 'completed' ? 'Ride completed' : 'Ride confirmed'}
+                {convo.status === 'completed' ? t('chatList.rideCompleted') : t('chatList.rideConfirmed')}
               </Text>
             </View>
           </Pressable>

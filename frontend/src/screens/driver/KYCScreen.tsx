@@ -34,19 +34,22 @@ import { errorHandler } from '../../utils/errorHandler';
 import { Radius, Spacing, Typography } from '../../theme';
 import type { User, VehicleType } from '../../types/api';
 import { REGISTRABLE_VEHICLES } from '../../utils/vehicles';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type DocKey = 'licence' | 'registration' | 'insurance' | 'vehiclePhoto';
 
 const DOCS: { key: DocKey; label: string; hint: string }[] = [
-  { key: 'licence', label: 'Driving licence', hint: 'Front side, all text readable' },
-  { key: 'registration', label: 'Vehicle registration book', hint: 'The page showing the registration number' },
-  { key: 'insurance', label: 'Vehicle insurance', hint: 'The current policy page' },
-  { key: 'vehiclePhoto', label: 'Photo of your vehicle', hint: 'Number plate clearly visible' },
+  { key: 'licence', get label() { return i18n.t('kYC.docs.licence.label'); }, get hint() { return i18n.t('kYC.docs.licence.hint'); } },
+  { key: 'registration', get label() { return i18n.t('kYC.docs.registration.label'); }, get hint() { return i18n.t('kYC.docs.registration.hint'); } },
+  { key: 'insurance', get label() { return i18n.t('kYC.docs.insurance.label'); }, get hint() { return i18n.t('kYC.docs.insurance.hint'); } },
+  { key: 'vehiclePhoto', get label() { return i18n.t('kYC.docs.vehiclePhoto.label'); }, get hint() { return i18n.t('kYC.docs.vehiclePhoto.hint'); } },
 ];
 
 
 export function KYCScreen() {
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
@@ -76,7 +79,7 @@ export function KYCScreen() {
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission needed', `Allow ${source === 'camera' ? 'camera' : 'photo library'} access to add this document.`);
+      Alert.alert(t('kYC.permissionNeeded'), `Allow ${source === 'camera' ? 'camera' : 'photo library'} access to add this document.`);
       return;
     }
     const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.7 };
@@ -92,10 +95,10 @@ export function KYCScreen() {
   };
 
   const choose = (key: DocKey) =>
-    Alert.alert('Add document', undefined, [
-      { text: 'Take photo', onPress: () => pick(key, 'camera') },
-      { text: 'Choose from library', onPress: () => pick(key, 'library') },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('kYC.addDocument'), undefined, [
+      { text: t('kYC.takePhoto'), onPress: () => pick(key, 'camera') },
+      { text: t('kYC.chooseFromLibrary'), onPress: () => pick(key, 'library') },
+      { text: t('kYC.cancel'), style: 'cancel' },
     ]);
 
   const yearNumber = Number(year);
@@ -133,7 +136,7 @@ export function KYCScreen() {
           insurance: files.insurance!,
           vehiclePhoto: files.vehiclePhoto!,
         },
-        (done, total) => setProgress(done < total ? `Uploading document ${done + 1} of ${total}` : 'Submitting'),
+        (done, total) => setProgress(done < total ? t('kYC.uploading', { n: done + 1, total }) : t('kYC.submitting')),
       );
       setProfile(user);
     } catch (err) {
@@ -149,7 +152,7 @@ export function KYCScreen() {
   const header = (
     <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
       <BackButton onPress={() => navigation.goBack()} />
-      <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Driver verification</Text>
+      <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('kYC.driverVerification')}</Text>
     </View>
   );
 
@@ -161,12 +164,11 @@ export function KYCScreen() {
         <View style={styles.centered}>
           <Icon name={approved ? 'check-decagram' : 'timer-sand'} size={56} color={approved ? c.success : c.primary} />
           <Text style={[styles.statusTitle, { color: c.text }]}>
-            {approved ? 'You are verified' : 'Documents under review'}
+            {approved ? t('kYC.youAreVerified') : t('kYC.documentsUnderReview')}
           </Text>
           <Text style={[styles.statusBody, { color: c.textSec }]}>
             {approved
-              ? 'You can offer rides now.'
-              : 'A member of the Poolora team checks every submission. We will notify you when it has been reviewed.'}
+              ? t('kYC.youCanOfferRidesNow') : t('kYC.aMemberOfThePoolora')}
           </Text>
         </View>
       </View>
@@ -180,38 +182,37 @@ export function KYCScreen() {
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {status === 'rejected' && (
             <View style={[styles.notice, { backgroundColor: c.errorLight }]} accessibilityLiveRegion="polite">
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>Your last submission was not approved</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{t('kYC.yourLastSubmissionWasNot')}</Text>
               {profile?.kyc?.rejectionReason ? (
                 <Text style={{ fontSize: 14, color: c.text, marginTop: 4 }}>{profile.kyc.rejectionReason}</Text>
               ) : null}
-              <Text style={{ fontSize: 14, color: c.text, marginTop: 4 }}>Correct the details below and submit again.</Text>
+              <Text style={{ fontSize: 14, color: c.text, marginTop: 4 }}>{t('kYC.correctTheDetailsBelowAnd')}</Text>
             </View>
           )}
 
           <Text style={{ fontSize: 14, color: c.textSec, lineHeight: 20 }}>
-            Riders can only book drivers whose documents have been checked. Your documents are stored privately
-            and are only seen by the team reviewing your application.
+            {t('kYC.privacy')}
           </Text>
 
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.sectionTitle, { color: c.text }]}>Licence</Text>
-            <Field label="Driving licence number" value={licenseNumber} onChange={setLicenseNumber} autoCapitalize="characters" c={c} />
+            <Text style={[styles.sectionTitle, { color: c.text }]}>{t('kYC.licence')}</Text>
+            <Field label={t('kYC.drivingLicenceNumber')} value={licenseNumber} onChange={setLicenseNumber} autoCapitalize="characters" c={c} />
           </View>
 
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.sectionTitle, { color: c.text }]}>Vehicle</Text>
-            <Field label="Make" value={make} onChange={setMake} placeholder="For example, Toyota" c={c} />
-            <Field label="Model" value={model} onChange={setModel} placeholder="For example, Corolla" c={c} />
+            <Text style={[styles.sectionTitle, { color: c.text }]}>{t('kYC.vehicle')}</Text>
+            <Field label={t('kYC.make')} value={make} onChange={setMake} placeholder={t('kYC.forExampleToyota')} c={c} />
+            <Field label={t('kYC.model')} value={model} onChange={setModel} placeholder={t('kYC.forExampleCorolla')} c={c} />
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
-                <Field label="Year" value={year} onChange={t => setYear(t.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={4} c={c} />
+                <Field label={t('kYC.year')} value={year} onChange={t => setYear(t.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={4} c={c} />
               </View>
               <View style={{ flex: 1 }}>
-                <Field label="Colour" value={color} onChange={setColor} c={c} />
+                <Field label={t('kYC.colour')} value={color} onChange={setColor} c={c} />
               </View>
             </View>
-            <Field label="Registration number" value={plate} onChange={setPlate} autoCapitalize="characters" placeholder="For example, AEA 1234" c={c} />
-            <Text style={[styles.label, { color: c.textSec }]}>Type</Text>
+            <Field label={t('kYC.registrationNumber')} value={plate} onChange={setPlate} autoCapitalize="characters" placeholder={t('kYC.forExampleAea1234')} c={c} />
+            <Text style={[styles.label, { color: c.textSec }]}>{t('kYC.type')}</Text>
             <View style={styles.chips} accessibilityRole="radiogroup">
               {REGISTRABLE_VEHICLES.map(t => {
                 const selected = vehicleType === t.value;
@@ -229,13 +230,13 @@ export function KYCScreen() {
               })}
             </View>
             <View style={styles.switchRow}>
-              <Text style={{ flex: 1, fontSize: 15, color: c.text }}>Air conditioning</Text>
-              <Switch value={hasAC} onValueChange={setHasAC} accessibilityLabel="Air conditioning" trackColor={{ false: c.border, true: c.primary }} />
+              <Text style={{ flex: 1, fontSize: 15, color: c.text }}>{t('kYC.airConditioning')}</Text>
+              <Switch value={hasAC} onValueChange={setHasAC} accessibilityLabel={t('kYC.airConditioning')} trackColor={{ false: c.border, true: c.primary }} />
             </View>
           </View>
 
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.sectionTitle, { color: c.text }]}>Documents</Text>
+            <Text style={[styles.sectionTitle, { color: c.text }]}>{t('kYC.documents')}</Text>
             {DOCS.map(doc => {
               const file = files[doc.key];
               return (
@@ -244,7 +245,7 @@ export function KYCScreen() {
                   onPress={() => choose(doc.key)}
                   disabled={submitting}
                   accessibilityRole="button"
-                  accessibilityLabel={`${doc.label}, ${file ? 'added, tap to replace' : 'not added'}`}
+                  accessibilityLabel={file ? t('kYC.docAdded', { label: doc.label }) : t('kYC.docMissing', { label: doc.label })}
                   style={[styles.docRow, { borderColor: file ? c.success : c.border }]}
                 >
                   {file ? (
@@ -256,7 +257,7 @@ export function KYCScreen() {
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>{doc.label}</Text>
-                    <Text style={{ fontSize: 13, color: c.textSec }}>{file ? 'Added. Tap to replace.' : doc.hint}</Text>
+                    <Text style={{ fontSize: 13, color: c.textSec }}>{file ? t('kYC.addedReplace') : doc.hint}</Text>
                   </View>
                   {file ? <Icon name="check-circle" size={22} color={c.success} /> : null}
                 </Pressable>
@@ -281,7 +282,7 @@ export function KYCScreen() {
                 <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]} accessibilityLiveRegion="polite">{progress}</Text>
               </View>
             ) : (
-              <Text style={[styles.primaryBtnText, { color: complete ? c.textOnPrimary : c.textSec }]}>Submit for review</Text>
+              <Text style={[styles.primaryBtnText, { color: complete ? c.textOnPrimary : c.textSec }]}>{t('kYC.submitForReview')}</Text>
             )}
           </Pressable>
         </ScrollView>

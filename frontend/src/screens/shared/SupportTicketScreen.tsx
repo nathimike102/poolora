@@ -18,21 +18,24 @@ import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type SupportCategory, type SupportTicket } from '../../services/supportService';
 import { errorHandler } from '../../utils/errorHandler';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 const CATEGORIES: Array<{ value: SupportCategory; label: string }> = [
-  { value: 'safety', label: 'Safety concern' },
-  { value: 'payment', label: 'Payment problem' },
-  { value: 'account', label: 'My account' },
-  { value: 'dispute', label: 'A problem with a trip' },
-  { value: 'technical', label: 'The app is not working' },
-  { value: 'feature', label: 'Feature request' },
-  { value: 'feedback', label: 'General feedback' },
+  { value: 'safety', get label() { return i18n.t('supportTicket.categories.safety'); } },
+  { value: 'payment', get label() { return i18n.t('supportTicket.categories.payment'); } },
+  { value: 'account', get label() { return i18n.t('supportTicket.categories.account'); } },
+  { value: 'dispute', get label() { return i18n.t('supportTicket.categories.dispute'); } },
+  { value: 'technical', get label() { return i18n.t('supportTicket.categories.technical'); } },
+  { value: 'feature', get label() { return i18n.t('supportTicket.categories.feature'); } },
+  { value: 'feedback', get label() { return i18n.t('supportTicket.categories.feedback'); } },
 ];
 
 export function SupportTicketScreen() {
   const { ticketId, bookingId } = useRoute<RouteProp<RootStackParamList, 'SupportTicket'>>().params ?? {};
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
@@ -60,14 +63,14 @@ export function SupportTicketScreen() {
       const created = await supportService.create({ category, subject: subject.trim(), message: message.trim(), bookingId });
       const urgent = created.priority === 'urgent';
       Alert.alert(
-        'Request sent',
+        t('supportTicket.requestSent'),
         urgent
-          ? `Safety and payment requests are answered first. If you are in danger, call ${REGION.emergency.general}.`
-          : 'We usually reply within a day. You will get a notification and an email.',
-        [{ text: 'OK', onPress: () => navigation.replace('SupportTicket', { ticketId: created._id }) }],
+          ? t('supportTicket.urgentSent', { number: REGION.emergency.general })
+          : t('supportTicket.normalSent'),
+        [{ text: t('supportTicket.ok'), onPress: () => navigation.replace('SupportTicket', { ticketId: created._id }) }],
       );
     } catch (error) {
-      Alert.alert('Not sent', errorHandler.process(error).message);
+      Alert.alert(t('supportTicket.notSent'), errorHandler.process(error).message);
     } finally {
       setSending(false);
     }
@@ -80,13 +83,13 @@ export function SupportTicketScreen() {
       setTicket(await supportService.reply(ticketId, message.trim()));
       setMessage('');
     } catch (error) {
-      Alert.alert('Not sent', errorHandler.process(error).message);
+      Alert.alert(t('supportTicket.notSent'), errorHandler.process(error).message);
     } finally {
       setSending(false);
     }
   };
 
-  const title = ticketId ? ticket?.subject ?? 'Your request' : 'Contact us';
+  const title = ticketId ? ticket?.subject ?? t('supportTicket.yourRequest') : t('supportTicket.contactUs');
 
   return (
     <KeyboardAvoidingView style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -98,7 +101,7 @@ export function SupportTicketScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {!ticketId ? (
           <>
-            <Text style={[styles.label, { color: c.text }]}>What is it about?</Text>
+            <Text style={[styles.label, { color: c.text }]}>{t('supportTicket.whatIsItAbout')}</Text>
             <View style={styles.chips} accessibilityRole="radiogroup">
               {CATEGORIES.map(cat => {
                 const selected = category === cat.value;
@@ -120,35 +123,35 @@ export function SupportTicketScreen() {
                 If you are in danger now, call {REGION.emergency.general}. During a ride, use SOS: it reaches our safety team fastest.
               </Text>
             ) : null}
-            <Text style={[styles.label, { color: c.text }]}>Subject</Text>
+            <Text style={[styles.label, { color: c.text }]}>{t('supportTicket.subject')}</Text>
             <TextInput
               value={subject}
               onChangeText={setSubject}
               maxLength={120}
-              placeholder="Charged twice for one trip"
+              placeholder={t('supportTicket.chargedTwiceForOneTrip')}
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Subject"
+              accessibilityLabel={t('supportTicket.subject')}
               style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
             />
-            <Text style={[styles.label, { color: c.text }]}>Tell us more</Text>
+            <Text style={[styles.label, { color: c.text }]}>{t('supportTicket.tellUsMore')}</Text>
             <TextInput
               value={message}
               onChangeText={setMessage}
               multiline
               maxLength={4000}
-              placeholder="What happened, when, and on which trip"
+              placeholder={t('supportTicket.whatHappenedWhenAndOn')}
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Message"
+              accessibilityLabel={t('supportTicket.message')}
               style={[styles.input, styles.multi, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
             />
             <Pressable onPress={create} disabled={!canCreate} accessibilityRole="button" style={[styles.primary, { backgroundColor: canCreate ? c.primary : c.border }]}>
               {sending ? <ActivityIndicator color={c.textOnPrimary} /> : (
-                <Text style={{ fontSize: 16, fontWeight: '700', color: canCreate ? c.textOnPrimary : c.textSec }}>Send</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: canCreate ? c.textOnPrimary : c.textSec }}>{t('supportTicket.send')}</Text>
               )}
             </Pressable>
           </>
         ) : loadError ? (
-          <Text style={{ fontSize: 14, color: c.textSec }}>This request could not be loaded. Go back and try again.</Text>
+          <Text style={{ fontSize: 14, color: c.textSec }}>{t('supportTicket.thisRequestCouldNotBe')}</Text>
         ) : !ticket ? (
           <ActivityIndicator color={c.primary} />
         ) : (
@@ -160,7 +163,7 @@ export function SupportTicketScreen() {
                   key={i}
                   style={[styles.bubble, mine ? { alignSelf: 'flex-end', backgroundColor: c.primaryLight } : { alignSelf: 'flex-start', backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 }]}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSec }}>{mine ? 'You' : 'Poolora support'}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSec }}>{mine ? t('supportTicket.you') : t('supportTicket.pooloraSupport')}</Text>
                   <Text style={{ fontSize: 15, color: c.text }}>{m.text}</Text>
                   <Text style={{ fontSize: 11, color: c.textSec }}>{new Date(m.at).toLocaleString(REGION.dateLocale, { dateStyle: 'medium', timeStyle: 'short' })}</Text>
                 </View>
@@ -168,7 +171,7 @@ export function SupportTicketScreen() {
             })}
             {ticket.status === 'open' ? (
               <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center' }}>
-                {ticket.priority === 'urgent' ? 'Urgent requests are answered first.' : 'We usually reply within a day.'}
+                {ticket.priority === 'urgent' ? t('supportTicket.urgentRequestsAreAnsweredFirst') : t('supportTicket.weUsuallyReplyWithinA')}
               </Text>
             ) : null}
             <TextInput
@@ -176,14 +179,14 @@ export function SupportTicketScreen() {
               onChangeText={setMessage}
               multiline
               maxLength={4000}
-              placeholder={ticket.status === 'closed' ? 'Write to reopen this request' : 'Add a message'}
+              placeholder={ticket.status === 'closed' ? t('supportTicket.writeToReopenThisRequest') : t('supportTicket.addAMessage')}
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Message"
+              accessibilityLabel={t('supportTicket.message')}
               style={[styles.input, styles.multi, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
             />
             <Pressable onPress={reply} disabled={!message.trim() || sending} accessibilityRole="button" style={[styles.primary, { backgroundColor: message.trim() ? c.primary : c.border }]}>
               {sending ? <ActivityIndicator color={c.textOnPrimary} /> : (
-                <Text style={{ fontSize: 16, fontWeight: '700', color: message.trim() ? c.textOnPrimary : c.textSec }}>Send</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: message.trim() ? c.textOnPrimary : c.textSec }}>{t('supportTicket.send')}</Text>
               )}
             </Pressable>
           </>

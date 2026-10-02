@@ -15,9 +15,11 @@ import {
 import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
 import { Typography, Radius, Shadow } from '../theme';
+import { useTranslation } from 'react-i18next';
 
 export function RoleToggle() {
   const { role, switchRole } = useApp();
+  const { t } = useTranslation();
   const isRider = role === 'rider';
 
   // ── Sliding pill animation ─────────────────────────────────────────────────
@@ -74,7 +76,7 @@ export function RoleToggle() {
             { color: isRider ? '#FFFFFF' : 'rgba(255,255,255,0.75)' },
           ]}
         >
-          Rider
+          {t('roleToggle.rider')}
         </Text>
       </TouchableOpacity>
 
@@ -94,7 +96,7 @@ export function RoleToggle() {
             { color: !isRider ? '#FFFFFF' : 'rgba(255,255,255,0.75)' },
           ]}
         >
-          Driver
+          {t('roleToggle.driver')}
         </Text>
       </TouchableOpacity>
     </View>

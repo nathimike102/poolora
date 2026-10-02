@@ -18,6 +18,7 @@ import { Icon, type IconName } from '../../components/Icon';
 import { Typography, Spacing, Radius } from '../../theme';
 import type { RootStackParamList, RiderTabParamList } from '../../navigation/types';
 import { VEHICLE_CATEGORIES, type VehicleCategory } from '../../utils/vehicles';
+import { useTranslation } from 'react-i18next';
 
 type NavProp = CompositeNavigationProp<
   BottomTabNavigationProp<RiderTabParamList, 'Services'>,
@@ -33,6 +34,7 @@ interface Service {
 
 export function ServicesScreen() {
   const navigation = useNavigation<NavProp>();
+  const { t } = useTranslation();
   const { c, switchRole } = useApp();
   const insets = useSafeAreaInsets();
 
@@ -44,26 +46,26 @@ export function ServicesScreen() {
   }));
 
   const more: Service[] = [
-    { key: 'later', label: 'Schedule', icon: 'calendar-clock', onPress: () => navigation.navigate('Search', { schedule: true }) },
-    { key: 'routes', label: 'Saved routes', icon: 'map-marker-path', onPress: () => navigation.navigate('AddSavedRoute') },
-    { key: 'sos', label: 'Safety', icon: 'shield-check-outline', onPress: () => navigation.navigate('SOS') },
-    { key: 'contacts', label: 'SOS contacts', icon: 'account-heart-outline', onPress: () => navigation.navigate('EmergencyContacts') },
-    { key: 'messages', label: 'Messages', icon: 'message-text-outline', onPress: () => navigation.navigate('Messages') },
-    { key: 'parcels', label: 'Parcels', icon: 'package-variant-closed', onPress: () => navigation.navigate('ShipParcel') },
-    { key: 'trips', label: 'Trips', icon: 'bag-suitcase-outline', onPress: () => navigation.navigate('TripPartners') },
-    { key: 'drive', label: 'Drive & earn', icon: 'steering', onPress: switchRole },
+    { key: 'later', label: t('services.later'), icon: 'calendar-clock', onPress: () => navigation.navigate('Search', { schedule: true }) },
+    { key: 'routes', label: t('services.routes'), icon: 'map-marker-path', onPress: () => navigation.navigate('AddSavedRoute') },
+    { key: 'sos', label: t('services.sos'), icon: 'shield-check-outline', onPress: () => navigation.navigate('SOS') },
+    { key: 'contacts', label: t('services.contacts'), icon: 'account-heart-outline', onPress: () => navigation.navigate('EmergencyContacts') },
+    { key: 'messages', label: t('services.messages'), icon: 'message-text-outline', onPress: () => navigation.navigate('Messages') },
+    { key: 'parcels', label: t('services.parcels'), icon: 'package-variant-closed', onPress: () => navigation.navigate('ShipParcel') },
+    { key: 'trips', label: t('services.trips'), icon: 'bag-suitcase-outline', onPress: () => navigation.navigate('TripPartners') },
+    { key: 'drive', label: t('services.drive'), icon: 'steering', onPress: switchRole },
   ];
 
 
   return (
     <View style={[styles.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">All services</Text>
+        <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">{t('services.allServices')}</Text>
 
-        <Text style={[styles.section, { color: c.textSec }]}>Rides</Text>
+        <Text style={[styles.section, { color: c.textSec }]}>{t('services.rides')}</Text>
         <Grid items={rides} />
 
-        <Text style={[styles.section, { color: c.textSec }]}>More</Text>
+        <Text style={[styles.section, { color: c.textSec }]}>{t('services.more')}</Text>
         <Grid items={more} />
       </ScrollView>
     </View>

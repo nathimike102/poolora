@@ -22,6 +22,7 @@ import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Ride } from '../../types/api';
 import { money, REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -32,6 +33,7 @@ function when(iso: string) {
 export function ParcelResultsScreen() {
   const { draft } = useRoute<RouteProp<RootStackParamList, 'ParcelResults'>>().params;
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [rides, setRides] = useState<Ride[] | null>(null);
@@ -55,14 +57,14 @@ export function ParcelResultsScreen() {
   }, [draft]);
 
   const send = (ride: Ride) => {
-    const driver = ride.driver?.name?.split(' ')[0] ?? 'the driver';
+    const driver = ride.driver?.name?.split(' ')[0] ?? t('parcelResults.theDriver');
     Alert.alert(
-      `Send with ${driver}?`,
-      `${price !== null ? `${money(price)} ` : ''}${draft.useWallet ? 'from your wallet' : 'by EcoCash, OneMoney, InnBucks or card'}. You get a full refund if ${driver} declines or you cancel before pickup.`,
+      t('parcelResults.confirmTitle', { driver }),
+      t(draft.useWallet ? 'parcelResults.confirmWallet' : 'parcelResults.confirmOnline', { price: price !== null ? `${money(price)} ` : '', driver }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('parcelResults.cancel'), style: 'cancel' },
         {
-          text: 'Send',
+          text: t('parcelResults.send'),
           onPress: async () => {
             setSending(ride._id);
             try {
@@ -89,7 +91,7 @@ export function ParcelResultsScreen() {
                 navigation.replace('ParcelTracking', tracking);
               }
             } catch (e) {
-              Alert.alert('Not sent', errorHandler.process(e).message);
+              Alert.alert(t('parcelResults.notSent'), errorHandler.process(e).message);
             } finally {
               setSending(null);
             }
@@ -104,7 +106,7 @@ export function ParcelResultsScreen() {
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Choose a driver</Text>
+          <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('parcelResults.chooseADriver')}</Text>
           <Text style={{ fontSize: 12, color: c.textSec, textAlign: 'center' }} numberOfLines={1}>
             {draft.pickupLocation.address.split(',')[0]} to {draft.deliveryLocation.address.split(',')[0]}
             {price !== null ? ` · ${money(price)}` : ''}
@@ -124,8 +126,8 @@ export function ParcelResultsScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Icon name="package-variant" size={40} color={c.textSec} />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>No drivers on this route yet</Text>
-              <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center' }}>Try another day or time, or a pickup point on a main road.</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{t('parcelResults.noDriversOnThisRoute')}</Text>
+              <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center' }}>{t('parcelResults.tryAnotherDayOrTime')}</Text>
             </View>
           }
           renderItem={({ item: r }) => (
@@ -133,17 +135,17 @@ export function ParcelResultsScreen() {
               onPress={() => send(r)}
               disabled={sending !== null}
               accessibilityRole="button"
-              accessibilityLabel={`Send with ${r.driver?.name ?? 'driver'}, leaving ${when(r.scheduledDeparture)}`}
+              accessibilityLabel={t('parcelResults.sendLabel', { driver: r.driver?.name ?? t('parcelResults.driverLower'), when: when(r.scheduledDeparture) })}
               style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}
             >
               <View style={{ flex: 1, gap: 2 }}>
                 <View style={styles.nameRow}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{r.driver?.name ?? 'Driver'}</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{r.driver?.name ?? t('parcelResults.driver')}</Text>
                   {r.driver?.verified ? <VerifiedBadge compact /> : null}
                 </View>
-                <Text style={{ fontSize: 13, color: c.textSec }}>Leaves {when(r.scheduledDeparture)}</Text>
+                <Text style={{ fontSize: 13, color: c.textSec }}>{t('parcelResults.leaves', { when: when(r.scheduledDeparture) })}</Text>
                 <Text style={{ fontSize: 13, color: c.textSec }} numberOfLines={1}>
-                  {r.pickupLocation.address?.split(',')[0]} to {r.dropoffLocation.address?.split(',')[0]}
+                  {t('parcelResults.route', { from: r.pickupLocation.address?.split(',')[0], to: r.dropoffLocation.address?.split(',')[0] })}
                   {r.vehicle ? ` · ${r.vehicle.make} ${r.vehicle.model}` : ''}
                 </Text>
               </View>

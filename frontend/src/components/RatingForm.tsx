@@ -15,31 +15,34 @@ import { Icon } from './Icon';
 import { errorHandler } from '../utils/errorHandler';
 import type { RatingCategory, RatingInput, RatingIssue } from '../services/ratingService';
 import { REGION } from '../utils/region';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 
-const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+/** Words for 1 to 5 stars are in the catalogue under ratingForm.levels */
 
 /** UI labels mapped to the rating tags the backend accepts */
 const RATING_TAGS: { label: string; value: string }[] = [
-  { label: 'On time', value: 'punctuality' },
-  { label: 'Safe driving', value: 'driving' },
-  { label: 'Clean car', value: 'cleanliness' },
-  { label: 'Polite', value: 'politeness' },
-  { label: 'Good communication', value: 'communication' },
+  { get label() { return i18n.t('ratingForm.tags.punctuality'); }, value: 'punctuality' },
+  { get label() { return i18n.t('ratingForm.tags.driving'); }, value: 'driving' },
+  { get label() { return i18n.t('ratingForm.tags.cleanliness'); }, value: 'cleanliness' },
+  { get label() { return i18n.t('ratingForm.tags.politeness'); }, value: 'politeness' },
+  { get label() { return i18n.t('ratingForm.tags.communication'); }, value: 'communication' },
 ];
 
 const CATEGORIES: { key: RatingCategory; label: string }[] = [
-  { key: 'behavior', label: 'Driver behaviour' },
-  { key: 'cleanliness', label: 'Vehicle cleanliness' },
-  { key: 'punctuality', label: 'Punctuality' },
+  { key: 'behavior', get label() { return i18n.t('ratingForm.categories.behavior'); } },
+  { key: 'cleanliness', get label() { return i18n.t('ratingForm.categories.cleanliness'); } },
+  { key: 'punctuality', get label() { return i18n.t('ratingForm.categories.punctuality'); } },
 ];
 
 const ISSUES: { key: RatingIssue; label: string }[] = [
-  { key: 'safety', label: 'A safety problem' },
-  { key: 'route', label: 'Route or timing problem' },
-  { key: 'payment', label: 'Payment problem' },
+  { key: 'safety', get label() { return i18n.t('ratingForm.issues.safety'); } },
+  { key: 'route', get label() { return i18n.t('ratingForm.issues.route'); } },
+  { key: 'payment', get label() { return i18n.t('ratingForm.issues.payment'); } },
 ];
 
 export function StarRating({ value, onChange, size = 36, label }: { value: number; onChange: (v: number) => void; size?: number; label?: string }) {
+  const { t } = useTranslation();
   return (
     <View
       style={styles.starRow}
@@ -53,7 +56,7 @@ export function StarRating({ value, onChange, size = 36, label }: { value: numbe
           onPress={() => onChange(s)}
           hitSlop={6}
           accessibilityRole="button"
-          accessibilityLabel={`${label ? `${label}, ` : ''}${s} ${s === 1 ? 'star' : 'stars'}`}
+          accessibilityLabel={s === 1 ? t('ratingForm.starOne', { prefix: label ? `${label}, ` : '' }) : t('ratingForm.starMany', { prefix: label ? `${label}, ` : '', count: s })}
         >
           <Svg width={size} height={size} viewBox="0 0 24 24">
             <Path
@@ -69,9 +72,9 @@ export function StarRating({ value, onChange, size = 36, label }: { value: numbe
 
 /** A plain question gets honest answers; stored as 5, 3 and 1 */
 const SAFETY_ANSWERS = [
-  { value: 5, label: 'Yes' },
-  { value: 3, label: 'Mostly' },
-  { value: 1, label: 'No' },
+  { value: 5, get label() { return i18n.t('ratingForm.safe.yes'); } },
+  { value: 3, get label() { return i18n.t('ratingForm.safe.mostly'); } },
+  { value: 1, get label() { return i18n.t('ratingForm.safe.no'); } },
 ];
 
 export function RatingForm({
@@ -84,6 +87,7 @@ export function RatingForm({
   onSkip?: () => void;
 }) {
   const { c } = useApp();
+  const { t } = useTranslation();
   const [score, setScore] = useState(0);
   const [categories, setCategories] = useState<Partial<Record<RatingCategory, number>>>({});
   const [tags, setTags] = useState<string[]>([]);
@@ -114,8 +118,8 @@ export function RatingForm({
         How was your ride with {rateeName}?
       </Text>
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <StarRating value={score} onChange={setScore} label="Overall" />
-        {score > 0 && <Text style={{ fontSize: 14, color: c.textSec, marginTop: 8 }}>{RATING_LABELS[score]}</Text>}
+        <StarRating value={score} onChange={setScore} label={t('ratingForm.overall')} />
+        {score > 0 && <Text style={{ fontSize: 14, color: c.textSec, marginTop: 8 }}>{t(`ratingForm.levels.${score}`)}</Text>}
       </View>
 
       {score > 0 && (
@@ -156,16 +160,16 @@ export function RatingForm({
             onChangeText={setComment}
             multiline
             maxLength={500}
-            placeholder="Write a review (optional)"
+            placeholder={t('ratingForm.writeAReviewOptional')}
             placeholderTextColor={c.textSec}
-            accessibilityLabel="Review"
+            accessibilityLabel={t('ratingForm.review')}
             style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
           />
           {comment.trim() ? (
-            <Text style={{ fontSize: 12, color: c.textSec }}>Reviews appear on the driver's profile after our team checks them.</Text>
+            <Text style={{ fontSize: 12, color: c.textSec }}>{t('ratingForm.reviewsAppearOnTheDrivers')}</Text>
           ) : null}
 
-          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginTop: 4 }}>Did you feel safe?</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginTop: 4 }}>{t('ratingForm.didYouFeelSafe')}</Text>
           <View style={styles.tags} accessibilityRole="radiogroup">
             {SAFETY_ANSWERS.map(a => {
               const selected = safety === a.value;
@@ -186,9 +190,9 @@ export function RatingForm({
               );
             })}
           </View>
-          <Text style={{ fontSize: 12, color: c.textSec }}>Private: only Poolora's safety team sees this answer, never {rateeName}.</Text>
+          <Text style={{ fontSize: 12, color: c.textSec }}>{t('ratingForm.safePrivate', { name: rateeName })}</Text>
 
-          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginTop: 4 }}>Anything wrong?</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginTop: 4 }}>{t('ratingForm.anythingWrong')}</Text>
           {ISSUES.map(issue => {
             const checked = issues.includes(issue.key);
             return (
@@ -211,9 +215,9 @@ export function RatingForm({
                 onChangeText={setIssueDetails}
                 multiline
                 maxLength={1000}
-                placeholder="What happened? Only our team sees this."
+                placeholder={t('ratingForm.whatHappenedOnlyOurTeam')}
                 placeholderTextColor={c.textSec}
-                accessibilityLabel="What happened"
+                accessibilityLabel={t('ratingForm.whatHappened')}
                 style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
               />
               {issues.includes('safety') ? (
@@ -235,12 +239,12 @@ export function RatingForm({
         style={[styles.cta, { backgroundColor: score ? c.primary : c.border }]}
       >
         {sending ? <ActivityIndicator color={c.textOnPrimary} /> : (
-          <Text style={{ fontSize: 16, fontWeight: '700', color: score ? c.textOnPrimary : c.textSec }}>Submit rating</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: score ? c.textOnPrimary : c.textSec }}>{t('ratingForm.submitRating')}</Text>
         )}
       </Pressable>
       {onSkip ? (
         <Pressable onPress={onSkip} accessibilityRole="button" style={styles.textBtn}>
-          <Text style={{ fontSize: 14, color: c.textSec }}>Skip for now</Text>
+          <Text style={{ fontSize: 14, color: c.textSec }}>{t('ratingForm.skipForNow')}</Text>
         </Pressable>
       ) : null}
     </View>

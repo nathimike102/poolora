@@ -23,6 +23,8 @@ import { errorHandler } from '../../utils/errorHandler';
 import { realPhone } from '../../utils/phone';
 import { formatPhone, money, moneyInput, nationalDigits, REGION } from '../../utils/region';
 import type { Transaction, Withdrawal } from '../../types/api';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -40,15 +42,16 @@ const MONEY_IN = new Set<Transaction['type']>(['topup', 'refund', 'coin_conversi
 
 function withdrawalLine(w: Withdrawal): string {
   switch (w.status) {
-    case 'pending': return 'Waiting to be sent, usually within one working day';
-    case 'paid': return `Sent${w.payoutReference ? `, reference ${w.payoutReference}` : ''}`;
-    case 'rejected': return `Not sent, back in your wallet${w.note ? `: ${w.note}` : ''}`;
-    default: return 'Cancelled, back in your wallet';
+    case 'pending': return i18n.t('wallet.withdrawal.pending');
+    case 'paid': return w.payoutReference ? i18n.t('wallet.withdrawal.paidRef', { reference: w.payoutReference }) : i18n.t('wallet.withdrawal.paid');
+    case 'rejected': return w.note ? i18n.t('wallet.withdrawal.rejectedNote', { note: w.note }) : i18n.t('wallet.withdrawal.rejected');
+    default: return i18n.t('wallet.withdrawal.cancelled');
   }
 }
 
 export function WalletScreen() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c, user } = useApp();
   const insets = useSafeAreaInsets();
   const ownPhone = realPhone(user?.phone);
@@ -105,12 +108,12 @@ export function WalletScreen() {
 
   const withdraw = () => {
     Alert.alert(
-      `Withdraw ${money(amountNum)}?`,
-      `It leaves your wallet now and is sent to ${CHANNEL_LABEL[channel]} ${payNumber}, usually within one working day. You can cancel until it is sent.`,
+      t('wallet.confirmTitle', { amount: money(amountNum) }),
+      t('wallet.confirmBody', { wallet: CHANNEL_LABEL[channel], number: payNumber }),
       [
-        { text: 'Not now', style: 'cancel' },
+        { text: t('wallet.notNow'), style: 'cancel' },
         {
-          text: 'Withdraw',
+          text: t('wallet.withdraw'),
           onPress: async () => {
             setWithdrawError('');
             setSending(true);
@@ -134,7 +137,7 @@ export function WalletScreen() {
       await walletService.cancelWithdrawal(w._id);
       await load();
     } catch (e) {
-      Alert.alert('Could not cancel', errorHandler.process(e).message);
+      Alert.alert(t('wallet.couldNotCancel'), errorHandler.process(e).message);
     }
   };
 
@@ -142,7 +145,7 @@ export function WalletScreen() {
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={[styles.headerTitle, { color: c.text }]}>Wallet</Text>
+        <Text accessibilityRole="header" style={[styles.headerTitle, { color: c.text }]}>{t('wallet.wallet')}</Text>
       </View>
 
       <ScrollView
@@ -151,7 +154,7 @@ export function WalletScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
         <View style={[styles.card, { backgroundColor: c.primary, borderColor: c.primary }]}>
-          <Text style={{ fontSize: Typography.base, color: c.textOnPrimary, opacity: 0.85 }}>Balance</Text>
+          <Text style={{ fontSize: Typography.base, color: c.textOnPrimary, opacity: 0.85 }}>{t('wallet.balance')}</Text>
           {balance === null && !loadError ? (
             <ActivityIndicator color={c.textOnPrimary} style={{ alignSelf: 'flex-start', marginTop: 8 }} />
           ) : (
@@ -159,18 +162,18 @@ export function WalletScreen() {
               {balance === null ? 'Unavailable' : money(balance)}
             </Text>
           )}
-          <Text style={{ fontSize: 13, color: c.textOnPrimary, opacity: 0.85, marginTop: 6 }}>Refunds and earnings arrive here. Pay for rides with it, or withdraw it.</Text>
+          <Text style={{ fontSize: 13, color: c.textOnPrimary, opacity: 0.85, marginTop: 6 }}>{t('wallet.refundsAndEarningsArriveHere')}</Text>
         </View>
         {loadError ? (
           <View style={[styles.notice, { backgroundColor: c.errorLight }]}>
             <Text style={{ color: c.text }}>{loadError}</Text>
-            <Pressable onPress={load} accessibilityRole="button" style={styles.linkBtn}><Text style={{ color: c.primary, fontWeight: '600' }}>Try again</Text></Pressable>
+            <Pressable onPress={load} accessibilityRole="button" style={styles.linkBtn}><Text style={{ color: c.primary, fontWeight: '600' }}>{t('wallet.tryAgain')}</Text></Pressable>
           </View>
         ) : null}
 
         {/* Top up */}
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>Top up</Text>
+          <Text style={[styles.cardTitle, { color: c.text }]}>{t('wallet.topUp')}</Text>
           <View style={styles.chips}>
             {TOP_UPS.map(v => (
               <Pressable
@@ -188,10 +191,10 @@ export function WalletScreen() {
             value={topUp}
             onChangeText={t => setTopUp(moneyInput(t))}
             keyboardType="decimal-pad"
-            accessibilityLabel="Top-up amount in US dollars"
+            accessibilityLabel={t('wallet.topUpAmountInUs')}
             style={[styles.input, { borderColor: topUpOk || !topUp ? c.border : c.error, color: c.text }]}
           />
-          <Text style={{ fontSize: 12, color: c.textSec }}>{money(MIN_TOP_UP)} to {money(MAX_TOP_UP)}, by EcoCash, OneMoney, InnBucks or card.</Text>
+          <Text style={{ fontSize: 12, color: c.textSec }}>{t('wallet.topUpRange', { min: money(MIN_TOP_UP), max: money(MAX_TOP_UP) })}</Text>
           <Pressable
             onPress={() => navigation.navigate('Payment', { amount: topUpAmount, summary: 'Poolora wallet top-up' })}
             disabled={!topUpOk}
@@ -199,18 +202,18 @@ export function WalletScreen() {
             accessibilityState={{ disabled: !topUpOk }}
             style={[styles.btn, { backgroundColor: c.primary, opacity: topUpOk ? 1 : 0.5 }]}
           >
-            <Text style={{ color: c.textOnPrimary, fontWeight: '700', fontSize: 16 }}>Top up {topUpOk ? money(topUpAmount) : ''}</Text>
+            <Text style={{ color: c.textOnPrimary, fontWeight: '700', fontSize: 16 }}>{t('wallet.topUpAmount', { amount: topUpOk ? money(topUpAmount) : '' }).trim()}</Text>
           </Pressable>
         </View>
 
         {/* Withdraw */}
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>Withdraw to mobile money</Text>
+          <Text style={[styles.cardTitle, { color: c.text }]}>{t('wallet.withdrawToMobileMoney')}</Text>
           {pending ? (
-            <Text style={{ fontSize: 14, color: c.textSec }}>You have a withdrawal waiting to be sent. You can make another once it is done.</Text>
+            <Text style={{ fontSize: 14, color: c.textSec }}>{t('wallet.youHaveAWithdrawalWaiting')}</Text>
           ) : (
             <>
-              <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Send to">
+              <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel={t('wallet.sendTo')}>
                 {CHANNELS.map(ch => (
                   <Pressable
                     key={ch.id}
@@ -229,21 +232,21 @@ export function WalletScreen() {
                 keyboardType="phone-pad"
                 placeholder="0771 234 567"
                 placeholderTextColor={c.textSec}
-                accessibilityLabel={`${CHANNEL_LABEL[channel]} number`}
+                accessibilityLabel={t('wallet.numberLabel', { wallet: CHANNEL_LABEL[channel] })}
                 style={[styles.input, { borderColor: numberOk || !payNumber ? c.border : c.error, color: c.text }]}
               />
               <TextInput
                 value={amount}
                 onChangeText={t => setAmount(moneyInput(t))}
                 keyboardType="decimal-pad"
-                placeholder={`Amount, at least ${money(MIN_WITHDRAWAL)}, or all of a smaller balance`}
+                placeholder={t('wallet.withdrawPlaceholder', { min: money(MIN_WITHDRAWAL) })}
                 placeholderTextColor={c.textSec}
-                accessibilityLabel="Amount to withdraw in US dollars"
+                accessibilityLabel={t('wallet.amountToWithdrawInUs')}
                 style={[styles.input, { borderColor: c.border, color: c.text }]}
               />
               {balance !== null && balance > 0 ? (
                 <Pressable onPress={() => setAmount(String(Math.floor(balance * 100) / 100))} accessibilityRole="button" style={styles.linkBtn}>
-                  <Text style={{ color: c.primary, fontWeight: '600' }}>Withdraw all ({money(balance)})</Text>
+                  <Text style={{ color: c.primary, fontWeight: '600' }}>{t('wallet.withdrawAll', { amount: money(balance) })}</Text>
                 </Pressable>
               ) : null}
               {withdrawError ? <Text style={{ color: c.error }}>{withdrawError}</Text> : null}
@@ -254,19 +257,19 @@ export function WalletScreen() {
                 accessibilityState={{ disabled: !canWithdraw || sending, busy: sending }}
                 style={[styles.btn, { borderWidth: 1.5, borderColor: c.primary, opacity: canWithdraw ? 1 : 0.5 }]}
               >
-                {sending ? <ActivityIndicator color={c.primary} /> : <Text style={{ color: c.primary, fontWeight: '700', fontSize: 16 }}>Withdraw</Text>}
+                {sending ? <ActivityIndicator color={c.primary} /> : <Text style={{ color: c.primary, fontWeight: '700', fontSize: 16 }}>{t('wallet.withdraw')}</Text>}
               </Pressable>
             </>
           )}
           {withdrawals.slice(0, 5).map(w => (
             <View key={w._id} style={[styles.item, { borderColor: c.border }]}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '600', color: c.text }}>{money(w.amount)} to {CHANNEL_LABEL[w.channel]} {formatPhone(w.payNumber)}</Text>
+                <Text style={{ fontWeight: '600', color: c.text }}>{t('wallet.sentTo', { amount: money(w.amount), wallet: CHANNEL_LABEL[w.channel], number: formatPhone(w.payNumber) })}</Text>
                 <Text style={{ fontSize: 12, color: c.textSec }}>{withdrawalLine(w)}</Text>
               </View>
               {w.status === 'pending' ? (
-                <Pressable onPress={() => cancel(w)} accessibilityRole="button" accessibilityLabel={`Cancel the ${money(w.amount)} withdrawal`} style={styles.linkBtn}>
-                  <Text style={{ color: c.error, fontWeight: '600' }}>Cancel</Text>
+                <Pressable onPress={() => cancel(w)} accessibilityRole="button" accessibilityLabel={t('wallet.cancelWithdrawal', { amount: money(w.amount) })} style={styles.linkBtn}>
+                  <Text style={{ color: c.error, fontWeight: '600' }}>{t('wallet.cancel')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -276,18 +279,18 @@ export function WalletScreen() {
         {/* Activity */}
         {activity.length ? (
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.cardTitle, { color: c.text }]}>Recent activity</Text>
-            {activity.map(t => {
-              const moneyIn = MONEY_IN.has(t.type);
+            <Text style={[styles.cardTitle, { color: c.text }]}>{t('wallet.recentActivity')}</Text>
+            {activity.map(tx => {
+              const moneyIn = MONEY_IN.has(tx.type);
               return (
-                <View key={t._id} style={[styles.item, { borderColor: c.border }]}>
+                <View key={tx._id} style={[styles.item, { borderColor: c.border }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: c.text }} numberOfLines={2}>{t.description}</Text>
+                    <Text style={{ color: c.text }} numberOfLines={2}>{tx.description}</Text>
                     <Text style={{ fontSize: 12, color: c.textSec }}>
-                      {new Date(t.createdAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' })}{t.status === 'pending' ? ' · processing' : ''}
+                      {new Date(tx.createdAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' })}{tx.status === 'pending' ? t('wallet.processing') : ''}
                     </Text>
                   </View>
-                  <Text style={{ fontWeight: '700', color: moneyIn ? c.success : c.text }}>{moneyIn ? '+' : '−'}{money(t.amount)}</Text>
+                  <Text style={{ fontWeight: '700', color: moneyIn ? c.success : c.text }}>{moneyIn ? '+' : '−'}{money(tx.amount)}</Text>
                 </View>
               );
             })}

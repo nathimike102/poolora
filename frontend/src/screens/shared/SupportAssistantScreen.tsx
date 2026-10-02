@@ -17,17 +17,19 @@ import { Icon } from '../../components/Icon';
 import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type AssistantTurn } from '../../services/supportService';
 import { errorHandler } from '../../utils/errorHandler';
+import { useTranslation } from 'react-i18next';
 
 type Turn = AssistantTurn & { ticketId?: string };
 
-const GREETING = 'Hi, I can answer questions about bookings, payments, refunds and your account, and check your recent trips. What do you need?';
-const SUGGESTIONS = ['How much do I get back if I cancel?', 'Where did my refund go?', 'My payment went through but my request disappeared'];
+/** The greeting and suggestions are in the catalogue under supportAssistant */
+const SUGGESTIONS = ['cancel', 'refund', 'payment'] as const;
 /** The server keeps at most this many turns */
 const MAX_TURNS = 40;
 
 export function SupportAssistantScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -44,9 +46,9 @@ export function SupportAssistantScreen() {
     setFailed(null);
     setThinking(true);
     try {
-      const history = next.slice(-MAX_TURNS).map(({ role, text: t }) => ({ role, text: t }));
+      const history = next.slice(-MAX_TURNS).map(({ role, text: turn }) => ({ role, text: turn }));
       const { reply, ticketId } = await supportService.askAssistant(history);
-      setTurns(t => [...t, { role: 'assistant', text: reply, ticketId }]);
+      setTurns(turn => [...turn, { role: 'assistant', text: reply, ticketId }]);
     } catch (error) {
       setFailed(errorHandler.process(error).message);
     } finally {
@@ -54,23 +56,23 @@ export function SupportAssistantScreen() {
     }
   };
 
-  const bubble = (t: Turn, key: React.Key) => {
-    const mine = t.role === 'user';
+  const bubble = (turn: Turn, key: React.Key) => {
+    const mine = turn.role === 'user';
     return (
       <View
         key={key}
         style={[styles.bubble, mine ? { alignSelf: 'flex-end', backgroundColor: c.primaryLight } : { alignSelf: 'flex-start', backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 }]}
       >
-        <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSec }}>{mine ? 'You' : 'Poolora assistant'}</Text>
-        <Text style={{ fontSize: 15, lineHeight: 21, color: c.text }}>{t.text}</Text>
-        {t.ticketId ? (
+        <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSec }}>{mine ? t('supportAssistant.you') : t('supportAssistant.pooloraAssistant')}</Text>
+        <Text style={{ fontSize: 15, lineHeight: 21, color: c.text }}>{turn.text}</Text>
+        {turn.ticketId ? (
           <Pressable
-            onPress={() => navigation.navigate('SupportTicket', { ticketId: t.ticketId })}
+            onPress={() => navigation.navigate('SupportTicket', { ticketId: turn.ticketId })}
             accessibilityRole="button"
             style={styles.ticketLink}
           >
             <Icon name="ticket-outline" size={16} color={c.primary} />
-            <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>Open the support request</Text>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>{t('supportAssistant.openTheSupportRequest')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -81,7 +83,7 @@ export function SupportAssistantScreen() {
     <KeyboardAvoidingView style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Assistant</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('supportAssistant.assistant')}</Text>
         <View style={{ width: 44 }} />
       </View>
       <ScrollView
@@ -90,10 +92,10 @@ export function SupportAssistantScreen() {
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
       >
-        {bubble({ role: 'assistant', text: GREETING }, 'greeting')}
+        {bubble({ role: 'assistant', text: t('supportAssistant.greeting') }, 'greeting')}
         {turns.length === 0 ? (
           <View style={styles.suggestions}>
-            {SUGGESTIONS.map(s => (
+            {SUGGESTIONS.map(key => t(`supportAssistant.suggestions.${key}`)).map(s => (
               <Pressable key={s} onPress={() => send(s)} accessibilityRole="button" style={[styles.chip, { borderColor: c.border, backgroundColor: c.surface }]}>
                 <Text style={{ fontSize: 14, color: c.text }}>{s}</Text>
               </Pressable>
@@ -102,7 +104,7 @@ export function SupportAssistantScreen() {
         ) : null}
         {turns.map(bubble)}
         {thinking ? (
-          <View style={[styles.bubble, { alignSelf: 'flex-start', backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 }]} accessibilityLabel="The assistant is writing">
+          <View style={[styles.bubble, { alignSelf: 'flex-start', backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 }]} accessibilityLabel={t('supportAssistant.theAssistantIsWriting')}>
             <ActivityIndicator color={c.primary} />
           </View>
         ) : null}
@@ -110,12 +112,12 @@ export function SupportAssistantScreen() {
           <View style={{ gap: 8 }} accessibilityLiveRegion="polite">
             <Text style={{ fontSize: 14, color: c.error }}>{failed}</Text>
             <Pressable onPress={() => navigation.navigate('SupportTicket', {})} accessibilityRole="button" style={styles.link}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>Contact a person instead</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>{t('supportAssistant.contactAPersonInstead')}</Text>
             </Pressable>
           </View>
         ) : null}
         <Text style={{ fontSize: 12, color: c.textSec, textAlign: 'center' }}>
-          The assistant can make mistakes. It never changes a booking or moves money; a person handles anything it passes on.
+          {t('supportAssistant.theAssistantCanMakeMistakes')}
         </Text>
       </ScrollView>
       <View style={[styles.composer, { borderTopColor: c.border, backgroundColor: c.surface, paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -124,16 +126,16 @@ export function SupportAssistantScreen() {
           onChangeText={setDraft}
           multiline
           maxLength={4000}
-          placeholder="Ask a question"
+          placeholder={t('supportAssistant.askAQuestion')}
           placeholderTextColor={c.textSec}
-          accessibilityLabel="Message to the assistant"
+          accessibilityLabel={t('supportAssistant.messageToTheAssistant')}
           style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
         />
         <Pressable
           onPress={() => send(draft)}
           disabled={!draft.trim() || thinking}
           accessibilityRole="button"
-          accessibilityLabel="Send"
+          accessibilityLabel={t('supportAssistant.send')}
           style={[styles.send, { backgroundColor: draft.trim() && !thinking ? c.primary : c.border }]}
         >
           <Icon name="send" size={20} color={draft.trim() && !thinking ? c.textOnPrimary : c.textSec} />

@@ -5,6 +5,7 @@
  */
 
 import { env } from '../config/env';
+import i18n from '../i18n';
 
 
 // ─── API Base URL Configuration ────────────────────────────────────────────
@@ -293,16 +294,17 @@ export const HTTP_STATUS = {
 } as const;
 
 // ─── Error Messages ───────────────────────────────────────────────────────
+/** In the user's language (catalogue: errors.*), read when shown */
 export const ERROR_MESSAGES = {
-  NETWORK_ERROR: 'Unable to connect to the server. Please check your internet connection.',
-  TIMEOUT: 'Request timed out. Please try again.',
-  UNAUTHORIZED: 'Your session has expired. Please log in again.',
-  FORBIDDEN: 'You do not have permission to perform this action.',
-  NOT_FOUND: 'The requested resource was not found.',
-  VALIDATION_ERROR: 'Please check your input and try again.',
-  SERVER_ERROR: 'Server error. Please try again later.',
-  GENERIC_ERROR: 'Something went wrong. Please try again.',
-} as const;
+  get NETWORK_ERROR() { return i18n.t('errors.network'); },
+  get TIMEOUT() { return i18n.t('errors.timeout'); },
+  get UNAUTHORIZED() { return i18n.t('errors.unauthorized'); },
+  get FORBIDDEN() { return i18n.t('errors.forbidden'); },
+  get NOT_FOUND() { return i18n.t('errors.notFound'); },
+  get VALIDATION_ERROR() { return i18n.t('errors.validation'); },
+  get SERVER_ERROR() { return i18n.t('errors.server'); },
+  get GENERIC_ERROR() { return i18n.t('errors.generic'); },
+};
 
 // ─── Token Storage Keys ────────────────────────────────────────────────────
 export const TOKEN_STORAGE_KEYS = {

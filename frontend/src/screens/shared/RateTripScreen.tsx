@@ -16,18 +16,20 @@ import { BackButton } from '../../components/BackButton';
 import { RatingForm } from '../../components/RatingForm';
 import type { RootStackParamList } from '../../navigation/types';
 import { ratingService } from '../../services/ratingService';
+import { useTranslation } from 'react-i18next';
 
 export function RateTripScreen() {
   const { bookingId, rateeName, summary } = useRoute<RouteProp<RootStackParamList, 'RateTrip'>>().params;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Rate your trip</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('rateTrip.rateYourTrip')}</Text>
         <View style={{ width: 44 }} />
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -36,7 +38,7 @@ export function RateTripScreen() {
           rateeName={rateeName}
           onSubmit={async input => {
             await ratingService.submitRating(bookingId, input);
-            Alert.alert('Thanks for your rating', 'It helps keep Poolora safe and friendly.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+            Alert.alert(t('rateTrip.thanksForYourRating'), t('rateTrip.itHelpsKeepPooloraSafe'), [{ text: t('rateTrip.ok'), onPress: () => navigation.goBack() }]);
           }}
         />
       </ScrollView>

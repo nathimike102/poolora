@@ -26,19 +26,17 @@ import { realPhone } from '../../utils/phone';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
 import { toE164, REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const TYPES: Array<{ value: ParcelType; label: string }> = [
-  { value: 'document', label: 'Documents' },
-  { value: 'general', label: 'Package' },
-  { value: 'fragile', label: 'Fragile' },
-  { value: 'perishable', label: 'Food or perishable' },
-];
+/** Labels are in the catalogue under shipParcel.types */
+const TYPES: ParcelType[] = ['document', 'general', 'fragile', 'perishable'];
 
 
 export function ShipParcelScreen() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c, user } = useApp();
   const insets = useSafeAreaInsets();
   const { place: here } = useCurrentPlace();
@@ -81,11 +79,11 @@ export function ShipParcelScreen() {
   const next = async () => {
     const sPhone = toE164(senderPhone);
     const rPhone = toE164(recipientPhone);
-    if (from.trim().length < 3 || to.trim().length < 3) return setError('Choose where the parcel is picked up and where it goes.');
-    if (!Number.isFinite(kg) || kg < 0.1 || kg > 50) return setError('The weight must be between 0.1 and 50 kg.');
-    if (departure.getTime() <= Date.now()) return setError('Choose a time in the future.');
-    if (senderName.trim().length < 2 || !sPhone) return setError('Add the name and 10-digit mobile of the person handing it over.');
-    if (recipientName.trim().length < 2 || !rPhone) return setError('Add the name and 10-digit mobile of the person receiving it.');
+    if (from.trim().length < 3 || to.trim().length < 3) return setError(t('shipParcel.errors.places'));
+    if (!Number.isFinite(kg) || kg < 0.1 || kg > 50) return setError(t('shipParcel.errors.weight'));
+    if (departure.getTime() <= Date.now()) return setError(t('shipParcel.errors.time'));
+    if (senderName.trim().length < 2 || !sPhone) return setError(t('shipParcel.errors.sender', { example: REGION.phonePlaceholder }));
+    if (recipientName.trim().length < 2 || !rPhone) return setError(t('shipParcel.errors.recipient', { example: REGION.phonePlaceholder }));
     setError('');
     setBusy(true);
     try {
@@ -108,7 +106,7 @@ export function ShipParcelScreen() {
     }
   };
 
-  const field = (label: string, value: string, set: (t: string) => void, opts: { placeholder?: string; phone?: boolean } = {}) => (
+  const field = (label: string, value: string, set: (value: string) => void, opts: { placeholder?: string; phone?: boolean } = {}) => (
     <View style={{ flex: 1 }}>
       <Text style={[styles.label, { color: c.textSec }]}>{label}</Text>
       <TextInput
@@ -127,14 +125,14 @@ export function ShipParcelScreen() {
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Send a parcel</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('shipParcel.sendAParcel')}</Text>
         <View style={{ width: 44 }} />
       </View>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {mine && mine.length > 0 ? (
             <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Text style={[styles.cardTitle, { color: c.text }]}>Your parcels</Text>
+              <Text style={[styles.cardTitle, { color: c.text }]}>{t('shipParcel.yourParcels')}</Text>
               {mine.slice(0, 5).map(p => (
                 <Pressable
                   key={p._id}
@@ -156,8 +154,8 @@ export function ShipParcelScreen() {
           ) : null}
 
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <PlaceField label="Pick up from" value={from} onChange={setFrom} placeholder="Where the driver collects it" near={near} />
-            <PlaceField label="Deliver to" value={to} onChange={setTo} placeholder="Where it goes" near={near} />
+            <PlaceField label={t('shipParcel.pickUpFrom')} value={from} onChange={setFrom} placeholder={t('shipParcel.whereTheDriverCollectsIt')} near={near} />
+            <PlaceField label={t('shipParcel.deliverTo')} value={to} onChange={setTo} placeholder={t('shipParcel.whereItGoes')} near={near} />
             <View style={styles.row}>
               <Pressable onPress={() => setShowDate(true)} accessibilityRole="button" style={[styles.picker, { borderColor: c.border, backgroundColor: c.bg }]}>
                 <Icon name="calendar" size={18} color={c.primary} />
@@ -171,52 +169,52 @@ export function ShipParcelScreen() {
           </View>
 
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.cardTitle, { color: c.text }]}>What is it?</Text>
+            <Text style={[styles.cardTitle, { color: c.text }]}>{t('shipParcel.whatIsIt')}</Text>
             <View style={styles.chips} accessibilityRole="radiogroup">
-              {TYPES.map(t => {
-                const selected = t.value === type;
+              {TYPES.map(value => ({ value, label: t(`shipParcel.types.${value}`) })).map(kind => {
+                const selected = kind.value === type;
                 return (
                   <Pressable
-                    key={t.value}
-                    onPress={() => setType(t.value)}
+                    key={kind.value}
+                    onPress={() => setType(kind.value)}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: selected }}
                     style={[styles.chip, { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primaryLight : c.bg }]}
                   >
-                    <Text style={{ fontSize: 14, color: selected ? c.primary : c.text }}>{t.label}</Text>
+                    <Text style={{ fontSize: 14, color: selected ? c.primary : c.text }}>{kind.label}</Text>
                   </Pressable>
                 );
               })}
             </View>
-            {field('Weight (kg)', weight, t => setWeight(t.replace(/[^0-9.]/g, '')), { placeholder: 'Up to 50 kg' })}
-            {field('Notes for the driver (optional)', notes, setNotes, { placeholder: 'Keep upright; ring the bell' })}
+            {field(t('shipParcel.weight'), weight, value => setWeight(value.replace(/[^0-9.]/g, '')), { placeholder: t('shipParcel.weightPlaceholder') })}
+            {field(t('shipParcel.notes'), notes, setNotes, { placeholder: t('shipParcel.notesPlaceholder') })}
           </View>
 
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.cardTitle, { color: c.text }]}>Handed over by</Text>
+            <Text style={[styles.cardTitle, { color: c.text }]}>{t('shipParcel.handedOverBy')}</Text>
             <View style={styles.row}>
-              {field('Name', senderName, setSenderName)}
-              {field('Mobile', senderPhone, setSenderPhone, { phone: true })}
+              {field(t('shipParcel.name'), senderName, setSenderName)}
+              {field(t('shipParcel.mobile'), senderPhone, setSenderPhone, { phone: true })}
             </View>
-            <Text style={[styles.cardTitle, { color: c.text }]}>Received by</Text>
+            <Text style={[styles.cardTitle, { color: c.text }]}>{t('shipParcel.receivedBy')}</Text>
             <View style={styles.row}>
-              {field('Name', recipientName, setRecipientName)}
-              {field('Mobile', recipientPhone, setRecipientPhone, { phone: true })}
+              {field(t('shipParcel.name'), recipientName, setRecipientName)}
+              {field(t('shipParcel.mobile'), recipientPhone, setRecipientPhone, { phone: true })}
             </View>
             <Text style={{ fontSize: 12, color: c.textSec }}>
-              You get a delivery code to give the recipient. The driver needs it to hand the parcel over.
+              {t('shipParcel.youGetADeliveryCode')}
             </Text>
           </View>
 
           <View style={[styles.card, styles.switchRow, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={{ flex: 1, fontSize: 15, color: c.text }}>Pay from my wallet</Text>
-            <Switch value={useWallet} onValueChange={setUseWallet} accessibilityLabel="Pay from my wallet" trackColor={{ false: c.border, true: c.primary }} />
+            <Text style={{ flex: 1, fontSize: 15, color: c.text }}>{t('shipParcel.payFromMyWallet')}</Text>
+            <Switch value={useWallet} onValueChange={setUseWallet} accessibilityLabel={t('shipParcel.payFromMyWallet')} trackColor={{ false: c.border, true: c.primary }} />
           </View>
 
           {error ? <Text style={{ color: c.error }} accessibilityLiveRegion="polite">{error}</Text> : null}
           <Pressable onPress={next} disabled={busy} accessibilityRole="button" style={[styles.primary, { backgroundColor: c.primary }]}>
             {busy ? <ActivityIndicator color={c.textOnPrimary} /> : (
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>Find drivers on this route</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>{t('shipParcel.findDriversOnThisRoute')}</Text>
             )}
           </Pressable>
         </ScrollView>
@@ -225,7 +223,7 @@ export function ShipParcelScreen() {
       <ClockTimePicker
         visible={showTime}
         initialTime={time}
-        onConfirm={t => { setTime(t); setShowTime(false); }}
+        onConfirm={value => { setTime(value); setShowTime(false); }}
         onDismiss={() => setShowTime(false)}
       />
     </View>

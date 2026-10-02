@@ -21,22 +21,25 @@ import { addSavedRoute } from '../../services/savedRouteService';
 import { Spacing, Radius, Shadow, Typography } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { Icon, type IconName } from '../../components/Icon';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const ICONS: { icon: IconName; label: string }[] = [
-  { icon: 'home', label: 'Home' },
-  { icon: 'office-building', label: 'Office' },
-  { icon: 'airplane', label: 'Airport' },
-  { icon: 'hospital-building', label: 'Hospital' },
-  { icon: 'school', label: 'College' },
-  { icon: 'cart', label: 'Market' },
-  { icon: 'dumbbell', label: 'Gym' },
-  { icon: 'map-marker', label: 'Other' },
+  { icon: 'home', get label() { return i18n.t('addSavedRoute.icons.home'); } },
+  { icon: 'office-building', get label() { return i18n.t('addSavedRoute.icons.office'); } },
+  { icon: 'airplane', get label() { return i18n.t('addSavedRoute.icons.airport'); } },
+  { icon: 'hospital-building', get label() { return i18n.t('addSavedRoute.icons.hospital'); } },
+  { icon: 'school', get label() { return i18n.t('addSavedRoute.icons.college'); } },
+  { icon: 'cart', get label() { return i18n.t('addSavedRoute.icons.market'); } },
+  { icon: 'dumbbell', get label() { return i18n.t('addSavedRoute.icons.gym'); } },
+  { icon: 'map-marker', get label() { return i18n.t('addSavedRoute.icons.other'); } },
 ];
 
 export function AddSavedRouteScreen() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
@@ -48,15 +51,15 @@ export function AddSavedRouteScreen() {
 
   const handleSave = async () => {
     if (!routeName.trim()) {
-      Alert.alert('Missing Info', 'Please enter a route name.');
+      Alert.alert(t('addSavedRoute.missingInfo'), t('addSavedRoute.pleaseEnterARouteName'));
       return;
     }
     if (!from.trim()) {
-      Alert.alert('Missing Info', 'Please enter the starting location.');
+      Alert.alert(t('addSavedRoute.missingInfo'), t('addSavedRoute.pleaseEnterTheStartingLocation'));
       return;
     }
     if (!to.trim()) {
-      Alert.alert('Missing Info', 'Please enter the destination.');
+      Alert.alert(t('addSavedRoute.missingInfo'), t('addSavedRoute.pleaseEnterTheDestination'));
       return;
     }
 
@@ -70,7 +73,7 @@ export function AddSavedRouteScreen() {
       });
       navigation.goBack();
     } catch {
-      Alert.alert('Error', 'Could not save route. Please try again.');
+      Alert.alert(t('addSavedRoute.error'), t('addSavedRoute.couldNotSaveRoutePlease'));
     } finally {
       setSaving(false);
     }
@@ -85,7 +88,7 @@ export function AddSavedRouteScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
+        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel={t('addSavedRoute.goBack')}>
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path
               d="M19 12H5M12 5l-7 7 7 7"
@@ -96,7 +99,7 @@ export function AddSavedRouteScreen() {
             />
           </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>Add Saved Route</Text>
+        <Text style={styles.headerTitle}>{t('addSavedRoute.addSavedRoute')}</Text>
       </LinearGradient>
 
       {/* ── Form ─────────────────────────────────── */}
@@ -111,40 +114,40 @@ export function AddSavedRouteScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Route Name */}
-          <Text style={[styles.label, { color: c.text }]}>Route Name</Text>
+          <Text style={[styles.label, { color: c.text }]}>{t('addSavedRoute.routeName2')}</Text>
           <TextInput
             style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-            placeholder="For example, Home to office"
-            accessibilityLabel="Route name"
+            placeholder={t('addSavedRoute.forExampleHomeToOffice')}
+            accessibilityLabel={t('addSavedRoute.routeName')}
             placeholderTextColor={c.textSec}
             value={routeName}
             onChangeText={setRouteName}
           />
 
           {/* Starting Location */}
-          <Text style={[styles.label, { color: c.text }]}>Starting Location</Text>
+          <Text style={[styles.label, { color: c.text }]}>{t('addSavedRoute.startingLocation2')}</Text>
           <TextInput
             style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-            placeholder="Where you start"
-            accessibilityLabel="Starting location"
+            placeholder={t('addSavedRoute.whereYouStart')}
+            accessibilityLabel={t('addSavedRoute.startingLocation')}
             placeholderTextColor={c.textSec}
             value={from}
             onChangeText={setFrom}
           />
 
           {/* Destination */}
-          <Text style={[styles.label, { color: c.text }]}>Destination</Text>
+          <Text style={[styles.label, { color: c.text }]}>{t('addSavedRoute.destination')}</Text>
           <TextInput
             style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
-            placeholder="Where you're going"
-            accessibilityLabel="Destination"
+            placeholder={t('addSavedRoute.whereYoureGoing')}
+            accessibilityLabel={t('addSavedRoute.destination')}
             placeholderTextColor={c.textSec}
             value={to}
             onChangeText={setTo}
           />
 
           {/* Icon Selector */}
-          <Text style={[styles.label, { color: c.text }]}>Route Icon</Text>
+          <Text style={[styles.label, { color: c.text }]}>{t('addSavedRoute.routeIcon')}</Text>
           <View style={styles.iconRow}>
             {ICONS.map(item => {
               const isSelected = selectedIcon === item.icon;
@@ -185,7 +188,7 @@ export function AddSavedRouteScreen() {
             style={[styles.saveBtn, saving && { opacity: 0.6 }]}
           >
             <Text style={styles.saveBtnText}>
-              {saving ? 'Saving' : 'Save route'}
+              {saving ? t('addSavedRoute.saving') : t('addSavedRoute.saveRoute')}
             </Text>
           </LinearGradient>
         </Pressable>

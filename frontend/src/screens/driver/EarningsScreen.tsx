@@ -22,6 +22,7 @@ import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Shadow } from '../../theme';
 import { money, REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Period = 'today' | 'week' | 'month';
 
@@ -62,6 +63,7 @@ function monthLabel(key: string): string {
  */
 function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
   const [offset, setOffset] = useState(0);
+  const { t } = useTranslation();
   const [statement, setStatement] = useState<EarningsStatement | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState<'share' | 'email' | null>(null);
@@ -84,9 +86,9 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
     setBusy('share');
     try {
       const csv = await userService.getStatementCsv(month);
-      await Share.share({ title: `Poolora earnings ${month}`, message: csv });
+      await Share.share({ title: t('earnings.shareTitle', { month }), message: csv });
     } catch (error) {
-      Alert.alert('Could not share', errorHandler.process(error).message);
+      Alert.alert(t('earnings.couldNotShare'), errorHandler.process(error).message);
     } finally {
       setBusy(null);
     }
@@ -96,9 +98,9 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
     setBusy('email');
     try {
       const { to } = await userService.emailStatement(month);
-      Alert.alert('Statement sent', `We emailed the ${monthLabel(month)} statement to ${to}.`);
+      Alert.alert(t('earnings.statementSent'), `We emailed the ${monthLabel(month)} statement to ${to}.`);
     } catch (error) {
-      Alert.alert('Not sent', errorHandler.process(error).message);
+      Alert.alert(t('earnings.notSent'), errorHandler.process(error).message);
     } finally {
       setBusy(null);
     }
@@ -108,7 +110,7 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
   return (
     <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border, gap: 12 }]}>
       <View style={styles.monthRow}>
-        <Pressable onPress={() => setOffset(o => o - 1)} accessibilityRole="button" accessibilityLabel="Previous month" style={styles.monthBtn}>
+        <Pressable onPress={() => setOffset(o => o - 1)} accessibilityRole="button" accessibilityLabel={t('earnings.previousMonth')} style={styles.monthBtn}>
           <Icon name="chevron-left" size={22} color={c.text} />
         </Pressable>
         <Text style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: c.text }} accessibilityLiveRegion="polite">
@@ -118,7 +120,7 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
           onPress={() => setOffset(o => Math.min(0, o + 1))}
           disabled={offset === 0}
           accessibilityRole="button"
-          accessibilityLabel="Next month"
+          accessibilityLabel={t('earnings.nextMonth')}
           accessibilityState={{ disabled: offset === 0 }}
           style={styles.monthBtn}
         >
@@ -127,17 +129,17 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
       </View>
 
       {failed ? (
-        <Text style={{ fontSize: 14, color: c.textSec }}>We couldn't load this month's statement.</Text>
+        <Text style={{ fontSize: 14, color: c.textSec }}>{t('earnings.weCouldntLoadThisMonths')}</Text>
       ) : !statement ? (
         <ActivityIndicator color={c.primary} />
       ) : empty ? (
-        <Text style={{ fontSize: 14, color: c.textSec }}>No trips or cancellation fees this month.</Text>
+        <Text style={{ fontSize: 14, color: c.textSec }}>{t('earnings.noTripsOrCancellationFees')}</Text>
       ) : (
         <View style={{ gap: 6 }}>
           {[
-            ['Trips', String(statement.totals.trips)],
-            ['Fares', money(statement.totals.fare)],
-            ['Platform fees', `−${money(statement.totals.platformFee)}`],
+            [t('earnings.lines.trips'), String(statement.totals.trips)],
+            [t('earnings.lines.fares'), money(statement.totals.fare)],
+            [t('earnings.lines.fees'), `−${money(statement.totals.platformFee)}`],
           ].map(([label, value]) => (
             <View key={label} style={styles.lineRow}>
               <Text style={{ fontSize: 14, color: c.textSec }}>{label}</Text>
@@ -145,7 +147,7 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
             </View>
           ))}
           <View style={[styles.lineRow, { borderTopWidth: 1, borderTopColor: c.border, paddingTop: 6 }]}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Your earnings</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{t('earnings.yourEarnings')}</Text>
             <Text style={{ fontSize: 15, fontWeight: '800', color: c.success }}>{money(statement.totals.earnings)}</Text>
           </View>
         </View>
@@ -157,7 +159,7 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
             {busy === 'share' ? <ActivityIndicator color={c.primary} /> : (
               <>
                 <Icon name="share-variant-outline" size={18} color={c.primary} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>Share spreadsheet</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>{t('earnings.shareSpreadsheet')}</Text>
               </>
             )}
           </Pressable>
@@ -165,7 +167,7 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
             {busy === 'email' ? <ActivityIndicator color={c.primary} /> : (
               <>
                 <Icon name="email-outline" size={18} color={c.primary} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>Email it to me</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>{t('earnings.emailItToMe')}</Text>
               </>
             )}
           </Pressable>
@@ -298,6 +300,7 @@ function MiniChart({
 /* ═══════════════════════════════════════════════════════════════ */
 export function EarningsScreen() {
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<Period>('today');
@@ -346,7 +349,7 @@ export function EarningsScreen() {
   );
 
   const stats = summary?.[period];
-  const periodLabel = period === 'today' ? 'Today' : period === 'week' ? 'Last 7 days' : 'Last 4 weeks';
+  const periodLabel = period === 'today' ? 'Today' : period === 'week' ? t('earnings.last7Days') : t('earnings.last4Weeks');
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
@@ -367,14 +370,14 @@ export function EarningsScreen() {
               <Pressable
                 onPress={() => navigation.goBack()}
                 accessibilityRole="button"
-                accessibilityLabel="Go back"
+                accessibilityLabel={t('earnings.goBack')}
                 hitSlop={8}
                 style={styles.backBtn}
               >
                 <Icon name="arrow-left" size={24} color="#FFFFFF" />
               </Pressable>
             )}
-            <Text style={styles.headerTitle} accessibilityRole="header">Earnings</Text>
+            <Text style={styles.headerTitle} accessibilityRole="header">{t('earnings.earnings')}</Text>
           </View>
 
           {/* Period tabs */}
@@ -403,8 +406,8 @@ export function EarningsScreen() {
         {loadError ? (
           <View style={styles.section}>
             <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border, alignItems: 'center' }]}>
-              <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>We couldn't load your earnings</Text>
-              <Text style={{ fontSize: 13, color: c.textSec, marginTop: 4 }}>Pull back to this screen to try again.</Text>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>{t('earnings.weCouldntLoadYourEarnings')}</Text>
+              <Text style={{ fontSize: 13, color: c.textSec, marginTop: 4 }}>{t('earnings.pullBackToThisScreen')}</Text>
             </View>
           </View>
         ) : (
@@ -426,14 +429,14 @@ export function EarningsScreen() {
                 <View style={styles.statsRow}>
                   <View style={styles.statCol}>
                     <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>{stats?.rides ?? 0}</Text>
-                    <Text style={{ fontSize: 12, color: c.textSec }}>Completed rides</Text>
+                    <Text style={{ fontSize: 12, color: c.textSec }}>{t('earnings.completedRides')}</Text>
                   </View>
                   <View style={[styles.statDivider, { backgroundColor: c.border }]} />
                   <View style={styles.statCol}>
                     <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>
                       {money(stats?.rides ? Math.round(stats.earnings / stats.rides) : 0)}
                     </Text>
-                    <Text style={{ fontSize: 12, color: c.textSec }}>Average per ride</Text>
+                    <Text style={{ fontSize: 12, color: c.textSec }}>{t('earnings.averagePerRide')}</Text>
                   </View>
                 </View>
               </View>
@@ -444,7 +447,7 @@ export function EarningsScreen() {
               <View style={styles.section}>
                 <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border }]}>
                   <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginBottom: 4 }}>
-                    Earnings over time
+                    {t('earnings.earningsOverTime')}
                   </Text>
                   <MiniChart data={stats.chart} color={c.primary} borderColor={c.textSec} />
                 </View>
@@ -454,13 +457,13 @@ export function EarningsScreen() {
             {/* ── Recent completed rides ───────────────────── */}
             <View style={styles.section}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 12 }}>
-                Recent completed rides
+                {t('earnings.recentCompletedRides')}
               </Text>
               <View style={[styles.txList, { backgroundColor: c.surface, borderColor: c.border }]}>
                 {recent.length === 0 && !loading ? (
                   <View style={{ padding: 20, alignItems: 'center' }}>
                     <Text style={{ color: c.textSec, textAlign: 'center' }}>
-                      Completed rides and what you earned from them will appear here.
+                      {t('earnings.completedRidesAndWhatYou')}
                     </Text>
                   </View>
                 ) : (
@@ -488,7 +491,7 @@ export function EarningsScreen() {
 
             {/* ── Monthly statement ────────────────────────── */}
             <View style={styles.section}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 12 }}>Monthly statement</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 12 }}>{t('earnings.monthlyStatement')}</Text>
               <MonthlyStatement c={c} />
             </View>
 
@@ -497,12 +500,12 @@ export function EarningsScreen() {
               <View style={[styles.section, { marginBottom: 8 }]}>
                 <View style={[styles.payoutCard, { backgroundColor: c.primaryLight }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>All-time earnings</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{t('earnings.allTimeEarnings')}</Text>
                     <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>
                       {money(lifetime.earnings)}
                     </Text>
                     <Text style={{ fontSize: 12, color: c.textSec }}>
-                      From {lifetime.rides} completed {lifetime.rides === 1 ? 'ride' : 'rides'}
+                      {lifetime.rides === 1 ? t('earnings.fromOne') : t('earnings.fromMany', { count: lifetime.rides })}
                     </Text>
                   </View>
                 </View>

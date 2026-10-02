@@ -8,6 +8,7 @@
 import axios, { AxiosError } from 'axios';
 import { API_CONFIG, ERROR_MESSAGES, HTTP_STATUS } from '../api/constants';
 import { logger } from './logger';
+import i18n from '../i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ class ErrorHandler {
       case HTTP_STATUS.NOT_FOUND:
         return ERROR_MESSAGES.NOT_FOUND;
       case HTTP_STATUS.RATE_LIMIT:
-        return 'Too many requests. Please wait a moment and try again.';
+        return i18n.t('errors.tooMany');
       case HTTP_STATUS.SERVER_ERROR:
       case HTTP_STATUS.SERVICE_UNAVAILABLE:
         return ERROR_MESSAGES.SERVER_ERROR;

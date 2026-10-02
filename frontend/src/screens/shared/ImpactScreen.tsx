@@ -17,11 +17,13 @@ import { userService } from '../../services/userService';
 import type { Impact } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { formatKg, formatKm, monthLabel, petrolLitres } from '../../utils/carbon';
+import { useTranslation } from 'react-i18next';
 
 const BAR_HEIGHT = 120;
 
 export function ImpactScreen() {
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [impact, setImpact] = useState<Impact | null>(null);
@@ -48,7 +50,7 @@ export function ImpactScreen() {
     <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>Your impact</Text>
+        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>{t('impact.yourImpact')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={s.body}>
@@ -56,16 +58,16 @@ export function ImpactScreen() {
         {error ? (
           <View style={[s.banner, { backgroundColor: c.errorLight }]}>
             <Icon name="alert-circle-outline" size={22} color={c.error} />
-            <Text style={{ flex: 1, color: c.text }}>Could not load your impact. {error}</Text>
+            <Text style={{ flex: 1, color: c.text }}>{t('impact.loadFailed', { error })}</Text>
           </View>
         ) : null}
 
         {all && all.trips === 0 ? (
           <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Icon name="leaf" size={28} color={c.success} />
-            <Text style={[s.cardTitle, { color: c.text }]}>Nothing counted yet</Text>
+            <Text style={[s.cardTitle, { color: c.text }]}>{t('impact.nothingCountedYet')}</Text>
             <Text style={{ color: c.textSec, lineHeight: 21 }}>
-              Every trip you share, as a rider or a driver, saves the CO₂ of someone driving alone. Your savings appear here after your first completed trip.
+              {t('impact.everyTripYouShareAs')}
             </Text>
           </View>
         ) : null}
@@ -75,20 +77,20 @@ export function ImpactScreen() {
             <View
               style={[s.hero, { backgroundColor: c.successLight }]}
               accessible
-              accessibilityLabel={`About ${formatKg(all.co2SavedKg)} of CO₂ saved by sharing, an estimate`}
+              accessibilityLabel={t('impact.heroLabel', { amount: formatKg(all.co2SavedKg) })}
             >
               <Icon name="leaf" size={28} color={c.success} />
               <Text style={[s.heroValue, { color: c.text }]}>{formatKg(all.co2SavedKg)}</Text>
-              <Text style={{ color: c.text, fontWeight: '600' }}>of CO₂ saved by sharing, an estimate</Text>
+              <Text style={{ color: c.text, fontWeight: '600' }}>{t('impact.ofCoSavedBySharing')}</Text>
               {litres >= 1 ? (
-                <Text style={{ color: c.textSec }}>About what burning {litres} {litres === 1 ? 'litre' : 'litres'} of petrol gives off</Text>
+                <Text style={{ color: c.textSec }}>{litres === 1 ? t('impact.litresOne') : t('impact.litresMany', { count: litres })}</Text>
               ) : null}
             </View>
 
             <View style={s.row}>
               <View style={[s.tile, { backgroundColor: c.surface, borderColor: c.border }]}>
                 <Text style={[s.tileValue, { color: c.text }]}>{formatKm(all.kmShared)}</Text>
-                <Text style={{ color: c.textSec }}>shared</Text>
+                <Text style={{ color: c.textSec }}>{t('impact.shared')}</Text>
               </View>
               <View style={[s.tile, { backgroundColor: c.surface, borderColor: c.border }]}>
                 <Text style={[s.tileValue, { color: c.text }]}>{all.trips}</Text>
@@ -97,13 +99,15 @@ export function ImpactScreen() {
             </View>
 
             <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Text style={[s.cardTitle, { color: c.text }]}>This month</Text>
+              <Text style={[s.cardTitle, { color: c.text }]}>{t('impact.thisMonth')}</Text>
               <Text style={{ color: c.textSec }}>
                 {impact!.thisMonth.trips > 0
-                  ? `${formatKg(impact!.thisMonth.co2SavedKg)} saved over ${impact!.thisMonth.trips} ${impact!.thisMonth.trips === 1 ? 'trip' : 'trips'}`
-                  : 'No shared trips yet this month'}
+                  ? impact!.thisMonth.trips === 1
+                    ? t('impact.monthOne', { amount: formatKg(impact!.thisMonth.co2SavedKg) })
+                    : t('impact.monthMany', { amount: formatKg(impact!.thisMonth.co2SavedKg), count: impact!.thisMonth.trips })
+                  : t('impact.monthNone')}
               </Text>
-              <View style={s.chart} accessibilityLabel="CO₂ saved in each of the last six months">
+              <View style={s.chart} accessibilityLabel={t('impact.coSavedInEachOf')}>
                 {impact!.months.map(m => (
                   <View
                     key={m.month}
@@ -137,13 +141,12 @@ export function ImpactScreen() {
             accessibilityState={{ expanded: showMethod }}
           >
             <View style={[s.row, { alignItems: 'center', justifyContent: 'space-between' }]}>
-              <Text style={[s.cardTitle, { color: c.text }]}>How we count</Text>
+              <Text style={[s.cardTitle, { color: c.text }]}>{t('impact.howWeCount')}</Text>
               <Icon name={showMethod ? 'chevron-up' : 'chevron-down'} size={22} color={c.textSec} />
             </View>
             {showMethod ? (
               <Text style={{ color: c.textSec, lineHeight: 21 }}>
-                For each shared trip we measure the rider's part of the route. Had they driven it alone, an average car gives off about {impact.method.baselineKgPerKm} kg of CO₂ a km. Sharing, they are only responsible for their seats' part of the car they rode in, worked out from that car's size and how many people were in it. The difference is the saving, and it counts for both the rider and the driver.{'\n\n'}
-                It is an estimate. We count one car per booking, however many seats it has; we leave out the driver's small detour to the pickup; and we assume the rider would otherwise have driven. If you would have taken a kombi or a bus, you saved less than this.
+                {t('impact.method1', { kg: impact.method.baselineKgPerKm })}{'\n\n'}{t('impact.method2')}
               </Text>
             ) : null}
           </Pressable>

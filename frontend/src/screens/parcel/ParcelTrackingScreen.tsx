@@ -20,14 +20,17 @@ import { parcelService, parcelStage, type Parcel } from '../../services/parcelSe
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
 import { money } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 const POLL_MS = 30_000;
-const STEPS = ['Sent', 'Accepted', 'On the way', 'Delivered'];
+/** Labels are in the catalogue under parcelTracking.steps */
+const STEPS = ['sent', 'accepted', 'onTheWay', 'delivered'] as const;
 
 export function ParcelTrackingScreen() {
   const { trackingNumber, deliveryCode } = useRoute<RouteProp<RootStackParamList, 'ParcelTracking'>>().params;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { c, user } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [parcel, setParcel] = useState<Parcel | null>(null);
   const [error, setError] = useState('');
@@ -52,15 +55,15 @@ export function ParcelTrackingScreen() {
   const shareCode = () => {
     if (!parcel || !deliveryCode) return;
     Share.share({
-      message: `A Poolora parcel is on its way to you (tracking ${parcel.trackingNumber}). Give the driver this delivery code when it arrives: ${deliveryCode}`,
+      message: t('parcelTracking.shareCode', { tracking: parcel.trackingNumber, code: deliveryCode }),
     }).catch(() => undefined);
   };
 
   const cancel = () =>
-    Alert.alert('Cancel this parcel?', 'You get a full refund to your Poolora wallet.', [
-      { text: 'Keep it', style: 'cancel' },
+    Alert.alert(t('parcelTracking.cancelThisParcel'), t('parcelTracking.youGetAFullRefund'), [
+      { text: t('parcelTracking.keepIt'), style: 'cancel' },
       {
-        text: 'Cancel parcel',
+        text: t('parcelTracking.cancelParcel'),
         style: 'destructive',
         onPress: async () => {
           if (!parcel) return;
@@ -68,7 +71,7 @@ export function ParcelTrackingScreen() {
           try {
             setParcel(await parcelService.cancel(parcel._id, 'Cancelled by sender'));
           } catch (e) {
-            Alert.alert('Not cancelled', errorHandler.process(e).message);
+            Alert.alert(t('parcelTracking.notCancelled'), errorHandler.process(e).message);
           } finally {
             setCancelling(false);
           }
@@ -80,19 +83,19 @@ export function ParcelTrackingScreen() {
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Parcel</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('parcelTracking.parcel')}</Text>
         <View style={{ width: 44 }} />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         {deliveryCode ? (
           <View style={[styles.codeCard, { backgroundColor: c.primaryLight }]}>
-            <Text style={{ fontSize: 14, color: c.text }}>Delivery code for the recipient</Text>
+            <Text style={{ fontSize: 14, color: c.text }}>{t('parcelTracking.deliveryCodeForTheRecipient')}</Text>
             <Text style={[styles.code, { color: c.primary }]} accessibilityLabel={`Delivery code ${deliveryCode.split('').join(' ')}`}>{deliveryCode}</Text>
             <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center' }}>
-              We show it only now. Send it to the recipient; the driver needs it to hand the parcel over.
+              {t('parcelTracking.weShowItOnlyNow')}
             </Text>
             <Pressable onPress={shareCode} accessibilityRole="button" style={[styles.btn, { backgroundColor: c.primary }]}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: c.textOnPrimary }}>Send the code</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: c.textOnPrimary }}>{t('parcelTracking.sendTheCode')}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -106,7 +109,7 @@ export function ParcelTrackingScreen() {
               </Text>
               {stage!.step >= 0 ? (
                 <View style={styles.steps}>
-                  {STEPS.map((label, i) => (
+                  {STEPS.map(key => t(`parcelTracking.steps.${key}`)).map((label, i) => (
                     <View key={label} style={styles.step}>
                       <View style={[styles.dot, { backgroundColor: i <= stage!.step ? c.primary : c.border }]} />
                       <Text style={{ fontSize: 12, color: i <= stage!.step ? c.text : c.textSec }}>{label}</Text>
@@ -114,26 +117,26 @@ export function ParcelTrackingScreen() {
                   ))}
                 </View>
               ) : parcel.paymentStatus === 'refunded' ? (
-                <Text style={{ fontSize: 14, color: c.textSec }}>{money(parcel.refundAmount ?? 0)} refunded{' to your Poolora wallet'}.</Text>
+                <Text style={{ fontSize: 14, color: c.textSec }}>{t('parcelTracking.refunded', { amount: money(parcel.refundAmount ?? 0) })}</Text>
               ) : parcel.paymentStatus === 'refund_failed' ? (
-                <Text style={{ fontSize: 14, color: c.error }}>We could not refund this automatically. Our team will refund you; contact support if it has not arrived in a week.</Text>
+                <Text style={{ fontSize: 14, color: c.error }}>{t('parcelTracking.refundFailed')}</Text>
               ) : null}
-              <Text style={{ fontSize: 13, color: c.textSec }}>Tracking {parcel.trackingNumber}</Text>
+              <Text style={{ fontSize: 13, color: c.textSec }}>{t('parcelTracking.tracking', { tracking: parcel.trackingNumber })}</Text>
             </View>
 
             <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Row icon="map-marker-outline" title={parcel.pickupLocation.address} sub={`From ${parcel.pickupLocation.contactPerson}`} />
-              <Row icon="map-marker-check-outline" title={parcel.deliveryLocation.address} sub={`To ${parcel.deliveryLocation.contactPerson}`} />
-              <Row icon="weight-kilogram" title={`${parcel.parcelWeight} kg, ${parcel.parcelType}`} sub={`${money(parcel.estimatedCost)}${parcel.paymentMethod === 'wallet' ? ' from wallet' : ''}`} />
+              <Row icon="map-marker-outline" title={parcel.pickupLocation.address} sub={t('parcelTracking.from', { name: parcel.pickupLocation.contactPerson })} />
+              <Row icon="map-marker-check-outline" title={parcel.deliveryLocation.address} sub={t('parcelTracking.to', { name: parcel.deliveryLocation.contactPerson })} />
+              <Row icon="weight-kilogram" title={t('parcelTracking.weightType', { weight: parcel.parcelWeight, type: t(`rideParcels.types.${parcel.parcelType}`, { defaultValue: parcel.parcelType }) })} sub={`${money(parcel.estimatedCost)}${parcel.paymentMethod === 'wallet' ? t('parcelTracking.fromWallet') : ''}`} />
               {parcel.specialInstructions ? <Row icon="note-text-outline" title={parcel.specialInstructions} /> : null}
             </View>
 
             {driver ? (
               <View style={[styles.card, styles.driverRow, { backgroundColor: c.surface, borderColor: c.border }]}>
                 <Icon name="steering" size={22} color={c.primary} />
-                <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: c.text }}>{driver.name ?? 'Your driver'}</Text>
+                <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: c.text }}>{driver.name ?? t('parcelTracking.yourDriver')}</Text>
                 {driver.phone && parcel.status === 'confirmed' ? (
-                  <Pressable onPress={() => Linking.openURL(`tel:${driver.phone}`)} accessibilityRole="button" accessibilityLabel={`Call ${driver.name ?? 'the driver'}`} style={[styles.call, { backgroundColor: c.primaryLight }]}>
+                  <Pressable onPress={() => Linking.openURL(`tel:${driver.phone}`)} accessibilityRole="button" accessibilityLabel={t('parcelTracking.call', { name: driver.name ?? t('parcelTracking.theDriver') })} style={[styles.call, { backgroundColor: c.primaryLight }]}>
                     <Icon name="phone" size={18} color={c.primary} />
                   </Pressable>
                 ) : null}
@@ -143,7 +146,7 @@ export function ParcelTrackingScreen() {
             {isSender ? <ParcelEvidence parcel={parcel} /> : null}
             {canCancel ? (
               <Pressable onPress={cancel} disabled={cancelling} accessibilityRole="button" style={[styles.btn, { backgroundColor: c.errorLight }]}>
-                {cancelling ? <ActivityIndicator color={c.error} /> : <Text style={{ fontSize: 15, fontWeight: '700', color: c.error }}>Cancel parcel</Text>}
+                {cancelling ? <ActivityIndicator color={c.error} /> : <Text style={{ fontSize: 15, fontWeight: '700', color: c.error }}>{t('parcelTracking.cancelParcel')}</Text>}
               </Pressable>
             ) : null}
           </>

@@ -10,14 +10,16 @@ import { View, Text, StyleSheet } from 'react-native';
 
 import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
+import { useTranslation } from 'react-i18next';
 
 export function VerifiedBadge({ compact = false }: { compact?: boolean }) {
   const { c } = useApp();
-  if (compact) return <Icon name="check-decagram" size={14} color={c.success} label="Verified driver" />;
+  const { t } = useTranslation();
+  if (compact) return <Icon name="check-decagram" size={14} color={c.success} label={t('verifiedBadge.verifiedDriver')} />;
   return (
-    <View style={[styles.pill, { backgroundColor: c.successLight }]} accessible accessibilityLabel="Verified driver">
+    <View style={[styles.pill, { backgroundColor: c.successLight }]} accessible accessibilityLabel={t('verifiedBadge.verifiedDriver')}>
       <Icon name="check-decagram" size={14} color={c.success} />
-      <Text style={[styles.text, { color: c.text }]}>Verified</Text>
+      <Text style={[styles.text, { color: c.text }]}>{t('verifiedBadge.verified')}</Text>
     </View>
   );
 }

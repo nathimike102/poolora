@@ -26,6 +26,7 @@ import { Shadow } from '../../theme';
 import { Icon } from '../../components/Icon';
 import { errorHandler } from '../../utils/errorHandler';
 import { money, REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Gender = UserGender;
 type Status = BookingStatus;
@@ -69,6 +70,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 /* ── Sub-components ────────────────────────────────────────── */
 
 function GenderBadge({ gender }: { gender: Gender }): React.ReactElement {
+  const { t } = useTranslation();
+  // The colour key; the label shown comes from the catalogue
   const normalizedGender = gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : 'Other';
   const map: Record<string, { bg: string; border: string; text: string }> = {
     Female: { bg: '#FFF1F2', border: '#FCA5A5', text: '#E11D48' },
@@ -78,19 +81,20 @@ function GenderBadge({ gender }: { gender: Gender }): React.ReactElement {
   const s = map[normalizedGender];
   return (
     <View style={[styles.genderBadge, { backgroundColor: s.bg, borderColor: s.border }]}>
-      <Text style={{ fontSize: 11, fontWeight: '600', color: s.text }}>{normalizedGender}</Text>
+      <Text style={{ fontSize: 11, fontWeight: '600', color: s.text }}>{t(`manageRequests.gender.${normalizedGender.toLowerCase()}`)}</Text>
     </View>
   );
 }
 
 function StatusChip({ status }: { status: Status }): React.ReactElement {
+  const { t } = useTranslation();
   const map: Record<string, { label: string; bg: string; text: string }> = {
-    pending:   { label: 'Pending',   bg: '#FEF3C7', text: '#D97706' },
-    accepted:  { label: 'Accepted',  bg: '#D1FAE5', text: '#059669' },
-    confirmed: { label: 'Confirmed', bg: '#D1FAE5', text: '#059669' },
-    rejected:  { label: 'Declined',  bg: '#FFF1F2', text: '#E11D48' },
-    cancelled: { label: 'Cancelled', bg: '#FFF1F2', text: '#E11D48' },
-    completed: { label: 'Completed', bg: '#D1FAE5', text: '#059669' },
+    pending:   { label: t('manageRequests.status.pending'),   bg: '#FEF3C7', text: '#D97706' },
+    accepted:  { label: t('manageRequests.status.accepted'),  bg: '#D1FAE5', text: '#059669' },
+    confirmed: { label: t('manageRequests.status.confirmed'), bg: '#D1FAE5', text: '#059669' },
+    rejected:  { label: t('manageRequests.status.rejected'),  bg: '#FFF1F2', text: '#E11D48' },
+    cancelled: { label: t('manageRequests.status.cancelled'), bg: '#FFF1F2', text: '#E11D48' },
+    completed: { label: t('manageRequests.status.completed'), bg: '#D1FAE5', text: '#059669' },
   };
   const m = map[status] || { label: status, bg: '#F0F0F0', text: '#666' };
   return (
@@ -103,6 +107,7 @@ function StatusChip({ status }: { status: Status }): React.ReactElement {
 /* ═══════════════════════════════════════════════════════════════ */
 export function ManageRequestsScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
@@ -206,7 +211,7 @@ export function ManageRequestsScreen(): React.ReactElement {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setRequests(prev => prev.map(r => (r.id === id ? { ...r, status: 'confirmed' } : r)));
     } catch (error) {
-      Alert.alert('Could not accept request', errorHandler.process(error).message);
+      Alert.alert(t('manageRequests.couldNotAcceptRequest'), errorHandler.process(error).message);
     }
   };
 
@@ -216,7 +221,7 @@ export function ManageRequestsScreen(): React.ReactElement {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setRequests(prev => prev.map(r => (r.id === id ? { ...r, status: 'rejected' } : r)));
     } catch (error) {
-      Alert.alert('Could not decline request', errorHandler.process(error).message);
+      Alert.alert(t('manageRequests.couldNotDeclineRequest'), errorHandler.process(error).message);
     }
   };
 
@@ -229,9 +234,9 @@ export function ManageRequestsScreen(): React.ReactElement {
   };
 
   const TABS: { key: Status; label: string; color: string; bg: string }[] = [
-    { key: 'pending', label: 'Pending', color: '#92400E', bg: '#FEF3C7' },
-    { key: 'confirmed', label: 'Accepted', color: '#047857', bg: '#D1FAE5' },
-    { key: 'rejected', label: 'Declined', color: '#BE123C', bg: '#FFF1F2' },
+    { key: 'pending', label: t('manageRequests.status.pending'), color: '#92400E', bg: '#FEF3C7' },
+    { key: 'confirmed', label: t('manageRequests.status.accepted'), color: '#047857', bg: '#D1FAE5' },
+    { key: 'rejected', label: t('manageRequests.status.rejected'), color: '#BE123C', bg: '#FFF1F2' },
   ];
 
   /* ═══════════════════════════════════════════════════════════ */
@@ -242,7 +247,7 @@ export function ManageRequestsScreen(): React.ReactElement {
         {/* Title row */}
         <View style={styles.titleRow}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">Ride requests</Text>
+          <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">{t('manageRequests.rideRequests')}</Text>
           {totalPending > 0 && (
             <View style={[styles.pendingBadge, { backgroundColor: c.accent + '20', borderColor: c.accent + '50' }]}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: c.accent }}>
@@ -285,7 +290,7 @@ export function ManageRequestsScreen(): React.ReactElement {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={c.primary} />
           {!trip && !loading && (
-            <Text style={{ marginTop: 10, color: c.textSec }}>No active trips found</Text>
+            <Text style={{ marginTop: 10, color: c.textSec }}>{t('manageRequests.noActiveTripsFound')}</Text>
           )}
         </View>
       ) : (
@@ -302,7 +307,7 @@ export function ManageRequestsScreen(): React.ReactElement {
               <View style={styles.summaryTop}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>
-                    {trip.from} to {trip.to}
+                    {t('manageRequests.route', { from: trip.from, to: trip.to })}
                   </Text>
                   <Text style={{ fontSize: 12, color: c.textSec, marginTop: 3 }}>
                     {trip.date} · {trip.totalSeats} seats total
@@ -312,7 +317,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                   <Text style={{ fontSize: 20, fontWeight: '800', color: c.success }}>
                     {money(trip.earnings)}
                   </Text>
-                  <Text style={{ fontSize: 11, color: c.textSec }}>from booked seats</Text>
+                  <Text style={{ fontSize: 11, color: c.textSec }}>{t('manageRequests.fromBookedSeats')}</Text>
                 </View>
               </View>
 
@@ -338,7 +343,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                           />
                         </Svg>
                       ) : (
-                        <Text style={{ fontSize: 11, color: c.textSec, fontWeight: '500' }}>Free</Text>
+                        <Text style={{ fontSize: 11, color: c.textSec, fontWeight: '500' }}>{t('manageRequests.free')}</Text>
                       )}
                     </View>
                   );
@@ -398,14 +403,10 @@ export function ManageRequestsScreen(): React.ReactElement {
               color={c.textSec}
             />
             <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>
-              {activeTab === 'pending' && 'No pending requests'}
-              {activeTab === 'confirmed' && 'No accepted requests yet'}
-              {activeTab === 'rejected' && 'No declined requests'}
+              {(activeTab === 'pending' || activeTab === 'confirmed' || activeTab === 'rejected') && t(`manageRequests.empty.${activeTab}Title`)}
             </Text>
             <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center', lineHeight: 19, paddingHorizontal: 20 }}>
-              {activeTab === 'pending' && 'New ride requests from riders will appear here.'}
-              {activeTab === 'confirmed' && 'When you accept a request it will show up here.'}
-              {activeTab === 'rejected' && 'Declined requests will be moved here.'}
+              {(activeTab === 'pending' || activeTab === 'confirmed' || activeTab === 'rejected') && t(`manageRequests.empty.${activeTab}Sub`)}
             </Text>
           </View>
         }
@@ -428,16 +429,16 @@ export function ManageRequestsScreen(): React.ReactElement {
             {/* Top banner */}
             {req.status === 'pending' ? (
               <View style={[styles.bannerRow, { backgroundColor: c.warningLight }]}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#92400E' }}>Waiting for your answer</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#92400E' }}>{t('manageRequests.waitingForYourAnswer')}</Text>
                 {req.aiScore !== null && (
                   <View
                     style={[styles.aiBadge, { backgroundColor: req.aiScore >= 75 ? c.successLight : c.primaryLight }]}
-                    accessibilityLabel={`Match score ${req.aiScore} out of 100`}
+                    accessibilityLabel={t('manageRequests.matchScore', { score: req.aiScore })}
                   >
                     <Text style={{ fontSize: 13, fontWeight: '800', lineHeight: 15, color: req.aiScore >= 75 ? c.successDark : c.primary }}>
                       {req.aiScore}
                     </Text>
-                    <Text style={{ fontSize: 9, fontWeight: '700', color: req.aiScore >= 75 ? c.successDark : c.primary }}>match</Text>
+                    <Text style={{ fontSize: 9, fontWeight: '700', color: req.aiScore >= 75 ? c.successDark : c.primary }}>{t('manageRequests.match')}</Text>
                   </View>
                 )}
               </View>
@@ -469,7 +470,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                       color: req.status === 'confirmed' ? '#065F46' : '#9F1239',
                     }}
                   >
-                    {req.status === 'confirmed' ? 'Request accepted' : 'Request declined'}
+                    {req.status === 'confirmed' ? t('manageRequests.requestAccepted') : t('manageRequests.requestDeclined')}
                   </Text>
                 </View>
                 <StatusChip status={req.status} />
@@ -491,21 +492,21 @@ export function ManageRequestsScreen(): React.ReactElement {
                   <Text variant="titleSmall" style={{ fontWeight: '800', color: c.text }}>{req.rider}</Text>
                   <View style={[styles.row, { flexWrap: 'wrap', marginTop: 4 }]}>
                     <Text style={{ fontSize: 13, fontWeight: '600', color: c.text }}>
-                      {req.rating !== null ? `Rated ${req.rating.toFixed(1)} (${req.ratingCount})` : 'No ratings yet'}
+                      {req.rating !== null ? t('manageRequests.rated', { rating: req.rating.toFixed(1), count: req.ratingCount }) : t('manageRequests.noRatings')}
                     </Text>
                     <Text variant="bodySmall" style={{ color: c.textSec, marginLeft: 8 }}>
                       {req.trips} {req.trips === 1 ? 'trip' : 'trips'}
                     </Text>
                     <View style={[styles.seatLabel, { backgroundColor: c.primaryLight }]}>
                       <Text style={{ fontSize: 11, fontWeight: '600', color: c.primary }}>
-                        {req.seats} seat{req.seats > 1 ? 's' : ''}
+                        {req.seats > 1 ? t('manageRequests.seatMany', { count: req.seats }) : t('manageRequests.seatOne')}
                       </Text>
                     </View>
                   </View>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text variant="titleLarge" style={{ fontWeight: '800', color: c.primary }}>{money(req.price)}</Text>
-                  <Text variant="labelSmall" style={{ color: c.textSec }}>total</Text>
+                  <Text variant="labelSmall" style={{ color: c.textSec }}>{t('manageRequests.total')}</Text>
                 </View>
               </View>
 
@@ -524,10 +525,10 @@ export function ManageRequestsScreen(): React.ReactElement {
                     />
                   </Svg>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: c.primary }}>
-                    Passenger Details
+                    {t('manageRequests.passengerDetails')}
                   </Text>
                   <Text style={{ fontSize: 11, color: c.textSec, marginLeft: 'auto' }}>
-                    {req.passengers.length} passenger{req.passengers.length > 1 ? 's' : ''}
+                    {req.passengers.length > 1 ? t('manageRequests.passengerMany', { count: req.passengers.length }) : t('manageRequests.passengerOne')}
                   </Text>
                 </View>
                 {req.passengers.map((pax, i) => (
@@ -553,7 +554,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                         {pax.name}
                       </Text>
                       <Text style={{ fontSize: 11, color: c.textSec }}>
-                        {pax.gender ? (pax.gender === 'male' ? 'Male' : pax.gender === 'female' ? 'Female' : 'Other') : 'Not specified'}
+                        {pax.gender ? t(`manageRequests.gender.${pax.gender === 'male' || pax.gender === 'female' ? pax.gender : 'other'}`) : t('manageRequests.gender.notSpecified')}
                       </Text>
                     </View>
                     {pax.gender ? <GenderBadge gender={pax.gender as Gender} /> : null}
@@ -585,7 +586,7 @@ export function ManageRequestsScreen(): React.ReactElement {
               {/* Action buttons */}
               {req.status === 'pending' && (
                 <View style={[styles.actionRow, { marginTop: 4 }]}>
-                  <Pressable onPress={() => reject(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Decline request from ${req.rider}`}>
+                  <Pressable onPress={() => reject(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={t('manageRequests.declineFrom', { name: req.rider })}>
                     <View style={[styles.actionBtn, { backgroundColor: c.errorLight }]}>
                       <Svg width={14} height={14} viewBox="0 0 24 24">
                         <Path
@@ -593,11 +594,11 @@ export function ManageRequestsScreen(): React.ReactElement {
                           fill={c.error}
                         />
                       </Svg>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: c.error }}>Decline</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: c.error }}>{t('manageRequests.decline')}</Text>
                     </View>
                   </Pressable>
 
-                  <Pressable onPress={() => accept(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Accept request from ${req.rider}`}>
+                  <Pressable onPress={() => accept(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={t('manageRequests.acceptFrom', { name: req.rider })}>
                     <LinearGradient
                       colors={[c.success, '#059669']}
                       start={{ x: 0, y: 0 }}
@@ -610,7 +611,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                           fill="white"
                         />
                       </Svg>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: 'white' }}>Accept</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: 'white' }}>{t('manageRequests.accept')}</Text>
                     </LinearGradient>
                   </Pressable>
                 </View>
@@ -622,7 +623,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                     <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill={c.success} />
                   </Svg>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: '#065F46' }}>
-                    You accepted this request. Rider has been notified.
+                    {t('manageRequests.youAcceptedThisRequestRider')}
                   </Text>
                 </View>
               )}
@@ -636,7 +637,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                     />
                   </Svg>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: '#9F1239' }}>
-                    You declined this request.
+                    {t('manageRequests.youDeclinedThisRequest')}
                   </Text>
                 </View>
               )}

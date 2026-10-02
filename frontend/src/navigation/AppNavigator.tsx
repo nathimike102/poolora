@@ -58,6 +58,7 @@ import type {
 // ─── Auth screens ─────────────────────────────────────────────────────────────
 import { SplashScreen } from "../screens/SplashScreen";
 import { OnboardingScreen } from "../screens/OnboardingScreen";
+import { useTranslation } from 'react-i18next';
 import { LoginScreen } from "../screens/LoginScreen";
 import { PhoneLoginScreen } from "../screens/PhoneLoginScreen";
 import { OTPScreen } from "../screens/OTPScreen";
@@ -149,6 +150,7 @@ const FULL_BLEED = { contentStyle: { paddingBottom: 0 } } as const;
 // ─── Bottom Tab Navigators ────────────────────────────────────────────────────
 
 function RiderTabs() {
+  const { t } = useTranslation();
   return (
     <RiderTab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
@@ -157,28 +159,29 @@ function RiderTabs() {
       <RiderTab.Screen
         name="RiderHome"
         component={RiderHomeScreen}
-        options={{ title: "Ride" }}
+        options={{ title: t('tabs.ride') }}
       />
       <RiderTab.Screen
         name="Services"
         component={ServicesScreen}
-        options={{ title: "Services" }}
+        options={{ title: t('tabs.services') }}
       />
       <RiderTab.Screen
         name="MyRides"
         component={MyRidesScreen}
-        options={{ title: "My Rides" }}
+        options={{ title: t('tabs.myRides') }}
       />
       <RiderTab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ title: "Profile" }}
+        options={{ title: t('tabs.profile') }}
       />
     </RiderTab.Navigator>
   );
 }
 
 function DriverTabs() {
+  const { t } = useTranslation();
   return (
     <DriverTab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
@@ -187,27 +190,27 @@ function DriverTabs() {
       <DriverTab.Screen
         name="DriverHome"
         component={DriverHomeScreen}
-        options={{ title: "Home" }}
+        options={{ title: t('tabs.home') }}
       />
       <DriverTab.Screen
         name="CreateRide"
         component={CreateRideScreen}
-        options={{ title: "Create Ride" }}
+        options={{ title: t('tabs.createRide') }}
       />
       <DriverTab.Screen
         name="ManageRequests"
         component={ManageRequestsScreen}
-        options={{ title: "Requests" }}
+        options={{ title: t('tabs.requests') }}
       />
       <DriverTab.Screen
         name="ChatList"
         component={ChatListScreen}
-        options={{ title: "Chat" }}
+        options={{ title: t('tabs.chat') }}
       />
       <DriverTab.Screen
         name="DriverProfile"
         component={DriverProfileScreen}
-        options={{ title: "Profile" }}
+        options={{ title: t('tabs.profile') }}
       />
     </DriverTab.Navigator>
   );

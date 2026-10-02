@@ -24,6 +24,7 @@ import { API_ENDPOINTS } from '../api/constants';
 import type { ApiResponse } from '../types/api';
 import { logger } from '../utils/logger';
 import { batteryLevel } from '../utils/battery';
+import i18n from '../i18n';
 
 export const SOS_LOCATION_TASK = 'poolora-sos-location';
 const ACTIVE_SOS_KEY = '@poolora_active_sos';
@@ -68,8 +69,8 @@ export async function startSosTracking(emergencyId: string): Promise<boolean> {
       showsBackgroundLocationIndicator: true,
       activityType: Location.ActivityType.AutomotiveNavigation,
       foregroundService: {
-        notificationTitle: 'SOS active',
-        notificationBody: 'Sharing your location with the Poolora safety team.',
+        notificationTitle: i18n.t('tracking.sosTitle'),
+        notificationBody: i18n.t('tracking.sosBody'),
         notificationColor: '#B71C1C',
         killServiceOnDestroy: false,
       },

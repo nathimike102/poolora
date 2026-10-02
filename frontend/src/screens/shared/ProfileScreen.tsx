@@ -22,14 +22,17 @@ import { COMPANY } from '../../config/company';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import { displayPhone, realPhone } from '../../utils/phone';
 import { formatKg } from '../../utils/carbon';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const HELP_ITEMS: { icon: IconName; title: string; sub: string; url: string }[] = [
-  { icon: 'phone-outline', title: 'Call support', sub: `${COMPANY.supportPhoneDisplay}, for urgent safety or payment problems`, url: `tel:${COMPANY.supportPhone}` },
-  { icon: 'email-outline', title: 'Email support', sub: COMPANY.supportEmail, url: `mailto:${COMPANY.supportEmail}` },
-  { icon: 'shield-lock-outline', title: 'Privacy policy', sub: 'How we handle your data', url: COMPANY.privacyUrl },
-  { icon: 'file-document-outline', title: 'Terms of service', sub: 'The rules for using Poolora', url: COMPANY.termsUrl },
+  // Words are read from the catalogue when shown, so they follow the language
+  { icon: 'phone-outline', get title() { return i18n.t('profile.help.call'); }, get sub() { return i18n.t('profile.help.callSub', { phone: COMPANY.supportPhoneDisplay }); }, url: `tel:${COMPANY.supportPhone}` },
+  { icon: 'email-outline', get title() { return i18n.t('profile.help.email'); }, sub: COMPANY.supportEmail, url: `mailto:${COMPANY.supportEmail}` },
+  { icon: 'shield-lock-outline', get title() { return i18n.t('profile.help.privacy'); }, get sub() { return i18n.t('profile.help.privacySub'); }, url: COMPANY.privacyUrl },
+  { icon: 'file-document-outline', get title() { return i18n.t('profile.help.terms'); }, get sub() { return i18n.t('profile.help.termsSub'); }, url: COMPANY.termsUrl },
 ];
 
 /** Share of the profile that's filled in, for the ring around the avatar. */
@@ -41,6 +44,7 @@ function completion(p: User | null): number {
 
 export function ProfileScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c, role, logout, switchRole } = useApp();
   const insets = useSafeAreaInsets();
   const [showHelp, setShowHelp] = useState(false);
@@ -67,30 +71,30 @@ export function ProfileScreen(): React.ReactElement {
   const done = completion(profile);
 
   const menu: { icon: IconName; label: string; sub?: string; onPress: () => void }[] = [
-    { icon: 'help-circle-outline', label: 'Help', onPress: () => setShowHelp(true) },
-    { icon: 'wallet-outline', label: 'Wallet and payments', onPress: () => navigation.navigate('Settings') },
+    { icon: 'help-circle-outline', label: t('profile.menu.help'), onPress: () => setShowHelp(true) },
+    { icon: 'wallet-outline', label: t('profile.menu.wallet'), onPress: () => navigation.navigate('Settings') },
     ...(!isDriver
-      ? [{ icon: 'history' as IconName, label: 'My rides', sub: rides > 0 ? `${rides} ${rides === 1 ? 'ride' : 'rides'} taken` : undefined, onPress: () => navigation.navigate('RiderTabs', { screen: 'MyRides' }) }]
+      ? [{ icon: 'history' as IconName, label: t('profile.menu.myRides'), sub: rides > 0 ? (rides === 1 ? t('profile.menu.ridesOne') : t('profile.menu.ridesMany', { count: rides })) : undefined, onPress: () => navigation.navigate('RiderTabs', { screen: 'MyRides' }) }]
       : []),
-    { icon: 'shield-check-outline', label: 'Safety', onPress: () => navigation.navigate('SOS') },
-    { icon: 'account-heart-outline', label: 'Trusted contacts', sub: 'Alerted if you raise an SOS', onPress: () => navigation.navigate('EmergencyContacts') },
-    { icon: 'card-account-details-star-outline', label: 'Identity check', sub: profile?.identity?.status === 'verified' ? 'Verified' : profile?.identity?.status === 'pending' ? 'Waiting for review' : 'Needed for women-only rides', onPress: () => navigation.navigate('IdentityCheck') },
-    { icon: 'leaf', label: 'Your impact', sub: (stats?.co2SavedKg ?? 0) > 0 ? `${formatKg(stats?.co2SavedKg ?? 0)} of CO₂ saved by sharing` : 'CO₂ saved by sharing rides', onPress: () => navigation.navigate('Impact') },
-    { icon: 'message-text-outline', label: 'Messages', onPress: () => navigation.navigate('Messages') },
-    { icon: 'map-marker-path', label: 'Saved routes', onPress: () => navigation.navigate('AddSavedRoute') },
+    { icon: 'shield-check-outline', label: t('profile.menu.safety'), onPress: () => navigation.navigate('SOS') },
+    { icon: 'account-heart-outline', label: t('profile.menu.contacts'), sub: t('profile.menu.contactsSub'), onPress: () => navigation.navigate('EmergencyContacts') },
+    { icon: 'card-account-details-star-outline', label: t('profile.menu.identity'), sub: profile?.identity?.status === 'verified' ? t('profile.menu.verified') : profile?.identity?.status === 'pending' ? t('profile.waitingForReview') : t('profile.neededForWomenOnlyRides'), onPress: () => navigation.navigate('IdentityCheck') },
+    { icon: 'leaf', label: t('profile.menu.impact'), sub: (stats?.co2SavedKg ?? 0) > 0 ? t('profile.menu.impactSaved', { amount: formatKg(stats?.co2SavedKg ?? 0) }) : t('profile.menu.impactSub'), onPress: () => navigation.navigate('Impact') },
+    { icon: 'message-text-outline', label: t('profile.menu.messages'), onPress: () => navigation.navigate('Messages') },
+    { icon: 'map-marker-path', label: t('profile.menu.savedRoutes'), onPress: () => navigation.navigate('AddSavedRoute') },
     {
       icon: 'steering',
-      label: isDriver ? 'Switch to riding' : 'Drive with Poolora',
-      sub: isDriver ? undefined : 'Share your empty seats and earn',
+      label: isDriver ? t('profile.switchToRiding') : t('profile.driveWithPoolora'),
+      sub: isDriver ? undefined : t('profile.menu.driveSub'),
       onPress: switchRole,
     },
-    { icon: 'cog-outline', label: 'Settings', onPress: () => navigation.navigate('Settings') },
+    { icon: 'cog-outline', label: t('profile.menu.settings'), onPress: () => navigation.navigate('Settings') },
   ];
 
   return (
     <View style={[st.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={st.content} showsVerticalScrollIndicator={false}>
-        <Text style={[st.title, { color: c.text }]} accessibilityRole="header">Profile</Text>
+        <Text style={[st.title, { color: c.text }]} accessibilityRole="header">{t('profile.profile')}</Text>
 
         {/* ── Account card ─────────────────────────────────── */}
         <View style={[st.card, { backgroundColor: c.surface, borderColor: c.border }, Shadow.md]}>
@@ -102,7 +106,7 @@ export function ProfileScreen(): React.ReactElement {
           >
             <View
               style={[st.ring, { borderColor: done >= 1 ? c.success : c.primary, borderStyle: done >= 1 ? 'solid' : 'dashed' }]}
-              accessibilityLabel={`Profile ${Math.round(done * 100)}% complete`}
+              accessibilityLabel={t('profile.complete', { percent: Math.round(done * 100) })}
             >
               {profile?.profilePhotoUrl ? (
                 <ImageWithFallback src={profile.profilePhotoUrl} alt={name} width={56} height={56} borderRadius={28} />
@@ -119,11 +123,11 @@ export function ProfileScreen(): React.ReactElement {
             <View style={st.flex1}>
               <View style={st.nameRow}>
                 <Text style={[st.name, { color: c.text }]} numberOfLines={1}>{name || ' '}</Text>
-                {profile?.isVerified && <Icon name="check-decagram" size={18} color={c.success} label="Verified" />}
+                {profile?.isVerified && <Icon name="check-decagram" size={18} color={c.success} label={t('profile.verified')} />}
               </View>
               <Text style={[st.phone, { color: c.textSec }]}>{contact}</Text>
               {done < 1 && profile && (
-                <Text style={[st.complete, { color: c.primary }]}>Profile {Math.round(done * 100)}% complete</Text>
+                <Text style={[st.complete, { color: c.primary }]}>{t('profile.complete', { percent: Math.round(done * 100) })}</Text>
               )}
             </View>
             <Icon name="chevron-right" size={24} color={c.textSec} />
@@ -132,7 +136,7 @@ export function ProfileScreen(): React.ReactElement {
           <View style={st.cardRow}>
             <Icon name="star" size={24} color="#F5B301" />
             <Text style={[st.ratingText, { color: c.text }]}>
-              {ratingCount > 0 ? `${rating.toFixed(1)} My rating` : 'No ratings yet'}
+              {ratingCount > 0 ? t('profile.myRating', { rating: rating.toFixed(1) }) : t('profile.noRatings')}
             </Text>
             {ratingCount > 0 && (
               <Text style={[st.ratingCount, { color: c.textSec }]}>
@@ -168,24 +172,24 @@ export function ProfileScreen(): React.ReactElement {
 
         <Pressable onPress={() => logout()} accessibilityRole="button" style={[st.logout, { borderColor: c.border }]}>
           <Icon name="logout" size={22} color={c.error} />
-          <Text style={[st.logoutText, { color: c.error }]}>Log out</Text>
+          <Text style={[st.logoutText, { color: c.error }]}>{t('profile.logOut')}</Text>
         </Pressable>
 
-        <Text style={[st.version, { color: c.textSec }]}>Poolora version {Constants.expoConfig?.version ?? ''}</Text>
+        <Text style={[st.version, { color: c.textSec }]}>{t('profile.version', { version: Constants.expoConfig?.version ?? '' })}</Text>
       </ScrollView>
 
       {/* ── Help sheet ─────────────────────────────────────── */}
       <Modal visible={showHelp} transparent animationType="slide" onRequestClose={() => setShowHelp(false)}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close help" style={st.overlay} onPress={() => setShowHelp(false)} />
+        <Pressable accessibilityRole="button" accessibilityLabel={t('profile.closeHelp')} style={st.overlay} onPress={() => setShowHelp(false)} />
         <View style={[st.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + Spacing.lg }]}>
           <View style={[st.sheetHandle, { backgroundColor: c.border }]} />
           <View style={[st.sheetTitleRow, { borderBottomColor: c.border }]}>
-            <Text style={[st.sheetTitle, { color: c.text }]} accessibilityRole="header">Help and legal</Text>
+            <Text style={[st.sheetTitle, { color: c.text }]} accessibilityRole="header">{t('profile.helpAndLegal')}</Text>
             <Pressable
               onPress={() => setShowHelp(false)}
               style={[st.closeBtn, { backgroundColor: c.surfaceVariant }]}
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t('profile.close')}
             >
               <Icon name="close" size={18} color={c.textSec} />
             </Pressable>
@@ -200,8 +204,8 @@ export function ProfileScreen(): React.ReactElement {
           >
             <Icon name="help-circle-outline" size={22} color={c.textSec} />
             <View style={st.flex1}>
-              <Text style={[st.helpTitle, { color: c.text }]}>Help centre</Text>
-              <Text style={[st.helpSub, { color: c.textSec }]}>Answers, and requests to our team</Text>
+              <Text style={[st.helpTitle, { color: c.text }]}>{t('profile.helpCentre')}</Text>
+              <Text style={[st.helpSub, { color: c.textSec }]}>{t('profile.answersAndRequestsToOur')}</Text>
             </View>
             <Icon name="chevron-right" size={20} color={c.textSec} />
           </Pressable>

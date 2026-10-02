@@ -20,6 +20,7 @@ import { Shadow } from '../../theme';
 import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
 import { money, REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -52,6 +53,7 @@ function toUpcoming(r: Ride): UpcomingRide {
 /* ═══════════════════════════════════════════════════════════════════ */
 export function UpcomingRidesScreen() {
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [rides, setRides] = useState<UpcomingRide[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -80,7 +82,7 @@ export function UpcomingRidesScreen() {
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <BackButton />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Upcoming rides</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('upcomingRides.upcomingRides')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -88,12 +90,12 @@ export function UpcomingRidesScreen() {
         {rides === null && !loadError && <ActivityIndicator color={c.primary} style={{ marginTop: 24 }} />}
         {loadError && (
           <Text style={{ fontSize: 14, color: c.error, textAlign: 'center' }}>
-            Your rides could not be loaded. Check your connection and try again.
+            {t('upcomingRides.yourRidesCouldNotBe')}
           </Text>
         )}
         {rides?.length === 0 && (
           <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', marginTop: 24 }}>
-            You have no upcoming rides.
+            {t('upcomingRides.youHaveNoUpcomingRides')}
           </Text>
         )}
         {rides?.map(r => <RideCard key={r.id} ride={r} />)}
@@ -106,6 +108,7 @@ export function UpcomingRidesScreen() {
 function RideCard({ ride }: { ride: UpcomingRide }) {
   const navigation = useNavigation<Nav>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const scale = useRef(new Animated.Value(1)).current;
 
   const onIn = () =>
@@ -141,7 +144,7 @@ function RideCard({ ride }: { ride: UpcomingRide }) {
           {/* Ride info */}
           <View style={styles.flex1}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>
-              {ride.from} to {ride.to}
+              {t('upcomingRides.route', { from: ride.from, to: ride.to })}
             </Text>
             <Text style={{ fontSize: 12, color: c.textSec, marginTop: 3 }}>
               {ride.date} · {ride.time}

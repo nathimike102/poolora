@@ -24,6 +24,7 @@ import type { Rating, User, VerifiedStatus } from '../../types/api';
 import { displayPhone } from '../../utils/phone';
 import { VEHICLE_CATEGORIES, vehicleCategory } from '../../utils/vehicles';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,6 +40,7 @@ function timeAgo(iso: string): string {
 
 export function DriverProfileScreen() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c, logout, switchRole } = useApp();
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<User | null>(null);
@@ -76,34 +78,34 @@ export function DriverProfileScreen() {
     : null;
 
   const kyc: Record<KycStatus, { icon: IconName; label: string; fg: string; bg: string }> = {
-    approved: { icon: 'check-decagram', label: 'Documents approved', fg: c.success, bg: c.successLight },
-    pending: { icon: 'clock-outline', label: 'Documents under review', fg: c.warning, bg: c.warningLight },
-    rejected: { icon: 'alert-circle-outline', label: 'Documents rejected', fg: c.error, bg: c.errorLight },
-    none: { icon: 'card-account-details-outline', label: 'Documents not submitted', fg: c.textSec, bg: c.surfaceVariant },
+    approved: { icon: 'check-decagram', label: t('driverProfile.kyc.approved'), fg: c.success, bg: c.successLight },
+    pending: { icon: 'clock-outline', label: t('driverProfile.kyc.pending'), fg: c.warning, bg: c.warningLight },
+    rejected: { icon: 'alert-circle-outline', label: t('driverProfile.kyc.rejected'), fg: c.error, bg: c.errorLight },
+    none: { icon: 'card-account-details-outline', label: t('driverProfile.kyc.none'), fg: c.textSec, bg: c.surfaceVariant },
   };
   const kycInfo = kyc[kycStatus] ?? kyc.none;
 
   const menu: { icon: IconName; label: string; sub?: string; onPress: () => void }[] = [
-    { icon: 'cash', label: 'Earnings', onPress: () => navigation.navigate('Earnings') },
+    { icon: 'cash', label: t('driverProfile.menu.earnings'), onPress: () => navigation.navigate('Earnings') },
     {
       icon: 'car-clock',
-      label: 'Your rides',
-      sub: rides > 0 ? `${rides} ${rides === 1 ? 'ride' : 'rides'} driven` : undefined,
+      label: t('driverProfile.menu.rides'),
+      sub: rides > 0 ? (rides === 1 ? t('driverProfile.menu.ridesOne') : t('driverProfile.menu.ridesMany', { count: rides })) : undefined,
       onPress: () => navigation.navigate('UpcomingRides'),
     },
-    { icon: 'card-account-details-outline', label: 'Driver verification', sub: kycInfo.label, onPress: () => navigation.navigate('KYC') },
-    { icon: 'crosshairs-gps', label: 'Car tracker', sub: 'Optional: a "Tracked car" badge on your rides', onPress: () => navigation.navigate('CarTracker') },
-    { icon: 'shield-check-outline', label: 'Safety', onPress: () => navigation.navigate('SOS') },
-    { icon: 'account-heart-outline', label: 'Trusted contacts', sub: 'Alerted if you raise an SOS', onPress: () => navigation.navigate('EmergencyContacts') },
-    { icon: 'card-account-details-star-outline', label: 'Identity check', sub: 'Needed for women-only rides', onPress: () => navigation.navigate('IdentityCheck') },
-    { icon: 'account-switch-outline', label: 'Switch to riding', onPress: switchRole },
-    { icon: 'cog-outline', label: 'Settings', onPress: () => navigation.navigate('Settings') },
+    { icon: 'card-account-details-outline', label: t('driverProfile.menu.verification'), sub: kycInfo.label, onPress: () => navigation.navigate('KYC') },
+    { icon: 'crosshairs-gps', label: t('driverProfile.menu.tracker'), sub: t('driverProfile.menu.trackerSub'), onPress: () => navigation.navigate('CarTracker') },
+    { icon: 'shield-check-outline', label: t('driverProfile.menu.safety'), onPress: () => navigation.navigate('SOS') },
+    { icon: 'account-heart-outline', label: t('driverProfile.menu.contacts'), sub: t('driverProfile.menu.contactsSub'), onPress: () => navigation.navigate('EmergencyContacts') },
+    { icon: 'card-account-details-star-outline', label: t('driverProfile.menu.identity'), sub: t('driverProfile.menu.identitySub'), onPress: () => navigation.navigate('IdentityCheck') },
+    { icon: 'account-switch-outline', label: t('driverProfile.menu.switch'), onPress: switchRole },
+    { icon: 'cog-outline', label: t('driverProfile.menu.settings'), onPress: () => navigation.navigate('Settings') },
   ];
 
   return (
     <View style={[s.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <Text style={[s.title, { color: c.text }]} accessibilityRole="header">Profile</Text>
+        <Text style={[s.title, { color: c.text }]} accessibilityRole="header">{t('driverProfile.profile')}</Text>
 
         {/* ── Account card ─────────────────────────────────── */}
         <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }, Shadow.md]}>
@@ -127,10 +129,10 @@ export function DriverProfileScreen() {
             <View style={s.flex1}>
               <View style={s.nameRow}>
                 <Text style={[s.name, { color: c.text }]} numberOfLines={1}>{name || ' '}</Text>
-                {badge?.verified && <Icon name="check-decagram" size={18} color={c.success} label="Verified driver" />}
+                {badge?.verified && <Icon name="check-decagram" size={18} color={c.success} label={t('driverProfile.verifiedDriver')} />}
               </View>
               <Text style={[s.phone, { color: c.textSec }]}>{contact}</Text>
-              {memberSince && <Text style={[s.since, { color: c.textSec }]}>Driving since {memberSince}</Text>}
+              {memberSince && <Text style={[s.since, { color: c.textSec }]}>{t('driverProfile.since', { year: memberSince })}</Text>}
             </View>
             <Icon name="chevron-right" size={24} color={c.textSec} />
           </Pressable>
@@ -138,7 +140,7 @@ export function DriverProfileScreen() {
           <View style={s.cardRow}>
             <Icon name="star" size={24} color="#F5B301" />
             <Text style={[s.ratingText, { color: c.text }]}>
-              {ratingCount > 0 ? `${avgRating.toFixed(1)} rating` : 'No ratings yet'}
+              {ratingCount > 0 ? t('driverProfile.rating', { rating: avgRating.toFixed(1) }) : t('driverProfile.noRatings')}
             </Text>
             {ratingCount > 0 && (
               <Text style={[s.ratingCount, { color: c.textSec }]}>
@@ -168,15 +170,14 @@ export function DriverProfileScreen() {
             <View style={s.flex1}>
               <Text style={[s.calloutTitle, { color: c.text }]}>
                 {kycStatus === 'pending'
-                  ? 'Your documents are being reviewed'
+                  ? t('driverProfile.beingReviewed')
                   : kycStatus === 'rejected'
-                    ? 'Resubmit your documents'
-                    : 'Get verified to offer rides'}
+                    ? t('driverProfile.resubmitYourDocuments') : t('driverProfile.getVerifiedToOfferRides')}
               </Text>
               <Text style={[s.calloutSub, { color: c.textSec }]}>
                 {kycStatus === 'rejected' && profile?.kyc?.rejectionReason
-                  ? `Reason: ${profile.kyc.rejectionReason}`
-                  : 'Riders can only book drivers whose licence and vehicle documents have been reviewed.'}
+                  ? t('driverProfile.reason', { reason: profile.kyc.rejectionReason })
+                  : t('driverProfile.onlyReviewed')}
               </Text>
             </View>
             {kycStatus !== 'pending' && <Icon name="chevron-right" size={22} color={c.textSec} />}
@@ -186,11 +187,10 @@ export function DriverProfileScreen() {
         {/* ── Verified Driver badge progress (UC-D10) ──────── */}
         {kycStatus === 'approved' && badge && (
           <>
-            <Text style={[s.sectionTitle, { color: c.text }]}>{badge.verified ? 'Verified Driver' : 'Earn the Verified badge'}</Text>
+            <Text style={[s.sectionTitle, { color: c.text }]}>{badge.verified ? t('driverProfile.verifiedDriver2') : t('driverProfile.earnTheVerifiedBadge')}</Text>
             <Text style={[s.hint, { color: c.textSec, marginBottom: Spacing.sm }]}>
               {badge.verified
-                ? 'Riders see the badge next to your name. Keep it by keeping these up.'
-                : 'Riders see a Verified badge next to drivers who meet all of these.'}
+                ? t('driverProfile.ridersSeeTheBadgeNext') : t('driverProfile.ridersSeeAVerifiedBadge')}
             </Text>
             {badge.checks.map(check => (
               <View key={check.label} style={s.badgeRow} accessible accessibilityLabel={`${check.label}: ${check.met ? 'met' : 'not yet'}, ${check.progress}`}>
@@ -207,9 +207,9 @@ export function DriverProfileScreen() {
         )}
 
         {/* ── Vehicles ─────────────────────────────────────── */}
-        <Text style={[s.sectionTitle, { color: c.text }]}>Vehicles</Text>
+        <Text style={[s.sectionTitle, { color: c.text }]}>{t('driverProfile.vehicles')}</Text>
         {vehicles.length === 0 ? (
-          <Text style={[s.hint, { color: c.textSec }]}>Your vehicle is added when you submit driver verification.</Text>
+          <Text style={[s.hint, { color: c.textSec }]}>{t('driverProfile.yourVehicleIsAddedWhen')}</Text>
         ) : (
           vehicles.map((v, i) => (
             <View
@@ -230,9 +230,9 @@ export function DriverProfileScreen() {
         )}
 
         {/* ── Recent reviews ───────────────────────────────── */}
-        <Text style={[s.sectionTitle, { color: c.text }]}>Recent reviews</Text>
+        <Text style={[s.sectionTitle, { color: c.text }]}>{t('driverProfile.recentReviews')}</Text>
         {reviews.length === 0 ? (
-          <Text style={[s.hint, { color: c.textSec }]}>Reviews from your riders will appear here.</Text>
+          <Text style={[s.hint, { color: c.textSec }]}>{t('driverProfile.reviewsFromYourRidersWill')}</Text>
         ) : (
           reviews.map((r, i) => (
             <View key={r._id} style={[s.review, i < reviews.length - 1 && [s.dashed, { borderColor: c.border }]]}>
@@ -271,10 +271,10 @@ export function DriverProfileScreen() {
 
         <Pressable onPress={() => logout()} accessibilityRole="button" style={[s.logout, { borderColor: c.border }]}>
           <Icon name="logout" size={22} color={c.error} />
-          <Text style={[s.logoutText, { color: c.error }]}>Log out</Text>
+          <Text style={[s.logoutText, { color: c.error }]}>{t('driverProfile.logOut')}</Text>
         </Pressable>
 
-        <Text style={[s.version, { color: c.textSec }]}>Poolora version {Constants.expoConfig?.version ?? ''}</Text>
+        <Text style={[s.version, { color: c.textSec }]}>{t('driverProfile.version', { version: Constants.expoConfig?.version ?? '' })}</Text>
       </ScrollView>
     </View>
   );

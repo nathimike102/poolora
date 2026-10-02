@@ -19,54 +19,27 @@ import { COMPANY } from '../../config/company';
 import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type SupportTicket } from '../../services/supportService';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 /** Answers kept in the app so they work offline. Keep in line with the backend rules. */
-const FAQ: Array<{ topic: string; items: Array<{ q: string; a: string }> }> = [
-  {
-    topic: 'Booking and payment',
-    items: [
-      { q: 'When is my seat confirmed?', a: 'When the driver accepts your request. Drivers have 6 hours to answer; a request that is not answered in time, or once the ride has left, expires and any payment is refunded in full.' },
-      { q: 'I paid but my request disappeared', a: 'A request paid by EcoCash, OneMoney, InnBucks or card that is not paid within 15 minutes is cancelled. If the payment goes through after that, it lands in your Poolora wallet. If money left your account and is not in your wallet, open a request under Payment below and we will trace it.' },
-      { q: 'How much do I get back if I cancel?', a: 'Before the driver accepts, everything. After that, by default: everything 24 hours or more before departure, half from 2 hours, and nothing after that. Cancelling within 30 minutes of the driver accepting is free, as long as the ride is an hour or more away. The app shows the exact amount before you confirm. If the driver changes the time or cancels, you get everything back.' },
-      { q: 'Where do refunds go?', a: 'To your Poolora wallet, at once, however you paid. Use it for your next ride, or withdraw it to EcoCash, OneMoney or InnBucks under Settings, Wallet; a person sends withdrawals, usually within one working day.' },
-      { q: 'Can I pay in ZiG?', a: 'Yes, when ZiG is offered on the payment screen. Prices are set in US dollars and converted at the rate shown before you pay.' },
-    ],
-  },
-  {
-    topic: 'During a ride',
-    items: [
-      { q: 'How do I share my trip?', a: 'On the ride screen, tap Share trip. Anyone with the link can follow the car without the app until an hour after you arrive.' },
-      { q: 'What does SOS do?', a: `Hold the SOS button for 3 seconds. The Poolora safety team is alerted at once and can see where you are. Ten seconds later your emergency contacts get a text with a link to your live location, unless you cancel because you pressed it by accident. If you are in danger, also call ${REGION.emergency.general} (police ${REGION.emergency.police}, ambulance ${REGION.emergency.ambulance}).` },
-      { q: 'What if I have no signal or no GPS?', a: 'The alert still goes: without a GPS fix we use the car\'s last position. With no data at all, the app keeps trying and offers to text your contacts from your phone and to call the emergency line.' },
-      { q: 'Why am I asked "Are you OK?"', a: 'During longer rides we check in every 30 minutes. If you do not answer twice, our safety team is alerted, and if you still do not answer within 5 minutes we text your emergency contacts.' },
-      { q: 'The driver did not come', a: 'If the driver cancels, you are refunded in full automatically. If they never arrived, tap the trip in My rides and choose Report a problem.' },
-    ],
-  },
-  {
-    topic: 'After a ride',
-    items: [
-      { q: 'How do I rate a trip?', a: 'Right after the ride, or later from My rides; trips you have not rated are marked Rate. Ratings close 7 days after the trip. Written reviews appear after our team checks them.' },
-      { q: 'How do I get a receipt?', a: 'In My rides, tap the trip and choose Receipt. You can also email it to yourself.' },
-      { q: 'Something went wrong on my trip', a: 'Tap the trip in My rides and choose Report a problem. Our team reviews it within 48 to 72 hours with the trip\'s chat, payments and route.' },
-    ],
-  },
-  {
-    topic: 'Driving with Poolora',
-    items: [
-      { q: 'How long does verification take?', a: 'We review your licence, registration and insurance within 48 hours. If something is unclear we ask you to upload that document again.' },
-      { q: 'How is the seat price set?', a: 'We suggest a price from the distance and your vehicle, with a little more at commute times and when demand is high. You can choose anything within 30% of it.' },
-      { q: 'How do I get the Verified badge?', a: 'Approved documents, 20 trips, a rating of 4.7 or more from at least 10 riders, few cancellations, 90 days with us and a clean record. Your profile shows your progress.' },
-      { q: 'When am I paid?', a: 'Your share of each fare is added when you complete the ride. Monthly statements are on the Earnings screen.' },
-    ],
-  },
-];
+const FAQ_SIZES = [5, 5, 3, 4];
+const faqVars = () => ({ ambulance: REGION.emergency.ambulance, number: REGION.emergency.general, police: REGION.emergency.police });
+// The words are in the catalogue under help.faq (topic, then q1/a1, q2/a2…), read when shown
+const FAQ: Array<{ topic: string; items: Array<{ q: string; a: string }> }> = FAQ_SIZES.map((size, ti) => ({
+  get topic() { return i18n.t(`help.faq.t${ti + 1}.topic`); },
+  items: Array.from({ length: size }, (_, qi) => ({
+    get q() { return i18n.t(`help.faq.t${ti + 1}.q${qi + 1}`, faqVars()); },
+    get a() { return i18n.t(`help.faq.t${ti + 1}.a${qi + 1}`, faqVars()); },
+  })),
+}));
 
-const STATUS: Record<SupportTicket['status'], string> = { open: 'Waiting for us', answered: 'We replied', closed: 'Closed' };
 
 export function HelpScreen() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
@@ -86,14 +59,14 @@ export function HelpScreen() {
   const faq = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return FAQ;
-    return FAQ.map(t => ({ ...t, items: t.items.filter(i => `${i.q} ${i.a}`.toLowerCase().includes(q)) })).filter(t => t.items.length);
+    return FAQ.map(topic => ({ ...topic, items: topic.items.filter(i => `${i.q} ${i.a}`.toLowerCase().includes(q)) })).filter(topic => topic.items.length);
   }, [query]);
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Help</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('help.help')}</Text>
         <View style={{ width: 44 }} />
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -101,30 +74,30 @@ export function HelpScreen() {
         <View style={[styles.urgent, { backgroundColor: c.errorLight }]}>
           <Icon name="phone-alert" size={22} color={c.error} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Urgent safety or payment problem?</Text>
-            <Text style={{ fontSize: 13, color: c.text }}>Call us on {COMPANY.supportPhoneDisplay}. In danger now? Call {REGION.emergency.general}.</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{t('help.urgentSafetyOrPaymentProblem')}</Text>
+            <Text style={{ fontSize: 13, color: c.text }}>{t('help.callUs', { phone: COMPANY.supportPhoneDisplay, number: REGION.emergency.general })}</Text>
           </View>
           <Pressable
             onPress={() => Linking.openURL(`tel:${COMPANY.supportPhone}`)}
             accessibilityRole="button"
-            accessibilityLabel={`Call Poolora support on ${COMPANY.supportPhoneDisplay}`}
+            accessibilityLabel={t('help.callLabel', { phone: COMPANY.supportPhoneDisplay })}
             style={[styles.callBtn, { backgroundColor: c.error }]}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Call</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{t('help.call')}</Text>
           </Pressable>
         </View>
 
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search help"
+          placeholder={t('help.searchHelp')}
           placeholderTextColor={c.textSec}
-          accessibilityLabel="Search help"
+          accessibilityLabel={t('help.searchHelp')}
           style={[styles.search, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
         />
 
         {faq.length === 0 ? (
-          <Text style={{ fontSize: 14, color: c.textSec }}>No answers match "{query.trim()}". Ask us below.</Text>
+          <Text style={{ fontSize: 14, color: c.textSec }}>{t('help.noMatches', { query: query.trim() })}</Text>
         ) : faq.map(topic => (
           <View key={topic.topic} style={{ gap: 6 }}>
             <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">{topic.topic}</Text>
@@ -150,7 +123,7 @@ export function HelpScreen() {
           </View>
         ))}
 
-        <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">Still need help?</Text>
+        <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">{t('help.stillNeedHelp')}</Text>
         {assistantOn ? (
           <Pressable
             onPress={() => navigation.navigate('SupportAssistant')}
@@ -158,7 +131,7 @@ export function HelpScreen() {
             style={[styles.primary, styles.outline, { borderColor: c.primary }]}
           >
             <Icon name="robot-happy-outline" size={20} color={c.primary} />
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.primary }}>Ask the assistant</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: c.primary }}>{t('help.askTheAssistant')}</Text>
           </Pressable>
         ) : null}
         <Pressable
@@ -166,31 +139,31 @@ export function HelpScreen() {
           accessibilityRole="button"
           style={[styles.primary, { backgroundColor: c.primary }]}
         >
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>Contact us</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>{t('help.contactUs')}</Text>
         </Pressable>
         <Pressable onPress={() => Linking.openURL(`mailto:${COMPANY.supportEmail}`)} accessibilityRole="link" style={styles.link}>
-          <Text style={{ fontSize: 14, color: c.primary }}>Or email {COMPANY.supportEmail}</Text>
+          <Text style={{ fontSize: 14, color: c.primary }}>{t('help.orEmail', { email: COMPANY.supportEmail })}</Text>
         </Pressable>
         <Pressable onPress={() => navigation.navigate('Appeal')} accessibilityRole="button" style={styles.link}>
-          <Text style={{ fontSize: 14, color: c.primary }}>Appeal a suspension or block</Text>
+          <Text style={{ fontSize: 14, color: c.primary }}>{t('help.appealASuspensionOrBlock')}</Text>
         </Pressable>
 
-        <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">Your requests</Text>
+        <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">{t('help.yourRequests')}</Text>
         {tickets === null ? <ActivityIndicator color={c.primary} /> : tickets.length === 0 ? (
-          <Text style={{ fontSize: 14, color: c.textSec }}>Requests you send appear here with our replies.</Text>
+          <Text style={{ fontSize: 14, color: c.textSec }}>{t('help.requestsYouSendAppearHere')}</Text>
         ) : (
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            {tickets.map((t, i) => (
+            {tickets.map((ticket, i) => (
               <Pressable
-                key={t._id}
-                onPress={() => navigation.navigate('SupportTicket', { ticketId: t._id })}
+                key={ticket._id}
+                onPress={() => navigation.navigate('SupportTicket', { ticketId: ticket._id })}
                 accessibilityRole="button"
                 style={[styles.qRow, i > 0 && { borderTopWidth: 1, borderTopColor: c.border }]}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }} numberOfLines={1}>{t.subject}</Text>
-                  <Text style={{ fontSize: 13, color: t.status === 'answered' ? c.primary : c.textSec }}>
-                    {STATUS[t.status]} · {new Date(t.updatedAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' })}
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }} numberOfLines={1}>{ticket.subject}</Text>
+                  <Text style={{ fontSize: 13, color: ticket.status === 'answered' ? c.primary : c.textSec }}>
+                    {t(`help.status.${ticket.status}`)} · {new Date(ticket.updatedAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' })}
                   </Text>
                 </View>
                 <Icon name="chevron-right" size={20} color={c.textSec} />

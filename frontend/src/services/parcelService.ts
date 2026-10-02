@@ -3,6 +3,7 @@
  * UC-P01 to UC-P04). The sender pays when sending; the driver accepts,
  * picks up, and completes delivery with the code the recipient was given.
  */
+import i18n from '../i18n';
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';
 import type { ApiResponse } from '../types/api';
@@ -63,12 +64,12 @@ export interface CreateParcelResult {
 
 /** Where a parcel is, in words */
 export function parcelStage(p: Parcel): { label: string; step: number } {
-  if (p.status === 'cancelled') return { label: 'Cancelled', step: -1 };
-  if (p.status === 'completed') return { label: 'Delivered', step: 3 };
-  if (p.actualPickupTime) return { label: 'On the way', step: 2 };
-  if (p.status === 'confirmed') return { label: 'Accepted, waiting for pickup', step: 1 };
-  if (p.paymentStatus === 'unpaid') return { label: 'Waiting for payment', step: 0 };
-  return { label: 'Waiting for the driver to accept', step: 0 };
+  if (p.status === 'cancelled') return { label: i18n.t('parcelStage.cancelled'), step: -1 };
+  if (p.status === 'completed') return { label: i18n.t('parcelStage.delivered'), step: 3 };
+  if (p.actualPickupTime) return { label: i18n.t('parcelStage.onTheWay'), step: 2 };
+  if (p.status === 'confirmed') return { label: i18n.t('parcelStage.accepted'), step: 1 };
+  if (p.paymentStatus === 'unpaid') return { label: i18n.t('parcelStage.unpaid'), step: 0 };
+  return { label: i18n.t('parcelStage.waiting'), step: 0 };
 }
 
 export interface ParcelPhoto {

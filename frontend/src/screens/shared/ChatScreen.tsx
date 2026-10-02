@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -32,10 +33,12 @@ interface ChatBubble {
   isRead: boolean;
 }
 
-const QUICK_REPLIES = ['On my way!', 'Be there in 2 min', 'Running late', 'At pickup point', 'Thanks!'];
+/** Quick replies; the words are in the catalogue under chat.quick */
+const QUICK_REPLIES = ['onMyWay', 'twoMin', 'late', 'atPickup', 'thanks'] as const;
 
 export function ChatScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c, user } = useApp();
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>();
@@ -112,7 +115,7 @@ export function ChatScreen(): React.ReactElement {
     } catch {
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setInput(msgText);
-      setSendError('Message not sent. Check your connection and try again.');
+      setSendError(t('chat.notSent'));
     }
   };
 
@@ -132,7 +135,7 @@ export function ChatScreen(): React.ReactElement {
 
         <View style={s.flex1}>
           <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }} accessibilityRole="header">{recipientName}</Text>
-          <Text style={{ fontSize: 12, color: c.textSec }}>Chat for this booking</Text>
+          <Text style={{ fontSize: 12, color: c.textSec }}>{t('chat.chatForThisBooking')}</Text>
         </View>
 
         {/* SOS */}
@@ -140,7 +143,7 @@ export function ChatScreen(): React.ReactElement {
           onPress={() => navigation.navigate('SOS', { bookingId: chatId })}
           style={[s.headerBtn, { backgroundColor: c.errorLight }]}
           accessibilityRole="button"
-          accessibilityLabel="SOS emergency"
+          accessibilityLabel={t('chat.sosEmergency')}
         >
           <Svg width={18} height={18} viewBox="0 0 24 24">
             <Path
@@ -162,7 +165,7 @@ export function ChatScreen(): React.ReactElement {
       >
         {messages.length === 0 && (
           <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', marginTop: 24 }}>
-            No messages yet. Messages are kept for 90 days.
+            {t('chat.noMessagesYetMessagesAre')}
           </Text>
         )}
 
@@ -216,7 +219,7 @@ export function ChatScreen(): React.ReactElement {
         style={s.quickRepliesScroll}
         contentContainerStyle={s.quickRow}
       >
-        {QUICK_REPLIES.map(qr => (
+        {QUICK_REPLIES.map(key => t(`chat.quick.${key}`)).map(qr => (
           <Pressable
             key={qr}
             onPress={() => send(qr)}
@@ -237,9 +240,9 @@ export function ChatScreen(): React.ReactElement {
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder="Type a message"
+          placeholder={t('chat.typeAMessage')}
           placeholderTextColor={c.textSec}
-          accessibilityLabel="Message"
+          accessibilityLabel={t('chat.message')}
           maxLength={2000}
           onSubmitEditing={() => send(input)}
           returnKeyType="send"
@@ -251,7 +254,7 @@ export function ChatScreen(): React.ReactElement {
           onPress={() => send(input)}
           disabled={!input.trim()}
           accessibilityRole="button"
-          accessibilityLabel="Send message"
+          accessibilityLabel={t('chat.sendMessage')}
           style={[s.inputBtn, { backgroundColor: input.trim() ? c.primary : c.border }]}
         >
           <Svg width={18} height={18} viewBox="0 0 24 24">

@@ -28,6 +28,7 @@ import { reverseGeocodePlace } from '../../services/placesService';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'MapPicker'>;
 type Route = RouteProp<RootStackParamList, 'MapPicker'>;
@@ -47,9 +48,10 @@ export function MapPickerScreen() {
 function MapPickerUnavailable() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   return (
     <View style={styles.root}>
-      <MapPlaceholder caption="The map isn't available right now. Go back and type the address instead." />
+      <MapPlaceholder caption={t('mapPicker.unavailable')} />
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <BackButton onPress={() => navigation.goBack()} />
       </View>
@@ -59,6 +61,7 @@ function MapPickerUnavailable() {
 
 function MapPickerView() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const route = useRoute<Route>();
   const { c, isDarkMode } = useApp();
   const insets = useSafeAreaInsets();
@@ -132,7 +135,7 @@ function MapPickerView() {
           const [longitude, latitude] = event.nativeEvent.center;
           lookup({ latitude, longitude });
         }}
-        accessibilityLabel="Map. Move the map to place the pin."
+        accessibilityLabel={t('mapPicker.mapMoveTheMapTo')}
       >
         <Camera
           ref={cameraRef}
@@ -145,9 +148,9 @@ function MapPickerView() {
         <BackButton onPress={() => navigation.goBack()} />
         <View style={[styles.headerCard, { backgroundColor: c.surface }, Shadow.md]}>
           <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">
-            {isDestination ? 'Choose destination' : 'Choose pickup point'}
+            {isDestination ? t('mapPicker.chooseDestination') : t('mapPicker.choosePickupPoint')}
           </Text>
-          <Text style={[styles.headerSub, { color: c.textSec }]}>Move the map to place the pin</Text>
+          <Text style={[styles.headerSub, { color: c.textSec }]}>{t('mapPicker.moveTheMapToPlace')}</Text>
         </View>
       </View>
 
@@ -163,7 +166,7 @@ function MapPickerView() {
             <ActivityIndicator size="small" color={c.primary} />
           ) : (
             <Text style={[styles.selectedText, { color: c.text }]} numberOfLines={2}>
-              {address || (lookupFailed ? "We couldn't find an address here. Move the pin slightly." : 'Finding address')}
+              {address || (lookupFailed ? t('mapPicker.notFound') : t('mapPicker.finding'))}
             </Text>
           )}
         </View>
@@ -176,7 +179,7 @@ function MapPickerView() {
           style={[styles.confirmBtn, { backgroundColor: address && !looking ? c.primary : c.border }]}
         >
           <Text style={[styles.confirmText, { color: address && !looking ? c.textOnPrimary : c.textSec }]}>
-            Use this location
+            {t('mapPicker.useThisLocation')}
           </Text>
         </Pressable>
       </View>

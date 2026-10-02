@@ -41,6 +41,7 @@ import type { CreateRideResult, PriceSuggestion, User, Vehicle } from '../../typ
 import { money, moneyInput, REGION } from '../../utils/region';
 import { maxSeatsFor } from '../../utils/vehicles';
 import { identityService } from '../../services/identityService';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 /** 'from', 'to', or the index of a stop */
@@ -52,12 +53,8 @@ const MAX_STOPS = 3;
 const MIN_ADVANCE_HOURS = 2;
 const SUGGESTION_DEBOUNCE_MS = 300;
 const PRICE_DEBOUNCE_MS = 700;
-const LUGGAGE: { value: Luggage; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'small', label: 'Small' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'large', label: 'Large' },
-];
+/** Labels are in the catalogue under createRide.luggage */
+const LUGGAGE: Luggage[] = ['none', 'small', 'medium', 'large'];
 
 function formatDate(d: Date): string {
   return d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -78,6 +75,7 @@ function formatTime(t: string): string {
 
 export function CreateRideScreen() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const { c } = useApp();
   const insets = useSafeAreaInsets();
 
@@ -120,13 +118,12 @@ export function CreateRideScreen() {
       return;
     }
     Alert.alert(
-      'Women-only rides',
+      t('createRide.womenOnlyRides'),
       identity?.status === 'pending'
-        ? 'You can offer women-only rides once your identity check is approved. We usually review it within a day.'
-        : 'Only women who have verified their identity can offer women-only rides, so the passengers know the driver is a woman.',
+        ? t('createRide.youCanOfferWomenOnly') : t('createRide.onlyWomenWhoHaveVerified'),
       identity?.status === 'pending'
-        ? [{ text: 'OK' }]
-        : [{ text: 'Not now', style: 'cancel' }, { text: 'Verify my identity', onPress: () => navigation.navigate('IdentityCheck') }],
+        ? [{ text: t('createRide.ok') }]
+        : [{ text: t('createRide.notNow'), style: 'cancel' }, { text: t('createRide.verifyMyIdentity'), onPress: () => navigation.navigate('IdentityCheck') }],
     );
   };
   const [smokingAllowed, setSmokingAllowed] = useState(false);
@@ -312,16 +309,16 @@ export function CreateRideScreen() {
           <Icon name="check" size={40} color="#FFFFFF" />
         </View>
         <Text style={[styles.doneTitle, { color: c.text }]} accessibilityLiveRegion="polite">
-          {returnRide ? 'Both rides published' : 'Ride published'}
+          {returnRide ? t('createRide.bothRidesPublished') : t('createRide.ridePublished')}
         </Text>
         <Text style={[styles.doneBody, { color: c.textSec }]}>
-          {ride.pickupLocation.address} to {ride.dropoffLocation.address}
+          {t('createRide.doneRoute', { from: ride.pickupLocation.address, to: ride.dropoffLocation.address })}
         </Text>
         <Text style={[styles.doneBody, { color: c.textSec }]}>
-          {when(ride.scheduledDeparture)} · {ride.seats} seats · {money(ride.pricePerSeat)} per seat
+          {t('createRide.doneDetails', { when: when(ride.scheduledDeparture), seats: ride.seats, price: money(ride.pricePerSeat) })}
         </Text>
         {returnRide ? (
-          <Text style={[styles.doneBody, { color: c.textSec }]}>Return trip: {when(returnRide.scheduledDeparture)}</Text>
+          <Text style={[styles.doneBody, { color: c.textSec }]}>{t('createRide.doneReturn', { when: when(returnRide.scheduledDeparture) })}</Text>
         ) : null}
         {returnError ? (
           <Text style={[styles.doneBody, { color: c.error }]} accessibilityLiveRegion="polite">
@@ -333,10 +330,10 @@ export function CreateRideScreen() {
           accessibilityRole="button"
           style={[styles.primaryBtn, { backgroundColor: c.primary }]}
         >
-          <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>View ride</Text>
+          <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>{t('createRide.viewRide')}</Text>
         </Pressable>
         <Pressable onPress={reset} accessibilityRole="button" style={styles.textBtn}>
-          <Text style={{ fontSize: 15, color: c.primary, fontWeight: '600' }}>Offer another ride</Text>
+          <Text style={{ fontSize: 15, color: c.primary, fontWeight: '600' }}>{t('createRide.offerAnotherRide')}</Text>
         </Pressable>
       </View>
     );
@@ -349,12 +346,11 @@ export function CreateRideScreen() {
       <View style={[styles.centered, { backgroundColor: c.bg, paddingTop: insets.top }]}>
         <Icon name="card-account-details-outline" size={48} color={c.primary} />
         <Text style={[styles.doneTitle, { color: c.text }]}>
-          {pending ? 'Verification in review' : 'Verify to offer rides'}
+          {pending ? t('createRide.verificationInReview') : t('createRide.verifyToOfferRides')}
         </Text>
         <Text style={[styles.doneBody, { color: c.textSec }]}>
           {pending
-            ? 'You can publish rides once our team approves your licence and vehicle documents.'
-            : 'Riders can only book drivers whose licence and vehicle documents have been checked.'}
+            ? t('createRide.youCanPublishRidesOnce') : t('createRide.ridersCanOnlyBookDrivers')}
         </Text>
         {!pending && (
           <Pressable
@@ -362,7 +358,7 @@ export function CreateRideScreen() {
             accessibilityRole="button"
             style={[styles.primaryBtn, { backgroundColor: c.primary }]}
           >
-            <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>Start verification</Text>
+            <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>{t('createRide.startVerification')}</Text>
           </Pressable>
         )}
       </View>
@@ -394,47 +390,47 @@ export function CreateRideScreen() {
   return (
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Offer a ride</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('createRide.offerARide')}</Text>
       </View>
 
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {profileError && (
             <Text style={{ color: c.error, fontSize: 14 }}>
-              Your driver profile could not be loaded. Check your connection.
+              {t('createRide.yourDriverProfileCouldNot')}
             </Text>
           )}
 
           {/* Route, with up to three stops on the way */}
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.label, { color: c.textSec }]}>Leaving from</Text>
+            <Text style={[styles.label, { color: c.textSec }]}>{t('createRide.leavingFrom')}</Text>
             <TextInput
               value={from}
               onChangeText={t => onChange('from', t)}
               onFocus={() => setActiveField('from')}
-              placeholder="Starting point"
+              placeholder={t('createRide.startingPoint')}
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Leaving from"
+              accessibilityLabel={t('createRide.leavingFrom')}
               style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
             />
             {renderSuggestions('from')}
             {stops.map((stop, i) => (
               <View key={i}>
-                <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>Stop {i + 1}</Text>
+                <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>{t('createRide.stop', { n: i + 1 })}</Text>
                 <View style={styles.stopRow}>
                   <TextInput
                     value={stop}
                     onChangeText={t => onChange(i, t)}
                     onFocus={() => setActiveField(i)}
-                    placeholder="A place on the way"
+                    placeholder={t('createRide.aPlaceOnTheWay')}
                     placeholderTextColor={c.textSec}
-                    accessibilityLabel={`Stop ${i + 1}`}
+                    accessibilityLabel={t('createRide.stop', { n: i + 1 })}
                     style={[styles.input, { flex: 1, borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
                   />
                   <Pressable
                     onPress={() => removeStop(i)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Remove stop ${i + 1}`}
+                    accessibilityLabel={t('createRide.removeStop', { n: i + 1 })}
                     style={styles.iconBtn}
                   >
                     <Icon name="close" size={20} color={c.textSec} />
@@ -450,17 +446,17 @@ export function CreateRideScreen() {
                 style={styles.addStop}
               >
                 <Icon name="plus" size={18} color={c.primary} />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Add a stop</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>{t('createRide.addAStop')}</Text>
               </Pressable>
             )}
-            <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>Going to</Text>
+            <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>{t('createRide.goingTo')}</Text>
             <TextInput
               value={to}
               onChangeText={t => onChange('to', t)}
               onFocus={() => setActiveField('to')}
-              placeholder="Destination"
+              placeholder={t('createRide.destination')}
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Going to"
+              accessibilityLabel={t('createRide.goingTo')}
               style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
             />
             {renderSuggestions('to')}
@@ -471,7 +467,7 @@ export function CreateRideScreen() {
             <Pressable
               onPress={() => setShowDate('out')}
               accessibilityRole="button"
-              accessibilityLabel={`Date, ${formatDate(date)}`}
+              accessibilityLabel={t('createRide.dateLabel', { date: formatDate(date) })}
               style={[styles.pickerBtn, { borderColor: c.border, backgroundColor: c.bg }]}
             >
               <Icon name="calendar" size={18} color={c.primary} />
@@ -480,7 +476,7 @@ export function CreateRideScreen() {
             <Pressable
               onPress={() => setShowTime('out')}
               accessibilityRole="button"
-              accessibilityLabel={`Time, ${formatTime(time)}`}
+              accessibilityLabel={t('createRide.timeLabel', { time: formatTime(time) })}
               style={[styles.pickerBtn, { borderColor: c.border, backgroundColor: c.bg }]}
             >
               <Icon name="clock-outline" size={18} color={c.primary} />
@@ -491,14 +487,14 @@ export function CreateRideScreen() {
           {/* Return trip: the same ride back, stops reversed */}
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             <View style={styles.switchRow}>
-              <Text style={{ fontSize: 15, color: c.text, flex: 1 }}>Also offer the return trip</Text>
+              <Text style={{ fontSize: 15, color: c.text, flex: 1 }}>{t('createRide.alsoOfferTheReturnTrip')}</Text>
               <Switch
                 value={withReturn}
                 onValueChange={on => {
                   setWithReturn(on);
                   if (on && returnDeparture.getTime() <= departure.getTime()) setReturnDate(new Date(date));
                 }}
-                accessibilityLabel="Also offer the return trip"
+                accessibilityLabel={t('createRide.alsoOfferTheReturnTrip')}
                 trackColor={{ false: c.border, true: c.primary }}
               />
             </View>
@@ -508,7 +504,7 @@ export function CreateRideScreen() {
                   <Pressable
                     onPress={() => setShowDate('return')}
                     accessibilityRole="button"
-                    accessibilityLabel={`Return date, ${formatDate(returnDate)}`}
+                    accessibilityLabel={t('createRide.returnDateLabel', { date: formatDate(returnDate) })}
                     style={[styles.pickerBtn, { borderColor: c.border, backgroundColor: c.bg }]}
                   >
                     <Icon name="calendar" size={18} color={c.primary} />
@@ -517,7 +513,7 @@ export function CreateRideScreen() {
                   <Pressable
                     onPress={() => setShowTime('return')}
                     accessibilityRole="button"
-                    accessibilityLabel={`Return time, ${formatTime(returnTime)}`}
+                    accessibilityLabel={t('createRide.returnTimeLabel', { time: formatTime(returnTime) })}
                     style={[styles.pickerBtn, { borderColor: c.border, backgroundColor: c.bg }]}
                   >
                     <Icon name="clock-outline" size={18} color={c.primary} />
@@ -526,8 +522,8 @@ export function CreateRideScreen() {
                 </View>
                 <Text style={{ fontSize: 13, color: returnOk ? c.textSec : c.error, marginTop: 6 }}>
                   {returnOk
-                    ? `${to.split(',')[0] || 'Destination'} to ${from.split(',')[0] || 'start'}, same seats, price and rules.`
-                    : 'The return trip must leave after the outbound one.'}
+                    ? t('createRide.returnSummary', { to: to.split(',')[0] || t('createRide.destination'), from: from.split(',')[0] || t('createRide.startLower') })
+                    : t('createRide.returnBefore')}
                 </Text>
               </>
             )}
@@ -535,7 +531,7 @@ export function CreateRideScreen() {
 
           {/* Seats and price */}
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.label, { color: c.textSec }]}>Seats to offer</Text>
+            <Text style={[styles.label, { color: c.textSec }]}>{t('createRide.seatsToOffer')}</Text>
             <View style={styles.row} accessibilityRole="radiogroup">
               {Array.from({ length: maxSeats }, (_, i) => i + 1).map(n => {
                 const selected = seats === n;
@@ -553,35 +549,35 @@ export function CreateRideScreen() {
               })}
             </View>
 
-            <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>Price per seat (US$)</Text>
+            <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.md }]}>{t('createRide.pricePerSeatUs')}</Text>
             {suggestion ? (
               <View style={[styles.suggestBox, { backgroundColor: c.primaryLight }]} accessibilityLiveRegion="polite">
                 <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
-                  Suggested {money(suggestion.suggested)} · choose {money(suggestion.min)} to {money(suggestion.max)}
+                  {t('createRide.suggested', { price: money(suggestion.suggested), min: money(suggestion.min), max: money(suggestion.max) })}
                 </Text>
                 <Text style={{ fontSize: 13, color: c.textSec }}>{suggestion.explanation}</Text>
                 {String(suggestion.suggested) !== price && (
                   <Pressable onPress={() => setPrice(String(suggestion.suggested))} accessibilityRole="button" style={styles.textBtn}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Use {money(suggestion.suggested)}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>{t('createRide.usePrice', { price: money(suggestion.suggested) })}</Text>
                   </Pressable>
                 )}
               </View>
             ) : suggesting ? (
-              <Text style={{ fontSize: 13, color: c.textSec, marginBottom: 6 }}>Working out a fair price for this route…</Text>
+              <Text style={{ fontSize: 13, color: c.textSec, marginBottom: 6 }}>{t('createRide.workingOutAFairPrice')}</Text>
             ) : null}
             <TextInput
               value={price}
               onChangeText={t => setPrice(moneyInput(t))}
               keyboardType="decimal-pad"
-              placeholder="For example, 2.50"
+              placeholder={t('createRide.forExample250')}
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Price per seat in US dollars"
+              accessibilityLabel={t('createRide.pricePerSeatInUs')}
               maxLength={5}
               style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
             />
             {price !== '' && !priceInRange && suggestion ? (
               <Text style={{ fontSize: 13, color: c.error, marginTop: 6 }}>
-                For this route the price must be between {money(suggestion.min)} and {money(suggestion.max)}.
+                {t('createRide.mustBeBetween', { min: money(suggestion.min), max: money(suggestion.max) })}
               </Text>
             ) : price !== '' ? (
               <Text style={{ fontSize: 13, color: c.textSec, marginTop: 6 }}>
@@ -592,10 +588,10 @@ export function CreateRideScreen() {
 
           {/* Vehicle */}
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.label, { color: c.textSec }]}>Vehicle</Text>
+            <Text style={[styles.label, { color: c.textSec }]}>{t('createRide.vehicle')}</Text>
             {vehicles.length === 0 ? (
               <Text style={{ fontSize: 14, color: c.textSec }}>
-                No verified vehicles on your account. Vehicles are added during driver verification.
+                {t('createRide.noVerifiedVehiclesOnYour')}
               </Text>
             ) : (
               vehicles.map(v => {
@@ -626,11 +622,11 @@ export function CreateRideScreen() {
 
           {/* Preferences */}
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.label, { color: c.textSec }]}>Ride rules</Text>
+            <Text style={[styles.label, { color: c.textSec }]}>{t('createRide.rideRules')}</Text>
             {[
-              { label: 'Women passengers only', value: womenOnly, set: chooseWomenOnly },
-              { label: 'Smoking allowed', value: smokingAllowed, set: setSmokingAllowed },
-              { label: 'Pets allowed', value: petsAllowed, set: setPetsAllowed },
+              { label: t('createRide.rules.womenOnly'), value: womenOnly, set: chooseWomenOnly },
+              { label: t('createRide.rules.smoking'), value: smokingAllowed, set: setSmokingAllowed },
+              { label: t('createRide.rules.pets'), value: petsAllowed, set: setPetsAllowed },
             ].map(p => (
               <View key={p.label} style={styles.switchRow}>
                 <Text style={{ fontSize: 15, color: c.text, flex: 1 }}>{p.label}</Text>
@@ -642,9 +638,9 @@ export function CreateRideScreen() {
                 />
               </View>
             ))}
-            <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.sm }]}>Luggage space</Text>
+            <Text style={[styles.label, { color: c.textSec, marginTop: Spacing.sm }]}>{t('createRide.luggageSpace')}</Text>
             <View style={styles.row} accessibilityRole="radiogroup">
-              {LUGGAGE.map(l => {
+              {LUGGAGE.map(value => ({ value, label: t(`createRide.luggage.${value}`) })).map(l => {
                 const selected = luggage === l.value;
                 return (
                   <Pressable
@@ -680,7 +676,7 @@ export function CreateRideScreen() {
             {publishing ? (
               <ActivityIndicator color={c.textOnPrimary} />
             ) : (
-              <Text style={[styles.primaryBtnText, { color: canPublish ? c.textOnPrimary : c.textSec }]}>Publish ride</Text>
+              <Text style={[styles.primaryBtnText, { color: canPublish ? c.textOnPrimary : c.textSec }]}>{t('createRide.publishRide')}</Text>
             )}
           </Pressable>
         </ScrollView>

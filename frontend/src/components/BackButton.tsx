@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Radius, Shadow } from '../theme';
 import { useApp } from '../context/AppContext';
+import { useTranslation } from 'react-i18next';
 
 interface BackButtonProps {
   onPress?: () => void;
@@ -20,6 +21,7 @@ interface BackButtonProps {
 
 export function BackButton({ onPress }: BackButtonProps) {
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const { c } = useApp();
 
   const handlePress = () => {
@@ -31,7 +33,7 @@ export function BackButton({ onPress }: BackButtonProps) {
   };
 
   return (
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('backButton.goBack')}
       testID="back-button"
       onPress={handlePress}
       style={[

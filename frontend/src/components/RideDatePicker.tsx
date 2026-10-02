@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { Typography, Spacing, Radius } from '../theme';
 import { REGION } from '../utils/region';
+import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -195,6 +196,7 @@ export function RideDatePicker({
   maxDaysAhead = 60,
 }: RideDatePickerProps) {
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const today = startOfDay(new Date());
   const maxDate = new Date(today);
@@ -319,14 +321,14 @@ export function RideDatePicker({
           {/* Title row */}
           <View style={styles.titleRow}>
             <View>
-              <Text style={[styles.title, { color: c.text }]}>Select Date</Text>
+              <Text style={[styles.title, { color: c.text }]}>{t('rideDatePicker.selectDate')}</Text>
               {selectedDate && (
                 <Text style={[styles.selectedLabel, { color: c.primary }]}>
                   {formatHeader(selectedDate)}
                 </Text>
               )}
             </View>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close date picker"
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('rideDatePicker.closeDatePicker')}
               onPress={handleClose}
               style={[styles.closeBtn, { backgroundColor: c.bg }]}
             >
@@ -338,7 +340,7 @@ export function RideDatePicker({
 
           {/* Month navigation */}
           <View style={styles.monthNav}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Previous month"
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('rideDatePicker.previousMonth')}
               testID="prev-month"
               onPress={prevMonth}
               disabled={!canGoPrev}
@@ -359,7 +361,7 @@ export function RideDatePicker({
               {MONTHS[viewMonth]} {viewYear}
             </Text>
 
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Next month"
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('rideDatePicker.nextMonth')}
               testID="next-month"
               onPress={nextMonth}
               style={[styles.monthNavBtn, { backgroundColor: c.primaryLight }]}
