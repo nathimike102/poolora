@@ -251,7 +251,9 @@
       "waitedEnough": "You have waited long enough to report a no-show.",
       "pickedUp": "Picked up",
       "noShow": "No-show"
-    }
+    },
+    "busFrom": "Catching a bus at {{time}} from {{hub}}",
+    "bus": "Catching a bus at {{time}}"
   },
   "login": {
     "tryAgain": "Please try again",
@@ -582,7 +584,14 @@
     "youPay": "You pay",
     "capNearly": "{{company}}'s monthly limit for you is nearly used, so it pays less on this trip.",
     "capUsed": "{{company}}'s monthly limit for you is used up, so you pay the full fare.",
-    "requestCompanyPays": "Send request ({{company}} pays)"
+    "requestCompanyPays": "Send request ({{company}} pays)",
+    "bus": {
+      "title": "Catching a bus at {{hub}}?",
+      "help": "Tell the driver when your bus leaves, so they know not to be late.",
+      "leaves": "My bus leaves at",
+      "earlier": "Earlier",
+      "later": "Later"
+    }
   },
   "payment": {
     "methods": {
@@ -1019,7 +1028,9 @@
     "drop": "Drop",
     "tripOne": "1 trip",
     "tripMany": "{{count}} trips",
-    "worksAt": "Works at {{company}}"
+    "worksAt": "Works at {{company}}",
+    "busFrom": "Catching a bus at {{time}} from {{hub}}",
+    "bus": "Catching a bus at {{time}}"
   },
   "upcomingRides": {
     "upcomingRides": "Upcoming rides",

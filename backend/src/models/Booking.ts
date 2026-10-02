@@ -75,6 +75,8 @@ export interface IBooking extends Document {
   organisation?: Types.ObjectId;
   /** The month the company's contribution counts against its cap, YYYY-MM in market time */
   companyMonth?: string;
+  /** The rider is catching a bus from the drop (UC-R12): when it leaves, and the terminus if the drop is at one */
+  connection?: { departsAt: Date; hub?: Types.ObjectId; hubName?: string };
   /** The company bill this booking's share is on (UC-C03); a trip completed after its month was billed goes on the next one */
   companyInvoice?: Types.ObjectId;
   createdAt: Date;
@@ -152,6 +154,10 @@ const BookingSchema = new Schema<IBooking>(
     organisation: { type: Schema.Types.ObjectId, ref: 'Organisation' },
     companyMonth: { type: String },
     companyInvoice: { type: Schema.Types.ObjectId, ref: 'CompanyInvoice' },
+    connection: {
+      type: new Schema({ departsAt: { type: Date, required: true }, hub: { type: Schema.Types.ObjectId, ref: 'TransitHub' }, hubName: String }, { _id: false }),
+      default: undefined,
+    },
   },
   {
     timestamps: true,

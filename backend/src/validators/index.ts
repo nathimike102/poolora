@@ -198,6 +198,8 @@ export const createBookingSchema = {
     seatsBooked: Joi.number().integer().min(1).max(8).default(1),
     useWallet: Joi.boolean().default(false),
     note: Joi.string().trim().max(300).allow('').optional(),
+    /** Catching a bus from the drop (UC-R12) */
+    connection: Joi.object({ departsAt: Joi.date().iso().required() }).optional(),
     pickup: Joi.object({
       lng: Joi.number().min(-180).max(180).required(),
       lat: Joi.number().min(-90).max(90).required(),

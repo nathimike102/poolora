@@ -42,6 +42,11 @@ export interface Market {
   languages: string[];
   /** Public holidays, for the demand forecast */
   holidays: HolidayCalendar;
+  /**
+   * Kombi ranks and bus termini worth offering (UC-R12): names only. An
+   * admin places each on the map in the web admin before riders see it.
+   */
+  transitHubs: Array<{ name: string; kind: 'kombi_rank' | 'bus_terminus'; city: string }>;
 }
 
 export const MARKETS: Record<string, Market> = {
@@ -64,6 +69,18 @@ export const MARKETS: Record<string, Market> = {
     center: { lat: -17.8292, lng: 31.0522 },
     emergency: { general: '999', police: '995', ambulance: '994', fire: '993' },
     languages: ['en', 'sn', 'nd'],
+    transitHubs: [
+      { name: 'Mbare Musika', kind: 'bus_terminus', city: 'Harare' },
+      { name: 'Roadport', kind: 'bus_terminus', city: 'Harare' },
+      { name: 'Market Square', kind: 'bus_terminus', city: 'Harare' },
+      { name: 'Copacabana', kind: 'kombi_rank', city: 'Harare' },
+      { name: 'Fourth Street', kind: 'kombi_rank', city: 'Harare' },
+      { name: 'Charge Office', kind: 'kombi_rank', city: 'Harare' },
+      { name: 'Renkini', kind: 'bus_terminus', city: 'Bulawayo' },
+      { name: 'Egodini', kind: 'kombi_rank', city: 'Bulawayo' },
+      { name: 'Sakubva', kind: 'bus_terminus', city: 'Mutare' },
+      { name: 'Kudzanai', kind: 'bus_terminus', city: 'Gweru' },
+    ],
     // Public Holidays and Prohibition of Business Act [Chapter 10:21]
     holidays: {
       rules: [

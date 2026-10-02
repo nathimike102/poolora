@@ -33,6 +33,7 @@ import { AppError } from '../utils/AppError';
 import { OrganisationService } from '../services/OrganisationService';
 import { InvoiceService } from '../services/InvoiceService';
 import { CompanyPortalService } from '../services/CompanyPortalService';
+import { TransitHubService } from '../services/TransitHubService';
 
 const overview = new AdminOverviewService();
 const analytics = new ProductAnalyticsService();
@@ -54,6 +55,7 @@ const withdrawals = new WithdrawalService();
 const organisations = new OrganisationService();
 const invoices = new InvoiceService();
 const portal = new CompanyPortalService();
+const hubs = new TransitHubService();
 
 type Handler = (req: Request, adminId: string) => Promise<unknown>;
 
@@ -195,6 +197,11 @@ export const AdminWebController = {
   organisation: handle((req) => organisations.get(id(req))),
   createOrganisation: handle((req, admin) => organisations.create(req.body ?? {}, admin)),
   updateOrganisation: handle((req, admin) => organisations.update(id(req), req.body ?? {}, admin)),
+  // ── Ranks and termini (UC-R12) ─────────────────────────────────────────
+  hubs: handle(() => hubs.list()),
+  createHub: handle((req, admin) => hubs.create(req.body ?? {}, admin)),
+  updateHub: handle((req, admin) => hubs.update(id(req), req.body ?? {}, admin)),
+  removeHub: handle((req, admin) => hubs.remove(id(req), admin)),
   addCompanyAdmin: handle((req, admin) => portal.addAdmin(id(req), req.body ?? {}, admin)),
   removeCompanyAdmin: handle((req, admin) => portal.removeAdmin(id(req), id(req, 'userId'), admin)),
   invoices: handle((req) => invoices.list(id(req))),

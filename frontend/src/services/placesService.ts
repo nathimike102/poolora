@@ -13,6 +13,10 @@ export interface PlaceSuggestion {
   placeId: string;
   name: string;
   subtitle: string;
+  /** A kombi rank or bus terminus (UC-R12), which comes with its exact position */
+  hub?: 'kombi_rank' | 'bus_terminus';
+  lat?: number;
+  lng?: number;
 }
 
 export interface GeocodedPlace {
@@ -23,14 +27,15 @@ export interface GeocodedPlace {
 }
 
 /**
- * Fetch up to 5 place suggestions in India. Callers should debounce input.
+ * Fetch place suggestions in the market's country, ranks and termini first.
+ * Callers should debounce input.
  * `near` (the user's position) ranks nearby places first.
  */
 export async function fetchPlaceSuggestions(input: string, near?: { lat: number; lng: number }): Promise<PlaceSuggestion[]> {
   if (input.trim().length < 2) return [];
 
   const response = await apiClient.get<
-    ApiResponse<{ results: Array<{ placeId: string; mainText: string; secondaryText: string }> }>
+    ApiResponse<{ results: Array<{ placeId: string; mainText: string; secondaryText: string; hub?: PlaceSuggestion['hub']; lat?: number; lng?: number }> }>
   >(API_ENDPOINTS.maps.autocomplete, {
     params: near ? { input, lat: near.lat, lng: near.lng } : { input },
     // The next keystroke supersedes this request, so a retry is pointless.
@@ -41,6 +46,7 @@ export async function fetchPlaceSuggestions(input: string, near?: { lat: number;
     placeId: r.placeId,
     name: r.mainText,
     subtitle: r.secondaryText,
+    ...(r.hub ? { hub: r.hub, lat: r.lat, lng: r.lng } : {}),
   }));
 }
 

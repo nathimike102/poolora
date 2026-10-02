@@ -24,6 +24,7 @@ import { WithdrawalsPage } from './pages/Withdrawals';
 import { CompaniesPage, CompanyDetailPage } from './pages/Companies';
 import { AlertsPage } from './pages/Alerts';
 import { CompanyPortal } from './pages/CompanyPortal';
+import { HubsPage } from './pages/Hubs';
 
 const AdminContext = createContext<AdminUser | null>(null);
 export const useAdmin = () => useContext(AdminContext)!;
@@ -63,6 +64,7 @@ export function App() {
             <Route path="withdrawals" element={<WithdrawalsPage />} />
             <Route path="companies" element={<CompaniesPage />} />
             <Route path="companies/:id" element={<CompanyDetailPage />} />
+            <Route path="hubs" element={<HubsPage />} />
             <Route path="alerts" element={<AlertsPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="support" element={<SupportPage />} />

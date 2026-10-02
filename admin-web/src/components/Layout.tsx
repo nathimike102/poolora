@@ -68,6 +68,7 @@ export function Layout({ onSignedOut }: { onSignedOut: () => void }) {
     ['/parcel-claims', 'Parcel claims', data?.safety.parcelClaimsOpen ?? 0],
     ['/withdrawals', 'Withdrawals', data?.safety.withdrawalsPending ?? 0],
     ['/companies', 'Companies', 0],
+    ['/hubs', 'Ranks and termini', 0],
     ['/analytics', 'Analytics', 0],
     ['/reports', 'Reports', 0],
     ['/alerts', 'Alerts', 0],

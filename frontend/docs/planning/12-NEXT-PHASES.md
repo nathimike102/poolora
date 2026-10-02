@@ -7,9 +7,9 @@ Every use case in `design/03-USE-CASES.md` up to Phase 4 is built (see `11-FEATU
 | Loyalty and rewards | Phase 2 | **Built.** Coins on every completed ride, five tiers by rides completed, tier bonuses, conversion to wallet money, 12-month expiry (`RewardService`, `WalletService`, Wallet screen) |
 | Carbon footprint tracking | Phase 2 | **Built** (UC-R11) |
 | Multi-language support | Phase 2 | Designed here (UC-X03); framework and SOS screen built, translations needed |
-| Corporate partnerships | Phase 3 | Designed here (UC-C01 to UC-C03) |
-| Video calling | Phase 3 | Designed here (UC-X04) |
-| Public transport schedules | Phase 3 | Designed here (UC-R12) |
+| Corporate partnerships | Phase 3 | **Built** (UC-C01 to UC-C03) |
+| Video calling | Phase 3 | Designed here (UC-X04); needs a provider and the lawyer's view on recording |
+| Public transport schedules | Phase 3 | **Built** as ranks and termini (UC-R12); no timetables exist to import |
 
 Order: the two Phase 2 features first, since they serve every user. Corporate partnerships are next, because they bring regular commuters, which is what fills seats. Video calling and public transport follow; both depend on things outside the code (data costs, data that does not exist yet).
 
@@ -160,4 +160,6 @@ The plan says "integration with public transport schedules". Zimbabwe's kombis a
 - **Ranks and termini as places**: a list per market of kombi ranks and bus termini (in Harare: Copacabana, Market Square, Fourth Street, Charge Office, Mbare Musika; intercity: Mbare Musika and Roadport), kept in the market registry. They appear first in place search and as suggested pickups and drops, so a rider can pool the first or last few kilometres to a rank.
 - **"Connect to a bus"**: for intercity routes, a rider can book a seat to a terminus with a time to be there, and the driver sees "catching a bus at 06:00", so they know not to be late.
 - **Demand prediction** (UC-AI03) lists public transport schedules as an input. That stays out until data exists.
+**Built (2 October 2026).** Ranks and termini are kept per market and positioned by admins on the web admin's Ranks and termini page (the market registry lists names to add, never guessed coordinates); a new one stays hidden until an admin checks its pin and switches it on. Place search offers matching ones first, with their exact position. When a booking's drop is within 600 m of a bus terminus, the rider can add when their bus leaves (after the ride, within a day), and the driver sees "Catching a bus at 08:00 from Mbare Musika" on the request and the ride screen.
+
 - **GTFS import** for later markets that publish a feed: the design is a per-market GTFS URL, a nightly import of stops and departures, and "leave by" times in search. Not built until a market with a feed is on the roadmap.

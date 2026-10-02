@@ -455,10 +455,10 @@ export function SearchScreen() {
               suggestions.map((s, i) => (
                 <Row
                   key={s.placeId}
-                  icon="map-marker-outline"
+                  icon={s.hub === 'bus_terminus' ? 'bus' : s.hub === 'kombi_rank' ? 'van-passenger' : 'map-marker-outline'}
                   title={s.name}
                   subtitle={s.subtitle}
-                  onPress={() => choose({ name: s.name, subtitle: s.subtitle })}
+                  onPress={() => choose({ name: s.name, subtitle: s.subtitle, ...(s.lat !== undefined && s.lng !== undefined ? { lat: s.lat, lng: s.lng } : {}) })}
                   divider={i < suggestions.length - 1}
                 />
               ))

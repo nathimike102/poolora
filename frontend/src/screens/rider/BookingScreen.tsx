@@ -15,6 +15,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   TextInput,
+  Switch,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -126,6 +127,21 @@ export function BookingScreen(): React.ReactElement {
   const youPay = Math.round((total - companyPart) * 100) / 100;
   const walletCovers = walletBalance !== null && walletBalance >= youPay;
 
+  // Catching a bus from a terminus at the drop (UC-R12): when it leaves, in 15-minute steps
+  const atTerminus = quote?.dropoffHub?.kind === 'bus_terminus' ? quote.dropoffHub.name : null;
+  const [busAt, setBusAt] = useState<Date | null>(null);
+  const rideLeaves = ride ? new Date(ride.scheduledDeparture).getTime() : 0;
+  const firstBus = () => {
+    const arrives = ride?.estimatedArrival ? new Date(ride.estimatedArrival).getTime() : rideLeaves + 3_600_000;
+    const step = 15 * 60_000;
+    return new Date(Math.ceil((arrives + 30 * 60_000) / step) * step);
+  };
+  const moveBus = (mins: number) => setBusAt(b => {
+    if (!b) return b;
+    const next = new Date(b.getTime() + mins * 60_000);
+    return next.getTime() > rideLeaves && next.getTime() - rideLeaves <= 24 * 3_600_000 ? next : b;
+  });
+
   const handleConfirm = useCallback(async () => {
     if (!ride || isSubmitting) return;
     setSubmitError('');
@@ -138,6 +154,7 @@ export function BookingScreen(): React.ReactElement {
         dropoff: leaveAt,
         useWallet: method === 'wallet',
         note: note.trim() || undefined,
+        connection: atTerminus && busAt ? { departsAt: busAt.toISOString() } : undefined,
       });
 
       if (result.paidViaWallet) {
@@ -154,7 +171,7 @@ export function BookingScreen(): React.ReactElement {
     } finally {
       setIsSubmitting(false);
     }
-  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, youPay, t]);
+  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, youPay, atTerminus, busAt, t]);
 
   // ── Booked with wallet ──────────────────────────────────────────
   if (walletBooked) {
@@ -328,6 +345,34 @@ export function BookingScreen(): React.ReactElement {
             );
           })}
         </View>
+
+        {atTerminus ? (
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={styles.fareRow}>
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '700', color: c.text }}>{t('booking.bus.title', { hub: atTerminus })}</Text>
+              <Switch
+                value={busAt !== null}
+                onValueChange={on => setBusAt(on ? firstBus() : null)}
+                accessibilityLabel={t('booking.bus.title', { hub: atTerminus })}
+                trackColor={{ false: c.border, true: c.primary }}
+              />
+            </View>
+            <Text style={{ fontSize: 12, color: c.textSec, marginTop: 4 }}>{t('booking.bus.help')}</Text>
+            {busAt ? (
+              <View style={[styles.fareRow, { marginTop: 10 }]}>
+                <Pressable onPress={() => moveBus(-15)} accessibilityRole="button" accessibilityLabel={t('booking.bus.earlier')} hitSlop={8}>
+                  <Icon name="minus-circle-outline" size={28} color={c.primary} />
+                </Pressable>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }} accessibilityLiveRegion="polite">
+                  {t('booking.bus.leaves')} {busAt.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                <Pressable onPress={() => moveBus(15)} accessibilityRole="button" accessibilityLabel={t('booking.bus.later')} hitSlop={8}>
+                  <Icon name="plus-circle-outline" size={28} color={c.primary} />
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Fare */}
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>

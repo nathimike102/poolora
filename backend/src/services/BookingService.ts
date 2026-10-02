@@ -25,6 +25,7 @@ import { phrase } from '../i18n';
 import { activeOrganisationOf, colleaguesOf } from './OrganisationService';
 import { companyContribution } from './OrganisationService';
 import { riderPays } from '../utils/fares';
+import { TransitHubService } from './TransitHubService';
 
 const walletService = new WalletService();
 const carbonService = new CarbonService();
@@ -102,6 +103,8 @@ export class BookingService {
       useWallet?: boolean;
       /** Optional message to the driver (UC-R03 step 6) */
       note?: string;
+      /** Catching a bus from the drop (UC-R12) */
+      connection?: { departsAt: string | Date };
     },
   ): Promise<{ booking: IBooking; paidViaWallet: boolean }> {
     const ride = await Ride.findById(data.rideId);
@@ -188,6 +191,7 @@ export class BookingService {
       ? { companyShare: company.share, organisation: company.organisation, companyMonth: company.month }
       : {};
     const youPay = riderPays({ estimatedFare, companyShare: company?.share });
+    const connection = data.connection ? await this.connectionFor(ride, data.dropoff, data.connection.departsAt) : undefined;
 
     // Compute match score
 
@@ -224,6 +228,7 @@ export class BookingService {
         },
         estimatedFare,
         ...companyFields,
+        ...(connection ? { connection } : {}),
         matchScore: matchResult?.overallScore || 0,
         note: data.note?.trim() || undefined,
         paymentMethod: 'wallet',
@@ -267,6 +272,7 @@ export class BookingService {
       },
       estimatedFare,
       ...companyFields,
+      ...(connection ? { connection } : {}),
       matchScore: matchResult?.overallScore || 0,
       note: data.note?.trim() || undefined,
       paymentMethod: 'online',
@@ -733,6 +739,20 @@ export class BookingService {
   }
 
   /**
+   * A bus the rider is catching from their drop (UC-R12): it must leave after
+   * the ride does, within a day, and is tied to the terminus at the drop if
+   * there is one.
+   */
+  private async connectionFor(ride: { departureTime: Date }, dropoff: { lat: number; lng: number }, departsAtInput: string | Date) {
+    const departsAt = new Date(departsAtInput);
+    if (Number.isNaN(departsAt.getTime()) || departsAt <= ride.departureTime || departsAt.getTime() - ride.departureTime.getTime() > 24 * 3_600_000) {
+      throw new AppError('The bus must leave after this ride, on the same day', 422, 'BAD_CONNECTION_TIME');
+    }
+    const hub = await new TransitHubService().at(dropoff).catch(() => null);
+    return { departsAt, ...(hub ? { hub: hub._id, hubName: hub.name } : {}) };
+  }
+
+  /**
    * What a booking would cost the rider, before they make it: the fare, what
    * their company pays (UC-C01) and the rest, which is theirs to pay.
    */
@@ -741,7 +761,10 @@ export class BookingService {
     if (!ride) throw new NotFoundError('Ride');
     const fare = round2(ride.pricePerSeat * data.seatsBooked);
     const company = await companyContribution({ riderId, fare, departure: ride.departureTime, pickup: data.pickup, dropoff: data.dropoff });
+    // A drop at a bus terminus lets the rider add when their bus leaves (UC-R12)
+    const hub = await new TransitHubService().at(data.dropoff).catch(() => null);
     return {
+      ...(hub ? { dropoffHub: { name: hub.name, kind: hub.kind } } : {}),
       fare,
       companyShare: company?.share ?? 0,
       youPay: riderPays({ estimatedFare: fare, companyShare: company?.share }),

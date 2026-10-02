@@ -471,6 +471,14 @@ export function DriverRideDetailsScreen() {
                   {b.note ? (
                     <Text style={{ fontSize: 13, color: c.text, marginTop: 4, fontStyle: 'italic' }}>“{b.note}”</Text>
                   ) : null}
+                  {b.connection ? (
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: c.warning, marginTop: 4 }}>
+                      {(() => {
+                        const time = new Date(b.connection.departsAt).toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' });
+                        return b.connection.hubName ? t('driverRide.busFrom', { time, hub: b.connection.hubName }) : t('driverRide.bus', { time });
+                      })()}
+                    </Text>
+                  ) : null}
                   {notStarted || inProgress ? (
                     <Pressable
                       onPress={() => callOnBooking(b._id, b.rider?.name ?? t('driverRide.yourRider'))}

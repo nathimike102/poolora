@@ -86,6 +86,11 @@ router.patch('/organisations/:id', W.updateOrganisation);
 router.delete('/organisations/:id/members/:userId', W.removeOrganisationMember);
 router.post('/organisations/:id/admins', W.addCompanyAdmin);
 router.delete('/organisations/:id/admins/:userId', W.removeCompanyAdmin);
+// Ranks and termini (UC-R12)
+router.get('/hubs', W.hubs);
+router.post('/hubs', W.createHub);
+router.patch('/hubs/:id', W.updateHub);
+router.delete('/hubs/:id', W.removeHub);
 // Company bills (UC-C03)
 router.get('/organisations/:id/invoices', W.invoices);
 router.post('/organisations/:id/invoices', W.billNow);

@@ -186,7 +186,8 @@ Every use case up to Phase 4 is built, so work moved to the future phases in the
 | Emission factors | UC-R11 | Round figures for typical petrol cars of each class (`config.carbon`). Check them against a published source before quoting a platform total in marketing |
 | Multi-language (UC-X03) | 12-NEXT-PHASES §2 | Built in English throughout; what remains is the Shona and Ndebele translations themselves, by paid native-speaker translators with a second reviewer, before either is switched on. Messages carrying an admin's own words, and the public website, stay in English for now. Shona and Ndebele need paid native-speaker translators and a second reviewer before they are switched on |
 | Company programmes (UC-C01 to UC-C03) | 12-NEXT-PHASES §3 | Built (all five slices): companies set up in the web admin, staff join by confirming a work email, colleagues-only rides and the "Works at" badge, company-paid fares, monthly billing, and the company's own dashboard. Before selling it: have finance check the bill (a statement, not a ZIMRA fiscal invoice) |
-| Video calling, public transport | 12-NEXT-PHASES §4–5 | Designed. SOS video needs a provider and the lawyer's view on recording; public transport needs the list of ranks and termini |
+| Ranks and termini (UC-R12) | 12-NEXT-PHASES §5 | Built. An admin must place and switch on each rank and terminus before riders see it |
+| Video calling (UC-X04) | 12-NEXT-PHASES §4 | Designed. Needs a video provider account and the lawyer's view on recording video during an SOS |
 | Legal wording | Privacy policy | Updated for the ID photo and selfie, SOS audio and location with the screen off; still part of the lawyer's review |
 
 ## 3. Documentation cleanup

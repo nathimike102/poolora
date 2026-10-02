@@ -232,6 +232,8 @@ export interface BookingQuote {
   company?: string;
   /** The company pays less than its share because the month's cap is nearly used */
   limitedBy?: 'cap';
+  /** The drop is at a kombi rank or bus terminus (UC-R12) */
+  dropoffHub?: { name: string; kind: 'kombi_rank' | 'bus_terminus' };
 }
 
 /** GET /bookings/:id/cancellation-quote */
@@ -396,6 +398,8 @@ export interface Booking {
   pickup?: { address?: string; location?: { coordinates: [number, number] } };
   dropoff?: { address?: string; location?: { coordinates: [number, number] } };
   /** Message from the rider to the driver with the request */
+  /** The rider is catching a bus from the drop (UC-R12) */
+  connection?: { departsAt: string; hubName?: string };
   note?: string;
   /** The driver is at this rider's pickup; the no-show wait counts from here */
   driverArrivedAt?: string;
@@ -442,6 +446,8 @@ export interface CreateBookingRequest {
   useWallet?: boolean;
   /** Optional message to the driver */
   note?: string;
+  /** Catching a bus from the drop (UC-R12) */
+  connection?: { departsAt: string };
 }
 
 export interface CreateBookingResult {

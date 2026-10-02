@@ -17,6 +17,7 @@ import {
   searchNearbyPlaces,
   validateAddress,
 } from '../services/MapsService';
+import { TransitHubService } from '../services/TransitHubService';
 
 export class MapsController {
   /**
@@ -60,7 +61,13 @@ export class MapsController {
       const lat = Number(req.query.lat);
       const lng = Number(req.query.lng);
       const near = Number.isFinite(lat) && Number.isFinite(lng) && req.query.lat !== undefined ? { lat, lng } : undefined;
-      const results = await autocomplete(String(req.query.input), near);
+      const input = String(req.query.input);
+      // Ranks and termini first (UC-R12); a failure there never stops the search
+      const [hubs, places] = await Promise.all([
+        new TransitHubService().match(input, near).catch(() => []),
+        autocomplete(input, near),
+      ]);
+      const results = [...hubs, ...places.filter((p) => !hubs.some((h) => h.mainText.toLowerCase() === p.mainText.toLowerCase()))].slice(0, 6);
       sendSuccess(res, { results }, 200, (req as AuthenticatedRequest).requestId);
     } catch (error) {
       next(error);

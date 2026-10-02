@@ -51,6 +51,8 @@ interface RequestItem {
   status: Status;
   /** The rider's message with the request */
   note?: string;
+  /** The rider is catching a bus from the drop (UC-R12) */
+  bus?: { time: string; hub?: string };
 }
 
 interface TripItem {
@@ -164,6 +166,9 @@ export function ManageRequestsScreen(): React.ReactElement {
                 passengers: [{ name: b.rider?.name || t('manageRequests.rider'), gender: b.rider?.gender || '' }],
                 status: b.status,
                 note: b.note,
+                bus: b.connection
+                  ? { time: new Date(b.connection.departsAt).toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }), hub: b.connection.hubName }
+                  : undefined,
               };
             });
 
@@ -581,6 +586,14 @@ export function ManageRequestsScreen(): React.ReactElement {
                 </View>
                 <Text variant="labelSmall" style={{ color: c.textSec }}>{req.date}</Text>
               </View>
+
+              {req.bus ? (
+                <View style={[styles.routeRow, { backgroundColor: c.bg }]}>
+                  <Text variant="bodySmall" style={{ color: c.text, fontWeight: '700', flex: 1 }}>
+                    {req.bus.hub ? t('manageRequests.busFrom', { time: req.bus.time, hub: req.bus.hub }) : t('manageRequests.bus', { time: req.bus.time })}
+                  </Text>
+                </View>
+              ) : null}
 
               {/* Message from the rider */}
               {req.note ? (

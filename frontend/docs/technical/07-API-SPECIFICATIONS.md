@@ -218,8 +218,8 @@ rider requests ──► pending ──(driver accepts, payment in)──► con
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/bookings` | signed in | Request seats |
-| POST | `/bookings/quote` | signed in | Same body as `/bookings`. What it would cost: `fare`, `companyShare` (what the rider's company pays, UC-C01), `youPay`, `company`, and `limitedBy: 'cap'` when the company's monthly cap cuts its share |
+| POST | `/bookings` | signed in | Request seats. Optional `connection.departsAt`: the rider is catching a bus from the drop (UC-R12); it must leave after the ride and within a day, else `422 BAD_CONNECTION_TIME`. The booking keeps it, with the terminus at the drop if there is one, and the driver sees it on the request |
+| POST | `/bookings/quote` | signed in | Same body as `/bookings`. What it would cost: `fare`, `companyShare` (what the rider's company pays, UC-C01), `youPay`, `company`, and `limitedBy: 'cap'` when the company's monthly cap cuts its share. `dropoffHub` (`name`, `kind`) when the drop is within 600 m of a switched-on rank or terminus |
 | GET | `/bookings/as-rider` | signed in | The caller's bookings as a rider. Query: `status`, `page`, `limit` |
 | GET | `/bookings/as-driver` | signed in | Requests and bookings on the caller's rides |
 | POST | `/bookings/:id/confirm` | the ride's driver | Accept. Reserves the seats atomically; `409 PAYMENT_PENDING` until an online payment is in |
@@ -429,7 +429,7 @@ Results are cached in Redis.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/maps/autocomplete?input=&lat=&lng=` | Place suggestions (2–200 characters). Optional `lat`/`lng` (the user's position) ranks nearby places first |
+| GET | `/maps/autocomplete?input=&lat=&lng=` | Place suggestions (2–200 characters). Optional `lat`/`lng` (the user's position) ranks nearby places first. Switched-on kombi ranks and bus termini that match come first (UC-R12), with `hub` (`kombi_rank`, `bus_terminus`), `lat` and `lng` |
 | GET | `/maps/geocode?address=` | Address to position |
 | GET | `/maps/reverse-geocode?lat=&lng=` | Position to address |
 | GET | `/maps/directions` | Route with polyline, distance and duration |
@@ -541,6 +541,10 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | POST | `/admin/invoices/:id/paid` | Body: `reference` (the bank transfer's). Lifts the billing hold once nothing else is overdue. Audited |
 | POST | `/admin/invoices/:id/adjust` | Body: `amount` (negative for a credit), `reason`. Only before payment; the total never goes below zero. Audited |
 | POST | `/admin/organisations/:id/admins` | Body: `name`, `email`. Names a company admin (UC-C01 step 3): the address must be on the company's domains or be its billing contact; Poolora admins and another company's admins are refused. Without an account they get one, and an email with a link to set a password (Firebase). Audited |
+| GET | `/admin/hubs` | Kombi ranks and bus termini (UC-R12), and `suggestions`: names in the market registry not added yet |
+| POST | `/admin/hubs` | Body: `name`, `kind` (`kombi_rank`, `bus_terminus`), `city`, `address`, `aliases`, and `lat`/`lng` or else it is found on the map from its address (`422 HUB_NOT_FOUND`; outside the market `422 OUTSIDE_MARKET`). Starts switched off. Audited |
+| PATCH | `/admin/hubs/:id` | Any of the fields, and `active` to show it to riders. Audited |
+| DELETE | `/admin/hubs/:id` | Audited |
 | DELETE | `/admin/organisations/:id/admins/:userId` | Removes a company admin. Audited |
 | GET | `/admin/parcel-claims` | Parcel claims |
 | POST | `/admin/parcel-claims/:id/decide` | Body: `decision` (`approve`, `reject`), `note` (the claimant sees it), optional `payout` (up to the cover limit; paid to the wallet) and `insurerReference` |
