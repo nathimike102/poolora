@@ -443,6 +443,9 @@ export interface Charge {
   authorizationCode?: string;
   authorizationExpires?: string;
   instructions: string;
+  /** Present when the instructions are Poolora's own: the catalogue key and values, to show them in the app's language */
+  instructionsKey?: string;
+  instructionsVars?: Record<string, string>;
   failureReason?: string;
   /** Paid, but no longer needed, so it went to the wallet */
   creditedToWallet: boolean;

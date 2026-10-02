@@ -37,6 +37,7 @@ import { PaynowGateway, PayChannel, PAY_CHANNELS, GatewayStatus, currencyEnabled
 import { WalletService } from './WalletService';
 import { NotificationService } from './NotificationService';
 import { channelFits } from './WithdrawalService';
+import { phrase } from '../i18n';
 
 const PREFIX: Record<ChargePurpose, string> = { booking: 'BK', parcel: 'PC', topup: 'WT' };
 const LABEL: Record<PayChannel, string> = { ecocash: 'EcoCash', onemoney: 'OneMoney', innbucks: 'InnBucks', card: 'card' };
@@ -73,6 +74,8 @@ export function chargeView(charge: IGatewayCharge, instructions?: string) {
     authorizationCode: charge.status === 'pending' ? charge.authorizationCode : undefined,
     authorizationExpires: charge.status === 'pending' ? charge.authorizationExpires : undefined,
     instructions: instructions ?? instructionsFor(charge),
+    // Ours (not Paynow's) can be shown in the payer's language by the app (UC-X03)
+    ...(instructions ? {} : instructionsKey(charge)),
     failureReason: charge.failureReason,
     creditedToWallet: Boolean(charge.creditedToWalletAt),
   };
@@ -89,6 +92,15 @@ function instructionsFor(charge: IGatewayCharge): string {
     default:
       return `Pay ${amount} by card on the Paynow page, then come back to Poolora.`;
   }
+}
+
+/** The app catalogue's key for our own instructions, and its values */
+function instructionsKey(charge: IGatewayCharge): { instructionsKey: string; instructionsVars: Record<string, string> } {
+  const amount = money(charge.chargedAmount, charge.currency);
+  if (charge.channel === 'ecocash' || charge.channel === 'onemoney') {
+    return { instructionsKey: 'payment.instructions.mobile', instructionsVars: { wallet: LABEL[charge.channel], amount } };
+  }
+  return { instructionsKey: `payment.instructions.${charge.channel === 'innbucks' ? 'innbucks' : 'card'}`, instructionsVars: { amount } };
 }
 
 const resultUrl = () => `${config.app.baseUrl.replace(/\/$/, '')}/payments/paynow/result`;
@@ -320,7 +332,7 @@ export class ChargeService {
       data: { orderId: charge.reference, paymentId: charge.paynowReference, bookingId: booking._id, userId: booking.rider, amount: charge.amountUsd },
     });
     await this.notifications
-      .createNotification(booking.driver.toString(), 'New seat request', 'A rider has paid for a seat and is waiting for you to accept.', 'ride', { bookingId: booking._id.toString() })
+      .createNotification(booking.driver.toString(), phrase('payment.seatRequestTitle'), phrase('payment.seatRequestBody'), 'ride', { bookingId: booking._id.toString() })
       .catch(() => undefined);
     return true;
   }
@@ -334,7 +346,7 @@ export class ChargeService {
     );
     if (!parcel) return false;
     await this.notifications
-      .createNotification(parcel.driver.toString(), 'New parcel request', `A parcel is waiting for you to accept. Tracking: ${parcel.trackingNumber}`, 'ride', { parcelId: parcel._id.toString() })
+      .createNotification(parcel.driver.toString(), phrase('payment.parcelRequestTitle'), phrase('payment.parcelRequestBody', { tracking: parcel.trackingNumber }), 'ride', { parcelId: parcel._id.toString() })
       .catch(() => undefined);
     return true;
   }
@@ -350,7 +362,7 @@ export class ChargeService {
     );
     await GatewayCharge.updateOne({ _id: charge._id }, { $set: { creditedToWalletAt: new Date() } });
     await this.notifications
-      .createNotification(charge.user.toString(), 'Payment added to your wallet', `Your ${money(charge.amountUsd)} payment arrived after the request had closed or was already paid, so it is in your Poolora wallet. You can use it or withdraw it.`, 'system', { reference: charge.reference })
+      .createNotification(charge.user.toString(), phrase('payment.toWalletTitle'), phrase('payment.toWalletBody', { amount: money(charge.amountUsd) }), 'system', { reference: charge.reference })
       .catch(() => undefined);
     logger.info('Unneeded payment credited to wallet', { reference: charge.reference, amount: charge.amountUsd });
   }

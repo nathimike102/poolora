@@ -205,7 +205,9 @@ export function PaymentScreen() {
                 {pollingStopped ? t('payment.stillWaiting') : t('payment.waiting')}
               </Text>
             </View>
-            <Text style={{ fontSize: Typography.md, color: c.text, lineHeight: 21, marginTop: 10 }}>{charge.instructions}</Text>
+            <Text style={{ fontSize: Typography.md, color: c.text, lineHeight: 21, marginTop: 10 }}>
+              {charge.instructionsKey ? t(charge.instructionsKey, { ...charge.instructionsVars, defaultValue: charge.instructions }) : charge.instructions}
+            </Text>
             {charge.authorizationCode ? (
               <View style={[styles.codeBox, { backgroundColor: c.primaryLight }]}>
                 <Text style={{ fontSize: 12, color: c.textSec }}>{t('payment.innbucksCode')}</Text>

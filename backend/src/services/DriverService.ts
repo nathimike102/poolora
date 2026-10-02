@@ -15,6 +15,7 @@ import { ChatService } from './ChatService';
 import { NotificationService } from './NotificationService';
 import { emailLayout, escapeHtml, mailEnabled, sendMail } from './Mailer';
 import { fromLocalClock, money, toLocalClock } from '../config/region';
+import { phrase } from '../i18n';
 
 /** What it takes to earn the Verified Driver badge (UC-D10) */
 export const VERIFIED_DRIVER_RULES = {
@@ -87,7 +88,7 @@ export class DriverService {
         contentType: 'text',
         createdAt: message.createdAt,
       });
-      await push.sendPushNotification(b.rider.toString(), 'Message from your driver', message.content.slice(0, 120), { bookingId: b._id.toString(), type: 'chat' }).catch(() => undefined);
+      await push.sendPushNotification(b.rider.toString(), phrase('driverMessage.title'), message.content.slice(0, 120), { bookingId: b._id.toString(), type: 'chat' }).catch(() => undefined);
     }
     return { sent: bookings.length };
   }

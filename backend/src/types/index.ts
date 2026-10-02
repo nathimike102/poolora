@@ -303,7 +303,11 @@ export interface LocationUpdate {
 export interface DistanceMilestone {
   distanceKm: number;
   estimatedMins: number;
+  /** English, for app versions that do not translate it */
   message: string;
+  /** The app's catalogue key and values, so it shows the message in the rider's language (UC-X03) */
+  messageKey: string;
+  messageVars?: Record<string, number>;
 }
 
 // ─── Chat ────────────────────────────────────────────────────────────────────

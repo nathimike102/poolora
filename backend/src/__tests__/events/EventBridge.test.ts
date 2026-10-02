@@ -8,6 +8,7 @@ jest.mock('../../config/kafka', () => ({
 import { EventBridge } from '../../events';
 import { logger } from '../../utils/logger';
 import type { KafkaTopic } from '../../types';
+import { inEnglish } from '../setup/english';
 
 const id = () => new Types.ObjectId();
 const place = { location: { type: 'Point', coordinates: [72.87, 19.11] }, address: 'Andheri East, Mumbai' };
@@ -57,7 +58,7 @@ describe('EventBridge without Kafka', () => {
       correlationId: 'c1',
     } as never);
 
-    expect(push).toHaveBeenCalledWith(riderId, 'Booking Confirmed', expect.any(String), expect.anything());
+    expect(push).toHaveBeenCalledWith(riderId, inEnglish('Booking Confirmed'), expect.anything(), expect.anything());
     push.mockRestore();
   });
 

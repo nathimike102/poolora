@@ -21,6 +21,7 @@ import { NotificationService } from './NotificationService';
 import { SafetyService } from './SafetyService';
 import { tellUser } from './SafetyAlerts';
 import { EmergencyRecord } from '../models/EmergencyRecord';
+import { phrase } from '../i18n';
 
 const MINUTE = 60_000;
 const LOCK_KEY = 'jobs:ride-check-in';
@@ -119,10 +120,8 @@ export class RideCheckInService {
 
   private async prompt(booking: IBooking, repeat: boolean): Promise<void> {
     const riderId = booking.rider.toString();
-    const title = repeat ? 'Please confirm you are OK' : 'Are you OK?';
-    const body = repeat
-      ? 'We did not hear back. Tap to answer, or we will alert the safety team.'
-      : 'A quick safety check during your ride. Tap to answer.';
+    const title = phrase(repeat ? 'checkIn.titleRepeat' : 'checkIn.title');
+    const body = phrase(repeat ? 'checkIn.bodyRepeat' : 'checkIn.body');
     await this.notifications.sendPushNotification(riderId, title, body, { bookingId: booking._id.toString(), type: 'safety_check' }).catch(() => undefined);
     const { SocketGateway } = await import('../sockets/SocketGateway');
     SocketGateway.getInstance()?.getIO().to(`user:${riderId}`).emit('safety:check-in', { bookingId: booking._id.toString(), repeat });
@@ -143,8 +142,8 @@ export class RideCheckInService {
         await tellUser(booking.rider.toString(), {
           emergencyId: String(record._id),
           change: 'raised',
-          title: 'We have alerted the Poolora safety team',
-          body: `You did not answer two safety check-ins. Tap to tell us you are OK, or we will text your emergency contacts in ${Math.round(config.safety.autoContactDelaySeconds / 60)} minutes.`,
+          title: phrase('checkIn.escalatedTitle'),
+          body: phrase('checkIn.escalatedBody', { minutes: Math.round(config.safety.autoContactDelaySeconds / 60) }),
         });
       }
       logger.warn('SOS raised from a safety check-in', { bookingId: booking._id, reason });

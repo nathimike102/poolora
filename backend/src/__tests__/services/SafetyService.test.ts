@@ -30,6 +30,7 @@ import { SafetyService } from '../../services/SafetyService';
 import { EventBridge } from '../../events';
 import { config } from '../../config';
 import { BookingStatus, RideStatus, SOSCheckInStatus, SOSRiskLevel, SOSStatus } from '../../types';
+import { inEnglish } from '../setup/english';
 
 jest.setTimeout(60_000);
 
@@ -286,7 +287,7 @@ describe('the safety team (UC-A03)', () => {
     expect(taken.status).toBe(SOSStatus.ACKNOWLEDGED);
     expect(taken.riskLevel).toBe(SOSRiskLevel.LOW);
     expect(taken.timeline.at(-1)).toMatchObject({ event: 'Taken by the safety team', details: 'Chipo Admin' });
-    expect(mockTellUser).toHaveBeenCalledWith(rider, expect.objectContaining({ change: 'acknowledged', body: 'Chipo from the Poolora safety team is on it and will call you.' }));
+    expect(mockTellUser).toHaveBeenCalledWith(rider, expect.objectContaining({ change: 'acknowledged', body: inEnglish('Chipo from the Poolora safety team is on it and will call you.') }));
     await expect(service.acknowledgeSOS(sos.id, adminId.toString())).rejects.toThrow('already acknowledged');
   });
 

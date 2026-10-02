@@ -5,6 +5,7 @@ import { User } from '../models/User';
 import { Notification } from '../models/Notification';
 import { logger } from '../utils/logger';
 import { config } from '../config';
+import { isPhrase, render, type Phrase } from '../i18n';
 
 /**
  * Notification service. Handles:
@@ -83,16 +84,18 @@ export class NotificationService {
    */
   async createNotification(
     userId: string,
-    title: string,
-    message: string,
+    title: string | Phrase,
+    message: string | Phrase,
     type: 'chat' | 'ride' | 'system' = 'system',
     data?: Record<string, string>,
   ): Promise<void> {
     try {
+      // Stored in the recipient's language, as it reads when they open it
+      const language = isPhrase(title) || isPhrase(message) ? await this.languageOf(userId) : undefined;
       const notification = await Notification.create({
         user: userId,
-        title,
-        message,
+        title: render(language, title),
+        message: render(language, message),
         type,
         data,
       });
@@ -112,8 +115,8 @@ export class NotificationService {
    */
   async sendPushNotification(
     userId: string,
-    title: string,
-    body: string,
+    titleText: string | Phrase,
+    bodyText: string | Phrase,
     data?: Record<string, string>,
   ): Promise<void> {
     try {
@@ -122,13 +125,16 @@ export class NotificationService {
         return;
       }
 
-      const user = await User.findById(userId).select('fcmTokens');
+      const user = await User.findById(userId).select('fcmTokens language');
 
       if (!user || user.fcmTokens.length === 0) {
         logger.debug('No FCM tokens for user', { userId });
         return;
       }
 
+      // Written in the recipient's language (UC-X03)
+      const title = render(user.language, titleText);
+      const body = render(user.language, bodyText);
       const messaging = getMessaging();
       const failedTokens: string[] = [];
 
@@ -184,6 +190,12 @@ export class NotificationService {
     }
   }
 
+  /** The language a user reads Poolora in; English when unknown */
+  async languageOf(userId: string): Promise<string | undefined> {
+    const user = await User.findById(userId).select('language').lean();
+    return user?.language;
+  }
+
   /** Whether text messages can actually be sent (Twilio enabled and set up) */
   smsAvailable(): boolean {
     return Boolean(config.twilio.enabled && this.twilioClient);
@@ -234,8 +246,8 @@ export class NotificationService {
    */
   async broadcastPush(
     userIds: string[],
-    title: string,
-    body: string,
+    title: string | Phrase,
+    body: string | Phrase,
     data?: Record<string, string>,
   ): Promise<void> {
     await Promise.allSettled(

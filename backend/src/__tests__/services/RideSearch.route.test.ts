@@ -26,6 +26,7 @@ import { backfillRouteLines } from '../../jobs/backfillRouteLines';
 import { RideStatus } from '../../types';
 import { RideAlertService } from '../../services/RideAlertService';
 import { RideAlert } from '../../models/RideAlert';
+import { inEnglish } from '../setup/english';
 
 jest.setTimeout(60_000);
 
@@ -183,7 +184,7 @@ describe('ride alerts (UC-R02 6a)', () => {
     const ride = await Ride.create(rideDoc());
 
     expect(await alerts.notifyMatches(ride)).toBe(1);
-    expect(mockPush).toHaveBeenCalledWith(riderId.toString(), 'A ride on your route', expect.stringContaining('Near C to Near D'), expect.anything());
+    expect(mockPush).toHaveBeenCalledWith(riderId.toString(), inEnglish('A ride on your route'), inEnglish('Near C to Near D', { contains: true }), expect.anything());
     expect(await alerts.notifyMatches(ride)).toBe(0); // never twice for the same ride
   });
 

@@ -19,6 +19,7 @@ import { UserCapability } from '../types';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { NotificationService } from './NotificationService';
+import type { Phrase } from '../i18n';
 
 const notifications = new NotificationService();
 
@@ -89,7 +90,7 @@ export async function textPeople(phones: string[], message: string): Promise<str
 }
 
 /** Pushes to the contacts who have Poolora accounts, found by phone number. */
-export async function pushToPhones(phones: string[], title: string, body: string, data: Record<string, string>): Promise<void> {
+export async function pushToPhones(phones: string[], title: string | Phrase, body: string | Phrase, data: Record<string, string>): Promise<void> {
   try {
     const users = await User.find({ phone: { $in: phones.filter(textable) }, closedAt: { $exists: false } }).select('_id').lean();
     await Promise.all(users.map((u) => notifications.sendPushNotification(String(u._id), title, body, data)));
@@ -104,7 +105,7 @@ export async function pushToPhones(phones: string[], title: string, body: string
  */
 export async function tellUser(
   userId: string,
-  event: { emergencyId: string; change: string; title?: string; body?: string },
+  event: { emergencyId: string; change: string; title?: string | Phrase; body?: string | Phrase },
 ): Promise<void> {
   try {
     const { SocketGateway } = await import('../sockets/SocketGateway');

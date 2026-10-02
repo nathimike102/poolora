@@ -184,11 +184,14 @@ export function ActiveRideScreen() {
       setDriverLocation({ latitude: data.location.lat, longitude: data.location.lng });
       setLastSeen(new Date(data.timestamp).toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }));
     };
-    const onMilestone = (data: { bookingId: string; message: string }) => {
-      if (data.bookingId === bookingId) setDriverUpdate(data.message);
+    // The server sends a catalogue key with its English, so the alert reads in the rider's language
+    type ServerAlert = { bookingId: string; message: string; messageKey?: string; messageVars?: Record<string, number> };
+    const words = (data: ServerAlert) => (data.messageKey ? t(data.messageKey, { ...data.messageVars, defaultValue: data.message }) : data.message);
+    const onMilestone = (data: ServerAlert) => {
+      if (data.bookingId === bookingId) setDriverUpdate(words(data));
     };
-    const onDeviation = (data: { bookingId: string; message: string }) => {
-      if (data.bookingId === bookingId) setDeviationMessage(data.message);
+    const onDeviation = (data: ServerAlert) => {
+      if (data.bookingId === bookingId) setDeviationMessage(words(data));
     };
     const onCheckIn = (data: { bookingId: string; repeat: boolean }) => {
       if (data.bookingId === bookingId) setCheckIn({ repeat: data.repeat });
@@ -208,7 +211,7 @@ export function ActiveRideScreen() {
       socket.off('driver:milestone', onMilestone);
       socket.off('route:deviated', onDeviation);
     };
-  }, [bookingId]);
+  }, [bookingId, t]);
 
   const submitRating = useCallback(async (input: RatingInput) => {
     if (!bookingId) return;

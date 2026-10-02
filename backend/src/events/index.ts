@@ -10,6 +10,7 @@ import { Types } from 'mongoose';
 import { money } from '../config/region';
 import { localTime } from '../config/region';
 import { trackDomainEvent } from '../services/ProductAnalyticsService';
+import { phrase } from '../i18n';
 
 /**
  * Callers pass Mongoose documents' ids (ObjectIds) straight through, but the
@@ -262,8 +263,8 @@ export class EventBridge {
         if (data.driverId && data.rideId) {
           await notificationService.createNotification(
             data.driverId,
-            'Ride Published',
-            'Your ride has been published and is visible to riders.',
+            phrase('ride.published.title'),
+            phrase('ride.published.body'),
             'ride',
             { rideId: data.rideId },
           );
@@ -275,8 +276,9 @@ export class EventBridge {
           const notificationService = new NotificationService();
           await notificationService.sendPushNotification(
             data.driverId,
-            'Ride cancelled',
-            `${data.reason || 'Your ride was cancelled'}, so we cancelled it for you.`,
+            phrase('ride.autoCancelled.title'),
+            // A given reason is the server's own English sentence for now
+            phrase('ride.autoCancelled.body', { reason: data.reason || phrase('ride.autoCancelled.defaultReason') }),
             { rideId: data.rideId ?? '', type: 'ride' },
           );
         }
@@ -287,12 +289,16 @@ export class EventBridge {
         const when = data.departureTime
           ? localTime(data.departureTime, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
           : '';
+        const changed = data.changed ?? [];
         const body = data.freeCancellation
-          ? `Your driver moved the departure to ${when}. If that no longer works, you can cancel for a full refund.`
-          : `Your driver changed the ${(data.changed ?? []).join(' and ')} of your ride.`;
+          ? phrase('ride.changed.time', { when })
+          : changed.length === 1 && (changed[0] === 'seats' || changed[0] === 'price')
+            ? phrase(`ride.changed.${changed[0]}`)
+            : phrase('ride.changed.several', { fields: changed.join(' and ') });
+        const title = phrase('ride.changed.title');
         for (const riderId of data.riderIds ?? []) {
-          await notificationService.sendPushNotification(riderId, 'Your ride has changed', body, { rideId: data.rideId ?? '', type: 'ride' });
-          await notificationService.createNotification(riderId, 'Your ride has changed', body, 'ride', { rideId: data.rideId ?? '' });
+          await notificationService.sendPushNotification(riderId, title, body, { rideId: data.rideId ?? '', type: 'ride' });
+          await notificationService.createNotification(riderId, title, body, 'ride', { rideId: data.rideId ?? '' });
         }
       } else if (event.eventType === 'ride.started') {
         const { NotificationService } = await import('../services/NotificationService');
@@ -301,8 +307,8 @@ export class EventBridge {
         for (const riderId of data.riderIds ?? []) {
           await notificationService.sendPushNotification(
             riderId,
-            'Your driver is on the way',
-            'Your ride has started. Open Poolora to follow the car live.',
+            phrase('ride.started.title'),
+            phrase('ride.started.body'),
             { rideId: data.rideId ?? '', type: 'ride' },
           );
         }
@@ -319,52 +325,52 @@ export class EventBridge {
       if (event.eventType === 'booking.created' && data.driverId) {
         await notificationService.sendPushNotification(
           data.driverId,
-          'New Booking Request',
-          'You have a new ride booking request. Tap to review.',
+          phrase('booking.requested.title'),
+          phrase('booking.requested.push'),
           { bookingId: data.bookingId || '', type: 'booking' },
         );
         await notificationService.createNotification(
           data.driverId,
-          'New Booking Request',
-          'A rider has requested to join your ride.',
+          phrase('booking.requested.title'),
+          phrase('booking.requested.body'),
           'ride',
           { bookingId: data.bookingId ?? '' },
         );
       } else if (event.eventType === 'booking.confirmed' && data.riderId) {
         await notificationService.sendPushNotification(
           data.riderId,
-          'Booking Confirmed',
-          'Your seat is confirmed. At pickup, tell the driver the 4-digit code on your ride screen, and get in only when your app says it is confirmed.',
+          phrase('booking.confirmed.title'),
+          phrase('booking.confirmed.body'),
           { bookingId: data.bookingId || '', type: 'booking' },
         );
       } else if (event.eventType === 'booking.cancelled' && data.riderId) {
         await notificationService.sendPushNotification(
           data.riderId,
-          'Booking Cancelled',
-          'Your booking has been cancelled.',
+          phrase('booking.cancelled.title'),
+          phrase('booking.cancelled.body'),
           { bookingId: data.bookingId || '', type: 'booking' },
         );
       } else if (event.eventType === 'booking.driver_arrived' && data.riderId) {
         const waitMins = (event.data as { waitMins?: number }).waitMins ?? 10;
         await notificationService.sendPushNotification(
           data.riderId,
-          'Your driver has arrived',
-          `Your driver is at the pickup and will wait ${waitMins} minutes. Check the plate, then tell them your pickup code.`,
+          phrase('booking.arrived.title'),
+          phrase('booking.arrived.body', { minutes: waitMins }),
           { bookingId: data.bookingId || '', type: 'ride' },
         );
       } else if (event.eventType === 'booking.no_show' && data.riderId) {
         await notificationService.sendPushNotification(
           data.riderId,
-          'Marked as a no-show',
-          'Your driver waited at the pickup and left without you. The fare is not refunded; raise a dispute from My rides if this is wrong.',
+          phrase('booking.noShow.title'),
+          phrase('booking.noShow.body'),
           { bookingId: data.bookingId || '', type: 'booking' },
         );
       } else if (event.eventType === 'booking.expired' && data.riderId) {
         const reason = (event.data as { reason?: string }).reason;
         await notificationService.sendPushNotification(
           data.riderId,
-          'Request closed',
-          `${reason || 'Your ride request was closed'}. Anything you paid is refunded.`,
+          phrase('booking.expired.title'),
+          phrase('booking.expired.body', { reason: reason || phrase('booking.expired.defaultReason') }),
           { bookingId: data.bookingId || '', type: 'booking' },
         );
       }
@@ -380,8 +386,8 @@ export class EventBridge {
         const notificationService = new NotificationService();
         await notificationService.createNotification(
           data.userId,
-          'Payment Successful',
-          `Payment of ${money(data.amount || 0)} has been processed.`,
+          phrase('payment.succeeded.title'),
+          phrase('payment.succeeded.body', { amount: money(data.amount || 0) }),
           'system',
           { bookingId: data.bookingId ?? '', paymentId: data.paymentId ?? '' },
         );

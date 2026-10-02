@@ -17,6 +17,7 @@ import { WalletService } from './WalletService';
 import { User } from '../models/User';
 import { RideStatus } from '../types';
 import { money } from '../config/region';
+import { phrase } from '../i18n';
 
 const notificationService = new NotificationService();
 const walletService = new WalletService();
@@ -223,8 +224,8 @@ export class ParcelPoolingService {
     // Notify sender
     await notificationService.createNotification(
       parcel.sender.toString(),
-      'Parcel Accepted',
-      `Your parcel has been accepted by the driver. Tracking: ${parcel.trackingNumber}`,
+      phrase('parcel.acceptedTitle'),
+      phrase('parcel.acceptedBody', { tracking: parcel.trackingNumber }),
       'system',
       { parcelId: parcel._id.toString(), trackingNumber: parcel.trackingNumber },
     );
@@ -262,8 +263,8 @@ export class ParcelPoolingService {
     await parcel.save();
 
     // Notify sender and receiver
-    const notificationTitle = 'Parcel Picked Up';
-    const notificationBody = `Your parcel has been picked up. Tracking: ${parcel.trackingNumber}`;
+    const notificationTitle = phrase('parcel.pickedUpTitle');
+    const notificationBody = phrase('parcel.pickedUpBody', { tracking: parcel.trackingNumber });
 
     await Promise.all([
       notificationService.createNotification(
@@ -275,7 +276,7 @@ export class ParcelPoolingService {
       parcel.receiver &&
       notificationService.createNotification(
         parcel.receiver.toString(),
-        'Parcel On the Way',
+        phrase('parcel.onTheWay'),
         notificationBody,
         'system',
       ),
@@ -343,8 +344,8 @@ export class ParcelPoolingService {
     await User.findByIdAndUpdate(driverId, { $inc: { 'stats.totalEarnings': parcel.driverEarnings } });
 
     // Notify all parties
-    const notificationTitle = 'Parcel Delivered';
-    const notificationBody = `Your parcel has been delivered. Tracking: ${parcel.trackingNumber}`;
+    const notificationTitle = phrase('parcel.deliveredTitle');
+    const notificationBody = phrase('parcel.deliveredBody', { tracking: parcel.trackingNumber });
 
     await Promise.all([
       notificationService.createNotification(
@@ -463,8 +464,10 @@ export class ParcelPoolingService {
     const cancelled = await this.cancelAndRefund(parcel, driverId, reason);
     await notificationService.createNotification(
       parcel.sender.toString(),
-      'Parcel request declined',
-      `The driver could not take your parcel. ${cancelled.refundAmount ? `${money(cancelled.refundAmount)} is back in your Poolora wallet.` : ''}`.trim(),
+      phrase('parcel.declinedTitle'),
+      cancelled.refundAmount
+        ? phrase('parcel.declinedRefund', { amount: money(cancelled.refundAmount) })
+        : phrase('parcel.declinedBody'),
       'system',
       { parcelId: parcel._id.toString() },
     );

@@ -49,6 +49,7 @@ import { AppError, NotFoundError } from '../utils/AppError';
 import { audit } from './AuditService';
 import { NotificationService } from './NotificationService';
 import { money } from '../config/region';
+import { phrase } from '../i18n';
 
 const MAX_WALLET = 100_000;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -155,10 +156,10 @@ export class AccountMergeService {
     await AccountMerge.updateOne({ _id: merge._id }, { $set: { status: 'completed', moved } });
     await audit(adminId, 'user.merge.approve', 'user', source._id.toString(), merge.reason, { mergeId, targetId: target._id.toString(), moved });
     const n = new NotificationService();
-    const message = `Your other Poolora account (phone ending ${lastFour(source.phone)}) has been merged into this one. Its trips, ratings and wallet balance are now here.`;
+    const message = phrase('account.mergedBody', { lastFour: lastFour(source.phone) });
     await Promise.allSettled([
-      n.createNotification(target._id.toString(), 'Accounts merged', message, 'system'),
-      n.sendPushNotification(target._id.toString(), 'Accounts merged', message, { type: 'account' }),
+      n.createNotification(target._id.toString(), phrase('account.mergedTitle'), message, 'system'),
+      n.sendPushNotification(target._id.toString(), phrase('account.mergedTitle'), message, { type: 'account' }),
     ]);
     return { merge: await AccountMerge.findById(merge._id).lean() };
   }

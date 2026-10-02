@@ -16,6 +16,7 @@ import { EventBridge } from '../events';
 import { BookingStatus, RideStatus, UserCapability } from '../types';
 import { Ride, rideRoutePath } from '../models/Ride';
 import { nearestOnPath } from '../utils/routeGeometry';
+import { phrase } from '../i18n';
 
 const minutes = (n: number) => `${n} min${n === 1 ? '' : 's'}`;
 
@@ -377,8 +378,8 @@ export class SocketGateway {
     const { NotificationService } = await import('../services/NotificationService');
     await new NotificationService().sendPushNotification(
       riderId,
-      kind === 'arrived' ? 'Your driver is here' : 'Your driver is about 5 minutes away',
-      kind === 'arrived' ? 'Head to the pickup point.' : 'Get ready at the pickup point.',
+      phrase(kind === 'arrived' ? 'approach.hereTitle' : 'approach.nearTitle'),
+      phrase(kind === 'arrived' ? 'approach.hereBody' : 'approach.nearBody'),
       { bookingId, type: 'ride' },
     ).catch(() => undefined);
   }
@@ -428,6 +429,9 @@ export class SocketGateway {
       bookingId,
       offRouteMeters: Math.round(offMeters),
       message: `The car is about ${Math.round(offMeters / 100) * 100} m off the planned route`,
+      // The app shows it in the rider's language from these
+      messageKey: 'ride.alerts.offRoute',
+      messageVars: { meters: Math.round(offMeters / 100) * 100 },
       currentLocation: position,
       timestamp,
     };
@@ -439,8 +443,8 @@ export class SocketGateway {
     const { NotificationService } = await import('../services/NotificationService');
     await new NotificationService().sendPushNotification(
       riderId,
-      'Your car has left the planned route',
-      `${payload.message}. Open Poolora to follow it, or use SOS if you feel unsafe.`,
+      phrase('deviation.title'),
+      phrase('deviation.body', { meters: payload.messageVars.meters }),
       { bookingId, type: 'safety' },
     ).catch(() => undefined);
   }
@@ -458,6 +462,7 @@ export class SocketGateway {
         distanceKm,
         estimatedMins: 0,
         message: 'Driver has arrived',
+        messageKey: 'ride.alerts.arrived',
       };
     }
 
@@ -468,6 +473,8 @@ export class SocketGateway {
         distanceKm: Math.round(distanceKm * 10) / 10,
         estimatedMins: Math.min(eta, 5),
         message: `Driver is ${Math.round(distanceKm * 1000)} m away, about ${minutes(Math.max(1, Math.min(Math.round(eta), 5)))}`,
+        messageKey: 'ride.alerts.metersAway',
+        messageVars: { meters: Math.round(distanceKm * 1000), minutes: Math.max(1, Math.min(Math.round(eta), 5)) },
       };
     }
 
@@ -479,6 +486,8 @@ export class SocketGateway {
         distanceKm: Math.round(distanceKm * 10) / 10,
         estimatedMins: eta,
         message: `Driver is ${Math.round(distanceKm)} km away, about ${minutes(Math.max(1, eta))}`,
+        messageKey: 'ride.alerts.kmAway',
+        messageVars: { km: Math.round(distanceKm), minutes: Math.max(1, eta) },
       };
     }
 
@@ -569,13 +578,13 @@ export class SocketGateway {
           const notificationService = new NotificationService();
           await notificationService.sendPushNotification(
             receiverId,
-            'New message',
+            phrase('chat.newMessage'),
             content.length > 100 ? content.substring(0, 97) + '...' : content,
             { bookingId, type: 'chat', senderId: socket.userId },
           );
           await notificationService.createNotification(
             receiverId,
-            'New message',
+            phrase('chat.newMessage'),
             content.length > 100 ? content.substring(0, 97) + '...' : content,
             'chat',
             { bookingId, senderId: socket.userId },

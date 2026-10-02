@@ -21,6 +21,7 @@ import { CarbonService } from './CarbonService';
 import { NotificationService } from './NotificationService';
 import { isVerifiedWoman, womenOnlyRefusal } from './IdentityService';
 import type { FilterQuery } from 'mongoose';
+import { phrase } from '../i18n';
 
 const walletService = new WalletService();
 const carbonService = new CarbonService();
@@ -638,11 +639,11 @@ export class BookingService {
   /** Five wrong codes: the rider is told to check the car, and admins hear of it. */
   private async pickupPinLocked(booking: IBooking): Promise<void> {
     const ride = await Ride.findById(booking.ride).select('vehicle.plateNumber').lean();
-    const plate = ride?.vehicle?.plateNumber ? ` Only get into ${ride.vehicle.plateNumber}.` : '';
+    const plate = ride?.vehicle?.plateNumber ? phrase('pickupPin.onlyPlate', { plate: ride.vehicle.plateNumber }) : '';
     await new NotificationService().sendPushNotification(
       booking.rider.toString(),
-      'Check the car before you get in',
-      `Five wrong pickup codes were entered for your ride.${plate} If you are in the right car, tap "I'm in the car".`,
+      phrase('pickupPin.lockedTitle'),
+      phrase('pickupPin.lockedBody', { plate }),
       { type: 'pickup_pin', bookingId: booking._id.toString() },
     ).catch(() => undefined);
     const { pushAdmins } = await import('./SafetyAlerts');

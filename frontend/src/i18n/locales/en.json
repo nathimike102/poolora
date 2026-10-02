@@ -130,7 +130,13 @@
       "ok": "I'm OK",
       "help": "I need help"
     },
-    "sosLabel": "SOS emergency"
+    "sosLabel": "SOS emergency",
+    "alerts": {
+      "arrived": "Driver has arrived",
+      "metersAway": "Driver is {{meters}} m away, about {{minutes}} min",
+      "kmAway": "Driver is {{km}} km away, about {{minutes}} min",
+      "offRoute": "The car is about {{meters}} m off the planned route"
+    }
   },
   "driverRide": {
     "gpsAllow": "Allow location access so riders can follow your car.",
@@ -599,6 +605,11 @@
     "cancelInstead": "Cancel the request instead",
     "secure": "Payments are processed by Paynow. Poolora never sees your PIN or card details.",
     "tryAgain": "Try again",
-    "pay": "Pay {{amount}}"
+    "pay": "Pay {{amount}}",
+    "instructions": {
+      "mobile": "Check your phone: {{wallet}} will ask you to approve {{amount}} to Poolora with your PIN.",
+      "innbucks": "Open InnBucks and enter or scan the code to pay {{amount}}.",
+      "card": "Pay {{amount}} by card on the Paynow page, then come back to Poolora."
+    }
   }
 }
