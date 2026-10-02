@@ -28,7 +28,7 @@ export interface SettingDefinition {
   help: string;
   /** 'percent' values are stored as fractions (0.15) and shown as 15% */
   unit: 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers' | 'boolean' | 'zwgPerUsd';
-  /** Money settings: a change applies only after a second admin approves it */
+  /** Money and privacy settings: a change applies only after a second admin approves it */
   critical?: boolean;
   min?: number;
   max?: number;
@@ -107,6 +107,16 @@ export const SETTINGS: SettingDefinition[] = [
   numberSetting('noShowWaitMins', 'cancellation', 'No-show wait', 'How long a driver waits at the pickup before they can report a no-show.', 'minutes', 5, 30, mutable.ride, 'noShowWaitMins'),
   numberSetting('sosContactDelaySeconds', 'safety', 'SOS: time to cancel before contacts are texted', 'The safety team is alerted the moment an SOS is raised. The person\'s emergency contacts are texted after this, so an accidental press can be cancelled first. 0 texts them at once.', 'seconds', 0, 30, mutable.safety, 'contactDelaySeconds'),
   numberSetting('sosAckTargetMins', 'safety', 'SOS: page again if nobody takes it', 'An SOS no admin has taken after this pages every admin again by push and SMS, and again at each interval until someone takes it.', 'minutes', 1, 15, mutable.safety, 'ackTargetMins'),
+  {
+    key: 'sosVideoRecording',
+    group: 'safety',
+    label: 'SOS: record video',
+    help: 'On: video a person sends during an SOS is kept with the incident\'s evidence, like SOS audio, and their phone says so before the camera comes on. Off: the safety team sees it live and nothing is kept. Leave off until legal advice confirms recording inside the car is allowed. Needs the LiveKit recording keys.',
+    unit: 'boolean',
+    critical: true,
+    read: () => mutable.safety.recordVideo,
+    write: (v) => { mutable.safety.recordVideo = v; },
+  },
   numberSetting('sosCheckInLow', 'safety', 'SOS signal, low risk', 'During an SOS the phone sends its position every few seconds. Three intervals of this long without it mark the phone out of contact and page the safety team.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'low'),
   numberSetting('sosCheckInMedium', 'safety', 'SOS signal, medium risk', 'The same, once the person has said they are not fully safe.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'medium'),
   numberSetting('sosCheckInHigh', 'safety', 'SOS signal, high risk', 'The same, once the person has reported danger.', 'seconds', 15, 300, mutable.safety.checkInSeconds, 'high'),

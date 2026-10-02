@@ -152,6 +152,24 @@ export const config = {
     recordCalls: process.env.CALL_RECORDING !== 'false',
   },
 
+  /**
+   * Live video during an SOS (UC-X04), through LiveKit. Unset, the app never
+   * offers video and the SOS works as before. LIVEKIT_URL is the wss:// URL
+   * of the LiveKit Cloud project (or a self-hosted server).
+   */
+  video: {
+    url: process.env.LIVEKIT_URL || '',
+    apiKey: process.env.LIVEKIT_API_KEY || '',
+    apiSecret: process.env.LIVEKIT_API_SECRET || '',
+    /**
+     * Keys LiveKit is given to write recordings into the uploads bucket. Their
+     * own IAM user, allowed only s3:PutObject on sos/*, never the backend's
+     * keys (which can read identity documents). Without them nothing is recorded.
+     */
+    recordingAccessKeyId: process.env.LIVEKIT_RECORDING_AWS_ACCESS_KEY_ID || '',
+    recordingSecretAccessKey: process.env.LIVEKIT_RECORDING_AWS_SECRET_ACCESS_KEY || '',
+  },
+
   maps: {
     googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || '',
     /**
@@ -252,6 +270,12 @@ export const config = {
     autoContactDelaySeconds: 300,
     /** An SOS nobody has taken after this pages every admin again, at each interval (UC-A03: 5 minutes). Admin-editable. */
     ackTargetMins: 5,
+    /**
+     * Record SOS video with the incident's evidence (sos/<id>/), as SOS audio
+     * is. Off until legal advice confirms recording in the car is allowed in
+     * the market; live video works either way. Admin-editable.
+     */
+    recordVideo: process.env.SOS_VIDEO_RECORDING === 'true',
     /** A false alarm's record, with its location trail, is deleted after this; real incidents are kept */
     falseAlarmRetentionDays: 90,
     /** The SOS tracking link works for this long */

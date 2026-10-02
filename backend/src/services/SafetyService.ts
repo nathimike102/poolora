@@ -36,6 +36,8 @@ import { getRedisClient } from '../config/redis';
 import { REGION } from '../config/region';
 import { pageSafetyTeam, pushToPhones, smsAvailable, tellUser, textPeople } from './SafetyAlerts';
 import { phrase, withEnglish } from '../i18n';
+import { endSosVideo } from './SosVideoService';
+import { recordingAvailable, videoAvailable } from './LiveVideo';
 
 type Position = { lng: number; lat: number };
 
@@ -415,6 +417,7 @@ export class SafetyService {
       eventType: 'sos.resolved',
       data: { emergencyId: record._id, resolvedBy: userId, isFalseAlarm: true, cancelled: true },
     });
+    void endSosVideo(String(record._id));
     const user = await User.findById(userId).select('name').lean();
     void pageSafetyTeam(String(record._id), `${user?.name ?? 'The user'} cancelled their SOS within seconds (pressed by accident)`);
     return record;
@@ -599,10 +602,11 @@ export class SafetyService {
    * leaving the screen never loses it, and otherwise the booking an SOS would
    * be about.
    */
-  async getCurrent(userId: string): Promise<{ sos: IEmergencyRecord | null; bookingId: string | null }> {
+  async getCurrent(userId: string): Promise<{ sos: IEmergencyRecord | null; bookingId: string | null; videoAvailable: boolean; videoRecorded: boolean }> {
     const sos = await EmergencyRecord.findOne({ triggeredBy: userId, status: { $in: OPEN } }).sort({ createdAt: -1 });
     const bookingId = sos ? refId(sos.booking) : await this.currentBookingId(userId);
-    return { sos, bookingId };
+    // Whether the SOS screen may offer the camera (UC-X04), and says it is recorded before it comes on
+    return { sos, bookingId, videoAvailable: videoAvailable(), videoRecorded: recordingAvailable() };
   }
 
   /**
@@ -704,6 +708,7 @@ export class SafetyService {
       eventType: 'sos.resolved',
       data: { emergencyId, resolvedBy: adminId, isFalseAlarm },
     });
+    void endSosVideo(emergencyId);
     void tellUser(refId(record.triggeredBy), {
       emergencyId: String(record._id),
       change: 'resolved',

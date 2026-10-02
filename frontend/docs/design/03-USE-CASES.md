@@ -2117,27 +2117,32 @@ Designed on 1 October 2026 from the future phases in `planning/01-PROJECT-PLAN.m
 
 ### UC-X04: Video Call During an SOS
 
-**Primary Actor**: Safety team member
-**Goal**: See what is happening when the person in danger cannot speak freely
-**Preconditions**: An open SOS
-**Postconditions**: The call, if recorded, is stored with the incident
+**Primary Actor**: Person who raised the SOS; safety team member
+**Goal**: Let the safety team see what is happening when the person cannot speak freely
+**Preconditions**: An open SOS; video is set up for the market
+**Postconditions**: The team saw what the camera showed; the video is stored with the incident only if recording is on
 
 **Main Success Scenario**:
 
 1. From the incident, the safety team member asks for video
-2. The person's phone shows "The safety team is asking to see. Turn on the camera?"
-3. The person accepts; video goes to the team at low resolution, with an audio-only button
-4. The call is recorded and stored with the incident, as SOS audio is
+2. The person's phone buzzes, without a sound, and the SOS screen shows "The safety team asked to see what is happening", with whether it is recorded
+3. The person turns on the camera; video goes to the team at low resolution (about 1 MB a minute), back camera first
+4. The team watches from the incident page; the phone receives nothing and makes no sound
+5. The video ends when the person turns it off, leaves the SOS screen, or the SOS closes
 
 **Extensions**:
 
+- 1a. The person turns on the camera without being asked: the team is paged and watches the same way
 - 3a. The person declines or does not answer: nothing changes; the SOS continues as before
-- 3b. The connection is too weak for video: it falls back to audio
+- 3b. Data is short or the connection weak: the person taps "Sound only"; video quality also drops by itself before sound does
+- 3c. The phone is recording SOS audio itself: the video goes without sound, so the recording is not interrupted
 
 **Business Rules**:
 
-- Only the safety team can start an SOS video call; it is never automatic
-- Recordings are kept and deleted on the SOS audio's rules
+- Video is never automatic: only the person turns their camera on
+- The team watches unseen and silent, so the phone never gives the person away
+- Recording is a platform setting, off until legal advice allows recording inside the car; when on, the phone says so before the camera comes on, and recordings are kept and deleted on the SOS audio's rules
+- Every viewing by the team is in the audit log
 - Later uses (an identity check by video, rider and driver before pickup) follow the same pattern and are opt-in
 
 ### UC-R12: Pool to a Rank or Terminus

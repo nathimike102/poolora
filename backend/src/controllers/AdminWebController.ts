@@ -14,6 +14,7 @@ import { AdminOverviewService } from '../services/AdminOverviewService';
 import { ProductAnalyticsService } from '../services/ProductAnalyticsService';
 import { AdminUserService } from '../services/AdminUserService';
 import { AdminSosService } from '../services/AdminSosService';
+import { SosVideoService } from '../services/SosVideoService';
 import { IdentityService } from '../services/IdentityService';
 import { DisputeService } from '../services/DisputeService';
 import { ReportService, REPORT_TYPES, ReportType, parseReportParams } from '../services/ReportService';
@@ -39,6 +40,7 @@ const overview = new AdminOverviewService();
 const analytics = new ProductAnalyticsService();
 const users = new AdminUserService();
 const sos = new AdminSosService();
+const sosVideo = new SosVideoService();
 const identity = new IdentityService();
 const disputes = new DisputeService();
 const reports = new ReportService();
@@ -162,6 +164,8 @@ export const AdminWebController = {
   sosAcknowledge: handle((req, admin) => sos.acknowledge(id(req), admin)),
   sosResolve: handle((req, admin) => sos.resolve(id(req), admin, req.body?.notes, req.body?.isFalseAlarm)),
   sosPolice: handle((req, admin) => sos.notifyPolice(id(req), admin, req.body?.notes)),
+  sosVideoAsk: handle((req, admin) => sosVideo.ask(id(req), admin)),
+  sosVideoWatch: handle((req, admin) => sosVideo.watch(id(req), admin)),
 
   // ── Duplicate accounts and appeals (UC-A05) ─────────────────────────────
   duplicates: handle((req) => merges.duplicates(id(req))),

@@ -11,6 +11,9 @@
  * An open SOS is loaded again whenever the screen opens, so leaving it never
  * loses the alert. "I'm safe" is passed on to the safety team, who confirm
  * and close it.
+ *
+ * The person can turn on their camera for the safety team (UC-X04), or be
+ * asked to. Only the team sees it, and the phone makes no sound.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -54,6 +57,7 @@ import { initSocket } from '../../utils/socket';
 import { errorHandler } from '../../utils/errorHandler';
 import { startSosTracking, stopSosTracking } from '../../services/sosTracking';
 import { setSosAudioEnabled, sosAudioEnabled, useSosRecording } from '../../services/sosAudio';
+import { startSosVideo, SosVideoUnsupported, type SosVideoSession } from '../../services/sosVideo';
 import { useTranslation } from 'react-i18next';
 import i18n, { english } from '../../i18n';
 
@@ -146,6 +150,11 @@ export function SOSScreen() {
   const [busy, setBusy] = useState(false);
   const [recordAudio, setRecordAudio] = useState(false);
   const [battery, setBattery] = useState<number | undefined>(undefined);
+  const [video, setVideo] = useState({ available: false, recorded: false });
+  const [camera, setCamera] = useState<'off' | 'starting' | 'live'>('off');
+  const [soundOnly, setSoundOnly] = useState(false);
+  const [recordingNow, setRecordingNow] = useState(false);
+  const videoSession = useRef<SosVideoSession | null>(null);
   const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseScale = useSharedValue(1);
 
@@ -165,7 +174,8 @@ export function SOSScreen() {
         setContacts(cached ? (JSON.parse(cached) as EmergencyContact[]) : []);
       });
     safetyService.getCurrentSOS()
-      .then(({ sos, bookingId: current }) => {
+      .then(({ sos, bookingId: current, videoAvailable, videoRecorded }) => {
+        setVideo({ available: Boolean(videoAvailable), recorded: Boolean(videoRecorded) });
         if (sos) {
           setEmergency(sos);
           setBookingId(current);
@@ -305,6 +315,53 @@ export function SOSScreen() {
     setRecordAudio(result);
     if (on && !result) Alert.alert(t('sos.micTitle'), t('sos.micBody'));
   };
+
+  // The camera for the safety team (UC-X04). It stops when the SOS closes or the screen is left.
+  const startCamera = async () => {
+    if (!emergency || camera !== 'off') return;
+    setCamera('starting');
+    try {
+      const session = await startSosVideo(emergency._id, !recordAudio, () => {
+        videoSession.current = null;
+        setCamera('off');
+      });
+      videoSession.current = session;
+      setRecordingNow(session.recording);
+      setSoundOnly(false);
+      setCamera('live');
+      refresh();
+    } catch (error) {
+      setCamera('off');
+      if (error instanceof SosVideoUnsupported) Alert.alert(t('sos.video.updateTitle'), error.message);
+      else Alert.alert(t('sos.video.failedTitle'), t('sos.video.failedBody', { message: errorHandler.process(error).message, number: REGION.emergency.general }));
+    }
+  };
+  const stopCamera = async () => {
+    const session = videoSession.current;
+    videoSession.current = null;
+    setCamera('off');
+    await session?.stop();
+    refresh();
+  };
+  const toggleSoundOnly = async () => {
+    const next = !soundOnly;
+    setSoundOnly(next);
+    await videoSession.current?.setCamera(!next).catch(() => setSoundOnly(!next));
+  };
+  useEffect(() => {
+    if (open) return;
+    videoSession.current?.stop();
+    videoSession.current = null;
+    setCamera('off');
+  }, [open]);
+  useEffect(() => () => {
+    videoSession.current?.stop();
+  }, []);
+  // Asked for video: the phone buzzes, without a sound
+  const videoAskedAt = emergency?.video?.requestedAt;
+  useEffect(() => {
+    if (videoAskedAt && camera === 'off') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+  }, [videoAskedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open || !emergency) return;
@@ -497,6 +554,55 @@ export function SOSScreen() {
             </View>
           ) : open && emergency?.threat ? (
             <Text style={s.activeSub}>{t('sos.youTold', { threat: t(`sos.threats.${emergency.threat}`).toLowerCase() })}</Text>
+          ) : null}
+
+          {open && video.available ? (
+            <View style={s.sharingCard}>
+              {camera === 'live' ? (
+                <>
+                  <View style={s.contactDot}>
+                    <View style={s.liveDot} />
+                    <Text style={[s.cardTitle, { marginBottom: 0 }]} accessibilityLiveRegion="polite">{t('sos.video.live')}</Text>
+                  </View>
+                  <Text style={s.cardText}>
+                    {recordingNow ? t('sos.video.liveRecorded') : t('sos.video.liveNotRecorded')} {t('sos.video.leaveStops')}
+                  </Text>
+                  <View style={[s.threatRow, { marginTop: 10 }]}>
+                    <Pressable onPress={() => videoSession.current?.switchCamera()} style={s.threatChip} accessibilityRole="button">
+                      <Text style={s.chipText}>{t('sos.video.switch')}</Text>
+                    </Pressable>
+                    {!recordAudio ? (
+                      <Pressable onPress={toggleSoundOnly} style={s.threatChip} accessibilityRole="button">
+                        <Text style={s.chipText}>{soundOnly ? t('sos.video.cameraBack') : t('sos.video.soundOnly')}</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable onPress={stopCamera} style={s.threatChip} accessibilityRole="button">
+                      <Text style={s.chipText}>{t('sos.video.turnOff')}</Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={s.cardTitle}>
+                    {videoAskedAt && !(emergency?.video?.startedAt && emergency.video.startedAt > videoAskedAt) ? t('sos.video.asked') : t('sos.video.title')}
+                  </Text>
+                  <Text style={[s.cardText, { marginBottom: 10 }]}>
+                    {t('sos.video.body')} {video.recorded ? t('sos.video.recorded') : t('sos.video.notRecorded')}
+                    {recordAudio ? ` ${t('sos.video.noSound')}` : ''}
+                  </Text>
+                  {camera === 'starting' ? (
+                    <View style={s.contactDot}>
+                      <ActivityIndicator color="white" />
+                      <Text style={s.cardText}>{t('sos.video.connecting')}</Text>
+                    </View>
+                  ) : (
+                    <Pressable onPress={startCamera} style={s.cancelBtn} accessibilityRole="button">
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#B71C1C' }}>{t('sos.video.turnOn')}</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </View>
           ) : null}
 
           {open && battery !== undefined && battery < LOW_BATTERY ? (
@@ -753,6 +859,8 @@ const s = StyleSheet.create({
   cancelBtn: { minHeight: 52, borderRadius: 14, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   contactDot: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   greenDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#00E676' },
+  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'white' },
+  chipText: { fontSize: 14, fontWeight: '600', color: 'white' },
   callBtn: {
     width: '100%',
     height: 60,

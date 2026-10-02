@@ -8,7 +8,7 @@ Every use case in `design/03-USE-CASES.md` up to Phase 4 is built (see `11-FEATU
 | Carbon footprint tracking | Phase 2 | **Built** (UC-R11) |
 | Multi-language support | Phase 2 | Designed here (UC-X03); framework and SOS screen built, translations needed |
 | Corporate partnerships | Phase 3 | **Built** (UC-C01 to UC-C03) |
-| Video calling | Phase 3 | Designed here (UC-X04); needs a provider and the lawyer's view on recording |
+| Video calling | Phase 3 | **Built** for SOS (UC-X04); needs the LiveKit project, and the lawyer's view before recording is switched on |
 | Public transport schedules | Phase 3 | **Built** as ranks and termini (UC-R12); no timetables exist to import |
 
 Order: the two Phase 2 features first, since they serve every user. Corporate partnerships are next, because they bring regular commuters, which is what fills seats. Video calling and public transport follow; both depend on things outside the code (data costs, data that does not exist yet).
@@ -145,7 +145,9 @@ Mobile data is expensive in Zimbabwe, and masked voice calls between rider and d
 - Low resolution by default (240p) and an audio-only button, to keep data use down; the app shows the data a minute costs.
 - Recording only for SOS calls, stored as the SOS audio is (`sos/<id>/`), with the same retention.
 
-Needs: the provider account, a lawyer's view on recording video during an SOS (with the audio question already on the list), and the store declarations for camera use.
+**Built (2 October 2026), SOS video only.** LiveKit (open source, so it can move from LiveKit Cloud to our own servers). From the incident page the team asks for video, or the person turns the camera on themselves; the phone sends only (back camera, 320×240, about 1 MB a minute, a "Sound only" button) and receives nothing, so it never makes a sound. The team watches unseen, and every viewing is audited. The video ends when the person stops it, leaves the screen, or the SOS closes. Recording is a platform setting (two admins to change), off by default; when on, the phone says so before the camera comes on, and the file is written to `sos/<id>/` by LiveKit using its own IAM keys that can only write there.
+
+Still needed before launch: the LiveKit Cloud project (`LIVEKIT_*` in `docs/SECRETS.md`) and a test call from Harare; the lawyer's view before recording is switched on; a new development and store build (the video library is native); and the store declarations for camera and microphone use. Identity checks by video and rider-driver video are not built.
 
 ---
 

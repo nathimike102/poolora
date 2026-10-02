@@ -75,7 +75,9 @@
       "acknowledgedNamed": "{{name}} from the Poolora safety team is on it and will call you.",
       "acknowledged": "The Poolora safety team is on it and will call you.",
       "closedTitle": "Your SOS is closed",
-      "closedBody": "The Poolora safety team has closed your alert. If you need help again, raise a new SOS or call {{number}}."
+      "closedBody": "The Poolora safety team has closed your alert. If you need help again, raise a new SOS or call {{number}}.",
+      "videoAskTitle": "The safety team would like to see",
+      "videoAskBody": "If it is safe, open the SOS screen and turn on your camera. Your phone will make no sound."
     }
   },
   "checkIn": {

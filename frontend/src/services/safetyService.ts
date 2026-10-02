@@ -47,6 +47,8 @@ export interface SOSResponse {
   cancelledAt?: string;
   threat?: SOSThreat;
   resolvedAt?: string;
+  /** Live video to the safety team (UC-X04) */
+  video?: { requestedAt?: string; startedAt?: string; endedAt?: string; recording: boolean };
 }
 
 export interface IncidentData {
@@ -125,8 +127,8 @@ export const safetyService = {
   },
 
   /** The caller's open SOS, if any, or else the booking an SOS would be about. */
-  async getCurrentSOS(): Promise<{ sos: SOSResponse | null; bookingId: string | null }> {
-    const response = await apiClient.get<ApiResponse<{ sos: SOSResponse | null; bookingId: string | null }>>(API_ENDPOINTS.safety.currentSos);
+  async getCurrentSOS(): Promise<{ sos: SOSResponse | null; bookingId: string | null; videoAvailable?: boolean; videoRecorded?: boolean }> {
+    const response = await apiClient.get<ApiResponse<{ sos: SOSResponse | null; bookingId: string | null; videoAvailable?: boolean; videoRecorded?: boolean }>>(API_ENDPOINTS.safety.currentSos);
     return response.data.data;
   },
 

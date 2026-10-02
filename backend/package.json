@@ -39,6 +39,7 @@
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "kafkajs": "^2.2.4",
+    "livekit-server-sdk": "^2.19.1",
     "mongoose": "^8.14.1",
     "nodemailer": "^10.0.13",
     "pdfkit": "^0.17.2",

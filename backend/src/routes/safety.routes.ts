@@ -44,6 +44,10 @@ router.post('/sos/:id/evidence', validate(sosEvidenceSchema), SafetyController.a
 router.post('/sos/:id/details', validate(sosDetailsSchema), SafetyController.details);
 // Audio during an SOS, when the user has switched it on (uploaded in chunks)
 router.post('/sos/:id/audio-upload', validate(idParamSchema), SafetyController.audioUpload);
+// Live video for the safety team (UC-X04): turn the camera on, say it is sending, turn it off
+router.post('/sos/:id/video', validate(idParamSchema), SafetyController.startVideo);
+router.post('/sos/:id/video/sending', validate(idParamSchema), SafetyController.videoSending);
+router.post('/sos/:id/video/stop', validate(idParamSchema), SafetyController.stopVideo);
 router.post('/sos/:id/check-in', validate(sosCheckInSchema), SafetyController.updateSOSCheckIn);
 // Cancel an accidental SOS before emergency contacts are texted (UC-R07 3a)
 router.post('/sos/:id/cancel', validate(idParamSchema), SafetyController.cancelSOS);

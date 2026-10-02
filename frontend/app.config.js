@@ -71,7 +71,7 @@ module.exports = {
         'expo-audio',
         {
           // Only if the user switches on "Record audio during an SOS"
-          microphonePermission: 'Poolora records audio during an SOS only if you switch this on, so the safety team can hear what happened.',
+          microphonePermission: 'Poolora uses the microphone during an SOS only: to record sound if you switch this on, and so the safety team can hear you if you turn on your camera.',
           recordAudioAndroid: true,
           enableBackgroundRecording: true,
         },
@@ -80,11 +80,20 @@ module.exports = {
         'expo-image-picker',
         {
           photosPermission: 'Poolora uses your photos so you can add driver verification documents and a profile picture.',
-          cameraPermission: 'Poolora uses the camera so you can photograph driver verification documents.',
+          cameraPermission: 'Poolora uses the camera so you can photograph driver verification documents and, during an SOS, show the safety team what is happening if you choose to.',
         },
       ],
       // Maps: MapLibre with free OpenStreetMap tiles, no API key
       '@maplibre/maplibre-react-native',
+      // Live video to the safety team during an SOS (UC-X04), through LiveKit
+      '@livekit/react-native-expo-plugin',
+      [
+        '@config-plugins/react-native-webrtc',
+        {
+          cameraPermission: 'Poolora uses the camera so you can photograph driver verification documents and, during an SOS, show the safety team what is happening if you choose to.',
+          microphonePermission: 'Poolora uses the microphone during an SOS only: to record sound if you switch this on, and so the safety team can hear you if you turn on your camera.',
+        },
+      ],
       '@react-native-google-signin/google-signin',
       'expo-font',
       'expo-secure-store',

@@ -108,7 +108,28 @@
     "audioBody": "Off unless you switch it on. During an SOS your phone records what it hears and sends it to the Poolora safety team only, in parts of a minute.",
     "contactsTitle": "Emergency contacts",
     "contactsEmpty": "Add people who should get a text with your location if you raise an SOS.",
-    "notTextedOnSos": " · not texted on SOS"
+    "notTextedOnSos": " · not texted on SOS",
+    "video": {
+      "title": "Show the safety team",
+      "asked": "The safety team asked to see what is happening",
+      "body": "Only the safety team sees it, and your phone makes no sound. It uses about 1 MB of data a minute.",
+      "recorded": "It is recorded with your SOS.",
+      "notRecorded": "Nothing is recorded.",
+      "noSound": "Your phone is recording sound for your SOS, so the video goes without sound.",
+      "turnOn": "Turn on camera",
+      "connecting": "Connecting to the safety team…",
+      "live": "Live to the safety team",
+      "liveRecorded": "Recorded with your SOS.",
+      "liveNotRecorded": "Not recorded.",
+      "leaveStops": "Leaving this screen turns the camera off.",
+      "switch": "Switch camera",
+      "soundOnly": "Sound only",
+      "cameraBack": "Camera back on",
+      "turnOff": "Turn off camera",
+      "updateTitle": "Update the app for video",
+      "failedTitle": "Video did not connect",
+      "failedBody": "{{message}} Call {{number}} if you can."
+    }
   },
   "ride": {
     "inCarTitle": "You're in the car?",

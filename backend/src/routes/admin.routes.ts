@@ -135,6 +135,8 @@ router.post('/sos/:id/log', W.sosLog);
 router.post('/sos/:id/acknowledge', W.sosAcknowledge);
 router.post('/sos/:id/resolve', W.sosResolve);
 router.post('/sos/:id/police', W.sosPolice);
+router.post('/sos/:id/video/ask', W.sosVideoAsk);
+router.post('/sos/:id/video/watch', W.sosVideoWatch);
 
 router.get('/report-schedules', W.reportSchedules);
 router.post('/report-schedules', W.createReportSchedule);

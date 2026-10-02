@@ -187,7 +187,7 @@ Every use case up to Phase 4 is built, so work moved to the future phases in the
 | Multi-language (UC-X03) | 12-NEXT-PHASES §2 | Built in English throughout; what remains is the Shona and Ndebele translations themselves, by paid native-speaker translators with a second reviewer, before either is switched on. Messages carrying an admin's own words, and the public website, stay in English for now. Shona and Ndebele need paid native-speaker translators and a second reviewer before they are switched on |
 | Company programmes (UC-C01 to UC-C03) | 12-NEXT-PHASES §3 | Built (all five slices): companies set up in the web admin, staff join by confirming a work email, colleagues-only rides and the "Works at" badge, company-paid fares, monthly billing, and the company's own dashboard. Before selling it: have finance check the bill (a statement, not a ZIMRA fiscal invoice) |
 | Ranks and termini (UC-R12) | 12-NEXT-PHASES §5 | Built. An admin must place and switch on each rank and terminus before riders see it |
-| Video calling (UC-X04) | 12-NEXT-PHASES §4 | Designed. Needs a video provider account and the lawyer's view on recording video during an SOS |
+| Video calling (UC-X04) | 12-NEXT-PHASES §4 | Built for SOS, with LiveKit. Needs the LiveKit project keys, a new app build, and the lawyer's view before recording is switched on (off by default) |
 | Legal wording | Privacy policy | Updated for the ID photo and selfie, SOS audio and location with the screen off; still part of the lawyer's review |
 
 ## 3. Documentation cleanup
