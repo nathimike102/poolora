@@ -38,6 +38,8 @@ export interface Market {
   bbox: readonly [number, number, number, number];
   center: { lat: number; lng: number };
   emergency: { general: string; police: string; ambulance: string; fire: string };
+  /** Languages people here can choose, English first (UC-X03) */
+  languages: string[];
   /** Public holidays, for the demand forecast */
   holidays: HolidayCalendar;
 }
@@ -61,6 +63,7 @@ export const MARKETS: Record<string, Market> = {
     // Harare
     center: { lat: -17.8292, lng: 31.0522 },
     emergency: { general: '999', police: '995', ambulance: '994', fire: '993' },
+    languages: ['en', 'sn', 'nd'],
     // Public Holidays and Prohibition of Business Act [Chapter 10:21]
     holidays: {
       rules: [

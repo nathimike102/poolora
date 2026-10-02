@@ -15,7 +15,7 @@ export class UserController {
     try {
       const { userId } = (req as AuthenticatedRequest).user;
       const user = await User.findById(userId).select(
-        'name phone email profilePhotoUrl capabilities gender identity.status stats kyc.status kyc.rejectionReason vehicles createdAt',
+        'name phone email profilePhotoUrl capabilities gender language identity.status stats kyc.status kyc.rejectionReason vehicles createdAt',
       );
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, req.requestId);
@@ -59,7 +59,7 @@ export class UserController {
   static async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = (req as AuthenticatedRequest).user;
-      const { name, email, dateOfBirth, gender } = req.body as { name?: string; email?: string | null; dateOfBirth?: Date; gender?: string };
+      const { name, email, dateOfBirth, gender, language } = req.body as { name?: string; email?: string | null; dateOfBirth?: Date; gender?: string; language?: string };
       if (gender !== undefined) {
         const { IdentityService } = await import('../services/IdentityService');
         await new IdentityService().setDeclaredGender(userId, gender);
@@ -68,6 +68,7 @@ export class UserController {
       const unset: Record<string, ''> = {};
       if (name !== undefined) update.name = name;
       if (dateOfBirth !== undefined) update.dateOfBirth = dateOfBirth;
+      if (language !== undefined) update.language = language;
       if (email) update.email = email;
       else if (email === null || email === '') unset.email = '';
 
@@ -75,7 +76,7 @@ export class UserController {
         userId,
         { ...(Object.keys(update).length ? { $set: update } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
         { new: true, runValidators: true },
-      ).select('name phone email dateOfBirth profilePhotoUrl capabilities gender identity.status stats kyc.status kyc.rejectionReason createdAt');
+      ).select('name phone email dateOfBirth profilePhotoUrl capabilities gender language identity.status stats kyc.status kyc.rejectionReason createdAt');
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, req.requestId);
     } catch (error) {
@@ -100,6 +101,17 @@ export class UserController {
       const { userId } = (req as AuthenticatedRequest).user;
       const { IdentityService } = await import('../services/IdentityService');
       sendSuccess(res, { identity: await new IdentityService().submit(userId, req.body) }, 201, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** GET /users/me/impact: CO₂ saved by the caller's shared trips (UC-R11) */
+  static async impact(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { CarbonService } = await import('../services/CarbonService');
+      sendSuccess(res, await new CarbonService().impact(userId), 200, req.requestId);
     } catch (error) {
       next(error);
     }

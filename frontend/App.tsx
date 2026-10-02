@@ -43,6 +43,7 @@ import { initErrorTracking } from './src/config/errorTracking';
 // Defines the SOS background location task, which must exist before the system wakes the app for it
 import './src/services/sosTracking';
 import './src/services/tripTracking';
+import { restoreLanguage } from './src/i18n';
 
 initErrorTracking();
 
@@ -75,6 +76,8 @@ export default function App() {
     } catch (error) {
       logger.error('Failed to initialize API client', { error });
     }
+    // The language chosen in Settings (UC-X03); until it loads, the phone's
+    restoreLanguage();
   }, []);
 
   return (

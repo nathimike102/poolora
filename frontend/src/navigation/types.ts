@@ -154,6 +154,8 @@ export type RootStackParamList = {
   FakeCall: undefined;
   /** The identity check behind women-only rides */
   IdentityCheck: undefined;
+  Impact: undefined;
+  Language: undefined;
   /** A GPS tracker in the driver's car */
   CarTracker: undefined;
   EmergencyContacts: undefined;

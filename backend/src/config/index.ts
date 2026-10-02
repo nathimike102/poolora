@@ -367,6 +367,27 @@ export const config = {
   },
 
   /**
+   * CO₂ saved by shared seats (UC-R11, docs/planning/12-NEXT-PHASES.md §1).
+   * kg CO₂ per km for a typical petrol car of each class: round figures of
+   * the order of the UK government's conversion factors. Zimbabwe's fleet is
+   * older, so these understate the saving rather than overstate it.
+   */
+  carbon: {
+    /** The car a rider would otherwise have driven alone */
+    baselineKgPerKm: parseFloat(process.env.CARBON_BASELINE_KG_PER_KM || '0.17'),
+    kgPerKm: {
+      hatchback: 0.14,
+      mini: 0.14,
+      sedan: 0.17,
+      suv: 0.21,
+      minivan: 0.21,
+      pickup: 0.21,
+      bike: 0.11,
+      auto: 0.09,
+    } as Record<string, number>,
+  },
+
+  /**
    * Product analytics (docs/ANALYTICS_PLAN.md). The admin's Analytics page
    * always works; PostHog only receives events in production with a key, so
    * development and staging never reach the live project.

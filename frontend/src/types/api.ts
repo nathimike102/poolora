@@ -120,6 +120,8 @@ export interface UserStats {
   totalRatingsAsRider: number;
   cancellationRate: number;
   acceptanceRate: number;
+  co2SavedKg?: number;
+  kmShared?: number;
 }
 
 export interface KYCData {
@@ -297,6 +299,21 @@ export interface VerifiedStatus {
   checks: Array<{ label: string; met: boolean; progress: string }>;
 }
 
+/** GET /users/me/impact (UC-R11): CO₂ saved by shared trips, an estimate */
+export interface ImpactTotals {
+  co2SavedKg: number;
+  kmShared: number;
+  trips: number;
+}
+
+export interface Impact {
+  allTime: ImpactTotals;
+  thisMonth: ImpactTotals & { month: string };
+  /** The last six months, oldest first; month is YYYY-MM */
+  months: Array<ImpactTotals & { month: string }>;
+  method: { baselineKgPerKm: number; kgPerKm: Record<string, number> };
+}
+
 /** GET /users/me/statement (UC-D09) */
 export interface EarningsStatement {
   month: string;
@@ -378,6 +395,8 @@ export interface Receipt {
   refunded: number;
   paid: number;
   paymentMethod: string;
+  /** Estimated kg of CO₂ the shared seat saved; completed trips only (UC-R11) */
+  co2SavedKg?: number;
 }
 
 export interface CreateBookingRequest {

@@ -21,6 +21,7 @@ import { Icon, type IconName } from '../../components/Icon';
 import { COMPANY } from '../../config/company';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import { displayPhone, realPhone } from '../../utils/phone';
+import { formatKg } from '../../utils/carbon';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -74,6 +75,7 @@ export function ProfileScreen(): React.ReactElement {
     { icon: 'shield-check-outline', label: 'Safety', onPress: () => navigation.navigate('SOS') },
     { icon: 'account-heart-outline', label: 'Trusted contacts', sub: 'Alerted if you raise an SOS', onPress: () => navigation.navigate('EmergencyContacts') },
     { icon: 'card-account-details-star-outline', label: 'Identity check', sub: profile?.identity?.status === 'verified' ? 'Verified' : profile?.identity?.status === 'pending' ? 'Waiting for review' : 'Needed for women-only rides', onPress: () => navigation.navigate('IdentityCheck') },
+    { icon: 'leaf', label: 'Your impact', sub: (stats?.co2SavedKg ?? 0) > 0 ? `${formatKg(stats?.co2SavedKg ?? 0)} of CO₂ saved by sharing` : 'CO₂ saved by sharing rides', onPress: () => navigation.navigate('Impact') },
     { icon: 'message-text-outline', label: 'Messages', onPress: () => navigation.navigate('Messages') },
     { icon: 'map-marker-path', label: 'Saved routes', onPress: () => navigation.navigate('AddSavedRoute') },
     {

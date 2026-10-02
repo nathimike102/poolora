@@ -25,6 +25,8 @@ export interface Market {
   currency: CurrencyCode;
   center: { latitude: number; longitude: number };
   emergency: { general: string; police: string; ambulance: string; fire: string };
+  /** Languages the app can be shown in here, English first (UC-X03); see i18n/languages.ts */
+  languages: string[];
 }
 
 export const MARKETS: Record<string, Market> = {
@@ -42,6 +44,8 @@ export const MARKETS: Record<string, Market> = {
     // Harare
     center: { latitude: -17.8292, longitude: 31.0522 },
     emergency: { general: '999', police: '995', ambulance: '994', fire: '993' },
+    // English, Shona and Ndebele: the most widely used of Zimbabwe's 16 official languages
+    languages: ['en', 'sn', 'nd'],
   },
 };
 

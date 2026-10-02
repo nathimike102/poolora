@@ -63,6 +63,10 @@ export interface IBooking extends Document {
   pickupPinAttempts?: number;
   /** Who confirmed the pickup: the driver with the code, or the rider in their app */
   pickupConfirmedBy?: 'pin' | 'rider' | 'simulation';
+  /** The rider's leg along the route, set on completion (UC-R11) */
+  distanceKm?: number;
+  /** CO₂ this shared seat saved against going alone, set on completion (UC-R11) */
+  co2SavedKg?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -132,6 +136,8 @@ const BookingSchema = new Schema<IBooking>(
     pickupPin: { type: String, select: false },
     pickupPinAttempts: { type: Number, select: false },
     pickupConfirmedBy: { type: String, enum: ['pin', 'rider', 'simulation'] },
+    distanceKm: { type: Number, min: 0 },
+    co2SavedKg: { type: Number, min: 0 },
   },
   {
     timestamps: true,

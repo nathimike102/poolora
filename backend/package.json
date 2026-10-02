@@ -14,7 +14,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --forceExit",
     "seed": "ts-node scripts/seed.ts",
-    "migrate:paynow": "ts-node scripts/migrate-to-paynow.ts"
+    "migrate:paynow": "ts-node scripts/migrate-to-paynow.ts",
+    "backfill:carbon": "ts-node scripts/backfill-carbon.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

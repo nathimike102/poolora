@@ -96,12 +96,13 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/users/me` | Own profile |
-| PATCH | `/users/me` | Update name, email, photo and preferences. `gender` (`female`, `male`, `other`) can be set until an identity check confirms it; then `409 IDENTITY_VERIFIED` |
+| PATCH | `/users/me` | Update name, email, photo and preferences. `gender` (`female`, `male`, `other`) can be set until an identity check confirms it; then `409 IDENTITY_VERIFIED`. `language` is one of the market's languages (`en`, `sn`, `nd` in Zimbabwe; UC-X03) |
 | GET | `/users/saved-routes` | Routes the rider searches often |
 | GET | `/users/kyc/status` | Driver verification state |
 | GET | `/users/me/statement` | A driver's earnings for a month (UC-D09). `?month=2026-09` (local time; defaults to this month). Returns `lines` (date, `Trip` / `Late cancellation` / `No-show`, route, rider's first name, fare, platform fee, earnings) and `totals`. Add `&format=csv` for a spreadsheet download |
 | POST | `/users/me/statement/email` | Emails that statement to the profile's address with the CSV attached. Body: `month`. `409 NO_EMAIL` without an address, `503 EMAIL_UNAVAILABLE` when SMTP is not set up |
 | GET | `/users/me/verified-status` | Progress towards the Verified Driver badge (UC-D10): `verified` and one `checks` entry per rule (`label`, `met`, `progress`) |
+| GET | `/users/me/impact` | CO₂ saved by the caller's shared trips, as rider and driver (UC-R11): `allTime` and `thisMonth` (`co2SavedKg`, `kmShared`, `trips`), `months` (the last six, oldest first, `month` as YYYY-MM in market time) and `method` (the emission factors used). An estimate |
 | GET | `/users/me/identity` | The caller's identity check for women-only rides: `status` (`none`, `pending`, `verified`, `rejected`), `gender`, `declaredGender`, `submittedAt`, `reviewedAt`, `rejectionReason` |
 | POST | `/users/me/identity` | Send an identity check. Body: `gender`, `documentUrl`, `selfieUrl` (both uploaded first through `/uploads/kyc` with purpose `identity` and `selfie`, and inside the caller's own folder, else `422 INVALID_DOCUMENT`). `409 IDENTITY_VERIFIED` once verified |
 | GET | `/users/me/closure` | Whether the account can be closed now: `canClose`, `blockers` (plain-language reasons), `walletBalance`, `coins` |
@@ -492,7 +493,7 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/admin/overview` | Dashboard figures (users, rides, money, safety, system health) and anomalies (UC-A02) |
+| GET | `/admin/overview` | Dashboard figures (users, rides, money, safety, system health), `impact` (CO₂ saved by every completed booking, UC-R11) and anomalies (UC-A02) |
 | GET | `/admin/applications` | Driver applications waiting for review, with document status, risk indicators and an `overdue` flag after 48 hours (UC-A01) |
 | POST | `/admin/applications/:userId/recheck` | Run the automatic document checks again (Zimbabwe plate format, licence, driver age, vehicle age, duplicates), and the vendor background check when `KYC_VERIFY_URL` is set |
 | POST | `/admin/applications/:userId/request-changes` | Ask for documents again. Body: `documents` (any of `licence`, `registration`, `insurance`, `photo`) and `note`. The driver is notified and can resubmit |

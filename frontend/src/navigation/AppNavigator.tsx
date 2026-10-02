@@ -117,6 +117,8 @@ import { SOSScreen } from "../screens/shared/SOSScreen";
 import { EmergencyContactsScreen } from "../screens/shared/EmergencyContactsScreen";
 import { FakeCallScreen } from "../screens/shared/FakeCallScreen";
 import { IdentityCheckScreen } from "../screens/shared/IdentityCheckScreen";
+import { ImpactScreen } from "../screens/shared/ImpactScreen";
+import { LanguageScreen } from "../screens/shared/LanguageScreen";
 import { CarTrackerScreen } from "../screens/driver/CarTrackerScreen";
 import { MapPickerScreen } from "../screens/rider/MapPickerScreen";
 import { AdminDashboardScreen } from "../screens/admin/AdminDashboardScreen";
@@ -308,6 +310,8 @@ function AppNavigatorStack() {
       <Stack.Screen name="SOS" component={SOSScreen} />
       <Stack.Screen name="FakeCall" component={FakeCallScreen} options={FULL_BLEED} />
       <Stack.Screen name="IdentityCheck" component={IdentityCheckScreen} />
+      <Stack.Screen name="Impact" component={ImpactScreen} />
+      <Stack.Screen name="Language" component={LanguageScreen} />
       <Stack.Screen name="CarTracker" component={CarTrackerScreen} />
       <Stack.Screen
         name="EmergencyContacts"

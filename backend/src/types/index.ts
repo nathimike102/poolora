@@ -200,6 +200,9 @@ export interface IUserStats {
   totalRatingsAsOrganizer?: number;
   cancellationRate: number;
   acceptanceRate: number;
+  /** CO₂ saved by this user's shared trips, as rider and driver (UC-R11) */
+  co2SavedKg?: number;
+  kmShared?: number;
 }
 
 // ─── JWT Payload ─────────────────────────────────────────────────────────────

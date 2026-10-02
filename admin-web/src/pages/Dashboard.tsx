@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { useApi } from '../lib/useApi';
-import { money, num, pct, when } from '../lib/format';
+import { money, num, pct, short, when } from '../lib/format';
 import { Badge, ErrorBox, Loading, PageHead, StatTile } from '../components/ui';
 
 interface Overview {
@@ -14,6 +14,8 @@ interface Overview {
     pendingSettlement: number;
     refunds7d: { total: number; count: number };
   };
+  /** CO₂ saved by every shared seat so far (UC-R11); absent from an older API */
+  impact?: { co2SavedKg: number; kmShared: number; trips: number };
   safety: { activeSos: number; openDisputes: number; blockedUsers: number; suspendedUsers: number; pendingBlocks: number; fraudFlagged: number };
   system: {
     uptimeSeconds: number;
@@ -86,6 +88,17 @@ export function DashboardPage() {
           <StatTile label="Seat occupancy" value={pct(rides.occupancy7d)} note="Completed rides, last 7 days" />
         </div>
       </section>
+
+      {data.impact && (
+        <section>
+          <h2 className="section-label">Shared seats, all time</h2>
+          <div className="grid cols-3">
+            <StatTile label="CO₂ saved" value={`${short(data.impact.co2SavedKg)} kg`} note="Estimate, against riders going alone" />
+            <StatTile label="Kilometres shared" value={short(data.impact.kmShared)} note="Riders' legs along the route" />
+            <StatTile label="Seats shared" value={num(data.impact.trips)} note="Completed bookings" />
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="section-label">Money</h2>

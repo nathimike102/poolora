@@ -372,6 +372,8 @@ export const updateMeSchema = {
     dateOfBirth: adultDateOfBirth,
     // Locked once an identity check has confirmed it (IdentityService)
     gender: Joi.string().valid('male', 'female', 'other'),
+    // The languages this market offers (UC-X03)
+    language: Joi.string().valid(...REGION.languages),
   }).min(1),
 };
 

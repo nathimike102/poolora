@@ -11,4 +11,10 @@ describe('updateMeSchema', () => {
     const { error } = updateMeSchema.body.validate({ dateOfBirth: '2999-01-01T00:00:00.000Z' });
     expect(error).toBeDefined();
   });
+
+  it('accepts only the languages the market offers (UC-X03)', () => {
+    expect(updateMeSchema.body.validate({ language: 'sn' }).error).toBeUndefined();
+    expect(updateMeSchema.body.validate({ language: 'nd' }).error).toBeUndefined();
+    expect(updateMeSchema.body.validate({ language: 'fr' }).error).toBeDefined();
+  });
 });

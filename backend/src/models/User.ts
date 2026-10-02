@@ -21,6 +21,8 @@ export interface IUser extends Document {
   name: string;
   dateOfBirth?: Date;
   gender?: 'male' | 'female' | 'other';
+  /** The language the app, pushes and messages use for this person (UC-X03); absent means English */
+  language?: string;
   /**
    * An ID document and a selfie, checked by an admin (IdentityService). It
    * confirms the person and their gender, which women-only rides rely on.
@@ -169,6 +171,8 @@ const UserStatsSchema = new Schema<IUserStats>(
     totalRatingsAsOrganizer: { type: Number, default: 0 },
     cancellationRate: { type: Number, default: 0 },
     acceptanceRate: { type: Number, default: 1 },
+    co2SavedKg: { type: Number, default: 0 },
+    kmShared: { type: Number, default: 0 },
   },
   { _id: false },
 );
@@ -208,6 +212,7 @@ const UserSchema = new Schema<IUser>(
     name: { type: String, required: true, trim: true, maxlength: 100 },
     dateOfBirth: Date,
     gender: { type: String, enum: ['male', 'female', 'other'] },
+    language: { type: String, trim: true, maxlength: 8 },
     identity: { type: IdentitySchema, default: undefined },
     safetyRating: {
       type: new Schema({

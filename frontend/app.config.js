@@ -53,6 +53,7 @@ module.exports = {
         },
       ],
       'expo-status-bar',
+      'expo-localization',
       [
         'expo-location',
         {

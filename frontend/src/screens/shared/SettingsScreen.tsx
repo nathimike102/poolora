@@ -30,6 +30,8 @@ import type { User } from '../../types/api';
 import Constants from 'expo-constants';
 import { displayPhone } from '../../utils/phone';
 import { money } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import { LANGUAGES, offeredLanguages, type LanguageCode } from '../../i18n/languages';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,6 +41,7 @@ const IC_PEOPLE = 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 
 const IC_WALLET = 'M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z';
 const IC_SHIELD = 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l5 2.18V11c0 3.5-2.33 6.79-5 7.93-2.67-1.14-5-4.43-5-7.93V7.18L12 5zm-1 3v4h2V8h-2zm0 6v2h2v-2h-2z';
 const IC_MOON = 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z';
+const IC_GLOBE = 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95a15.65 15.65 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.92 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56A7.99 7.99 0 0 1 5.08 16zm2.95-8H5.08a7.99 7.99 0 0 1 4.33-3.56A15.65 15.65 0 0 0 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2s.07-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z';
 const IC_BELL = 'M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z';
 const IC_HELP = 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z';
 const IC_CHECK_CIRCLE = 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z';
@@ -112,6 +115,9 @@ export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const isDriver = role === 'driver';
   const darkMode = isDarkMode;
+  const { t, i18n } = useTranslation();
+  // Hidden while English is the only reviewed language: nothing to choose
+  const languages = offeredLanguages();
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [profile, setProfile] = useState<User | null>(null);
@@ -313,6 +319,20 @@ export function SettingsScreen() {
             onPress={toggleDarkMode}
             rightEl={<Switch value={darkMode} onValueChange={toggleDarkMode} trackColor={{ false: '#D1D5DB', true: c.primary }} thumbColor="white" />}
           />
+          {languages.length > 1 ? (
+            <>
+              <Divider c={c} />
+              <SettingsRow
+                c={c}
+                iconBg="#EEF2FF"
+                iconColor="#3730A3"
+                iconPath={IC_GLOBE}
+                label={t('language.title')}
+                value={LANGUAGES[i18n.language as LanguageCode]?.nativeName}
+                onPress={() => navigation.navigate('Language')}
+              />
+            </>
+          ) : null}
           <Divider c={c} />
           <SettingsRow c={c} iconBg="#FFFBEB" iconColor="#8A5A00" iconPath={IC_BELL} label="Notifications" onPress={() => navigation.navigate('Notifications')} />
         </Section>

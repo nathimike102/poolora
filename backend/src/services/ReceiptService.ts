@@ -12,7 +12,7 @@ import { User } from '../models/User';
 import { BookingStatus, PaymentStatus } from '../types';
 import { AppError, AuthorizationError, NotFoundError } from '../utils/AppError';
 import { emailLayout, escapeHtml, mailEnabled, sendMail } from './Mailer';
-import { localTime, money } from '../config/region';
+import { localTime, money, number } from '../config/region';
 
 export interface Receipt {
   receiptNumber: string;
@@ -29,6 +29,8 @@ export interface Receipt {
   refunded: number;
   paid: number;
   paymentMethod: string;
+  /** Estimated kg of CO₂ the shared seat saved; completed trips only (UC-R11) */
+  co2SavedKg?: number;
 }
 
 const METHOD_LABEL: Record<string, string> = { ecocash: 'EcoCash', onemoney: 'OneMoney', innbucks: 'InnBucks', card: 'Card' };
@@ -78,6 +80,7 @@ export class ReceiptService {
       serviceFee: booking.platformFee ?? 0,
       refunded,
       paid: Math.round((fare - refunded) * 100) / 100,
+      ...(status === 'completed' && booking.co2SavedKg ? { co2SavedKg: booking.co2SavedKg } : {}),
       paymentMethod: payment ? `${METHOD_LABEL[String(payment.method)] ?? 'Online'}${payment.chargedCurrency === 'ZWG' && payment.chargedAmount ? ` (charged ${money(payment.chargedAmount, 'ZWG')})` : ''}` : 'Poolora wallet',
     };
   }
@@ -91,6 +94,7 @@ export class ReceiptService {
       ...(r.serviceFee ? [`Includes Poolora service fee ${money(r.serviceFee)}`] : []),
       ...(r.refunded ? [`Refunded ${money(r.refunded)}`] : []),
       `Paid ${money(r.paid)} by ${r.paymentMethod}`,
+      r.co2SavedKg ? `Sharing saved about ${number(r.co2SavedKg, 1)} kg of CO₂` : '',
       r.status === 'no_show' ? 'The rider did not come to the pickup; the fare was not refunded.' : '',
     ];
     return lines.filter(Boolean).join('\n');
@@ -117,6 +121,7 @@ ${r.serviceFee ? row('Includes Poolora service fee', money(r.serviceFee)) : ''}
 ${r.refunded ? row('Refunded', `− ${money(r.refunded)}`) : ''}
 ${row('Total paid', money(r.paid), true)}
 ${row('Paid by', r.paymentMethod)}
+${r.co2SavedKg ? row('CO₂ saved by sharing (estimate)', `${number(r.co2SavedKg, 1)} kg`) : ''}
 </table>
 <p style="font-size:12px;color:#75746f;margin:16px 0 0">Issued ${escapeHtml(when(r.issuedAt))} CAT. Refunds go to your Poolora wallet at once, and you can withdraw them to EcoCash, OneMoney or InnBucks.</p>`);
   }

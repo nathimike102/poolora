@@ -160,6 +160,15 @@ Decisions made on purpose:
 - **No automatic suspension on every SOS.** UC-A03 says "driver suspended pending investigation". Automatic suspension would punish drivers for accidental presses and, worse, tell a dangerous driver about the SOS while the rider is still in the car. The admin does it in one click when it is safe.
 - **A declared gender alone is never enough.** It would let any man into a women-only ride; an admin checks the selfie against the ID, then confirms the gender the person lives as.
 
+### 1.8 Phase 2 begins (1–2 October 2026)
+
+Every use case up to Phase 4 is built, so work moved to the future phases in the project plan (§3.2). They are designed in `12-NEXT-PHASES.md`, with use cases UC-R11, UC-X03, UC-C01 to UC-C03, UC-X04 and UC-R12 in `design/03-USE-CASES.md` §13. Loyalty and rewards, one of them, was already built (coins and tiers in the wallet).
+
+| Area | Now |
+|---|---|
+| Carbon footprint tracking (UC-R11) | Each completed booking stores the rider's leg along the route (`distanceKm`) and the CO₂ it saved against going alone in an average car (`co2SavedKg`); both are added to the rider's and the driver's stats. Profile → Your impact shows all time, this month, six months of bars and "How we count"; the receipt and its email show the trip's saving; the web admin's dashboard shows the platform total. Emission factors per vehicle class are in `config.carbon`. `npm run backfill:carbon` measures bookings completed before. 13 tests (`Carbon.test.ts`) |
+| Multi-language, step 1 (UC-X03) | i18next with English as the fallback; Settings → Language and `User.language`; each market lists its languages. The SOS screen is in the catalogue, and an SOS text sent in another language carries the English beneath it. Shona and Ndebele are empty and hidden until native speakers have reviewed them (12-NEXT-PHASES §2 has the translators' steps). Needs a native rebuild for `expo-localization` |
+
 ---
 
 ## 2. Still open
@@ -173,6 +182,9 @@ Decisions made on purpose:
 | Safe routes and safe pickup points | PRD | Needs data on lighting and busy places that does not exist for Zimbabwe yet; OpenStreetMap has too little |
 | New app build and store declarations | UC-R07 | Background SOS location and SOS audio add native modules: rebuild the app (`npx expo run:android`, or EAS). Google Play then asks for the foreground-service declarations (location and microphone, with a short video of the SOS), and Apple for the background-location and microphone reasons. Have the lawyer confirm recording during an SOS before launch |
 | Tracker gateway and partners | UC-D11 | Run the gateway (`infra/traccar/README.md`) and set `TRACKER_GATEWAY_KEY`, `_HOST`, `_PORT`. Local providers (eTrack, YoTracker, EzyTrack, Cartrack, Guard-Alert Pinpoint, Kukhutech) publish no API: forwarding a consenting driver's car needs an agreement with each. Low-cost GT06 trackers (about US$15 with a panic button) work without one |
+| Emission factors | UC-R11 | Round figures for typical petrol cars of each class (`config.carbon`). Check them against a published source before quoting a platform total in marketing |
+| Multi-language (UC-X03) | 12-NEXT-PHASES §2 | The other screens still need moving into the catalogue, then the backend's pushes and texts. Shona and Ndebele need paid native-speaker translators and a second reviewer before they are switched on |
+| Corporate partnerships, video calling, public transport | 12-NEXT-PHASES §3–5 | Designed. Corporate needs the business decisions listed there; SOS video needs a provider and the lawyer's view on recording; public transport needs the list of ranks and termini |
 | Legal wording | Privacy policy | Updated for the ID photo and selfie, SOS audio and location with the screen off; still part of the lawyer's review |
 
 ## 3. Documentation cleanup

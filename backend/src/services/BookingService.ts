@@ -17,11 +17,13 @@ import { MatchingEngineClient } from './MatchingEngineClient';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
 import { WalletService } from './WalletService';
+import { CarbonService } from './CarbonService';
 import { NotificationService } from './NotificationService';
 import { isVerifiedWoman, womenOnlyRefusal } from './IdentityService';
 import type { FilterQuery } from 'mongoose';
 
 const walletService = new WalletService();
+const carbonService = new CarbonService();
 
 /**
  * What a refund did: credited the wallet (all, or only the part still
@@ -730,20 +732,33 @@ export class BookingService {
     booking.driverEarnings = driverEarnings;
     booking.platformFee = platformFee;
     booking.actualDropoffTime = new Date();
+
+    // CO₂ saved by this seat (UC-R11). An estimate, so a failure only leaves it unmeasured
+    let carbon = { distanceKm: 0, co2SavedKg: 0 };
+    try {
+      carbon = await carbonService.measureBooking(booking);
+      booking.distanceKm = carbon.distanceKm;
+      booking.co2SavedKg = carbon.co2SavedKg;
+    } catch (error) {
+      logger.warn('Could not measure the CO₂ saved', { bookingId, error: (error as Error).message });
+    }
     await booking.save();
 
     // Update driver & rider stats
+    const shared = { 'stats.co2SavedKg': carbon.co2SavedKg, 'stats.kmShared': carbon.distanceKm };
     await Promise.all([
       User.findByIdAndUpdate(driverId, {
         $inc: {
           'stats.totalRidesAsDriver': 1,
           'stats.totalEarnings': driverEarnings,
+          ...shared,
         },
       }),
       User.findByIdAndUpdate(booking.rider, {
         $inc: {
           'stats.totalRidesAsRider': 1,
           'stats.totalSpent': finalFare,
+          ...shared,
         },
       }),
     ]);

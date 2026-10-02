@@ -7,7 +7,7 @@
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';
 import { logger } from '../utils/logger';
-import type { ApiResponse, EarningsStatement, User, VerifiedStatus } from '../types/api';
+import type { ApiResponse, EarningsStatement, Impact, User, VerifiedStatus } from '../types/api';
 
 /**
  * Service for user profile operations
@@ -30,7 +30,7 @@ export const userService = {
   /**
    * Update the signed-in user's name, email and date of birth
    */
-  async updateMyProfile(update: { name?: string; email?: string | null; dateOfBirth?: string }): Promise<User> {
+  async updateMyProfile(update: { name?: string; email?: string | null; dateOfBirth?: string; language?: string }): Promise<User> {
     try {
       const response = await apiClient.patch<ApiResponse<{ user: User }>>(API_ENDPOINTS.users.me, update);
       logger.info('User profile updated');
@@ -91,6 +91,12 @@ export const userService = {
   /** Progress towards the Verified Driver badge (UC-D10) */
   async getVerifiedStatus(): Promise<VerifiedStatus> {
     const response = await apiClient.get<ApiResponse<VerifiedStatus>>(API_ENDPOINTS.users.verifiedStatus);
+    return response.data.data;
+  },
+
+  /** CO₂ saved by the user's shared trips (UC-R11) */
+  async getImpact(): Promise<Impact> {
+    const response = await apiClient.get<ApiResponse<Impact>>(API_ENDPOINTS.users.impact);
     return response.data.data;
   },
 

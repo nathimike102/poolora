@@ -20,6 +20,7 @@ import { bookingService } from '../../services/bookingService';
 import type { Receipt } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { money, REGION } from '../../utils/region';
+import { formatKg } from '../../utils/carbon';
 
 
 const STATUS: Record<Receipt['status'], string> = {
@@ -97,6 +98,18 @@ export function ReceiptScreen() {
             {row('Total paid', money(r.paid), true)}
             {row('Paid by', r.paymentMethod)}
           </View>
+          {r.co2SavedKg ? (
+            <Pressable
+              onPress={() => navigation.navigate('Impact')}
+              accessibilityRole="button"
+              accessibilityLabel={`Sharing this trip saved about ${formatKg(r.co2SavedKg)} of CO₂. See your impact`}
+              style={[styles.card, { backgroundColor: c.successLight, borderColor: c.successLight, flexDirection: 'row', alignItems: 'center', gap: 10 }]}
+            >
+              <Icon name="leaf" size={22} color={c.success} />
+              <Text style={{ flex: 1, color: c.text }}>Sharing this trip saved about {formatKg(r.co2SavedKg)} of CO₂</Text>
+              <Icon name="chevron-right" size={20} color={c.textSec} />
+            </Pressable>
+          ) : null}
           {r.status === 'no_show' ? (
             <Text style={{ fontSize: 13, color: c.textSec }}>
               The driver waited at the pickup and reported that you did not come, so the fare was not refunded. If that is wrong, raise a dispute from My rides.

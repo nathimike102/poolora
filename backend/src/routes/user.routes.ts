@@ -15,6 +15,7 @@ router.get('/kyc/status', UserController.getKYCStatus);
 router.get('/me/statement', UserController.statement);
 router.post('/me/statement/email', UserController.emailStatement);
 router.get('/me/verified-status', UserController.verifiedStatus);
+router.get('/me/impact', UserController.impact);
 router.get('/me/closure', UserController.closureCheck);
 // Identity check for women-only rides
 router.get('/me/identity', UserController.identityStatus);
