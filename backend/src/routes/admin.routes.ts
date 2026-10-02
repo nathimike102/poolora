@@ -84,6 +84,8 @@ router.post('/organisations', W.createOrganisation);
 router.get('/organisations/:id', W.organisation);
 router.patch('/organisations/:id', W.updateOrganisation);
 router.delete('/organisations/:id/members/:userId', W.removeOrganisationMember);
+router.post('/organisations/:id/admins', W.addCompanyAdmin);
+router.delete('/organisations/:id/admins/:userId', W.removeCompanyAdmin);
 // Company bills (UC-C03)
 router.get('/organisations/:id/invoices', W.invoices);
 router.post('/organisations/:id/invoices', W.billNow);

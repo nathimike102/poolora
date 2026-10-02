@@ -23,6 +23,7 @@ import { ParcelClaimsPage } from './pages/ParcelClaims';
 import { WithdrawalsPage } from './pages/Withdrawals';
 import { CompaniesPage, CompanyDetailPage } from './pages/Companies';
 import { AlertsPage } from './pages/Alerts';
+import { CompanyPortal } from './pages/CompanyPortal';
 
 const AdminContext = createContext<AdminUser | null>(null);
 export const useAdmin = () => useContext(AdminContext)!;
@@ -37,6 +38,8 @@ export function App() {
 
   if (admin === undefined) return <Loading label="Checking your session" />;
   if (!admin) return <SignInPage onSignedIn={setAdmin} />;
+  // A company admin sees only their company's own dashboard
+  if (!admin.capabilities.includes('admin') && admin.company) return <CompanyPortal user={admin} onSignedOut={() => setAdmin(null)} />;
 
   return (
     <AdminContext.Provider value={admin}>

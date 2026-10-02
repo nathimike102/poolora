@@ -540,6 +540,8 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | GET | `/admin/invoices/:id/file` | The bill as a file: `?format=pdf` (default) or `xlsx` |
 | POST | `/admin/invoices/:id/paid` | Body: `reference` (the bank transfer's). Lifts the billing hold once nothing else is overdue. Audited |
 | POST | `/admin/invoices/:id/adjust` | Body: `amount` (negative for a credit), `reason`. Only before payment; the total never goes below zero. Audited |
+| POST | `/admin/organisations/:id/admins` | Body: `name`, `email`. Names a company admin (UC-C01 step 3): the address must be on the company's domains or be its billing contact; Poolora admins and another company's admins are refused. Without an account they get one, and an email with a link to set a password (Firebase). Audited |
+| DELETE | `/admin/organisations/:id/admins/:userId` | Removes a company admin. Audited |
 | GET | `/admin/parcel-claims` | Parcel claims |
 | POST | `/admin/parcel-claims/:id/decide` | Body: `decision` (`approve`, `reject`), `note` (the claimant sees it), optional `payout` (up to the cover limit; paid to the wallet) and `insurerReference` |
 | GET | `/admin/parcels/:id/photos/:photoId` | A parcel photo |
@@ -756,3 +758,17 @@ Each limit is keyed by what it protects. Mobile networks put many subscribers be
 | `refresh-token`, `firebase-login` | IP | 300 per 15 minutes |
 
 Paynow's result callback, Twilio's callbacks and the background-check callback are not limited: they come from a few addresses and carry their own signatures. A limited request gets `429 RATE_LIMITED`, with the wait in the message.
+
+## Company dashboard (UC-C01 step 3)
+
+For company admins, signed in like web admins. Every call answers about the caller's own company only, and `403` for anyone who is not a company admin. Nothing here says where anyone went: no routes, places, positions, ratings or safety reports.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/company/me` | The company: `name`, `status`, `domains`, `contributionPaused`, and its `policy` (share, cap, weekdays, site names and addresses). Contract notes are left out |
+| GET | `/company/overview` | `?month=YYYY-MM`, default this month: `members`, `newMembers`, `ridersThisMonth`, `trips` (completed, company-paid), `companyPaid`, `staffPaid`, `co2SavedKg` |
+| GET | `/company/members` | Staff who joined: name, work email, joined, this month's trips and what the company paid for them |
+| DELETE | `/company/members/:userId` | Removes someone who left the company from the programme. Audited |
+| GET | `/company/bills` | The company's bills, without lines |
+| GET | `/company/bills/:id/file` | A bill as a file: `?format=pdf` or `xlsx` |
+

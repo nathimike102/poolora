@@ -121,7 +121,9 @@ Built in slices:
 2. **Colleagues-only rides** (done): a driver in a programme can keep a ride to colleagues; only that company's members see it, hear of it or book it, and nobody while the company is suspended. Colleagues see "Works at …" on each other's rides and requests, and can filter results to colleagues; the public never sees where anyone works.
 3. **Company-paid fares** (done): each company's share, monthly cap per person, weekdays-only (public holidays excluded) and sites, set on its page in the web admin; the booking screen shows the company's part before booking and charges the rider only the rest; refunds, cancellation splits and no-shows work on the rider's part; completion keeps 10% of the company's part (the "Commission on company-paid fares" setting) and the usual commission on the rider's; receipts show what the company paid.
 4. **Monthly billing** (done): an hourly job bills last month from 06:00 on the 1st, for every company with completed company-paid trips not yet billed (a trip that completes late goes on the next bill), and emails the bill with a PDF and a spreadsheet to the billing contact, once, retrying if the email fails. A bill more than 30 days unpaid pauses the company's contribution (staff see why on Profile > Work) until an admin records the bank transfer. Admins can bill now, download, record payment and adjust an unpaid bill with a reason. Bookings are reserved for a bill before it is written, so two backend instances never bill a trip twice.
-5. The company's own dashboard.
+5. **The company's own dashboard** (done): a Poolora admin names company admins (addresses on the company's domains, or its billing contact); they get a link to set a password and sign in to the web admin, where they see only their company: staff and their trips and spend this month, the month's totals and CO₂ saved, what the company pays, and their bills to download. They can remove staff who left. Never routes, places, ratings or safety reports.
+
+All five slices of company programmes are built.
 
 ---
 

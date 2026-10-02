@@ -29,6 +29,8 @@ export interface IOrganisation extends Document {
     /** Trips that start or end within a site's radius are eligible */
     sites: Array<{ name: string; address: string; location: { type: 'Point'; coordinates: [number, number] }; radiusKm: number }>;
   };
+  /** People at the company who see its own dashboard (UC-C01 step 3): staff, trips, spend and bills, nothing more */
+  admins: Array<{ user: Types.ObjectId; email: string; addedBy: Types.ObjectId; addedAt: Date }>;
   /** Set while a bill is more than 30 days unpaid: the company's contribution pauses (UC-C03 3a) */
   billingHold?: { invoice: Types.ObjectId; since: Date };
   createdBy: Types.ObjectId;
@@ -65,6 +67,10 @@ const OrganisationSchema = new Schema<IOrganisation>(
         default: [],
       },
     },
+    admins: {
+      type: [{ _id: false, user: { type: Schema.Types.ObjectId, ref: 'User', required: true }, email: { type: String, required: true }, addedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }, addedAt: { type: Date, required: true } }],
+      default: [],
+    },
     billingHold: {
       type: new Schema({ invoice: { type: Schema.Types.ObjectId, ref: 'CompanyInvoice', required: true }, since: { type: Date, required: true } }, { _id: false }),
       default: undefined,
@@ -79,5 +85,6 @@ const OrganisationSchema = new Schema<IOrganisation>(
 
 // One company per domain: staff of two companies must never land in the wrong one
 OrganisationSchema.index({ domains: 1 }, { unique: true });
+OrganisationSchema.index({ 'admins.user': 1 });
 
 export const Organisation = mongoose.model<IOrganisation>('Organisation', OrganisationSchema);

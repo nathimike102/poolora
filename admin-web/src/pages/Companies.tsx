@@ -281,7 +281,12 @@ export function CompaniesPage() {
 /** One company: its details, and the staff who have joined. */
 export function CompanyDetailPage() {
   const { id } = useParams();
-  const { data, error, loading, reload } = useApi<{ organisation: Company; members: Member[] }>(`/admin/organisations/${id}`);
+  const { data, error, loading, reload } = useApi<{ organisation: Company; members: Member[]; admins: Array<{ user: string; email: string; addedAt: string }> }>(`/admin/organisations/${id}`);
+  const [addingAdmin, setAddingAdmin] = useState(false);
+  const [adminName, setAdminName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [removingAdmin, setRemovingAdmin] = useState<{ user: string; email: string } | null>(null);
+  useEffect(() => { if (addingAdmin) { setAdminName(''); setAdminEmail(''); } }, [addingAdmin]);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Form>(EMPTY);
   const [suspending, setSuspending] = useState(false);
@@ -337,6 +342,58 @@ export function CompanyDetailPage() {
       ) : null}
 
       {c ? <Bills companyId={c._id} onChange={reload} /> : null}
+
+      {data ? (
+        <section className="stack">
+          <div className="spread">
+            <h2 className="section-label">Company admins ({data.admins.length})</h2>
+            <button className="btn" onClick={() => setAddingAdmin(true)}>Add a company admin</button>
+          </div>
+          <p className="faint" style={{ margin: 0 }}>People at the company who see its own dashboard: staff, trips, spend and bills. Never where anyone goes.</p>
+          {data.admins.length ? (
+            <div className="card table-wrap">
+              <table>
+                <thead><tr><th>Email</th><th>Added</th><th /></tr></thead>
+                <tbody>
+                  {data.admins.map((a) => (
+                    <tr key={a.user}>
+                      <td>{a.email}</td>
+                      <td>{when(a.addedAt)}</td>
+                      <td><button className="btn" onClick={() => setRemovingAdmin(a)}>Remove</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <ActionDialog
+        open={addingAdmin}
+        title="Add a company admin"
+        confirmLabel="Add and email them"
+        tone="primary"
+        canConfirm={adminEmail.includes('@') && adminName.trim().length >= 2}
+        onConfirm={() => api.post(`/admin/organisations/${id}/admins`, { name: adminName.trim(), email: adminEmail.trim() }).then(reload)}
+        onClose={() => setAddingAdmin(false)}
+      >
+        <Field label="Name"><input className="input" value={adminName} onChange={(e) => setAdminName(e.target.value)} placeholder="Chipo Ndlovu" /></Field>
+        <Field label="Work email (on the company's domains, or the billing contact)"><input className="input" type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} /></Field>
+        <p className="faint" style={{ margin: 0 }}>They get an email with a link to set a password, then sign in here and see only their company.</p>
+      </ActionDialog>
+
+      <ActionDialog
+        open={removingAdmin !== null}
+        title={`Remove ${removingAdmin?.email ?? ''}`}
+        confirmLabel="Remove"
+        tone="danger"
+        canConfirm
+        onConfirm={() => api.del(`/admin/organisations/${id}/admins/${removingAdmin!.user}`).then(reload)}
+        onClose={() => setRemovingAdmin(null)}
+      >
+        <p style={{ margin: 0 }}>They can no longer see the company's dashboard.</p>
+      </ActionDialog>
 
       {data ? (
         <section className="stack">

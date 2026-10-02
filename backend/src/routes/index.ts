@@ -23,6 +23,7 @@ import appealRoutes from './appeal.routes';
 import callRoutes from './call.routes';
 import kycVerifyRoutes from './kycVerify.routes';
 import trackerRoutes from './tracker.routes';
+import companyRoutes from './company.routes';
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router.use('/wallet', walletRoutes);
 router.use('/maps', mapsRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
+router.use('/company', companyRoutes);
 router.use('/track', trackRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/dev/simulate', simulationRoutes);

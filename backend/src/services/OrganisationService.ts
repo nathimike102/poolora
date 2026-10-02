@@ -253,6 +253,7 @@ export class OrganisationService {
       .lean();
     return {
       organisation: view(org, members.length),
+      admins: (org.admins ?? []).map((a) => ({ user: a.user.toString(), email: a.email, addedAt: a.addedAt })),
       members: members.map((m) => ({
         _id: m._id.toString(),
         name: m.name,
