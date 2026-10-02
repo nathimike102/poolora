@@ -33,6 +33,7 @@ import { decodePolyline } from '../../utils/polyline';
 import { initSocket } from '../../utils/socket';
 import { money, REGION } from '../../utils/region';
 import { startTripTracking, stopTripTracking } from '../../services/tripTracking';
+import { useTranslation } from 'react-i18next';
 
 type Coordinate = { latitude: number; longitude: number };
 
@@ -93,6 +94,7 @@ export function DriverRideDetailsScreen() {
   const { rideId } = useRoute<Route>().params;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [ride, setRide] = useState<Ride | null>(null);
@@ -168,7 +170,7 @@ export function DriverRideDetailsScreen() {
     (async () => {
       const { status: permission } = await Location.requestForegroundPermissionsAsync();
       if (permission !== 'granted') {
-        setGpsNote('Allow location access so riders can follow your car.');
+        setGpsNote(t('driverRide.gpsAllow'));
         return;
       }
       setGpsNote('');
@@ -188,12 +190,12 @@ export function DriverRideDetailsScreen() {
         },
       );
       if (cancelled) subscription.remove();
-    })().catch(() => setGpsNote('Your location could not be shared. Check that location is on.'));
+    })().catch(() => setGpsNote(t('driverRide.gpsFailed')));
     return () => {
       cancelled = true;
       subscription?.remove();
     };
-  }, [inProgress, simulating, rideId]);
+  }, [inProgress, simulating, rideId, t]);
 
   // The trip has ended (or is being simulated): stop sending
   useEffect(() => {
@@ -214,7 +216,7 @@ export function DriverRideDetailsScreen() {
       setSimulationProgress(data.progress);
       if (data.phase === 'done') {
         setSimulating(false);
-        Alert.alert('You have reached the drop', 'Complete the ride so your riders can pay and rate the trip.');
+        Alert.alert(t('driverRide.simDoneTitle'), t('driverRide.simDoneBody'));
       } else {
         setSimulating(true);
       }
@@ -223,7 +225,7 @@ export function DriverRideDetailsScreen() {
     return () => {
       socket.off('ride:simulation', onSimulation);
     };
-  }, [rideId]);
+  }, [rideId, t]);
 
   const runNow = async (action: () => Promise<unknown>) => {
     setActing(true);
@@ -231,7 +233,7 @@ export function DriverRideDetailsScreen() {
       await action();
       await load();
     } catch (error) {
-      Alert.alert('Something went wrong', errorHandler.process(error).message);
+      Alert.alert(t('driverRide.wentWrong'), errorHandler.process(error).message);
     } finally {
       setActing(false);
     }
@@ -253,9 +255,9 @@ export function DriverRideDetailsScreen() {
   const requestTestRider = () =>
     runNow(async () => {
       await simulationService.asDriver(undefined, rideId);
-      Alert.alert('A test rider asked for a seat', 'Sim Rider has paid from their wallet. Accept the request, then start the ride.', [
-        { text: 'Later', style: 'cancel' },
-        { text: 'Review request', onPress: () => navigation.navigate('DriverTabs', { screen: 'ManageRequests' }) },
+      Alert.alert(t('driverRide.testRiderTitle'), t('driverRide.testRiderBody'), [
+        { text: t('driverRide.later'), style: 'cancel' },
+        { text: t('driverRide.reviewRequest'), onPress: () => navigation.navigate('DriverTabs', { screen: 'ManageRequests' }) },
       ]);
     });
 
@@ -297,9 +299,9 @@ export function DriverRideDetailsScreen() {
       const { sent } = await rideService.messageAllRiders(rideId, text);
       setComposing(false);
       setBroadcast('');
-      Alert.alert('Message sent', `Sent to ${sent} ${sent === 1 ? 'rider' : 'riders'}. Replies arrive in your chats.`);
+      Alert.alert(t('driverRide.messageSent'), sent === 1 ? t('driverRide.sentToOne') : t('driverRide.sentToMany', { count: sent }));
     } catch (error) {
-      Alert.alert('Not sent', errorHandler.process(error).message);
+      Alert.alert(t('common.notSent'), errorHandler.process(error).message);
     } finally {
       setSendingBroadcast(false);
     }
@@ -308,13 +310,13 @@ export function DriverRideDetailsScreen() {
   const openInMaps = () => {
     if (!ride) return;
     Linking.openURL(directionsUrl(riders, { lat: ride.dropoffLocation.lat, lng: ride.dropoffLocation.lng })).catch(() =>
-      Alert.alert('Maps did not open', 'Install Google Maps, or open the route in your maps app by hand.'),
+      Alert.alert(t('driverRide.mapsFailedTitle'), t('driverRide.mapsFailedBody')),
     );
   };
 
   const runAction = (title: string, message: string, confirmLabel: string, action: () => Promise<unknown>) => {
     Alert.alert(title, message, [
-      { text: 'Not now', style: 'cancel' },
+      { text: t('driverRide.notNow'), style: 'cancel' },
       {
         text: confirmLabel,
         style: 'destructive',
@@ -324,7 +326,7 @@ export function DriverRideDetailsScreen() {
             await action();
             await load();
           } catch (error) {
-            Alert.alert('Something went wrong', errorHandler.process(error).message);
+            Alert.alert(t('driverRide.wentWrong'), errorHandler.process(error).message);
           } finally {
             setActing(false);
           }
@@ -336,7 +338,7 @@ export function DriverRideDetailsScreen() {
   const header = (
     <View style={[styles.header, { borderBottomColor: c.border }]}>
       <BackButton onPress={() => navigation.goBack()} />
-      <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Ride details</Text>
+      <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('driverRide.title')}</Text>
       <View style={styles.headerSpacer} />
     </View>
   );
@@ -347,9 +349,9 @@ export function DriverRideDetailsScreen() {
         {header}
         <View style={styles.center}>
           {loadError ? (
-            <Text style={{ color: c.textSec, fontSize: 15 }}>This ride could not be loaded.</Text>
+            <Text style={{ color: c.textSec, fontSize: 15 }}>{t('driverRide.loadFailed')}</Text>
           ) : (
-            <ActivityIndicator color={c.primary} accessibilityLabel="Loading ride" />
+            <ActivityIndicator color={c.primary} accessibilityLabel={t('ride.loading')} />
           )}
         </View>
       </View>
@@ -384,28 +386,30 @@ export function DriverRideDetailsScreen() {
             <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: c.text }}>
               {gpsNote ||
                 (simulating
-                  ? `Simulated drive: ${Math.round(simulationProgress * 100)}% of the route`
-                  : 'Riders can follow your car live.')}
+                  ? t('driverRide.simulatedDrive', { percent: Math.round(simulationProgress * 100) })
+                  : t('driverRide.ridersFollow'))}
             </Text>
           </View>
         )}
 
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.sectionLabel, { color: c.textSec }]}>Route</Text>
+          <Text style={[styles.sectionLabel, { color: c.textSec }]}>{t('driverRide.route')}</Text>
           <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{ride.pickupLocation.address}</Text>
-          <Text style={{ fontSize: 14, color: c.textSec, marginVertical: 4 }}>to</Text>
+          <Text style={{ fontSize: 14, color: c.textSec, marginVertical: 4 }}>{t('driverRide.to')}</Text>
           <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{ride.dropoffLocation.address}</Text>
           <View style={styles.infoRow}>
             <Icon name="calendar" size={16} color={c.textSec} />
             <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>
-              {departure.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })} at{' '}
-              {departure.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' })}
+              {t('driverRide.dateAt', {
+                date: departure.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' }),
+                time: departure.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }),
+              })}
             </Text>
           </View>
           <View style={styles.infoRow}>
             <Icon name="information-outline" size={16} color={c.textSec} />
-            <Text style={{ fontSize: 14, color: c.text, marginLeft: 8, textTransform: 'capitalize' }}>
-              {(status ?? '').replace('_', ' ')}
+            <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>
+              {status ? t(`driverRide.status.${status}`, { defaultValue: status.replace('_', ' ') }) : ''}
             </Text>
           </View>
         </View>
@@ -413,39 +417,39 @@ export function DriverRideDetailsScreen() {
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={[styles.sectionLabel, { color: c.textSec }]}>Seats booked</Text>
+              <Text style={[styles.sectionLabel, { color: c.textSec }]}>{t('driverRide.seatsBooked')}</Text>
               <Text style={{ fontSize: 22, fontWeight: '800', color: c.text }}>
-                {booked} of {ride.seats}
+                {t('driverRide.bookedOf', { booked, seats: ride.seats })}
               </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: c.border }]} />
             <View style={styles.statItem}>
-              <Text style={[styles.sectionLabel, { color: c.textSec }]}>Booked fares</Text>
+              <Text style={[styles.sectionLabel, { color: c.textSec }]}>{t('driverRide.bookedFares')}</Text>
               <Text style={{ fontSize: 22, fontWeight: '800', color: c.successDark }}>
                 {money((booked * ride.pricePerSeat))}
               </Text>
-              <Text style={{ fontSize: 12, color: c.textSec }}>before platform fee</Text>
+              <Text style={{ fontSize: 12, color: c.textSec }}>{t('driverRide.beforeFee')}</Text>
             </View>
           </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <View style={styles.statsRow}>
-            <Text style={[styles.sectionLabel, styles.flex1, { color: c.textSec }]}>Confirmed riders</Text>
+            <Text style={[styles.sectionLabel, styles.flex1, { color: c.textSec }]}>{t('driverRide.confirmedRiders')}</Text>
             {riders.length > 0 && (notStarted || inProgress) ? (
               <Pressable
                 onPress={() => setComposing(true)}
                 accessibilityRole="button"
-                accessibilityLabel="Message all riders"
+                accessibilityLabel={t('driverRide.messageAllLabel')}
                 style={styles.msgAllBtn}
               >
                 <Icon name="message-text-outline" size={16} color={c.primary} />
-                <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>Message all</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>{t('driverRide.messageAll')}</Text>
               </Pressable>
             ) : null}
           </View>
           {riders.length === 0 ? (
-            <Text style={{ fontSize: 14, color: c.textSec }}>No confirmed riders yet.</Text>
+            <Text style={{ fontSize: 14, color: c.textSec }}>{t('driverRide.noRiders')}</Text>
           ) : (
             riders.map((b, i) => (
               <View
@@ -458,23 +462,23 @@ export function DriverRideDetailsScreen() {
                   </Text>
                 </View>
                 <View style={styles.flex1}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{b.rider?.name ?? 'Rider'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{b.rider?.name ?? t('driverRide.rider')}</Text>
                   <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
-                    {b.seatsBooked} {b.seatsBooked === 1 ? 'seat' : 'seats'}
-                    {b.pickup?.address ? ` · Pickup: ${b.pickup.address}` : ''}
-                    {b.dropoff?.address ? ` · Drop: ${b.dropoff.address}` : ''}
+                    {b.seatsBooked === 1 ? t('driverRide.seatOne') : t('driverRide.seatMany', { count: b.seatsBooked })}
+                    {b.pickup?.address ? t('driverRide.pickupAt', { address: b.pickup.address }) : ''}
+                    {b.dropoff?.address ? t('driverRide.dropAt', { address: b.dropoff.address }) : ''}
                   </Text>
                   {b.note ? (
                     <Text style={{ fontSize: 13, color: c.text, marginTop: 4, fontStyle: 'italic' }}>“{b.note}”</Text>
                   ) : null}
                   {notStarted || inProgress ? (
                     <Pressable
-                      onPress={() => callOnBooking(b._id, b.rider?.name ?? 'your rider')}
+                      onPress={() => callOnBooking(b._id, b.rider?.name ?? t('driverRide.yourRider'))}
                       accessibilityRole="button"
-                      accessibilityLabel={`Call ${b.rider?.name ?? 'rider'}`}
+                      accessibilityLabel={t('driverRide.callName', { name: b.rider?.name ?? t('driverRide.riderLower') })}
                       style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>Call</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>{t('driverRide.call')}</Text>
                     </Pressable>
                   ) : null}
                   {inProgress ? (
@@ -486,9 +490,9 @@ export function DriverRideDetailsScreen() {
                       onStep={which => {
                         if (which === 'noShow') {
                           runAction(
-                            'Report a no-show?',
-                            `${b.rider?.name ?? 'The rider'} did not come. Their booking is cancelled and you keep the fare, less the platform fee.`,
-                            'Report no-show',
+                            t('driverRide.noShowTitle'),
+                            t('driverRide.noShowBody', { name: b.rider?.name ?? t('driverRide.theRider') }),
+                            t('driverRide.noShowConfirm'),
                             () => bookingService.driverStep(b._id, 'noShow'),
                           );
                         } else {
@@ -511,7 +515,7 @@ export function DriverRideDetailsScreen() {
               <>
                 <Pressable
                   onPress={() =>
-                    runAction('Start this ride?', 'Your riders are told you are on the way and can follow your car.', 'Start ride', () =>
+                    runAction(t('driverRide.startTitle'), t('driverRide.startBody'), t('driverRide.start'), () =>
                       rideService.startRide(rideId),
                     )
                   }
@@ -521,12 +525,12 @@ export function DriverRideDetailsScreen() {
                   style={[styles.actionBtn, { backgroundColor: riders.length === 0 ? c.border : c.primary }]}
                 >
                   <Text style={{ fontSize: 16, fontWeight: '700', color: riders.length === 0 ? c.textSec : c.textOnPrimary }}>
-                    Start ride
+                    {t('driverRide.start')}
                   </Text>
                 </Pressable>
                 {riders.length === 0 && (
                   <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center' }}>
-                    Accept a rider's request to start this ride.
+                    {t('driverRide.acceptFirst')}
                   </Text>
                 )}
               </>
@@ -538,13 +542,13 @@ export function DriverRideDetailsScreen() {
                 style={[styles.devBtn, { borderColor: c.primary }]}
               >
                 <Icon name="navigation-variant-outline" size={18} color={c.primary} />
-                <Text style={{ fontSize: 15, fontWeight: '700', color: c.primary }}>Open route in Maps</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: c.primary }}>{t('driverRide.openMaps')}</Text>
               </Pressable>
             )}
             {inProgress && (
               <Pressable
                 onPress={() =>
-                  runAction('Complete this ride?', 'Riders will be asked to rate the trip.', 'Complete ride', () =>
+                  runAction(t('driverRide.completeTitle'), t('driverRide.completeBody'), t('driverRide.complete'), () =>
                     rideService.completeRide(rideId),
                   )
                 }
@@ -552,13 +556,13 @@ export function DriverRideDetailsScreen() {
                 accessibilityRole="button"
                 style={[styles.actionBtn, { backgroundColor: c.primary }]}
               >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>Complete ride</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>{t('driverRide.complete')}</Text>
               </Pressable>
             )}
 
             {simulationEnabled && (
               <View style={[styles.devCard, { borderColor: c.border }]}>
-                <Text style={[styles.sectionLabel, { color: c.textSec }]}>Testing tools</Text>
+                <Text style={[styles.sectionLabel, { color: c.textSec }]}>{t('driverRide.testingTools')}</Text>
                 {notStarted && (
                   <Pressable
                     onPress={requestTestRider}
@@ -567,7 +571,7 @@ export function DriverRideDetailsScreen() {
                     style={[styles.devBtn, { borderColor: c.primary }]}
                   >
                     <Icon name="account-plus-outline" size={18} color={c.primary} />
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: c.primary }}>Get a test rider request</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: c.primary }}>{t('driverRide.testRider')}</Text>
                   </Pressable>
                 )}
                 {inProgress && (
@@ -579,7 +583,7 @@ export function DriverRideDetailsScreen() {
                   >
                     <Icon name={simulating ? 'stop-circle-outline' : 'play-circle-outline'} size={18} color={c.primary} />
                     <Text style={{ fontSize: 15, fontWeight: '700', color: c.primary }}>
-                      {simulating ? 'Stop simulated drive' : 'Simulate the drive'}
+                      {simulating ? t('driverRide.stopSim') : t('driverRide.startSim')}
                     </Text>
                   </Pressable>
                 )}
@@ -594,16 +598,16 @@ export function DriverRideDetailsScreen() {
                 style={[styles.devBtn, { borderColor: c.border }]}
               >
                 <Icon name="pencil-outline" size={18} color={c.text} />
-                <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Change time, seats or price</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{t('driverRide.change')}</Text>
               </Pressable>
             )}
             {notStarted && (
               <Pressable
                 onPress={() =>
                   runAction(
-                    'Cancel this ride?',
-                    'All booked riders are notified and fully refunded.',
-                    'Cancel ride',
+                    t('driverRide.cancelTitle'),
+                    t('driverRide.cancelBody'),
+                    t('driverRide.cancelRide'),
                     () => rideService.cancelRide(rideId),
                   )
                 }
@@ -611,7 +615,7 @@ export function DriverRideDetailsScreen() {
                 accessibilityRole="button"
                 style={[styles.actionBtn, { backgroundColor: c.errorLight }]}
               >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>Cancel ride</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>{t('driverRide.cancelRide')}</Text>
               </Pressable>
             )}
           </View>
@@ -622,24 +626,24 @@ export function DriverRideDetailsScreen() {
         <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + 16 }]}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">
-              {`${pinFor?.rider?.name?.split(' ')[0] ?? 'The rider'}'s pickup code`}
+              {t('driverRide.pinTitle', { name: pinFor?.rider?.name?.split(' ')[0] ?? t('driverRide.theRider') })}
             </Text>
             <Text style={{ fontSize: 13, color: c.textSec }}>
-              Ask the rider for the 4-digit code on their screen. It shows them they are getting into the right car.
+              {t('driverRide.pinHelp')}
             </Text>
             <TextInput
               value={pin}
-              onChangeText={t => setPin(t.replace(/\D/g, '').slice(0, 4))}
+              onChangeText={text => setPin(text.replace(/\D/g, '').slice(0, 4))}
               keyboardType="number-pad"
               maxLength={4}
               autoFocus
-              accessibilityLabel="Pickup code"
+              accessibilityLabel={t('driverRide.pinLabel')}
               style={[styles.sheetInput, { borderColor: pinError ? c.error : c.border, color: c.text, backgroundColor: c.bg, fontSize: 28, letterSpacing: 12, textAlign: 'center', minHeight: 64 }]}
             />
             {pinError ? <Text style={{ fontSize: 13, color: c.error }} accessibilityLiveRegion="assertive">{pinError}</Text> : null}
             <View style={styles.statsRow}>
               <Pressable onPress={() => setPinFor(null)} accessibilityRole="button" style={[styles.actionBtn, styles.flex1]}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: c.textSec }}>Cancel</Text>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: c.textSec }}>{t('driverRide.cancel')}</Text>
               </Pressable>
               <Pressable
                 onPress={submitPin}
@@ -648,7 +652,7 @@ export function DriverRideDetailsScreen() {
                 style={[styles.actionBtn, styles.flex1, { backgroundColor: pin.length === 4 ? c.primary : c.border }]}
               >
                 {acting ? <ActivityIndicator color={c.textOnPrimary} /> : (
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: pin.length === 4 ? c.textOnPrimary : c.textSec }}>Confirm pickup</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: pin.length === 4 ? c.textOnPrimary : c.textSec }}>{t('driverRide.confirmPickup')}</Text>
                 )}
               </Pressable>
             </View>
@@ -659,19 +663,19 @@ export function DriverRideDetailsScreen() {
       <Modal visible={composing} transparent animationType="slide" onRequestClose={() => setComposing(false)}>
         <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + 16 }]}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">Message all riders</Text>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">{t('driverRide.messageAllLabel')}</Text>
             <Text style={{ fontSize: 13, color: c.textSec }}>
-              Goes to each of your {riders.length} {riders.length === 1 ? 'rider' : 'riders'} in their chat with you.
+              {riders.length === 1 ? t('driverRide.broadcastHelpOne') : t('driverRide.broadcastHelpMany', { count: riders.length })}
             </Text>
             <View style={styles.templateRow}>
-              {BROADCAST_TEMPLATES.map(t => (
+              {BROADCAST_TEMPLATES.map(key => t(`driverRide.templates.${key}`)).map(template => (
                 <Pressable
-                  key={t}
-                  onPress={() => setBroadcast(t)}
+                  key={template}
+                  onPress={() => setBroadcast(template)}
                   accessibilityRole="button"
                   style={[styles.template, { borderColor: c.border, backgroundColor: c.bg }]}
                 >
-                  <Text style={{ fontSize: 13, color: c.text }}>{t}</Text>
+                  <Text style={{ fontSize: 13, color: c.text }}>{template}</Text>
                 </Pressable>
               ))}
             </View>
@@ -681,14 +685,14 @@ export function DriverRideDetailsScreen() {
               multiline
               maxLength={2000}
               autoFocus
-              placeholder="Running 10 minutes late, sorry!"
+              placeholder={t('driverRide.broadcastPlaceholder')}
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Message"
+              accessibilityLabel={t('driverRide.messageLabel')}
               style={[styles.sheetInput, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
             />
             <View style={styles.statsRow}>
               <Pressable onPress={() => setComposing(false)} accessibilityRole="button" style={[styles.actionBtn, styles.flex1]}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: c.textSec }}>Cancel</Text>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: c.textSec }}>{t('driverRide.cancel')}</Text>
               </Pressable>
               <Pressable
                 onPress={sendBroadcast}
@@ -697,7 +701,7 @@ export function DriverRideDetailsScreen() {
                 style={[styles.actionBtn, styles.flex1, { backgroundColor: broadcast.trim() ? c.primary : c.border }]}
               >
                 {sendingBroadcast ? <ActivityIndicator color={c.textOnPrimary} /> : (
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: broadcast.trim() ? c.textOnPrimary : c.textSec }}>Send</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: broadcast.trim() ? c.textOnPrimary : c.textSec }}>{t('driverRide.send')}</Text>
                 )}
               </Pressable>
             </View>
@@ -710,21 +714,18 @@ export function DriverRideDetailsScreen() {
         <Pressable
           onPress={() => navigation.navigate('SOS', { bookingId: (riders.find(b => b.actualPickupTime && !b.actualDropoffTime) ?? riders[0])._id })}
           accessibilityRole="button"
-          accessibilityLabel="SOS emergency"
+          accessibilityLabel={t('ride.sosLabel')}
           style={[styles.sosFab, { backgroundColor: c.error }]}
         >
-          <Text style={{ color: 'white', fontWeight: '800', fontSize: 14 }}>SOS</Text>
+          <Text style={{ color: 'white', fontWeight: '800', fontSize: 14 }}>{t('sos.sosLabel')}</Text>
         </Pressable>
       )}
     </View>
   );
 }
 
-const BROADCAST_TEMPLATES = [
-  'Running about 10 minutes late, sorry!',
-  'Leaving on time, see you soon.',
-  'Please be at your pickup point 5 minutes early.',
-];
+/** Quick messages to all riders; the words are in the catalogue under driverRide.templates */
+const BROADCAST_TEMPLATES = ['late', 'onTime', 'early'] as const;
 
 /**
  * The next step for one rider during the ride (UC-D04): at the pickup, in
@@ -744,6 +745,7 @@ function RiderSteps({
   colors: ReturnType<typeof useApp>['c'];
   onStep: (which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow') => void;
 }) {
+  const { t } = useTranslation();
   const button = (label: string, which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow', primary: boolean, disabled = false) => (
     <Pressable
       key={which}
@@ -761,20 +763,20 @@ function RiderSteps({
   );
 
   if (booking.actualPickupTime) {
-    return <View style={styles.stepRow}>{button('Dropped off', 'droppedOff', true)}</View>;
+    return <View style={styles.stepRow}>{button(t('driverRide.steps.droppedOff'), 'droppedOff', true)}</View>;
   }
   if (!booking.driverArrivedAt) {
-    return <View style={styles.stepRow}>{button("I'm at the pickup", 'arrived', true)}</View>;
+    return <View style={styles.stepRow}>{button(t('driverRide.steps.atPickup'), 'arrived', true)}</View>;
   }
   const left = new Date(booking.driverArrivedAt).getTime() + NO_SHOW_WAIT_MS - now;
   return (
     <View style={{ marginTop: 8, gap: 6 }}>
       <Text style={{ fontSize: 12, color: c.textSec }} accessibilityLiveRegion="polite">
-        {left > 0 ? `Waiting for the rider · no-show can be reported in ${waitLabel(left)}` : 'You have waited long enough to report a no-show.'}
+        {left > 0 ? t('driverRide.steps.waiting', { time: waitLabel(left) }) : t('driverRide.steps.waitedEnough')}
       </Text>
       <View style={styles.stepRow}>
-        {button('Picked up', 'pickedUp', true)}
-        {button('No-show', 'noShow', false, left > 0)}
+        {button(t('driverRide.steps.pickedUp'), 'pickedUp', true)}
+        {button(t('driverRide.steps.noShow'), 'noShow', false, left > 0)}
       </View>
     </View>
   );

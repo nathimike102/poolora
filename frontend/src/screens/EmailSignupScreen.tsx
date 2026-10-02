@@ -25,12 +25,14 @@ import { GradientButton } from '../components/GradientButton';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
 import { signUpWithEmail } from '../services/authService';
 import type { RootStackParamList } from '../navigation/types';
+import { useTranslation } from 'react-i18next';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'EmailSignup'>;
 
 export function EmailSignupScreen() {
   const navigation = useNavigation<NavProp>();
   const { c, finishSignIn } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [firstName, setFirstName] = useState('');
@@ -58,7 +60,7 @@ export function EmailSignupScreen() {
   const handleSignUp = async () => {
     if (!isValid || loading) return;
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+      Alert.alert(t('login.error'), t('login.mismatchBody'));
       return;
     }
     setLoading(true);
@@ -69,7 +71,7 @@ export function EmailSignupScreen() {
       await finishSignIn(credential.user);
       navigation.navigate('ProfileSetup');
     } catch (error) {
-      Alert.alert('Sign Up Failed', getErrorMessage(error, 'Unable to create account.'));
+      Alert.alert(t('login.signUpFailed'), getErrorMessage(error, t('login.unableCreate')));
     } finally {
       setLoading(false);
     }
@@ -93,7 +95,7 @@ export function EmailSignupScreen() {
         bounces={false}
       >
         <Text style={[styles.title, { color: c.text }]}>
-          Create Account
+          {t('login.createAccount')}
         </Text>
 
         {/* First Name */}
@@ -104,11 +106,11 @@ export function EmailSignupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>FIRST NAME</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.firstNameLabel')}</Text>
           <TextInput
             value={firstName}
             onChangeText={setFirstName}
-            placeholder="First name"
+            placeholder={t('login.firstName')}
             placeholderTextColor={c.textSec}
             autoCapitalize="words"
             style={[styles.input, { color: c.text }]}
@@ -123,11 +125,11 @@ export function EmailSignupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>LAST NAME</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.lastNameLabel')}</Text>
           <TextInput
             value={lastName}
             onChangeText={setLastName}
-            placeholder="Last name"
+            placeholder={t('login.lastName')}
             placeholderTextColor={c.textSec}
             autoCapitalize="words"
             style={[styles.input, { color: c.text }]}
@@ -142,14 +144,14 @@ export function EmailSignupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>EMAIL</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.emailLabel')}</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={t('login.emailPlaceholder')}
             placeholderTextColor={c.textSec}
             style={[styles.input, { color: c.text }]}
           />
@@ -163,12 +165,12 @@ export function EmailSignupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>PASSWORD</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.passwordLabel')}</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            placeholder="Min. 6 characters"
+            placeholder={t('login.newPassword')}
             placeholderTextColor={c.textSec}
             style={[styles.input, { color: c.text }]}
           />
@@ -182,12 +184,12 @@ export function EmailSignupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>CONFIRM PASSWORD</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.confirmLabel')}</Text>
           <TextInput
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
-            placeholder="Re-enter password"
+            placeholder={t('login.confirmPlaceholder')}
             placeholderTextColor={c.textSec}
             style={[styles.input, { color: c.text }]}
           />
@@ -196,14 +198,14 @@ export function EmailSignupScreen() {
         {/* Password mismatch hint */}
         {confirmPassword.length > 0 && password !== confirmPassword && (
           <Text style={[styles.errorHint, { color: c.error }]}>
-            Passwords do not match
+            {t('login.mismatch')}
           </Text>
         )}
 
         {/* Sign Up button */}
         <View style={styles.cta}>
           <GradientButton
-            label={loading ? '' : 'Create Account'}
+            label={loading ? '' : t('login.createAccount')}
             onPress={handleSignUp}
             disabled={!isValid || loading}
             loading={loading}

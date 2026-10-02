@@ -26,12 +26,14 @@ import { GradientButton } from '../components/GradientButton';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
 import { signInWithEmail, sendPasswordReset } from '../services/authService';
 import type { RootStackParamList } from '../navigation/types';
+import { useTranslation } from 'react-i18next';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'EmailLogin'>;
 
 export function EmailLoginScreen() {
   const navigation = useNavigation<NavProp>();
   const { c, finishSignIn } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');
@@ -55,7 +57,7 @@ export function EmailLoginScreen() {
       const credential = await signInWithEmail(email.trim(), password);
       if ((await finishSignIn(credential.user)) === 'profile') navigation.navigate('ProfileSetup');
     } catch (error) {
-      Alert.alert('Login Failed', getErrorMessage(error, 'Unable to sign in.'));
+      Alert.alert(t('login.loginFailed'), getErrorMessage(error, t('login.unableSignIn')));
     } finally {
       setLoading(false);
     }
@@ -63,14 +65,14 @@ export function EmailLoginScreen() {
 
   const handleForgotPassword = async () => {
     if (!email.includes('@')) {
-      Alert.alert('Enter Email', 'Please enter your email address first.');
+      Alert.alert(t('login.enterEmailTitle'), t('login.enterEmailBody'));
       return;
     }
     try {
       await sendPasswordReset(email.trim());
-      Alert.alert('Email Sent', 'A password reset link has been sent to your email.');
+      Alert.alert(t('login.resetSentTitle'), t('login.resetSentBody'));
     } catch (error) {
-      Alert.alert('Error', getErrorMessage(error, 'Unable to send reset email.'));
+      Alert.alert(t('login.error'), getErrorMessage(error, t('login.unableReset')));
     }
   };
 
@@ -92,7 +94,7 @@ export function EmailLoginScreen() {
         bounces={false}
       >
         <Text style={[styles.title, { color: c.text }]}>
-          Login with Email
+          {t('login.emailTitle')}
         </Text>
 
         {/* Email input */}
@@ -103,14 +105,14 @@ export function EmailLoginScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>EMAIL</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.emailLabel')}</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={t('login.emailPlaceholder')}
             placeholderTextColor={c.textSec}
             style={[styles.input, { color: c.text }]}
           />
@@ -124,12 +126,12 @@ export function EmailLoginScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>PASSWORD</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.passwordLabel')}</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            placeholder="Enter your password"
+            placeholder={t('login.passwordPlaceholder')}
             placeholderTextColor={c.textSec}
             style={[styles.input, { color: c.text }]}
           />
@@ -141,13 +143,13 @@ export function EmailLoginScreen() {
           style={styles.forgotRow}
         >
           <Text style={[styles.forgotText, { color: c.primary }]}>
-            Forgot Password?
+            {t('login.forgot')}
           </Text>
         </TouchableOpacity>
 
         {/* Login button */}
         <GradientButton
-          label={loading ? '' : 'Login'}
+          label={loading ? '' : t('login.login')}
           onPress={handleLogin}
           disabled={!isValid || loading}
           loading={loading}
@@ -160,7 +162,7 @@ export function EmailLoginScreen() {
         <View style={styles.dividerRow}>
           <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
           <Text style={[styles.dividerLabel, { color: c.textSec }]}>
-            Don't have an account?
+            {t('login.noAccount')}
           </Text>
           <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
         </View>
@@ -176,7 +178,7 @@ export function EmailLoginScreen() {
           onPress={() => navigation.navigate('EmailSignup')}
         >
           <Text style={[styles.signupLabel, { color: c.primary }]}>
-            Create Account
+            {t('login.createAccount')}
           </Text>
         </TouchableOpacity>
       </ScrollView>

@@ -85,7 +85,7 @@ A wrong word on the SOS screen or in an SOS text could cost someone help. So:
 
 ### Where it stands (2 October 2026)
 
-Step 1 is under way. Built: i18next with English as the fallback, the phone's language on first start, Settings → Language (shown once a second language is reviewed), `User.language` saved through `PATCH /users/me`, `languages` in each market of the registry (app and backend), and the SOS screen fully in the catalogue, with the English added beneath an SOS text sent in another language. The Shona and Ndebele catalogues are empty and marked unreviewed, so the app shows English until translators fill them.
+Step 1 is under way. Built: i18next with English as the fallback, the phone's language on first start, Settings → Language (shown once a second language is reviewed), `User.language` saved through `PATCH /users/me`, `languages` in each market of the registry (app and backend), and these screens in the catalogue: SOS, the rider's live ride and the driver's ride (pickup code, check-ins, no-shows), sign-in and sign-up, onboarding, the rider's home, search, results, ride details, booking and payment, and the vehicle names everywhere. An SOS text sent in another language has the English beneath it. A test fails if the code asks for a key the English catalogue lacks. The Shona and Ndebele catalogues are empty and marked unreviewed, so the app shows English until translators fill them.
 
 ### For translators
 

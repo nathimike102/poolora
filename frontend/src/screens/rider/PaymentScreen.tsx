@@ -30,6 +30,7 @@ import { errorHandler } from '../../utils/errorHandler';
 import { realPhone } from '../../utils/phone';
 import { money, nationalDigits, REGION } from '../../utils/region';
 import type { Charge, PayChannel, PayCurrency } from '../../types/api';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type PayRoute = RouteProp<RootStackParamList, 'Payment'>;
@@ -38,11 +39,12 @@ const POLL_MS = 4_000;
 /** Stop asking on our own after this; the payer can still check again */
 const POLL_FOR_MS = 5 * 60_000;
 
-const METHODS: Array<{ id: PayChannel; label: string; sub: string; icon: IconName }> = [
-  { id: 'ecocash', label: 'EcoCash', sub: 'Approve on your phone with your PIN', icon: 'cellphone' },
-  { id: 'onemoney', label: 'OneMoney', sub: 'Approve on your phone with your PIN', icon: 'cellphone' },
-  { id: 'innbucks', label: 'InnBucks', sub: 'Enter a code in the InnBucks app', icon: 'qrcode' },
-  { id: 'card', label: 'Visa or Mastercard', sub: "Pay on Paynow's secure page", icon: 'credit-card-outline' },
+/** Names and help lines are in the catalogue under payment.methods */
+const METHODS: Array<{ id: PayChannel; icon: IconName }> = [
+  { id: 'ecocash', icon: 'cellphone' },
+  { id: 'onemoney', icon: 'cellphone' },
+  { id: 'innbucks', icon: 'qrcode' },
+  { id: 'card', icon: 'credit-card-outline' },
 ];
 
 /** EcoCash is on Econet (077, 078), OneMoney on NetOne (071) */
@@ -54,6 +56,7 @@ export function PaymentScreen() {
   const navigation = useNavigation<Nav>();
   const { params } = useRoute<PayRoute>();
   const { c, user } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const ownPhone = realPhone(user?.phone);
   const purpose = params.parcelId ? 'parcel' : params.bookingId ? 'booking' : 'topup';
@@ -95,14 +98,14 @@ export function PaymentScreen() {
       setPollingStopped(false);
       setCharge(started);
       if (started.channel === 'card' && started.redirectUrl) {
-        await Linking.openURL(started.redirectUrl).catch(() => setError('Could not open the card page. Try another method.'));
+        await Linking.openURL(started.redirectUrl).catch(() => setError(t('payment.cardFailed')));
       }
     } catch (e) {
       setError(errorHandler.process(e).message);
     } finally {
       setStarting(false);
     }
-  }, [channel, mobile, phone, currency, purpose, params.amount, params.parcelId, params.bookingId]);
+  }, [channel, mobile, phone, currency, purpose, params.amount, params.parcelId, params.bookingId, t]);
 
   const check = useCallback(async () => {
     if (!charge) return;
@@ -154,12 +157,12 @@ export function PaymentScreen() {
   // ── Paid ──────────────────────────────────────────────────────────
   if (charge?.status === 'paid') {
     const done = purpose === 'topup'
-      ? { title: 'Wallet topped up', body: `${money(params.amount)} is in your Poolora wallet.`, cta: 'Back to wallet', go: () => navigation.goBack() }
+      ? { title: t('payment.topupDoneTitle'), body: t('payment.topupDoneBody', { amount: money(params.amount) }), cta: t('payment.backToWallet'), go: () => navigation.goBack() }
       : charge.creditedToWallet
-        ? { title: 'Payment in your wallet', body: `This request had already closed or been paid, so your ${money(charge.amountUsd)} is in your Poolora wallet. You can use it or withdraw it.`, cta: 'Open wallet', go: () => navigation.replace('Wallet') }
+        ? { title: t('payment.inWalletTitle'), body: t('payment.inWalletBody', { amount: money(charge.amountUsd) }), cta: t('payment.openWallet'), go: () => navigation.replace('Wallet') }
         : purpose === 'parcel'
-          ? { title: 'Payment received', body: "Your parcel request has gone to the driver. We'll tell you when they accept. If they decline, the full amount goes to your Poolora wallet.", cta: 'Track the parcel', go: () => navigation.goBack() }
-          : { title: 'Payment received', body: "Your request has gone to the driver. We'll tell you when they confirm your seat. If they decline, the full amount goes to your Poolora wallet.", cta: 'View my rides', go: () => navigation.navigate('RiderTabs', { screen: 'MyRides' }) };
+          ? { title: t('payment.receivedTitle'), body: t('payment.parcelReceived'), cta: t('payment.trackParcel'), go: () => navigation.goBack() }
+          : { title: t('payment.receivedTitle'), body: t('payment.rideReceived'), cta: t('payment.viewRides'), go: () => navigation.navigate('RiderTabs', { screen: 'MyRides' }) };
     return (
       <View style={[styles.centered, { backgroundColor: c.bg, paddingTop: insets.top }]}>
         <View style={[styles.badge, { backgroundColor: c.success }]}>
@@ -181,12 +184,12 @@ export function PaymentScreen() {
     <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={[styles.headerTitle, { color: c.text }]}>{purpose === 'topup' ? 'Top up wallet' : 'Payment'}</Text>
+        <Text accessibilityRole="header" style={[styles.headerTitle, { color: c.text }]}>{purpose === 'topup' ? t('payment.topupTitle') : t('payment.title')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 140 }]} keyboardShouldPersistTaps="handled">
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={{ fontSize: Typography.base, color: c.textSec }}>Amount to pay</Text>
+          <Text style={{ fontSize: Typography.base, color: c.textSec }}>{t('payment.amountToPay')}</Text>
           <Text style={{ fontSize: 34, fontWeight: '800', color: c.text, marginTop: 4 }}>{waiting && charge ? money(charge.chargedAmount, charge.currency) : toPay}</Text>
           {currency === 'ZWG' && zwgRate && !waiting ? (
             <Text style={{ fontSize: Typography.base, color: c.textSec, marginTop: 4 }}>{money(params.amount)} at {zwgRate} ZiG per US dollar</Text>
@@ -199,37 +202,37 @@ export function PaymentScreen() {
             <View style={styles.row}>
               {pollingStopped ? <Icon name="timer-sand" size={22} color={c.textSec} /> : <ActivityIndicator color={c.primary} />}
               <Text style={{ flex: 1, fontSize: Typography.lg, fontWeight: '700', color: c.text }}>
-                {pollingStopped ? 'Still waiting for Paynow' : 'Waiting for your payment'}
+                {pollingStopped ? t('payment.stillWaiting') : t('payment.waiting')}
               </Text>
             </View>
             <Text style={{ fontSize: Typography.md, color: c.text, lineHeight: 21, marginTop: 10 }}>{charge.instructions}</Text>
             {charge.authorizationCode ? (
               <View style={[styles.codeBox, { backgroundColor: c.primaryLight }]}>
-                <Text style={{ fontSize: 12, color: c.textSec }}>InnBucks code</Text>
-                <Text selectable style={{ fontSize: 30, fontWeight: '800', letterSpacing: 4, color: c.text }} accessibilityLabel={`InnBucks code ${charge.authorizationCode.split('').join(' ')}`}>
+                <Text style={{ fontSize: 12, color: c.textSec }}>{t('payment.innbucksCode')}</Text>
+                <Text selectable style={{ fontSize: 30, fontWeight: '800', letterSpacing: 4, color: c.text }} accessibilityLabel={t('payment.innbucksCodeLabel', { digits: charge.authorizationCode.split('').join(' ') })}>
                   {charge.authorizationCode}
                 </Text>
-                {charge.authorizationExpires ? <Text style={{ fontSize: 12, color: c.textSec }}>Valid until {charge.authorizationExpires}</Text> : null}
+                {charge.authorizationExpires ? <Text style={{ fontSize: 12, color: c.textSec }}>{t('payment.validUntil', { time: charge.authorizationExpires })}</Text> : null}
               </View>
             ) : null}
             {charge.channel === 'card' && charge.redirectUrl ? (
               <Pressable onPress={() => Linking.openURL(charge.redirectUrl!)} accessibilityRole="link" style={styles.linkBtn}>
-                <Text style={{ color: c.primary, fontSize: Typography.md, fontWeight: '600' }}>Open the card page again</Text>
+                <Text style={{ color: c.primary, fontSize: Typography.md, fontWeight: '600' }}>{t('payment.cardAgain')}</Text>
               </Pressable>
             ) : null}
             <Text style={{ fontSize: 13, color: c.textSec, marginTop: 8 }}>
               {charge.channel === 'ecocash' || charge.channel === 'onemoney'
-                ? 'No prompt? Check your balance and that the number is right, then try again.'
-                : 'This screen updates as soon as Paynow confirms the payment.'}
+                ? t('payment.noPrompt')
+                : t('payment.updatesSoon')}
             </Text>
             <Pressable onPress={() => { setPollingStopped(false); startedAt.current = Date.now(); check(); }} accessibilityRole="button" style={styles.linkBtn}>
-              <Text style={{ color: c.primary, fontSize: Typography.md, fontWeight: '600' }}>Check again</Text>
+              <Text style={{ color: c.primary, fontSize: Typography.md, fontWeight: '600' }}>{t('payment.checkAgain')}</Text>
             </Pressable>
           </View>
         ) : (
           <>
             {zwgRate ? (
-              <View style={[styles.seg, { borderColor: c.border }]} accessibilityRole="radiogroup" accessibilityLabel="Currency">
+              <View style={[styles.seg, { borderColor: c.border }]} accessibilityRole="radiogroup" accessibilityLabel={t('payment.currency')}>
                 {(['USD', 'ZWG'] as const).map(cur => (
                   <Pressable
                     key={cur}
@@ -238,14 +241,14 @@ export function PaymentScreen() {
                     accessibilityState={{ checked: currency === cur }}
                     style={[styles.segBtn, currency === cur && { backgroundColor: c.primary }]}
                   >
-                    <Text style={{ fontWeight: '700', color: currency === cur ? c.textOnPrimary : c.text }}>{cur === 'USD' ? 'US dollars' : 'ZiG'}</Text>
+                    <Text style={{ fontWeight: '700', color: currency === cur ? c.textOnPrimary : c.text }}>{cur === 'USD' ? t('payment.usd') : 'ZiG'}</Text>
                   </Pressable>
                 ))}
               </View>
             ) : null}
 
-            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border, gap: 8 }]} accessibilityRole="radiogroup" accessibilityLabel="Pay with">
-              <Text style={{ fontSize: Typography.lg, fontWeight: '700', color: c.text, marginBottom: 4 }}>Pay with</Text>
+            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border, gap: 8 }]} accessibilityRole="radiogroup" accessibilityLabel={t('payment.payWith')}>
+              <Text style={{ fontSize: Typography.lg, fontWeight: '700', color: c.text, marginBottom: 4 }}>{t('payment.payWith')}</Text>
               {METHODS.map(m => {
                 const selected = channel === m.id;
                 return (
@@ -258,8 +261,8 @@ export function PaymentScreen() {
                   >
                     <Icon name={m.icon} size={22} color={c.textSec} />
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>{m.label}</Text>
-                      <Text style={{ fontSize: 12, color: c.textSec }}>{m.sub}</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>{t(`payment.methods.${m.id}.label`)}</Text>
+                      <Text style={{ fontSize: 12, color: c.textSec }}>{t(`payment.methods.${m.id}.sub`)}</Text>
                     </View>
                     <Icon name={selected ? 'radiobox-marked' : 'radiobox-blank'} size={22} color={selected ? c.primary : c.textSec} />
                   </Pressable>
@@ -267,7 +270,7 @@ export function PaymentScreen() {
               })}
               {mobile ? (
                 <>
-                  <Text style={{ fontSize: 13, color: c.textSec, marginTop: 8 }}>{channel === 'innbucks' ? 'Your InnBucks number' : `The ${channel === 'ecocash' ? 'EcoCash' : 'OneMoney'} number to pay from`}</Text>
+                  <Text style={{ fontSize: 13, color: c.textSec, marginTop: 8 }}>{channel === 'innbucks' ? t('payment.innbucksNumber') : t('payment.payFrom', { wallet: channel === 'ecocash' ? 'EcoCash' : 'OneMoney' })}</Text>
                   <TextInput
                     value={phone}
                     onChangeText={setPhone}
@@ -275,7 +278,7 @@ export function PaymentScreen() {
                     placeholder="0771 234 567"
                     placeholderTextColor={c.textSec}
                     maxLength={14}
-                    accessibilityLabel="Mobile money number"
+                    accessibilityLabel={t('payment.mobileLabel')}
                     style={[styles.input, { borderColor: phoneOk ? c.border : c.error, color: c.text }]}
                   />
                 </>
@@ -288,8 +291,8 @@ export function PaymentScreen() {
           <View style={[styles.notice, { backgroundColor: c.errorLight }]} accessibilityLiveRegion="polite">
             <Text style={{ color: c.text, fontSize: Typography.md, lineHeight: 20 }}>
               {charge.status === 'disputed'
-                ? 'Paynow reported a different amount. Our team is checking it; you do not need to pay again.'
-                : `${charge.failureReason ?? 'The payment did not go through.'} You have not been charged. Try again or choose another method.`}
+                ? t('payment.disputed')
+                : t('payment.notCharged', { reason: charge.failureReason ?? t('payment.notThrough') })}
             </Text>
           </View>
         ) : null}
@@ -301,11 +304,11 @@ export function PaymentScreen() {
 
         {purpose !== 'topup' && !waiting ? (
           <Pressable onPress={cancelRequest} disabled={cancelling} accessibilityRole="button" style={styles.linkBtn}>
-            <Text style={{ color: c.error, fontSize: Typography.md, fontWeight: '600' }}>{cancelling ? 'Cancelling' : 'Cancel the request instead'}</Text>
+            <Text style={{ color: c.error, fontSize: Typography.md, fontWeight: '600' }}>{cancelling ? t('payment.cancelling') : t('payment.cancelInstead')}</Text>
           </Pressable>
         ) : null}
         <Text style={{ fontSize: Typography.base, color: c.textSec, lineHeight: 19 }}>
-          Payments are processed by Paynow. Poolora never sees your PIN or card details.
+          {t('payment.secure')}
         </Text>
       </ScrollView>
 
@@ -321,7 +324,7 @@ export function PaymentScreen() {
             {starting ? (
               <ActivityIndicator color={c.textOnPrimary} />
             ) : (
-              <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>{failed ? 'Try again' : `Pay ${toPay}`}</Text>
+              <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>{failed ? t('payment.tryAgain') : t('payment.pay', { amount: toPay })}</Text>
             )}
           </Pressable>
         </View>

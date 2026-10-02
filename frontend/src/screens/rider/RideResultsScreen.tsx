@@ -24,17 +24,16 @@ import { errorHandler } from '../../utils/errorHandler';
 import { VEHICLE_CATEGORIES, vehicleCategory, type VehicleCategory } from '../../utils/vehicles';
 import { REGION, money } from '../../utils/region';
 import { identityService } from '../../services/identityService';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'RideResults'>;
 type ResultsRoute = RouteProp<RootStackParamList, 'RideResults'>;
 
 type SortBy = 'best' | 'time' | 'price' | 'rating';
 
-const SORTS: { key: SortBy; label: string }[] = [
-  { key: 'time', label: 'Earliest' },
-  { key: 'price', label: 'Cheapest' },
-  { key: 'rating', label: 'Top rated' },
-];
+/** Labels are in the catalogue under results.sort */
+const SORTS: SortBy[] = ['time', 'price', 'rating'];
 
 const MAX_SEATS_PER_BOOKING = 4;
 
@@ -62,7 +61,7 @@ function toResult(r: ApiRide): ResultRide {
   return {
     id: r._id,
     category: vehicleCategory(v?.vehicleType),
-    driver: r.driver?.name || 'Driver',
+    driver: r.driver?.name || i18n.t('results.driver'),
     driverVerified: Boolean(r.driver?.verified),
     trackedCar: Boolean(r.driver?.trackedCar),
     rating: stats?.avgRatingAsDriver ?? 0,
@@ -78,16 +77,16 @@ function toResult(r: ApiRide): ResultRide {
 }
 
 function formatLeaves(ms: number): string {
-  if (!ms) return 'Time not set';
+  if (!ms) return i18n.t('results.timeNotSet');
   const mins = Math.round((ms - Date.now()) / 60000);
   const clock = new Date(ms).toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
-  if (mins <= 1) return `Leaving now · ${clock}`;
-  if (mins < 60) return `Leaves in ${mins} min · ${clock}`;
+  if (mins <= 1) return i18n.t('results.leavingNow', { clock });
+  if (mins < 60) return i18n.t('results.leavesIn', { mins, clock });
   const d = new Date(ms);
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  if (d.toDateString() === new Date().toDateString()) return `Leaves ${clock}`;
-  if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow ${clock}`;
+  if (d.toDateString() === new Date().toDateString()) return i18n.t('results.leaves', { clock });
+  if (d.toDateString() === tomorrow.toDateString()) return i18n.t('results.tomorrow', { clock });
   return `${d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })}, ${clock}`;
 }
 
@@ -95,6 +94,7 @@ export function RideResultsScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<ResultsRoute>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
 
@@ -130,7 +130,7 @@ export function RideResultsScreen() {
       setAlertState('saved');
     } catch (error) {
       setAlertState('idle');
-      Alert.alert('Alert not set', errorHandler.process(error).message);
+      Alert.alert(t('results.alertFailed'), errorHandler.process(error).message);
     }
   };
   const alertButton = canAlert ? (
@@ -141,7 +141,7 @@ export function RideResultsScreen() {
       style={[styles.emptyBtn, { borderColor: c.primary, opacity: alertState === 'saving' ? 0.6 : 1 }]}
     >
       <Text style={[styles.emptyBtnText, { color: c.primary }]}>
-        {alertState === 'saved' ? "We'll tell you when one appears" : 'Tell me when a ride appears'}
+        {alertState === 'saved' ? t('results.alertSaved') : t('results.alertAsk')}
       </Text>
     </Pressable>
   ) : null;
@@ -168,13 +168,13 @@ export function RideResultsScreen() {
       return;
     }
     Alert.alert(
-      'Women-only rides',
+      t('results.womenTitle'),
       identity?.status === 'pending'
-        ? 'Women-only rides open to you once your identity check is approved. We usually review it within a day.'
-        : 'Women-only rides are for women who have verified their identity, so nobody can join one just by saying they are a woman.',
+        ? t('results.womenPending')
+        : t('results.womenExplain'),
       identity?.status === 'pending'
-        ? [{ text: 'OK' }]
-        : [{ text: 'Not now', style: 'cancel' }, { text: 'Verify my identity', onPress: () => navigation.navigate('IdentityCheck') }],
+        ? [{ text: t('results.ok') }]
+        : [{ text: t('results.notNow'), style: 'cancel' }, { text: t('results.verify'), onPress: () => navigation.navigate('IdentityCheck') }],
     );
   };
   const [acOnly, setAcOnly] = useState(false);
@@ -201,13 +201,13 @@ export function RideResultsScreen() {
 
   // Tag the single earliest and cheapest rides, as long as there's a choice
   const tags = useMemo(() => {
-    const t: Record<string, string[]> = {};
-    if (rides.length < 2) return t;
+    const byRide: Record<string, SortBy[]> = {};
+    if (rides.length < 2) return byRide;
     const earliest = rides.reduce((a, b) => (b.departureAt < a.departureAt ? b : a));
     const cheapest = rides.reduce((a, b) => (b.price < a.price ? b : a));
-    (t[earliest.id] ??= []).push('Earliest');
-    (t[cheapest.id] ??= []).push('Cheapest');
-    return t;
+    (byRide[earliest.id] ??= []).push('time');
+    (byRide[cheapest.id] ??= []).push('price');
+    return byRide;
   }, [rides]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -244,7 +244,7 @@ export function RideResultsScreen() {
           <Pressable
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('results.goBack')}
             style={[styles.roundBtn, { backgroundColor: c.surface }, Shadow.md]}
           >
             <Icon name="arrow-left" size={24} color={c.text} />
@@ -253,7 +253,7 @@ export function RideResultsScreen() {
             <Pressable
               onPress={() => changeSearch()}
               accessibilityRole="button"
-              accessibilityLabel={`From ${searched.from} to ${searched.to}. Edit`}
+              accessibilityLabel={t('results.routeLabel', { from: searched.from, to: searched.to })}
               style={[styles.routePill, { backgroundColor: c.surface }, Shadow.md]}
             >
               <View style={styles.flex1}>
@@ -281,7 +281,7 @@ export function RideResultsScreen() {
           <View style={[styles.tabs, { backgroundColor: c.surfaceVariant }]} accessibilityRole="tablist">
             {(['all', ...categories] as const).map(k => {
               const on = category === k;
-              const label = k === 'all' ? `All ${all.length}` : `${VEHICLE_CATEGORIES[k].label} ${counts[k]}`;
+              const label = k === 'all' ? t('results.all', { count: all.length }) : `${VEHICLE_CATEGORIES[k].label} ${counts[k]}`;
               return (
                 <Pressable
                   key={k}
@@ -301,11 +301,11 @@ export function RideResultsScreen() {
         {/* Sort and filter chips */}
         {all.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
-            {SORTS.map(s => (
-              <Chip key={s.key} label={s.label} on={sortBy === s.key} onPress={() => setSortBy(sortBy === s.key ? 'best' : s.key)} />
+            {SORTS.map(key => (
+              <Chip key={key} label={t(`results.sort.${key}`)} on={sortBy === key} onPress={() => setSortBy(sortBy === key ? 'best' : key)} />
             ))}
-            <Chip label="Women only" icon="gender-female" on={womenOnly} onPress={toggleWomenOnly} />
-            <Chip label="AC" icon="snowflake" on={acOnly} onPress={() => setAcOnly(v => !v)} />
+            <Chip label={t('results.womenOnly')} icon="gender-female" on={womenOnly} onPress={toggleWomenOnly} />
+            <Chip label={t('results.ac')} icon="snowflake" on={acOnly} onPress={() => setAcOnly(v => !v)} />
           </ScrollView>
         )}
 
@@ -313,9 +313,9 @@ export function RideResultsScreen() {
         <ScrollView style={styles.flex1} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
           {showingAlternatives && rides.length > 0 ? (
             <View style={[styles.altBanner, { backgroundColor: c.surfaceVariant }]}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>No exact matches</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{t('results.noExact')}</Text>
               <Text style={{ fontSize: 13, color: c.textSec }}>
-                These leave within {Math.round((widened?.timeDeviationMins ?? 180) / 60)} hours of your time or start up to {widened?.radiusKm} km away.
+                {t('results.widened', { hours: Math.round((widened?.timeDeviationMins ?? 180) / 60), km: widened?.radiusKm })}
               </Text>
               {alertButton}
             </View>
@@ -324,17 +324,17 @@ export function RideResultsScreen() {
             <View style={styles.empty}>
               <Icon name="car-clock" size={48} color={c.textSec} />
               <Text style={[styles.emptyTitle, { color: c.text }]}>
-                {all.length === 0 ? 'No rides going your way yet' : 'No rides match these filters'}
+                {all.length === 0 ? t('results.noneYet') : t('results.noneFiltered')}
               </Text>
               <Text style={[styles.emptySub, { color: c.textSec }]}>
                 {all.length === 0
-                  ? 'Drivers post rides through the day. Try a different time, or a pickup nearer a main road.'
-                  : 'Turn off a filter to see more rides.'}
+                  ? t('results.noneYetHelp')
+                  : t('results.noneFilteredHelp')}
               </Text>
               {all.length === 0 ? (
                 <>
                   <Pressable onPress={() => changeSearch(true)} accessibilityRole="button" style={[styles.emptyBtn, { borderColor: c.primary }]}>
-                    <Text style={[styles.emptyBtnText, { color: c.primary }]}>Try another time</Text>
+                    <Text style={[styles.emptyBtnText, { color: c.primary }]}>{t('results.anotherTime')}</Text>
                   </Pressable>
                   {alertButton}
                 </>
@@ -344,7 +344,7 @@ export function RideResultsScreen() {
                   accessibilityRole="button"
                   style={[styles.emptyBtn, { borderColor: c.primary }]}
                 >
-                  <Text style={[styles.emptyBtnText, { color: c.primary }]}>Clear filters</Text>
+                  <Text style={[styles.emptyBtnText, { color: c.primary }]}>{t('results.clearFilters')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -359,7 +359,7 @@ export function RideResultsScreen() {
                   onPress={() => setSelectedId(r.id)}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: isSelected, disabled: full }}
-                  accessibilityLabel={`${cat.label} with ${r.driverVerified ? 'verified driver ' : ''}${r.driver}, ${money(r.price)} per seat, ${formatLeaves(r.departureAt)}, ${r.seatsLeft} ${r.seatsLeft === 1 ? 'seat' : 'seats'} left`}
+                  accessibilityLabel={t('results.rideLabel', { vehicle: cat.label, verified: r.driverVerified ? t('results.verifiedDriver') : '', driver: r.driver, price: money(r.price), when: formatLeaves(r.departureAt), left: r.seatsLeft === 1 ? t('results.seatsLeftOne') : t('results.seatsLeftMany', { count: r.seatsLeft }) })}
                   style={[
                     styles.ride,
                     { borderColor: isSelected ? c.primary : 'transparent', backgroundColor: c.surface },
@@ -372,14 +372,14 @@ export function RideResultsScreen() {
                   <View style={styles.flex1}>
                     <View style={styles.titleRow}>
                       <Text style={[styles.rideTitle, { color: c.text }]}>{cat.label}</Text>
-                      {tags[r.id]?.map(t => (
-                        <View key={t} style={[styles.tag, { backgroundColor: c.successLight }]}>
-                          <Text style={[styles.tagText, { color: c.successDark }]}>{t.toUpperCase()}</Text>
+                      {tags[r.id]?.map(tag => (
+                        <View key={tag} style={[styles.tag, { backgroundColor: c.successLight }]}>
+                          <Text style={[styles.tagText, { color: c.successDark }]}>{t(`results.sort.${tag}`).toUpperCase()}</Text>
                         </View>
                       ))}
                       {r.womenOnly && (
                         <View style={[styles.tag, { backgroundColor: c.surfaceVariant }]}>
-                          <Text style={[styles.tagText, { color: c.textSec }]}>WOMEN ONLY</Text>
+                          <Text style={[styles.tagText, { color: c.textSec }]}>{t('results.womenOnlyTag')}</Text>
                         </View>
                       )}
                     </View>
@@ -387,23 +387,23 @@ export function RideResultsScreen() {
                       {r.driverVerified ? <VerifiedBadge compact /> : null}
                       <Text style={[styles.rideMeta, { color: c.textSec, flexShrink: 1 }]} numberOfLines={1}>
                         {r.driver}
-                        {r.ratingCount > 0 ? ` · ★ ${r.rating.toFixed(1)}` : ' · New driver'}
+                        {r.ratingCount > 0 ? ` · ★ ${r.rating.toFixed(1)}` : t('results.newDriver')}
                         {r.vehicleName ? ` · ${r.vehicleName}` : ''}
                       </Text>
                     </View>
                     {r.trackedCar ? (
-                      <View style={styles.trackedLine} accessibilityLabel="Tracked car: a GPS tracker in the car">
+                      <View style={styles.trackedLine} accessibilityLabel={t('results.trackedLabel')}>
                         <Icon name="crosshairs-gps" size={13} color={c.success} />
-                        <Text style={[styles.rideMeta, { color: c.success }]}>Tracked car</Text>
+                        <Text style={[styles.rideMeta, { color: c.success }]}>{t('results.tracked')}</Text>
                       </View>
                     ) : null}
                     <Text style={[styles.rideMeta, { color: full ? c.error : c.textSec }]} numberOfLines={1}>
-                      {formatLeaves(r.departureAt)} · {r.seatsLeft} {r.seatsLeft === 1 ? 'seat' : 'seats'} left
+                      {formatLeaves(r.departureAt)} · {r.seatsLeft === 1 ? t('results.seatsLeftOne') : t('results.seatsLeftMany', { count: r.seatsLeft })}
                     </Text>
                   </View>
                   <View style={styles.priceCol}>
                     <Text style={[styles.price, { color: c.text }]}>{money(r.price)}</Text>
-                    <Text style={[styles.perSeat, { color: c.textSec }]}>per seat</Text>
+                    <Text style={[styles.perSeat, { color: c.textSec }]}>{t('results.perSeat')}</Text>
                   </View>
                 </Pressable>
               );
@@ -415,24 +415,24 @@ export function RideResultsScreen() {
         {rides.length > 0 && (
           <View style={[styles.bookBar, { borderTopColor: c.border, paddingBottom: insets.bottom + Spacing.md }]}>
             <View style={styles.barRow}>
-              <View style={styles.stepper} accessibilityRole="adjustable" accessibilityLabel={`${seats} ${seats === 1 ? 'seat' : 'seats'}`}>
+              <View style={styles.stepper} accessibilityRole="adjustable" accessibilityLabel={seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats })}>
                 <Icon name="account-outline" size={20} color={c.text} />
                 <Pressable
                   onPress={() => setSeats(s => Math.max(1, s - 1))}
                   disabled={seats <= 1}
                   accessibilityRole="button"
-                  accessibilityLabel="Fewer seats"
+                  accessibilityLabel={t('results.fewer')}
                   hitSlop={6}
                   style={[styles.stepBtn, { borderColor: c.border, opacity: seats <= 1 ? 0.4 : 1 }]}
                 >
                   <Icon name="minus" size={18} color={c.text} />
                 </Pressable>
-                <Text style={[styles.stepValue, { color: c.text }]}>{seats} {seats === 1 ? 'seat' : 'seats'}</Text>
+                <Text style={[styles.stepValue, { color: c.text }]}>{seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats })}</Text>
                 <Pressable
                   onPress={() => setSeats(s => Math.min(maxSeats, s + 1))}
                   disabled={seats >= maxSeats}
                   accessibilityRole="button"
-                  accessibilityLabel="More seats"
+                  accessibilityLabel={t('results.more')}
                   hitSlop={6}
                   style={[styles.stepBtn, { borderColor: c.border, opacity: seats >= maxSeats ? 0.4 : 1 }]}
                 >
@@ -444,11 +444,11 @@ export function RideResultsScreen() {
                 onPress={() => selected && navigation.navigate('RideDetail', { rideId: selected.id, ...riderStops })}
                 disabled={!selected}
                 accessibilityRole="button"
-                accessibilityLabel="Ride details"
+                accessibilityLabel={t('results.detailsLabel')}
                 style={styles.detailsBtn}
               >
                 <Icon name="information-outline" size={20} color={c.text} />
-                <Text style={[styles.detailsText, { color: c.text }]}>Details</Text>
+                <Text style={[styles.detailsText, { color: c.text }]}>{t('results.details')}</Text>
                 <Icon name="chevron-right" size={20} color={c.text} />
               </Pressable>
             </View>
@@ -462,9 +462,9 @@ export function RideResultsScreen() {
               <Text style={[styles.bookText, { color: canBook ? c.textOnPrimary : c.textSec }]}>
                 {selected
                   ? canBook
-                    ? `Book ${VEHICLE_CATEGORIES[selected.category].label} · ${money((selected.price * seats))}`
-                    : `Only ${selected.seatsLeft} ${selected.seatsLeft === 1 ? 'seat' : 'seats'} left`
-                  : 'Choose a ride'}
+                    ? t('results.book', { vehicle: VEHICLE_CATEGORIES[selected.category].label, price: money(selected.price * seats) })
+                    : selected.seatsLeft === 1 ? t('results.onlyLeftOne') : t('results.onlyLeftMany', { count: selected.seatsLeft })
+                  : t('results.choose')}
               </Text>
             </Pressable>
           </View>

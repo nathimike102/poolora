@@ -36,11 +36,13 @@ import type { User as ApiUser } from '../types/api';
 import type { RootStackParamList } from '../navigation/types';
 import { logger } from '../utils/logger';
 import { formatPhone } from '../utils/region';
+import { useTranslation } from 'react-i18next';
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 
 export function ProfileSetupScreen() {
   const { c, setRole, setUser, firebaseUser } = useApp();
+  const { t } = useTranslation();
   // Set when a new phone number was just verified and has no account yet
   const pendingSignup = useRoute<RouteProp<RootStackParamList, 'ProfileSetup'>>().params;
   const insets = useSafeAreaInsets();
@@ -93,7 +95,7 @@ export function ProfileSetupScreen() {
   const openCamera = useCallback(async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission needed', 'Camera access is required to take a photo.');
+      Alert.alert(t('setup.permissionTitle'), t('setup.cameraNeeded'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -105,12 +107,12 @@ export function ProfileSetupScreen() {
     if (!result.canceled && result.assets[0]) {
       setPhotoUri(result.assets[0].uri);
     }
-  }, []);
+  }, [t]);
 
   const openGallery = useCallback(async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission needed', 'Gallery access is required to choose a photo.');
+      Alert.alert(t('setup.permissionTitle'), t('setup.galleryNeeded'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -122,13 +124,13 @@ export function ProfileSetupScreen() {
     if (!result.canceled && result.assets[0]) {
       setPhotoUri(result.assets[0].uri);
     }
-  }, []);
+  }, [t]);
 
   const handlePickPhoto = useCallback(() => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancel', 'Take Photo', 'Choose from Gallery'],
+          options: [t('setup.cancel'), t('setup.takePhoto'), t('setup.fromGallery')],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -138,13 +140,13 @@ export function ProfileSetupScreen() {
       );
     } else {
       // Android — use Alert as action sheet
-      Alert.alert('Profile Photo', 'Choose an option', [
-        { text: 'Take Photo', onPress: openCamera },
-        { text: 'Choose from Gallery', onPress: openGallery },
-        { text: 'Cancel', style: 'cancel' },
+      Alert.alert(t('setup.photoTitle'), t('setup.chooseOption'), [
+        { text: t('setup.takePhoto'), onPress: openCamera },
+        { text: t('setup.fromGallery'), onPress: openGallery },
+        { text: t('setup.cancel'), style: 'cancel' },
       ]);
     }
-  }, [openCamera, openGallery]);
+  }, [openCamera, openGallery, t]);
 
   // ── Date picker ───────────────────────────────────────────────────────────
 
@@ -186,7 +188,7 @@ export function ProfileSetupScreen() {
           email || undefined,
           dob?.toISOString(),
         );
-        if ('needsProfile' in result) throw new Error('Your account could not be created. Please try again.');
+        if ('needsProfile' in result) throw new Error(t('setup.notCreated'));
         saved = result.user;
       } else {
         // Already signed in (Google or email) but the account has no name yet
@@ -212,11 +214,11 @@ export function ProfileSetupScreen() {
       setRole('rider');
     } catch (error) {
       logger.error('Failed to submit profile', { error });
-      Alert.alert("Couldn't save your profile", errorHandler.process(error).message);
+      Alert.alert(t('setup.saveFailed'), errorHandler.process(error).message);
     } finally {
       setSubmitting(false);
     }
-  }, [isValid, submitting, firstName, lastName, phone, email, dob, photoUri, firebaseUser, setUser, setRole, pendingSignup]);
+  }, [isValid, submitting, firstName, lastName, phone, email, dob, photoUri, firebaseUser, setUser, setRole, pendingSignup, t]);
 
   // Poolora is for adults: the picker stops at 18 years ago (the API checks too)
   const maxDate = new Date();
@@ -235,12 +237,12 @@ export function ProfileSetupScreen() {
       >
         {/* Title */}
         <Text style={[styles.title, { color: c.text }]}>
-          Complete your profile
+          {t('setup.title')}
         </Text>
 
         {/* ── Profile Photo ──────────────────────────────────────────── */}
         <View style={styles.avatarSection}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add profile photo"
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('setup.addPhoto')}
             onPress={handlePickPhoto}
             activeOpacity={0.7}
             style={[
@@ -273,7 +275,7 @@ export function ProfileSetupScreen() {
             </View>
           </TouchableOpacity>
           <Text style={[styles.avatarHint, { color: c.textSec }]}>
-            Tap to add a photo
+            {t('setup.tapPhoto')}
           </Text>
         </View>
 
@@ -285,11 +287,11 @@ export function ProfileSetupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>FIRST NAME</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.firstNameLabel')}</Text>
           <TextInput
             value={firstName}
             onChangeText={setFirstName}
-            placeholder="First name"
+            placeholder={t('login.firstName')}
             placeholderTextColor={c.textSec}
             autoCapitalize="words"
             style={[styles.input, { color: c.text }]}
@@ -304,11 +306,11 @@ export function ProfileSetupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>LAST NAME</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.lastNameLabel')}</Text>
           <TextInput
             value={lastName}
             onChangeText={setLastName}
-            placeholder="Last name"
+            placeholder={t('login.lastName')}
             placeholderTextColor={c.textSec}
             autoCapitalize="words"
             style={[styles.input, { color: c.text }]}
@@ -323,11 +325,11 @@ export function ProfileSetupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>PHONE NUMBER</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('setup.phoneLabel')}</Text>
           <TextInput
             value={phone ? formatPhone(phone) : ''}
             editable={false}
-            placeholder="Not available"
+            placeholder={t('setup.phoneMissing')}
             placeholderTextColor={c.textDisabled}
             style={[styles.input, { color: c.textSec }]}
           />
@@ -341,11 +343,11 @@ export function ProfileSetupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>EMAIL</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.emailLabel')}</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="you@example.com"
+            placeholder={t('login.emailPlaceholder')}
             placeholderTextColor={c.textSec}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -368,7 +370,7 @@ export function ProfileSetupScreen() {
             Shadow.sm,
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>DATE OF BIRTH</Text>
+          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('setup.dobLabel')}</Text>
           <View style={styles.dateRow}>
             <Text
               style={[
@@ -376,7 +378,7 @@ export function ProfileSetupScreen() {
                 { color: dob ? c.text : c.textSec },
               ]}
             >
-              {dob ? formatDate(dob) : 'Select your date of birth'}
+              {dob ? formatDate(dob) : t('setup.dobPlaceholder')}
             </Text>
             <Svg width={20} height={20} viewBox="0 0 24 24" fill={c.textSec}>
               <Path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7v-5z" />
@@ -397,7 +399,7 @@ export function ProfileSetupScreen() {
         {/* ── Continue CTA ────────────────────────────────────────────── */}
         <View style={styles.cta}>
           <GradientButton
-            label={submitting ? 'Saving Profile...' : 'Continue'}
+            label={submitting ? t('setup.saving') : t('setup.continue')}
             onPress={handleContinue}
             disabled={!isValid || submitting}
             colorStart={c.primary}

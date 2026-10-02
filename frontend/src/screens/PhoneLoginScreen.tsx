@@ -28,12 +28,14 @@ import { sendOtpToBackend } from '../services/authService';
 import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
 import { nationalDigits, REGION, toE164 } from '../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'PhoneLogin'>;
 
 export function PhoneLoginScreen() {
   const navigation = useNavigation<NavProp>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [phone, setPhone] = useState('');
@@ -48,7 +50,7 @@ export function PhoneLoginScreen() {
       await sendOtpToBackend(toE164(phone)!);
       navigation.navigate('OTP', { phone: nationalDigits(phone) });
     } catch (error) {
-      Alert.alert('Could not send code', errorHandler.process(error).message);
+      Alert.alert(t('login.sendFailed'), errorHandler.process(error).message);
     } finally {
       setSending(false);
     }
@@ -72,7 +74,7 @@ export function PhoneLoginScreen() {
         bounces={false}
       >
         <Text style={[styles.title, { color: c.text }]}>
-          Enter your phone number
+          {t('login.enterPhone')}
         </Text>
 
         {/* Phone input */}
@@ -87,7 +89,7 @@ export function PhoneLoginScreen() {
           ]}
         >
           <Text style={[styles.phoneLabel, { color: c.textSec }]}>
-            MOBILE NUMBER
+            {t('login.mobileNumber')}
           </Text>
           <View style={styles.phoneRow}>
             <View style={styles.prefixRow}>
@@ -114,14 +116,14 @@ export function PhoneLoginScreen() {
             <Path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
           </Svg>
           <Text style={[styles.infoText, { color: c.primary }]}>
-            A 6-digit OTP will be sent to this number
+            {t('login.otpInfo')}
           </Text>
         </View>
 
         {/* CTA */}
         <View style={styles.cta}>
           <GradientButton
-            label={sending ? '' : 'Send OTP'}
+            label={sending ? '' : t('login.sendOtp')}
             onPress={handleSendOtp}
             disabled={!isValid || sending}
             loading={sending}

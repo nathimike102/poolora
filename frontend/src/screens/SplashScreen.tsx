@@ -22,12 +22,14 @@ import { PooloraLogo } from "../components/PooloraLogo";
 import { Typography, Spacing } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { ONBOARDING_SEEN_KEY } from "./OnboardingScreen";
+import { useTranslation } from 'react-i18next';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, "Splash">;
 
 export function SplashScreen() {
   const navigation = useNavigation<NavProp>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   // ── Animations (react-native-reanimated) ────────────────────────────────────
@@ -83,7 +85,7 @@ export function SplashScreen() {
           borderRadius={36}
           showWordmark
           wordmark="Poolora"
-          subtitle="Smart Scheduled Carpooling"
+          subtitle={t('splash.subtitle')}
           tone="light"
         />
       </Animated.View>
@@ -95,7 +97,7 @@ export function SplashScreen() {
           <AnimatedDot delay={0.2} />
           <AnimatedDot delay={0.4} />
         </View>
-        <Text style={styles.platformLabel}>Share the ride, split the cost</Text>
+        <Text style={styles.platformLabel}>{t('splash.tagline')}</Text>
       </Animated.View>
     </View>
   );

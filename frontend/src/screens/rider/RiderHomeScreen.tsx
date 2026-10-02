@@ -35,6 +35,8 @@ import { VEHICLE_CATEGORIES, type VehicleCategory } from '../../utils/vehicles';
 import { logger } from '../../utils/logger';
 import type { UpcomingBooking } from '../../types/api';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type NavProp = CompositeNavigationProp<
   BottomTabNavigationProp<RiderTabParamList, 'RiderHome'>,
@@ -49,14 +51,15 @@ function formatDeparture(iso: string): string {
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
   const time = d.toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
-  if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
-  if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+  if (d.toDateString() === today.toDateString()) return i18n.t('home.today', { time });
+  if (d.toDateString() === tomorrow.toDateString()) return i18n.t('home.tomorrow', { time });
   return `${d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
 }
 
 export function RiderHomeScreen() {
   const navigation = useNavigation<NavProp>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const mapHeight = Math.round(height * 0.36);
@@ -90,22 +93,22 @@ export function RiderHomeScreen() {
 
   const pickupLabel =
     hereStatus === 'ready'
-      ? here?.address ?? 'Current location'
+      ? here?.address ?? t('home.currentLocation')
       : hereStatus === 'loading'
-        ? 'Finding your location…'
+        ? t('home.findingLocation')
         : hereStatus === 'denied'
-          ? 'Allow location to set your pickup'
-          : "Couldn't find your location";
+          ? t('home.allowLocation')
+          : t('home.noLocation');
 
   const toggleFavourite = async (p: HistoryPlace) => {
     setPlaces(await toggleFavouritePlace(p));
   };
 
   const deleteRoute = (r: SavedRoute) => {
-    Alert.alert('Remove saved route', `Remove "${r.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('home.removeRouteTitle'), t('home.removeRouteBody', { name: r.name }), [
+      { text: t('home.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('home.remove'),
         style: 'destructive',
         onPress: async () => {
           await deleteSavedRoute(r.id);
@@ -137,7 +140,7 @@ export function RiderHomeScreen() {
           <Pressable
             onPress={() => navigation.navigate('Search')}
             accessibilityRole="search"
-            accessibilityLabel="Where are you going?"
+            accessibilityLabel={t('home.whereTo')}
             style={({ pressed }) => [
               styles.searchPill,
               { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.85 : 1 },
@@ -146,17 +149,17 @@ export function RiderHomeScreen() {
           >
             <Icon name="magnify" size={26} color={c.text} />
             <Text style={[styles.searchText, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-              Where are you going?
+              {t('home.whereTo')}
             </Text>
             <Pressable
               onPress={() => navigation.navigate('Search', { schedule: true })}
               accessibilityRole="button"
-              accessibilityLabel="Schedule a ride for later"
+              accessibilityLabel={t('home.scheduleLabel')}
               hitSlop={8}
               style={[styles.laterChip, { backgroundColor: c.primaryLight }]}
             >
               <Icon name="calendar-clock" size={16} color={c.primary} />
-              <Text style={[styles.laterText, { color: c.primary }]}>Later</Text>
+              <Text style={[styles.laterText, { color: c.primary }]}>{t('home.later')}</Text>
             </Pressable>
           </Pressable>
 
@@ -174,7 +177,7 @@ export function RiderHomeScreen() {
                   <Pressable
                     onPress={() => navigation.navigate('Search', { drop: p })}
                     accessibilityRole="button"
-                    accessibilityLabel={`Ride to ${p.name}`}
+                    accessibilityLabel={t('home.rideTo', { name: p.name })}
                     style={styles.placeMain}
                   >
                     <Icon name={p.favourite ? 'star-outline' : 'history'} size={22} color={c.textSec} />
@@ -188,7 +191,7 @@ export function RiderHomeScreen() {
                   <Pressable
                     onPress={() => toggleFavourite(p)}
                     accessibilityRole="button"
-                    accessibilityLabel={p.favourite ? `Remove ${p.name} from favourites` : `Add ${p.name} to favourites`}
+                    accessibilityLabel={p.favourite ? t('home.unfavourite', { name: p.name }) : t('home.favourite', { name: p.name })}
                     hitSlop={10}
                     style={styles.heartBtn}
                   >
@@ -199,13 +202,13 @@ export function RiderHomeScreen() {
             </View>
           ) : (
             <Text style={[styles.hint, { color: c.textSec }]}>
-              Places you search for show up here. Tap the heart to keep one at the top.
+              {t('home.placesHint')}
             </Text>
           )}
 
           {/* Next ride */}
           {upcoming === null ? (
-            <ActivityIndicator style={styles.loader} color={c.primary} accessibilityLabel="Loading your rides" />
+            <ActivityIndicator style={styles.loader} color={c.primary} accessibilityLabel={t('home.loadingRides')} />
           ) : upcomingError ? (
             <Pressable
               onPress={loadUpcoming}
@@ -213,13 +216,13 @@ export function RiderHomeScreen() {
               style={[styles.nextRide, { backgroundColor: c.errorLight, borderColor: c.errorLight }]}
             >
               <Icon name="alert-circle-outline" size={22} color={c.error} />
-              <Text style={[styles.flex1, { color: c.text }]}>Your rides couldn't be loaded. Tap to retry.</Text>
+              <Text style={[styles.flex1, { color: c.text }]}>{t('home.ridesFailed')}</Text>
             </Pressable>
           ) : nextRide ? (
             <Pressable
               onPress={() => navigation.navigate('ActiveRide', { rideId: nextRide.rideId, bookingId: nextRide.bookingId })}
               accessibilityRole="button"
-              accessibilityLabel={`Your next ride to ${nextRide.to}, ${formatDeparture(nextRide.departureTime)}`}
+              accessibilityLabel={t('home.nextRideLabel', { to: nextRide.to, when: formatDeparture(nextRide.departureTime) })}
               style={[styles.nextRide, { backgroundColor: c.primaryLight, borderColor: c.primaryLight }]}
             >
               <View style={[styles.nextIcon, { backgroundColor: c.surface }]}>
@@ -227,12 +230,12 @@ export function RiderHomeScreen() {
               </View>
               <View style={styles.flex1}>
                 <Text style={[styles.nextLabel, { color: c.primary }]}>
-                  {nextRide.status === 'confirmed' ? 'Seat confirmed' : 'Waiting for the driver'}
-                  {upcoming.length > 1 ? ` · ${upcoming.length - 1} more` : ''}
+                  {nextRide.status === 'confirmed' ? t('home.seatConfirmed') : t('home.waitingDriver')}
+                  {upcoming.length > 1 ? t('home.more', { count: upcoming.length - 1 }) : ''}
                 </Text>
-                <Text style={[styles.nextTitle, { color: c.text }]} numberOfLines={1}>To {nextRide.to}</Text>
+                <Text style={[styles.nextTitle, { color: c.text }]} numberOfLines={1}>{t('home.to', { place: nextRide.to })}</Text>
                 <Text style={[styles.placeSub, { color: c.textSec }]} numberOfLines={1}>
-                  {formatDeparture(nextRide.departureTime)} with {nextRide.driverName}
+                  {t('home.withDriver', { when: formatDeparture(nextRide.departureTime), driver: nextRide.driverName })}
                 </Text>
               </View>
               <Icon name="chevron-right" size={22} color={c.textSec} />
@@ -240,7 +243,7 @@ export function RiderHomeScreen() {
           ) : null}
 
           {/* Ride types */}
-          <Text style={[styles.sectionTitle, { color: c.text }]}>Ride with Poolora</Text>
+          <Text style={[styles.sectionTitle, { color: c.text }]}>{t('home.rideWith')}</Text>
           <View style={styles.tileRow}>
             {(Object.keys(VEHICLE_CATEGORIES) as VehicleCategory[]).map(key => (
               <Tile
@@ -255,19 +258,19 @@ export function RiderHomeScreen() {
 
           {/* Saved routes */}
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, styles.sectionTitleInline, { color: c.text }]}>Saved routes</Text>
+            <Text style={[styles.sectionTitle, styles.sectionTitleInline, { color: c.text }]}>{t('home.savedRoutes')}</Text>
             <Pressable
               onPress={() => navigation.navigate('AddSavedRoute')}
               accessibilityRole="button"
-              accessibilityLabel="Add a saved route"
+              accessibilityLabel={t('home.addRouteLabel')}
               hitSlop={8}
             >
-              <Text style={[styles.link, { color: c.primary }]}>Add</Text>
+              <Text style={[styles.link, { color: c.primary }]}>{t('home.add')}</Text>
             </Pressable>
           </View>
           {savedRoutes.length === 0 ? (
             <Text style={[styles.hint, styles.hintTight, { color: c.textSec }]}>
-              Save a trip you make often, like home to work, and search it in one tap.
+              {t('home.routesHint')}
             </Text>
           ) : (
             savedRoutes.map(r => (
@@ -275,7 +278,7 @@ export function RiderHomeScreen() {
                 <Pressable
                   onPress={() => navigation.navigate('Search', { from: r.from, to: r.to })}
                   accessibilityRole="button"
-                  accessibilityLabel={`Search ${r.name}: ${r.from} to ${r.to}`}
+                  accessibilityLabel={t('home.searchRoute', { name: r.name, from: r.from, to: r.to })}
                   style={styles.placeMain}
                 >
                   <View style={[styles.routeIcon, { backgroundColor: c.surfaceVariant }]}>
@@ -289,7 +292,7 @@ export function RiderHomeScreen() {
                 <Pressable
                   onPress={() => deleteRoute(r)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Remove saved route ${r.name}`}
+                  accessibilityLabel={t('home.removeRoute', { name: r.name })}
                   hitSlop={10}
                   style={styles.heartBtn}
                 >
@@ -306,7 +309,7 @@ export function RiderHomeScreen() {
         <Pressable
           onPress={() => (hereStatus === 'ready' ? navigation.navigate('Search') : refreshHere(true))}
           accessibilityRole="button"
-          accessibilityLabel={`Pickup: ${pickupLabel}`}
+          accessibilityLabel={t('home.pickupLabel', { place: pickupLabel })}
           style={[styles.locationPill, { backgroundColor: c.surface }, Shadow.md]}
         >
           {hereStatus === 'loading' ? (
@@ -319,7 +322,7 @@ export function RiderHomeScreen() {
         <Pressable
           onPress={() => navigation.navigate('Notifications')}
           accessibilityRole="button"
-          accessibilityLabel="Notifications"
+          accessibilityLabel={t('home.notifications')}
           style={[styles.roundBtn, { backgroundColor: c.surface }, Shadow.md]}
         >
           <Icon name="bell-outline" size={22} color={c.text} />

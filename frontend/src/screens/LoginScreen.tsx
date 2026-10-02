@@ -25,12 +25,14 @@ import { Typography, Spacing, Radius, Shadow } from "../theme";
 import { signInWithGoogle } from "../services/authService";
 import { logger } from "../utils/logger";
 import type { RootStackParamList } from "../navigation/types";
+import { Trans, useTranslation } from 'react-i18next';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, "Login">;
 
 export function LoginScreen() {
   const navigation = useNavigation<NavProp>();
   const { c, finishSignIn } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -56,10 +58,10 @@ export function LoginScreen() {
       logger.info("Google sign-in successful");
       if (next === "profile") navigation.navigate("ProfileSetup");
     } catch (error) {
-      const errorMessage = getErrorMessage(error, "Please try again");
+      const errorMessage = getErrorMessage(error, t('login.tryAgain'));
       if (errorMessage !== "Sign-in was cancelled.") {
         logger.error("Google sign-in failed", { error });
-        Alert.alert("Google Sign-In Error", errorMessage);
+        Alert.alert(t('login.googleError'), errorMessage);
       }
     } finally {
       setGoogleLoading(false);
@@ -77,10 +79,10 @@ export function LoginScreen() {
       <View style={styles.header}>
         <PooloraLogo size={64} backgroundColor={c.primary} />
         <Text style={[styles.headline, { color: c.text }]}>
-          Welcome to Poolora
+          {t('login.welcome')}
         </Text>
         <Text style={[styles.subheading, { color: c.textSec }]}>
-          Choose how you want to continue
+          {t('login.choose')}
         </Text>
       </View>
 
@@ -123,14 +125,14 @@ export function LoginScreen() {
             </Svg>
           )}
           <Text style={[styles.googleLabel, { color: c.text }]}>
-            {googleLoading ? "Signing in..." : "Continue with Google"}
+            {googleLoading ? t('login.signingIn') : t('login.google')}
           </Text>
         </TouchableOpacity>
 
         {/* Divider */}
         <View style={styles.dividerRow}>
           <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
-          <Text style={[styles.dividerLabel, { color: c.textSec }]}>OR</Text>
+          <Text style={[styles.dividerLabel, { color: c.textSec }]}>{t('login.or')}</Text>
           <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
         </View>
 
@@ -151,7 +153,7 @@ export function LoginScreen() {
             <Path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2a1.003 1.003 0 011.01-.24c1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.1.31.03.66-.25 1.02l-2.2 2.2z" />
           </Svg>
           <Text style={[styles.optionLabel, { color: c.text }]}>
-            Continue with Phone Number
+            {t('login.phone')}
           </Text>
         </TouchableOpacity>
 
@@ -172,7 +174,7 @@ export function LoginScreen() {
             <Path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
           </Svg>
           <Text style={[styles.optionLabel, { color: c.text }]}>
-            Continue with Email
+            {t('login.email')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -180,14 +182,13 @@ export function LoginScreen() {
       {/* ── Terms ─────────────────────────────────────────────────────── */}
       <View style={styles.footer}>
         <Text style={[styles.terms, { color: c.textSec }]}>
-          By continuing, you agree to our{" "}
-          <Text style={[styles.termsLink, { color: c.primary }]}>
-            Terms of Service
-          </Text>{" "}
-          and{" "}
-          <Text style={[styles.termsLink, { color: c.primary }]}>
-            Privacy Policy
-          </Text>
+          <Trans
+            i18nKey="login.terms"
+            components={{
+              terms: <Text style={[styles.termsLink, { color: c.primary }]} />,
+              privacy: <Text style={[styles.termsLink, { color: c.primary }]} />,
+            }}
+          />
         </Text>
       </View>
     </ScrollView>

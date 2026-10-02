@@ -43,6 +43,8 @@ import {
 import { errorHandler } from '../../utils/errorHandler';
 import { logger } from '../../utils/logger';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Search'>;
 type SearchRoute = RouteProp<RootStackParamList, 'Search'>;
@@ -76,13 +78,13 @@ async function resolve(stop: Stop): Promise<Stop & { lat: number; lng: number }>
 }
 
 function formatWhen(when: Date | null): string {
-  if (!when) return 'Now';
+  if (!when) return i18n.t('search.now');
   const today = new Date();
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
   const time = when.toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
-  if (when.toDateString() === today.toDateString()) return `Today, ${time}`;
-  if (when.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+  if (when.toDateString() === today.toDateString()) return i18n.t('home.today', { time });
+  if (when.toDateString() === tomorrow.toDateString()) return i18n.t('home.tomorrow', { time });
   return `${when.toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' })}, ${time}`;
 }
 
@@ -90,6 +92,7 @@ export function SearchScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<SearchRoute>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { place: here, status: hereStatus } = useCurrentPlace();
 
@@ -129,11 +132,11 @@ export function SearchScreen() {
   useEffect(() => {
     if (!pickupIsHere) return;
     if (hereStatus === 'ready' && here) {
-      setPickup({ name: here.address ?? 'Current location', subtitle: '', lat: here.lat, lng: here.lng });
+      setPickup({ name: here.address ?? t('home.currentLocation'), subtitle: '', lat: here.lat, lng: here.lng });
     } else {
       setPickup(EMPTY_STOP);
     }
-  }, [here, hereStatus, pickupIsHere]);
+  }, [here, hereStatus, pickupIsHere, t]);
 
   // Arrivals from home, saved routes and the map picker
   useEffect(() => {
@@ -247,7 +250,7 @@ export function SearchScreen() {
   const runSearch = useCallback(async () => {
     if (!canSearch || searching) return;
     if (when && when.getTime() < Date.now()) {
-      Alert.alert('Pick a later time', 'That time has already passed. Choose a time from now on, or leave now.');
+      Alert.alert(t('search.laterTitle'), t('search.laterBody'));
       return;
     }
     setSearching(true);
@@ -277,11 +280,11 @@ export function SearchScreen() {
       });
     } catch (error) {
       logger.error('Search failed', { error });
-      Alert.alert("Couldn't search rides", errorHandler.process(error).message);
+      Alert.alert(t('search.failed'), errorHandler.process(error).message);
     } finally {
       setSearching(false);
     }
-  }, [canSearch, searching, when, pickup, drop, seats, navigation, route.params?.category]);
+  }, [canSearch, searching, when, pickup, drop, seats, navigation, route.params?.category, t]);
 
   useEffect(() => {
     if (autoSearch && canSearch && !searching) {
@@ -299,21 +302,21 @@ export function SearchScreen() {
       <KeyboardAvoidingView style={styles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} style={styles.backBtn}>
+          <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('search.goBack')} hitSlop={8} style={styles.backBtn}>
             <Icon name="arrow-left" size={26} color={c.text} />
           </Pressable>
           <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">
-            {active === 'pickup' ? 'Pickup' : 'Drop'}
+            {active === 'pickup' ? t('search.pickup') : t('search.drop')}
           </Text>
           <Pressable
             onPress={() => setShowSeats(v => !v)}
             accessibilityRole="button"
-            accessibilityLabel={`${seats} ${seats === 1 ? 'seat' : 'seats'}. Change number of seats`}
+            accessibilityLabel={t('search.seatsLabel', { seats: seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats }) })}
             accessibilityState={{ expanded: showSeats }}
             style={[styles.headerPill, { borderColor: c.border }]}
           >
             <Icon name="account-outline" size={18} color={c.text} />
-            <Text style={[styles.headerPillText, { color: c.text }]}>{seats} {seats === 1 ? 'seat' : 'seats'}</Text>
+            <Text style={[styles.headerPillText, { color: c.text }]}>{seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats })}</Text>
             <Icon name={showSeats ? 'chevron-up' : 'chevron-down'} size={18} color={c.text} />
           </Pressable>
         </View>
@@ -328,7 +331,7 @@ export function SearchScreen() {
                   onPress={() => { setSeats(n); setShowSeats(false); }}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: selected }}
-                  accessibilityLabel={`${n} ${n === 1 ? 'seat' : 'seats'}`}
+                  accessibilityLabel={n === 1 ? t('search.seatOne') : t('search.seatMany', { count: n })}
                   style={[styles.seatChip, { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primaryLight : c.surface }]}
                 >
                   <Text style={[styles.seatChipText, { color: selected ? c.primary : c.text }]}>{n}</Text>
@@ -352,14 +355,14 @@ export function SearchScreen() {
           <View style={styles.flex1}>
             <TextInput
               ref={pickupInput}
-              value={pickupIsHere && active !== 'pickup' ? pickup.name || (hereStatus === 'loading' ? 'Finding your location…' : '') : stopText(pickup)}
+              value={pickupIsHere && active !== 'pickup' ? pickup.name || (hereStatus === 'loading' ? t('home.findingLocation') : '') : stopText(pickup)}
               onChangeText={onChangePickup}
               onFocus={() => { setFocused('pickup'); focusField('pickup'); }}
               onBlur={() => setFocused(null)}
               selection={focused === 'pickup' ? undefined : START}
-              placeholder={pickupIsHere ? 'Current location' : 'Pickup location'}
+              placeholder={pickupIsHere ? t('home.currentLocation') : t('search.pickupPlaceholder')}
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Pickup location"
+              accessibilityLabel={t('search.pickupPlaceholder')}
               selectTextOnFocus
               style={[styles.input, { color: c.text }]}
               numberOfLines={1}
@@ -372,9 +375,9 @@ export function SearchScreen() {
               onFocus={() => { setFocused('drop'); focusField('drop'); }}
               onBlur={() => setFocused(null)}
               selection={focused === 'drop' ? undefined : START}
-              placeholder="Where to?"
+              placeholder={t('search.dropPlaceholder')}
               placeholderTextColor={c.textSec}
-              accessibilityLabel="Drop location"
+              accessibilityLabel={t('search.dropLabel')}
               returnKeyType="search"
               onSubmitEditing={runSearch}
               style={[styles.input, styles.inputDrop, { color: c.text }]}
@@ -389,17 +392,17 @@ export function SearchScreen() {
             <Pressable
               onPress={() => navigation.navigate('MapPicker', { field: active === 'pickup' ? 'from' : 'to' })}
               accessibilityRole="button"
-              accessibilityLabel={`Choose ${active === 'pickup' ? 'pickup' : 'drop'} on the map`}
+              accessibilityLabel={active === 'pickup' ? t('search.mapPickup') : t('search.mapDrop')}
               style={[styles.chip, { borderColor: c.border }]}
             >
               <Icon name="map-marker-outline" size={20} color={c.text} />
-              <Text style={[styles.chipText, { color: c.text }]}>Select on map</Text>
+              <Text style={[styles.chipText, { color: c.text }]}>{t('search.selectOnMap')}</Text>
             </Pressable>
           )}
           <Pressable
             onPress={() => setShowDate(true)}
             accessibilityRole="button"
-            accessibilityLabel={`Leaving ${formatWhen(when)}. Change departure time`}
+            accessibilityLabel={t('search.leavingLabel', { when: formatWhen(when) })}
             style={[styles.chip, { borderColor: when ? c.primary : c.border, backgroundColor: when ? c.primaryLight : c.surface }]}
           >
             <Icon name="clock-outline" size={20} color={when ? c.primary : c.text} />
@@ -410,11 +413,11 @@ export function SearchScreen() {
             <Pressable
               onPress={() => setWhen(null)}
               accessibilityRole="button"
-              accessibilityLabel="Leave now instead"
+              accessibilityLabel={t('search.leaveNow')}
               hitSlop={8}
               style={[styles.chip, { borderColor: c.border }]}
             >
-              <Text style={[styles.chipText, { color: c.text }]}>Now</Text>
+              <Text style={[styles.chipText, { color: c.text }]}>{t('search.now')}</Text>
             </Pressable>
           )}
         </View>
@@ -426,8 +429,8 @@ export function SearchScreen() {
           {active === 'pickup' && !pickupIsHere && (
             <Row
               icon="crosshairs-gps"
-              title="Use current location"
-              subtitle={hereStatus === 'denied' ? 'Location permission is off' : here?.address ?? undefined}
+              title={t('search.useCurrent')}
+              subtitle={hereStatus === 'denied' ? t('search.permissionOff') : here?.address ?? undefined}
               onPress={useCurrentLocation}
             />
           )}
@@ -437,15 +440,15 @@ export function SearchScreen() {
               <View style={styles.notice} accessibilityLiveRegion="polite">
                 <Icon name="wifi-off" size={20} color={c.textSec} />
                 <Text style={[styles.noticeText, { color: c.textSec }]}>
-                  Suggestions couldn't be loaded. Check your connection, or type the full address and tap search.
+                  {t('search.suggestFailed')}
                 </Text>
               </View>
             ) : suggestions.length === 0 ? (
               suggestState === 'loading' ? (
-                <ActivityIndicator style={styles.loader} color={c.primary} accessibilityLabel="Loading suggestions" />
+                <ActivityIndicator style={styles.loader} color={c.primary} accessibilityLabel={t('search.loadingSuggestions')} />
               ) : (
                 <Text style={[styles.noticeText, styles.notice, { color: c.textSec }]}>
-                  No matching places. Try a nearby landmark or area name.
+                  {t('search.noMatches')}
                 </Text>
               )
             ) : (
@@ -483,11 +486,11 @@ export function SearchScreen() {
               onPress={runSearch}
               disabled={searching}
               accessibilityRole="button"
-              accessibilityLabel="Find rides"
+              accessibilityLabel={t('search.findRides')}
               accessibilityState={{ busy: searching }}
               style={[styles.cta, { backgroundColor: c.primary }]}
             >
-              <Text style={[styles.ctaText, { color: c.textOnPrimary }]}>Find rides</Text>
+              <Text style={[styles.ctaText, { color: c.textOnPrimary }]}>{t('search.findRides')}</Text>
             </Pressable>
           </View>
         )}
@@ -496,7 +499,7 @@ export function SearchScreen() {
       {searching && (
         <View style={[styles.overlay, { backgroundColor: c.surface }]} accessibilityLiveRegion="polite">
           <ActivityIndicator size="large" color={c.primary} />
-          <Text style={[styles.overlayText, { color: c.text }]}>Finding rides going your way…</Text>
+          <Text style={[styles.overlayText, { color: c.text }]}>{t('search.finding')}</Text>
         </View>
       )}
 
@@ -553,6 +556,7 @@ function Row({
   onToggleFavourite?: () => void;
 }) {
   const { c } = useApp();
+  const { t } = useTranslation();
   return (
     <View style={[styles.row, divider && [styles.dashed, { borderColor: c.border }]]}>
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title} style={styles.rowMain}>
@@ -566,7 +570,7 @@ function Row({
         <Pressable
           onPress={onToggleFavourite}
           accessibilityRole="button"
-          accessibilityLabel={favourite ? `Remove ${title} from favourites` : `Add ${title} to favourites`}
+          accessibilityLabel={favourite ? t('home.unfavourite', { name: title }) : t('home.favourite', { name: title })}
           hitSlop={10}
           style={styles.heartBtn}
         >

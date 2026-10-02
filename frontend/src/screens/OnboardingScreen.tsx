@@ -21,6 +21,7 @@ import { GradientButton } from '../components/GradientButton';
 import { Icon, type IconName } from '../components/Icon';
 import { Typography, Spacing, Radius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
+import { useTranslation } from 'react-i18next';
 
 export const ONBOARDING_SEEN_KEY = '@poolora_onboarding_seen';
 
@@ -38,29 +39,20 @@ const SLIDES = [
   {
     icon: 'car-multiple' as IconName,
     tint: '#E6F2F1',
-    title: 'Share Your Ride',
-    subtitle:
-      'Find drivers already travelling your route and share the cost of the trip.',
+    key: 'share',
     accent: '#0B7A75',
-    badge: 'CARPOOL',
   },
   {
     icon: 'calendar-clock' as IconName,
     tint: '#E3F2EB',
-    title: 'Schedule in Advance',
-    subtitle:
-      'Book a seat ahead of time. Rides are matched on your route and departure time.',
+    key: 'schedule',
     accent: '#047857',
-    badge: 'SCHEDULE',
   },
   {
     icon: 'shield-check' as IconName,
     tint: '#FBF0DF',
-    title: 'Safety Built In',
-    subtitle:
-      'Drivers are verified before they can offer rides, and SOS alerts your emergency contacts with your location.',
+    key: 'safety',
     accent: '#B45309',
-    badge: 'SAFETY',
   },
 ] as const;
 
@@ -114,6 +106,7 @@ function ProgressDot({ active, primaryColor, borderColor }: DotProps) {
 export function OnboardingScreen() {
   const navigation = useNavigation<NavProp>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [current, setCurrent] = useState(0);
 
@@ -206,7 +199,7 @@ export function OnboardingScreen() {
       {/* Skip button */}
       <View style={styles.skipRow}>
         <TouchableOpacity accessibilityRole="button" onPress={skip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={[styles.skipLabel, { color: c.textSec }]}>Skip</Text>
+          <Text style={[styles.skipLabel, { color: c.textSec }]}>{t('onboarding.skip')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -232,7 +225,7 @@ export function OnboardingScreen() {
             { transform: [{ scale: badgeScale }] },
           ]}
         >
-          <Text style={styles.badgeText}>{slide.badge}</Text>
+          <Text style={styles.badgeText}>{t(`onboarding.${slide.key}.badge`)}</Text>
         </Animated.View>
       </View>
 
@@ -247,9 +240,9 @@ export function OnboardingScreen() {
             },
           ]}
         >
-          <Text style={[styles.title, { color: c.text }]}>{slide.title}</Text>
+          <Text style={[styles.title, { color: c.text }]}>{t(`onboarding.${slide.key}.title`)}</Text>
           <Text style={[styles.subtitle, { color: c.textSec }]}>
-            {slide.subtitle}
+            {t(`onboarding.${slide.key}.subtitle`)}
           </Text>
         </Animated.View>
 
@@ -267,7 +260,7 @@ export function OnboardingScreen() {
 
         {/* CTA */}
         <GradientButton
-          label={current < SLIDES.length - 1 ? 'Continue' : 'Get Started'}
+          label={current < SLIDES.length - 1 ? t('onboarding.continue') : t('onboarding.getStarted')}
           onPress={next}
           colorStart={c.primary}
           colorEnd={c.primaryDark}

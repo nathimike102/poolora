@@ -297,3 +297,6 @@ jest.mock('@sentry/react-native', () => ({
   init: jest.fn(),
   captureException: jest.fn(),
 }));
+
+// The real catalogue (English), so screens show the same words as in the app
+require('./src/i18n');

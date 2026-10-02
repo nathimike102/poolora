@@ -43,6 +43,7 @@ import { errorHandler } from '../../utils/errorHandler';
 import { realPhone } from '../../utils/phone';
 import { REGION } from '../../utils/region';
 import { startTripTracking, stopTripTracking } from '../../services/tripTracking';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -58,6 +59,7 @@ export function ActiveRideScreen() {
   const { c } = useApp();
   const insets = useSafeAreaInsets();
   const { rideId, bookingId } = useRoute<RouteProp<RootStackParamList, 'ActiveRide'>>().params;
+  const { t } = useTranslation();
 
   const [ride, setRide] = useState<Ride | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -138,18 +140,18 @@ export function ActiveRideScreen() {
     if (!bookingId) return;
     const car = ride?.vehicle?.plateNumber ? ` ${ride.vehicle.plateNumber}` : '';
     Alert.alert(
-      "You're in the car?",
-      `Only confirm if you are in${car} with ${ride?.driver?.name ?? 'your driver'}, the car and person shown in the app.`,
+      t('ride.inCarTitle'),
+      t('ride.inCarBody', { car, driver: ride?.driver?.name ?? t('ride.yourDriverLower') }),
       [
-        { text: 'Not yet', style: 'cancel' },
+        { text: t('ride.notYet'), style: 'cancel' },
         {
-          text: "I'm in the car",
+          text: t('ride.imInCar'),
           onPress: async () => {
             try {
               await bookingService.riderInCar(bookingId);
               setPickup(p => ({ ...p, done: true }));
             } catch (error) {
-              Alert.alert('Not confirmed', errorHandler.process(error).message);
+              Alert.alert(t('ride.notConfirmed'), errorHandler.process(error).message);
             }
           },
         },
@@ -166,7 +168,7 @@ export function ActiveRideScreen() {
       // The SOS screen shows the alert, the cancel window and the safety team's reply
       if (status === 'help') navigation.navigate('SOS', { bookingId });
     } catch (error) {
-      Alert.alert('Not sent', `${errorHandler.process(error).message} If you are in danger, use SOS or call ${REGION.emergency.general}.`);
+      Alert.alert(t('common.notSent'), t('ride.checkInNotSent', { message: errorHandler.process(error).message, number: REGION.emergency.general }));
     } finally {
       setAnswering(false);
     }
@@ -221,7 +223,7 @@ export function ActiveRideScreen() {
       try {
         const { url } = await bookingService.shareTrip(bookingId);
         await Share.share({
-          message: `Follow my Poolora ride from ${ride.pickupLocation.address} to ${ride.dropoffLocation.address} live: ${url}\nThe link stops working an hour after I arrive.`,
+          message: t('ride.shareLive', { from: ride.pickupLocation.address, to: ride.dropoffLocation.address, url }),
         });
         return;
       } catch {
@@ -230,10 +232,13 @@ export function ActiveRideScreen() {
     }
     const plate = ride.vehicle?.plateNumber ? ` (${ride.vehicle.plateNumber})` : '';
     Share.share({
-      message:
-        `I'm on a Poolora ride with ${ride.driver?.name ?? 'my driver'}${plate} ` +
-        `from ${ride.pickupLocation.address} to ${ride.dropoffLocation.address}, ` +
-        `leaving at ${formatTime(ride.scheduledDeparture)}.`,
+      message: t('ride.shareText', {
+        driver: ride.driver?.name ?? t('ride.myDriver'),
+        plate,
+        from: ride.pickupLocation.address,
+        to: ride.dropoffLocation.address,
+        time: formatTime(ride.scheduledDeparture),
+      }),
     });
   };
 
@@ -248,13 +253,13 @@ export function ActiveRideScreen() {
       <View style={[styles.centered, { backgroundColor: c.bg, paddingTop: insets.top }]}>
         {loadError ? (
           <>
-            <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>We couldn't load this ride</Text>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{t('ride.loadFailed')}</Text>
             <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={styles.textBtn}>
-              <Text style={{ fontSize: 15, color: c.primary, fontWeight: '600' }}>Go back</Text>
+              <Text style={{ fontSize: 15, color: c.primary, fontWeight: '600' }}>{t('ride.goBack')}</Text>
             </Pressable>
           </>
         ) : (
-          <ActivityIndicator size="large" color={c.primary} accessibilityLabel="Loading ride" />
+          <ActivityIndicator size="large" color={c.primary} accessibilityLabel={t('ride.loading')} />
         )}
       </View>
     );
@@ -265,13 +270,13 @@ export function ActiveRideScreen() {
   const isCancelled = status === 'cancelled';
   const inProgress = status === 'in_progress';
   const statusLabel = isCompleted
-    ? 'Ride completed'
+    ? t('ride.status.completed')
     : isCancelled
-      ? 'Ride cancelled'
+      ? t('ride.status.cancelled')
       : inProgress
-        ? 'Ride in progress'
-        : `Departs at ${formatTime(ride.scheduledDeparture)}`;
-  const driverName = ride.driver?.name ?? 'Your driver';
+        ? t('ride.status.inProgress')
+        : t('ride.status.departs', { time: formatTime(ride.scheduledDeparture) });
+  const driverName = ride.driver?.name ?? t('ride.yourDriver');
   const driverPhone = realPhone(ride.driver?.phone);
 
   const origin = { latitude: ride.pickupLocation.lat, longitude: ride.pickupLocation.lng };
@@ -294,7 +299,7 @@ export function ActiveRideScreen() {
           <Pressable
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('ride.goBack')}
             style={styles.backBtn}
           >
             <Icon name="arrow-left" size={20} color="#1A1A2E" />
@@ -316,7 +321,7 @@ export function ActiveRideScreen() {
                 style={[styles.shareBtn, { backgroundColor: c.surface, borderColor: c.border }]}
               >
                 <Icon name="receipt" size={18} color={c.textSec} />
-                <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>View receipt</Text>
+                <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>{t('ride.viewReceipt')}</Text>
               </Pressable>
             ) : null}
             {bookingId ? (
@@ -335,10 +340,10 @@ export function ActiveRideScreen() {
                 <View style={styles.flex1}>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: '#9A3412' }}>{deviationMessage}</Text>
                   <Text style={{ fontSize: 13, color: '#9A3412', marginTop: 2 }}>
-                    If you feel unsafe, use the SOS button.
+                    {t('ride.deviationHelp')}
                   </Text>
                 </View>
-                <Pressable onPress={() => setDeviationMessage('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Dismiss alert">
+                <Pressable onPress={() => setDeviationMessage('')} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('ride.dismissAlert')}>
                   <Icon name="close" size={18} color="#9A3412" />
                 </Pressable>
               </View>
@@ -346,31 +351,31 @@ export function ActiveRideScreen() {
 
             {/* Pickup code: the rider gets in only once the driver has entered it */}
             {pickup?.pin && !pickup.done && !isCompleted && !isCancelled ? (
-              <View style={[styles.section, { backgroundColor: c.primaryLight, borderColor: c.primary }]} accessibilityLabel={`Your pickup code is ${pickup.pin.split('').join(' ')}`}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>Your pickup code</Text>
+              <View style={[styles.section, { backgroundColor: c.primaryLight, borderColor: c.primary }]} accessibilityLabel={t('ride.pinLabel', { digits: pickup.pin.split('').join(' ') })}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>{t('ride.pinTitle')}</Text>
                 <Text style={{ fontSize: 34, fontWeight: '800', letterSpacing: 10, color: c.text }} selectable>{pickup.pin}</Text>
                 <Text style={{ fontSize: 13, color: c.text, lineHeight: 19 }}>
-                  Check the plate{ride.vehicle?.plateNumber ? ` (${ride.vehicle.plateNumber})` : ''} and the driver's photo, then tell the driver this code. Get in only when this screen says the code is confirmed.
+                  {t('ride.pinHelp', { plate: ride.vehicle?.plateNumber ? ` (${ride.vehicle.plateNumber})` : '' })}
                 </Text>
                 <Pressable onPress={confirmInCar} hitSlop={6} accessibilityRole="button" style={{ marginTop: 8 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary, textDecorationLine: 'underline' }}>Can't share the code? Confirm you're in the car</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary, textDecorationLine: 'underline' }}>{t('ride.pinCantShare')}</Text>
                 </Pressable>
               </View>
             ) : pickup?.done && !isCompleted && !isCancelled ? (
               <View style={[styles.section, { backgroundColor: c.successLight, borderColor: c.success }]} accessibilityLiveRegion="polite">
-                <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>Pickup confirmed. Enjoy the ride.</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{t('ride.pickupConfirmed')}</Text>
               </View>
             ) : null}
 
             {/* Trip */}
             <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: c.textSec }}>Pickup</Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: c.textSec }}>{t('ride.pickup')}</Text>
               <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{ride.pickupLocation.address}</Text>
               <Text style={{ fontSize: 13, color: c.primary }}>{formatTime(ride.scheduledDeparture)}</Text>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: c.textSec, marginTop: 12 }}>Drop</Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: c.textSec, marginTop: 12 }}>{t('ride.drop')}</Text>
               <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{ride.dropoffLocation.address}</Text>
               {ride.estimatedArrival ? (
-                <Text style={{ fontSize: 13, color: c.textSec }}>Estimated arrival {formatTime(ride.estimatedArrival)}</Text>
+                <Text style={{ fontSize: 13, color: c.textSec }}>{t('ride.eta', { time: formatTime(ride.estimatedArrival) })}</Text>
               ) : null}
               {driverUpdate ? (
                 <Text style={{ fontSize: 13, color: c.text, marginTop: 12 }} accessibilityLiveRegion="polite">
@@ -378,7 +383,7 @@ export function ActiveRideScreen() {
                 </Text>
               ) : null}
               {lastSeen ? (
-                <Text style={{ fontSize: 12, color: c.textSec, marginTop: driverUpdate ? 2 : 12 }}>Driver's location updated {lastSeen}</Text>
+                <Text style={{ fontSize: 12, color: c.textSec, marginTop: driverUpdate ? 2 : 12 }}>{t('ride.driverSeen', { time: lastSeen })}</Text>
               ) : null}
             </View>
 
@@ -403,7 +408,7 @@ export function ActiveRideScreen() {
                     style={[styles.iconBtn, { backgroundColor: c.successLight }]}
                     onPress={() => (bookingId ? callOnBooking(bookingId, driverName, driverPhone) : Linking.openURL(`tel:${driverPhone}`))}
                     accessibilityRole="button"
-                    accessibilityLabel={`Call ${driverName}`}
+                    accessibilityLabel={t('ride.call', { name: driverName })}
                   >
                     <Icon name="phone" size={20} color={c.success} />
                   </Pressable>
@@ -413,7 +418,7 @@ export function ActiveRideScreen() {
                     style={[styles.iconBtn, { backgroundColor: c.primaryLight }]}
                     onPress={() => navigation.navigate('Chat', { chatId: bookingId, recipientName: driverName })}
                     accessibilityRole="button"
-                    accessibilityLabel={`Message ${driverName}`}
+                    accessibilityLabel={t('ride.message', { name: driverName })}
                   >
                     <Icon name="message-text" size={20} color={c.primary} />
                   </Pressable>
@@ -428,7 +433,7 @@ export function ActiveRideScreen() {
                 style={[styles.shareBtn, { backgroundColor: c.surface, borderColor: c.border }]}
               >
                 <Icon name="share-variant" size={18} color={c.textSec} />
-                <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>Share a live trip link</Text>
+                <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>{t('ride.shareLink')}</Text>
               </Pressable>
             )}
           </>
@@ -440,12 +445,12 @@ export function ActiveRideScreen() {
           <View style={[styles.checkInCard, { backgroundColor: c.surface }]} accessibilityViewIsModal>
             <Icon name="shield-check" size={36} color={c.primary} />
             <Text style={{ fontSize: 20, fontWeight: '800', color: c.text, textAlign: 'center' }} accessibilityRole="header">
-              {checkIn?.repeat ? 'Please confirm you are OK' : 'Are you OK?'}
+              {checkIn?.repeat ? t('ride.checkIn.titleRepeat') : t('ride.checkIn.title')}
             </Text>
             <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center' }}>
               {checkIn?.repeat
-                ? 'We did not hear back. If you do not answer, we will alert the safety team.'
-                : 'A quick safety check during your ride.'}
+                ? t('ride.checkIn.bodyRepeat')
+                : t('ride.checkIn.body')}
             </Text>
             <Pressable
               onPress={() => answerCheckIn('ok')}
@@ -453,7 +458,7 @@ export function ActiveRideScreen() {
               accessibilityRole="button"
               style={[styles.checkInBtn, { backgroundColor: c.primary }]}
             >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>I'm OK</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>{t('ride.checkIn.ok')}</Text>
             </Pressable>
             <Pressable
               onPress={() => answerCheckIn('help')}
@@ -461,7 +466,7 @@ export function ActiveRideScreen() {
               accessibilityRole="button"
               style={[styles.checkInBtn, { backgroundColor: c.errorLight }]}
             >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>I need help</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>{t('ride.checkIn.help')}</Text>
             </Pressable>
           </View>
         </View>
@@ -471,10 +476,10 @@ export function ActiveRideScreen() {
         <Pressable
           onPress={() => navigation.navigate('SOS', { bookingId })}
           accessibilityRole="button"
-          accessibilityLabel="SOS emergency"
+          accessibilityLabel={t('ride.sosLabel')}
           style={[styles.sosFab, { backgroundColor: c.error }]}
         >
-          <Text style={{ color: 'white', fontWeight: '800', fontSize: 14 }}>SOS</Text>
+          <Text style={{ color: 'white', fontWeight: '800', fontSize: 14 }}>{t('sos.sosLabel')}</Text>
         </Pressable>
       )}
     </View>

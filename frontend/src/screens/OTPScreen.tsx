@@ -28,6 +28,7 @@ import { sendOtpToBackend, verifyOtpWithBackend } from '../services/authService'
 import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
 import { formatPhone, REGION } from '../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'OTP'>;
 type RouteType = RouteProp<RootStackParamList, 'OTP'>;
@@ -39,6 +40,7 @@ export function OTPScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteType>();
   const { c, setUser, setRole } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const phone = route.params?.phone ?? '';
@@ -165,12 +167,12 @@ export function OTPScreen() {
         triggerShakeAnimation();
         setOtp(Array(OTP_LENGTH).fill(''));
         inputs.current[0]?.focus();
-        Alert.alert('Verification Failed', errorHandler.process(error).message);
+        Alert.alert(t('login.verifyFailed'), errorHandler.process(error).message);
       } finally {
         setVerifying(false);
       }
     },
-    [navigation, triggerShakeAnimation, phone, setUser, setRole],
+    [navigation, triggerShakeAnimation, phone, setUser, setRole, t],
   );
 
   const handleResend = useCallback(async () => {
@@ -182,9 +184,9 @@ export function OTPScreen() {
       inputs.current[0]?.focus();
       setResendCount(n => n + 1);
     } catch (error) {
-      Alert.alert('Could not resend code', errorHandler.process(error).message);
+      Alert.alert(t('login.resendFailed'), errorHandler.process(error).message);
     }
-  }, [canResend, phone]);
+  }, [canResend, phone, t]);
 
   return (
     <KeyboardAvoidingView
@@ -210,8 +212,8 @@ export function OTPScreen() {
           </Svg>
         </View>
 
-        <Text style={[styles.title, { color: c.text }]}>Enter verification code</Text>
-        <Text style={[styles.subtitle, { color: c.textSec }]}>We sent a 6-digit code to {formatPhone(`${REGION.dialCode}${phone}`)}</Text>
+        <Text style={[styles.title, { color: c.text }]}>{t('login.enterCode')}</Text>
+        <Text style={[styles.subtitle, { color: c.textSec }]}>{t('login.codeSent', { phone: formatPhone(`${REGION.dialCode}${phone}`) })}</Text>
 
         <View style={styles.otpRow}>
           {otp.map((value, idx) => (
@@ -237,23 +239,23 @@ export function OTPScreen() {
         </View>
 
         <Animated.View style={[styles.errorRow, { opacity: errorOpacity }]}>  
-          <Text style={[styles.errorText, { color: c.error }]}>Invalid code, please try again.</Text>
+          <Text style={[styles.errorText, { color: c.error }]}>{t('login.invalidCode')}</Text>
         </Animated.View>
 
         <View style={styles.resendRow}>
-          <Text style={[styles.resendPrompt, { color: c.textSec }]}>Didn’t receive a code?</Text>
+          <Text style={[styles.resendPrompt, { color: c.textSec }]}>{t('login.noCode')}</Text>
           <Text
             accessibilityRole="button"
             accessibilityState={{ disabled: !canResend }}
             onPress={handleResend}
             style={[styles.resendLink, { color: canResend ? c.primary : c.textSec }]}
           >
-            {' '}Resend{canResend ? '' : ` in ${timer}s`}
+            {' '}{canResend ? t('login.resend') : t('login.resendIn', { seconds: timer })}
           </Text>
         </View>
 
         <GradientButton
-          label="Verify OTP"
+          label={t('login.verifyOtp')}
           onPress={() => handleVerifyOtp(otp.join(''))}
           disabled={otp.some(val => !val) || verifying}
           loading={verifying}

@@ -32,6 +32,7 @@ import { Icon } from '../../components/Icon';
 import type { Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { money, REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Booking'>;
 type BookingRoute = RouteProp<RootStackParamList, 'Booking'>;
@@ -49,6 +50,7 @@ export function BookingScreen(): React.ReactElement {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<BookingRoute>();
   const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const rideId = route.params.rideId;
 
@@ -131,14 +133,14 @@ export function BookingScreen(): React.ReactElement {
       navigation.replace('Payment', {
         bookingId: result.booking._id,
         amount: result.booking.estimatedFare ?? total,
-        summary: `${boardAt.address || 'Pickup'} to ${leaveAt.address || 'drop'} · ${seats} ${seats === 1 ? 'seat' : 'seats'}`,
+        summary: t('booking.summary', { from: boardAt.address || t('booking.pickup'), to: leaveAt.address || t('booking.dropLower'), seats: seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats }) }),
       });
     } catch (error) {
       setSubmitError(errorHandler.process(error).message);
     } finally {
       setIsSubmitting(false);
     }
-  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, total]);
+  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, total, t]);
 
   // ── Booked with wallet ──────────────────────────────────────────
   if (walletBooked) {
@@ -148,18 +150,17 @@ export function BookingScreen(): React.ReactElement {
           <Icon name="check" size={40} color="#FFFFFF" />
         </View>
         <Text style={[styles.confirmedTitle, { color: c.text }]} accessibilityLiveRegion="polite">
-          Request sent
+          {t('booking.sent')}
         </Text>
         <Text style={[styles.confirmedSub, { color: c.textSec }]}>
-          {money(total)} was paid from your wallet. The driver will confirm your seat,
-          and you get a full refund to your wallet if they decline or you cancel before they do.
+          {t('booking.paidFromWallet', { amount: money(total) })}
         </Text>
         <Pressable
           onPress={() => navigation.navigate('RiderTabs', { screen: 'MyRides' })}
           accessibilityRole="button"
           style={[styles.primaryBtn, { backgroundColor: c.primary }]}
         >
-          <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>View my rides</Text>
+          <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>{t('booking.viewRides')}</Text>
         </Pressable>
       </View>
     );
@@ -171,13 +172,13 @@ export function BookingScreen(): React.ReactElement {
       <View style={[styles.centered, { backgroundColor: c.bg, paddingTop: insets.top }]}>
         {loadError ? (
           <>
-            <Text style={[styles.confirmedTitle, { color: c.text }]}>We couldn't load this ride</Text>
+            <Text style={[styles.confirmedTitle, { color: c.text }]}>{t('booking.loadFailed')}</Text>
             <Pressable onPress={load} accessibilityRole="button" style={[styles.primaryBtn, { backgroundColor: c.primary }]}>
-              <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>Try again</Text>
+              <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>{t('booking.tryAgain')}</Text>
             </Pressable>
           </>
         ) : (
-          <ActivityIndicator size="large" color={c.primary} accessibilityLabel="Loading ride" />
+          <ActivityIndicator size="large" color={c.primary} accessibilityLabel={t('booking.loading')} />
         )}
       </View>
     );
@@ -191,7 +192,7 @@ export function BookingScreen(): React.ReactElement {
       {/* ── Header ──────────────────────────────────────────────── */}
       <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={[styles.headerTitle, { color: c.text }]}>Confirm booking</Text>
+        <Text accessibilityRole="header" style={[styles.headerTitle, { color: c.text }]}>{t('booking.title')}</Text>
       </View>
 
       <ScrollView style={styles.flex1} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -208,37 +209,37 @@ export function BookingScreen(): React.ReactElement {
               </View>
             )}
             <View style={styles.flex1}>
-              <Text style={[styles.driverName, { color: c.text }]}>{ride.driver?.name ?? 'Driver'}</Text>
+              <Text style={[styles.driverName, { color: c.text }]}>{ride.driver?.name ?? t('booking.driver')}</Text>
               {ride.vehicle?.plateNumber ? (
                 <Text style={[styles.driverMeta, { color: c.textSec }]}>{ride.vehicle.plateNumber}</Text>
               ) : null}
             </View>
             <Text style={[styles.driverMeta, { color: c.textSec }]}>
-              {ratingCount > 0 ? `${stats?.avgRatingAsDriver?.toFixed(1)} (${ratingCount})` : 'No ratings yet'}
+              {ratingCount > 0 ? `${stats?.avgRatingAsDriver?.toFixed(1)} (${ratingCount})` : t('booking.noRatings')}
             </Text>
           </View>
 
           <View style={[styles.divider, { backgroundColor: c.border }]} />
 
-          <Text style={[styles.routeLabel, { color: c.textSec }]}>Pickup</Text>
+          <Text style={[styles.routeLabel, { color: c.textSec }]}>{t('booking.pickup')}</Text>
           <Text style={[styles.routePlace, { color: c.text }]}>{boardAt.address}</Text>
           <Text style={[styles.routeTime, { color: c.primary }]}>{formatDeparture(ride.scheduledDeparture)}</Text>
-          <Text style={[styles.routeLabel, { color: c.textSec, marginTop: 12 }]}>Drop</Text>
+          <Text style={[styles.routeLabel, { color: c.textSec, marginTop: 12 }]}>{t('booking.drop')}</Text>
           <Text style={[styles.routePlace, { color: c.text }]}>{leaveAt.address}</Text>
         </View>
 
         <View style={[styles.noteBox, { backgroundColor: c.primaryLight }]}>
           <Icon name="map-marker-radius" size={18} color={c.primary} />
           <Text style={[styles.noteText, { color: c.text }]}>
-            You board at the driver's pickup point shown above. Your seat is held once the driver accepts.
+            {t('booking.boardNote')}
           </Text>
         </View>
 
         {/* Seats */}
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>Seats</Text>
+          <Text style={[styles.cardTitle, { color: c.text }]}>{t('booking.seats')}</Text>
           {maxSeats === 0 ? (
-            <Text style={{ color: c.textSec }}>This ride is full.</Text>
+            <Text style={{ color: c.textSec }}>{t('booking.full')}</Text>
           ) : (
             <View style={styles.seatRow} accessibilityRole="radiogroup">
               {Array.from({ length: maxSeats }, (_, i) => i + 1).map(n => {
@@ -249,7 +250,7 @@ export function BookingScreen(): React.ReactElement {
                     onPress={() => setSeats(n)}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: selected }}
-                    accessibilityLabel={`${n} ${n === 1 ? 'seat' : 'seats'}`}
+                    accessibilityLabel={n === 1 ? t('search.seatOne') : t('search.seatMany', { count: n })}
                     style={[
                       styles.seatBtn,
                       { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primaryLight : c.bg },
@@ -265,30 +266,30 @@ export function BookingScreen(): React.ReactElement {
 
         {/* Message to the driver (UC-R03 step 6) */}
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>Message to the driver (optional)</Text>
+          <Text style={[styles.cardTitle, { color: c.text }]}>{t('booking.noteTitle')}</Text>
           <TextInput
             value={note}
             onChangeText={setNote}
             maxLength={300}
             multiline
-            placeholder="I'll wait at the bus stop outside the post office."
+            placeholder={t('booking.notePlaceholder')}
             placeholderTextColor={c.textSec}
-            accessibilityLabel="Message to the driver"
+            accessibilityLabel={t('booking.noteLabel')}
             style={{ borderWidth: 1, borderColor: c.border, borderRadius: 12, padding: 12, minHeight: 64, color: c.text, fontSize: 15, textAlignVertical: 'top' }}
           />
         </View>
 
         {/* Payment method */}
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>Pay with</Text>
+          <Text style={[styles.cardTitle, { color: c.text }]}>{t('booking.payWith')}</Text>
           {([
-            { id: 'online' as const, label: 'EcoCash, OneMoney, InnBucks or card', sub: 'Pay in US dollars or ZiG, through Paynow', icon: 'cellphone' as const, enabled: true },
+            { id: 'online' as const, label: t('booking.online'), sub: t('booking.onlineSub'), icon: 'cellphone' as const, enabled: true },
             {
               id: 'wallet' as const,
-              label: 'Poolora wallet',
+              label: t('booking.wallet'),
               sub: walletBalance === null
-                ? 'Balance unavailable'
-                : `Balance ${money(walletBalance)}${walletCovers ? '' : ' · not enough for this booking'}`,
+                ? t('booking.balanceUnavailable')
+                : `${t('booking.balance', { amount: money(walletBalance) })}${walletCovers ? '' : t('booking.notEnough')}`,
               icon: 'wallet-outline' as const,
               enabled: walletCovers,
             },
@@ -318,12 +319,12 @@ export function BookingScreen(): React.ReactElement {
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <View style={styles.fareRow}>
             <Text style={{ fontSize: 14, color: c.textSec }}>
-              {money(ride.pricePerSeat)} × {seats} {seats === 1 ? 'seat' : 'seats'}
+              {t('booking.fareLine', { price: money(ride.pricePerSeat), seats: seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats }) })}
             </Text>
             <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }}>{money(total)}</Text>
           </View>
           <Text style={{ fontSize: 12, color: c.textSec, marginTop: 8, lineHeight: 18 }}>
-            No extra fees for riders. If the driver declines or cancels, or you cancel before they accept, the full amount is refunded. After that, what you get back depends on how soon the ride leaves.
+            {t('booking.refundNote')}
           </Text>
         </View>
       </ScrollView>
@@ -344,7 +345,7 @@ export function BookingScreen(): React.ReactElement {
             <ActivityIndicator color={c.textOnPrimary} />
           ) : (
             <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]}>
-              {method === 'wallet' ? `Pay ${money(total)} from wallet` : `Continue to pay ${money(total)}`}
+              {method === 'wallet' ? t('booking.payWallet', { amount: money(total) }) : t('booking.payOnline', { amount: money(total) })}
             </Text>
           )}
         </Pressable>
