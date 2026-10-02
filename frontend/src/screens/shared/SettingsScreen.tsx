@@ -272,7 +272,7 @@ export function SettingsScreen() {
             onPress={() => navigation.navigate('Wallet')}
             rightEl={
               <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>
-                {walletBalance === null ? 'Unavailable' : `${money(walletBalance)}`}
+                {walletBalance === null ? t('common.unavailable') : `${money(walletBalance)}`}
               </Text>
             }
           />

@@ -141,7 +141,7 @@ export function ProfileScreen(): React.ReactElement {
             </Text>
             {ratingCount > 0 && (
               <Text style={[st.ratingCount, { color: c.textSec }]}>
-                {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
+                {ratingCount === 1 ? t('common.ratingOne') : t('common.ratingMany', { count: ratingCount })}
               </Text>
             )}
           </View>

@@ -46,6 +46,8 @@ interface RequestItem {
   price: number;
   aiScore: number | null;
   passengers: Array<{ name: string; gender: string }>;
+  /** The rider's company, when it is the driver's too (UC-C02) */
+  colleagueAt?: string;
   status: Status;
   /** The rider's message with the request */
   note?: string;
@@ -145,20 +147,21 @@ export function ManageRequestsScreen(): React.ReactElement {
               return {
                 id: b._id,
                 tripId: ride?._id ?? 'unknown',
-                rider: b.rider?.name || 'Rider',
+                rider: b.rider?.name || t('manageRequests.rider'),
+                colleagueAt: (b.rider as { colleagueAt?: string } | undefined)?.colleagueAt,
                 avatar: b.rider?.profilePhotoUrl,
                 rating: ratingCount > 0 ? stats?.avgRatingAsRider ?? null : null,
                 ratingCount,
                 trips: stats?.totalRidesAsRider ?? 0,
-                from: b.pickup?.address || 'Pickup',
-                to: b.dropoff?.address || 'Drop',
+                from: b.pickup?.address || t('manageRequests.pickup'),
+                to: b.dropoff?.address || t('manageRequests.drop'),
                 date: ride?.departureTime
                   ? new Date(ride.departureTime).toLocaleString(REGION.dateLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                   : '',
                 seats: b.seatsBooked,
                 price: b.estimatedFare ?? 0,
                 aiScore: b.matchScore ? Math.round(b.matchScore) : null,
-                passengers: [{ name: b.rider?.name || 'Rider', gender: b.rider?.gender || '' }],
+                passengers: [{ name: b.rider?.name || t('manageRequests.rider'), gender: b.rider?.gender || '' }],
                 status: b.status,
                 note: b.note,
               };
@@ -175,7 +178,7 @@ export function ManageRequestsScreen(): React.ReactElement {
               const filledSeats = totalSeats - (ride.availableSeats ?? 0);
               tripMap.set(ride._id, {
                 id: ride._id,
-                label: `${ride.pickup?.address || 'Start'} to ${ride.dropoff?.address || 'end'}`,
+                label: t('common.route', { from: ride.pickup?.address || t('common.start'), to: ride.dropoff?.address || t('common.endLower') }),
                 from: ride.pickup?.address,
                 to: ride.dropoff?.address,
                 date: ride.departureTime ? new Date(ride.departureTime).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' }) : '',
@@ -198,7 +201,7 @@ export function ManageRequestsScreen(): React.ReactElement {
       };
       fetchBookings();
       return () => { isActive = false; };
-    }, [activeTripId])
+    }, [activeTripId, t])
   );
 
   const trip = trips.find(t => t.id === activeTripId) || null;
@@ -490,12 +493,15 @@ export function ManageRequestsScreen(): React.ReactElement {
                 )}
                 <View style={{ flex: 1 }}>
                   <Text variant="titleSmall" style={{ fontWeight: '800', color: c.text }}>{req.rider}</Text>
+                  {req.colleagueAt ? (
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>{t('manageRequests.worksAt', { company: req.colleagueAt })}</Text>
+                  ) : null}
                   <View style={[styles.row, { flexWrap: 'wrap', marginTop: 4 }]}>
                     <Text style={{ fontSize: 13, fontWeight: '600', color: c.text }}>
                       {req.rating !== null ? t('manageRequests.rated', { rating: req.rating.toFixed(1), count: req.ratingCount }) : t('manageRequests.noRatings')}
                     </Text>
                     <Text variant="bodySmall" style={{ color: c.textSec, marginLeft: 8 }}>
-                      {req.trips} {req.trips === 1 ? 'trip' : 'trips'}
+                      {req.trips === 1 ? t('manageRequests.tripOne') : t('manageRequests.tripMany', { count: req.trips })}
                     </Text>
                     <View style={[styles.seatLabel, { backgroundColor: c.primaryLight }]}>
                       <Text style={{ fontSize: 11, fontWeight: '600', color: c.primary }}>

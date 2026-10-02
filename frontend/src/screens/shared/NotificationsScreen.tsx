@@ -175,7 +175,7 @@ export function NotificationsScreen() {
                       flex: 1,
                     }}
                   >
-                    {notif.title ?? 'Notification'}
+                    {notif.title ?? t('common.notification')}
                   </Text>
                   <Text style={{ fontSize: 11, color: c.textSec, flexShrink: 0 }}>
                     {relativeTime(notif.createdAt)}

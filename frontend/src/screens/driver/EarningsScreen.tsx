@@ -327,7 +327,7 @@ export function EarningsScreen() {
           setRecent(
             bookings.slice(0, 10).map(b => ({
               id: b._id,
-              rider: b.rider?.name ?? 'Rider',
+              rider: b.rider?.name ?? t('common.rider'),
               route: [b.pickup?.address, b.dropoff?.address].filter(Boolean).join(' to '),
               time: new Date(b.updatedAt).toLocaleString(REGION.dateLocale, { dateStyle: 'medium', timeStyle: 'short' }),
               amount: b.driverEarnings ?? 0,
@@ -345,7 +345,7 @@ export function EarningsScreen() {
       return () => {
         isActive = false;
       };
-    }, []),
+    }, [t]),
   );
 
   const stats = summary?.[period];
@@ -394,7 +394,7 @@ export function EarningsScreen() {
                 >
                   <View style={[styles.periodTab, active && styles.periodTabActive]}>
                     <Text style={[styles.periodText, { color: active ? c.primary : '#FFFFFF' }]}>
-                      {p === 'today' ? 'Today' : p === 'week' ? '7 days' : '4 weeks'}
+                      {p === 'today' ? t('earnings.period.today') : p === 'week' ? t('earnings.period.week') : t('earnings.period.month')}
                     </Text>
                   </View>
                 </Pressable>

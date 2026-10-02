@@ -145,7 +145,7 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
   "totalSeats": 3,
   "pricePerSeat": 1,
   "recurring": "none",
-  "preferences": { "womenOnly": false, "smokingAllowed": false, "petsAllowed": false, "luggageSize": "medium", "maxDetourMins": 15 },
+  "preferences": { "womenOnly": false, "colleaguesOnly": false, "smokingAllowed": false, "petsAllowed": false, "luggageSize": "medium", "maxDetourMins": 15 },
   "waypoints": [{ "lng": 31.0850, "lat": -17.7950, "address": "Highlands, Harare" }],
   "returnDepartureTime": "2026-09-24T18:00:00.000Z"
 }
@@ -179,6 +179,8 @@ A ride nobody has booked is **cancelled automatically 1 hour before departure**,
 | POST | `/rides/:id/position` | the ride's driver or a rider on it | A phone on a ride in progress, from the app's background task: the driver's (the car) every 5 s, a rider's every 15 s from pickup to drop. Body: `location`, optional `speed`, `heading`, `accuracy`, `battery`. The car's position reaches each rider's live map as before. About one point every 15 s per phone is stored as the trip trail, kept 30 days, or for good once an SOS, safety report or dispute is attached. While an SOS is open on the ride, each phone's position goes to the admins live (`sos:alert` with `eventType: sos.trail`). Returns `tracking`; false once the ride is over or the rider dropped |
 
 **Women-only rides.** Only a verified woman (an admin-approved identity check, `/users/me/identity`) sees them in search, can filter with `womenOnly=true`, and can book one; anyone else never sees them, `womenOnly=true` answers `403`, and booking one by its id answers `403`. Only a verified woman driver can post one (`preferences.womenOnly`). Search results carry `driver.identityVerified`, and a ride's driver carries `identity.status`.
+
+**Colleagues-only rides (UC-C02).** A driver in an active company programme (`/users/me/work`) can post one (`preferences.colleaguesOnly`); anyone else gets `403 NOT_A_COMPANY_MEMBER`. The ride keeps the driver's company, and only that company's members see it in search, get ride alerts for it and can book it; booking it by id from outside answers `403 COLLEAGUES_ONLY`. While the company is suspended nobody sees it. Search results carry `driver.colleagueAt` (the company's name) only when the driver works at the searcher's company, and `GET /rides/:id` carries `colleagueAt` the same way; a driver's `GET /bookings/driver` carries `rider.colleagueAt` for riders from their company. Nobody's work email is ever sent to another user.
 | `page`, `limit` | no | 1, 20 | `limit` at most 50 |
 
 A ride matches when its **route** passes within `radiusKm` of the rider's pickup and of their drop, in that order, so riders can join part-way. Each ride stores its road route as a GeoJSON LineString (`routeLine`, `2dsphere` index); search runs `$geoNear` on it near the pickup, requires it to cross a circle around the drop, then drops rides going the other way. Up to 200 candidates are considered per search.

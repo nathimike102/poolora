@@ -159,7 +159,7 @@ export function WalletScreen() {
             <ActivityIndicator color={c.textOnPrimary} style={{ alignSelf: 'flex-start', marginTop: 8 }} />
           ) : (
             <Text style={{ fontSize: 36, fontWeight: '800', color: c.textOnPrimary, marginTop: 4 }} accessibilityLiveRegion="polite">
-              {balance === null ? 'Unavailable' : money(balance)}
+              {balance === null ? t('common.unavailable') : money(balance)}
             </Text>
           )}
           <Text style={{ fontSize: 13, color: c.textOnPrimary, opacity: 0.85, marginTop: 6 }}>{t('wallet.refundsAndEarningsArriveHere')}</Text>

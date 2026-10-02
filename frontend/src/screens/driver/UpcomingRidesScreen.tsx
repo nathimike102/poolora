@@ -21,6 +21,7 @@ import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
 import { money, REGION } from '../../utils/region';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -40,8 +41,8 @@ function toUpcoming(r: Ride): UpcomingRide {
   const booked = (r.seats ?? 0) - (r.availableSeats ?? 0);
   return {
     id: r._id,
-    from: r.pickupLocation?.address || 'Pickup',
-    to: r.dropoffLocation?.address || 'Drop',
+    from: r.pickupLocation?.address || i18n.t('common.pickup'),
+    to: r.dropoffLocation?.address || i18n.t('common.drop'),
     date: departure.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' }),
     time: departure.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }),
     booked,

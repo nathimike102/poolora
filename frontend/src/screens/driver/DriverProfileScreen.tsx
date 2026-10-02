@@ -145,7 +145,7 @@ export function DriverProfileScreen() {
             </Text>
             {ratingCount > 0 && (
               <Text style={[s.ratingCount, { color: c.textSec }]}>
-                {ratingCount} {ratingCount === 1 ? 'rider' : 'riders'}
+                {ratingCount === 1 ? t('common.riderOne') : t('common.riderMany', { count: ratingCount })}
               </Text>
             )}
           </View>
@@ -238,7 +238,7 @@ export function DriverProfileScreen() {
           reviews.map((r, i) => (
             <View key={r._id} style={[s.review, i < reviews.length - 1 && [s.dashed, { borderColor: c.border }]]}>
               <View style={s.reviewHeader}>
-                <Text style={[s.listTitle, s.flex1, { color: c.text }]} numberOfLines={1}>{r.rater?.name ?? 'Rider'}</Text>
+                <Text style={[s.listTitle, s.flex1, { color: c.text }]} numberOfLines={1}>{r.rater?.name ?? t('common.rider')}</Text>
                 <View style={s.stars} accessible accessibilityLabel={`${r.score} out of 5 stars`}>
                   {Array.from({ length: 5 }).map((_, j) => (
                     <Icon key={j} name={j < r.score ? 'star' : 'star-outline'} size={14} color="#F5B301" />

@@ -118,7 +118,7 @@ Decided on 2 October 2026: Poolora takes 10% on the part of a fare the company p
 Built in slices:
 
 1. **Companies and joining** (done): the web admin's Companies page sets a company up with its email domains and billing contact; staff confirm a work email from Profile → Work by a link valid for 24 hours; one work email per account; public email services cannot be a company domain.
-2. Colleagues-only rides and the "Works at" badge.
+2. **Colleagues-only rides** (done): a driver in a programme can keep a ride to colleagues; only that company's members see it, hear of it or book it, and nobody while the company is suspended. Colleagues see "Works at …" on each other's rides and requests, and can filter results to colleagues; the public never sees where anyone works.
 3. Company-paid fares: share, monthly cap, weekdays and sites.
 4. Monthly billing.
 5. The company's own dashboard.

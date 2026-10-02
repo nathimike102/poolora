@@ -52,6 +52,10 @@ interface ResultRide {
   price: number;
   matchScore: number;
   womenOnly: boolean;
+  /** Only the driver's colleagues see it (UC-C02) */
+  colleaguesOnly: boolean;
+  /** The driver's company, when the rider works there too */
+  colleagueAt?: string;
   hasAC: boolean;
 }
 
@@ -72,6 +76,8 @@ function toResult(r: ApiRide): ResultRide {
     price: r.pricePerSeat ?? 0,
     matchScore: typeof r.matchScore === 'number' ? r.matchScore : 0,
     womenOnly: r.womenOnly ?? false,
+    colleaguesOnly: Boolean(r.colleaguesOnly),
+    colleagueAt: r.driver?.colleagueAt,
     hasAC: r.hasAC ?? false,
   };
 }
@@ -178,13 +184,16 @@ export function RideResultsScreen() {
     );
   };
   const [acOnly, setAcOnly] = useState(false);
+  const [colleaguesOnly, setColleaguesOnly] = useState(false);
+  const hasColleagues = all.some(r => r.colleagueAt);
   const [seats, setSeats] = useState(searched?.seats ?? 1);
 
   const rides = useMemo(() => {
     const list = all.filter(r =>
       (category === 'all' || r.category === category) &&
       (!womenOnly || r.womenOnly) &&
-      (!acOnly || r.hasAC),
+      (!acOnly || r.hasAC) &&
+      (!colleaguesOnly || Boolean(r.colleagueAt)),
     );
     // Leaving now, the best ride is the one leaving soonest; for a set time, the closest match
     const leavingNow = !searched?.when;
@@ -197,7 +206,7 @@ export function RideResultsScreen() {
       rating: (a, b) => b.rating - a.rating || b.ratingCount - a.ratingCount,
     };
     return [...list].sort(by[sortBy]);
-  }, [all, category, womenOnly, acOnly, sortBy, searched?.when]);
+  }, [all, category, womenOnly, acOnly, colleaguesOnly, sortBy, searched?.when]);
 
   // Tag the single earliest and cheapest rides, as long as there's a choice
   const tags = useMemo(() => {
@@ -229,7 +238,7 @@ export function RideResultsScreen() {
     [searched?.dropoff],
   );
   const categories = (Object.keys(VEHICLE_CATEGORIES) as VehicleCategory[]).filter(k => counts[k] > 0);
-  const filtersOn = womenOnly || acOnly || sortBy !== 'best';
+  const filtersOn = womenOnly || acOnly || colleaguesOnly || sortBy !== 'best';
 
   return (
     <View style={[styles.root, { backgroundColor: c.surface }]}>
@@ -306,6 +315,7 @@ export function RideResultsScreen() {
             ))}
             <Chip label={t('results.womenOnly')} icon="gender-female" on={womenOnly} onPress={toggleWomenOnly} />
             <Chip label={t('results.ac')} icon="snowflake" on={acOnly} onPress={() => setAcOnly(v => !v)} />
+            {hasColleagues ? <Chip label={t('results.colleagues')} icon="briefcase-outline" on={colleaguesOnly} onPress={() => setColleaguesOnly(v => !v)} /> : null}
           </ScrollView>
         )}
 
@@ -340,7 +350,7 @@ export function RideResultsScreen() {
                 </>
               ) : filtersOn || category !== 'all' ? (
                 <Pressable
-                  onPress={() => { setWomenOnly(false); setAcOnly(false); setSortBy('best'); setCategory('all'); }}
+                  onPress={() => { setWomenOnly(false); setAcOnly(false); setColleaguesOnly(false); setSortBy('best'); setCategory('all'); }}
                   accessibilityRole="button"
                   style={[styles.emptyBtn, { borderColor: c.primary }]}
                 >
@@ -382,6 +392,11 @@ export function RideResultsScreen() {
                           <Text style={[styles.tagText, { color: c.textSec }]}>{t('results.womenOnlyTag')}</Text>
                         </View>
                       )}
+                      {r.colleaguesOnly && (
+                        <View style={[styles.tag, { backgroundColor: c.surfaceVariant }]}>
+                          <Text style={[styles.tagText, { color: c.textSec }]}>{t('results.colleaguesOnlyTag')}</Text>
+                        </View>
+                      )}
                     </View>
                     <View style={styles.driverLine}>
                       {r.driverVerified ? <VerifiedBadge compact /> : null}
@@ -391,6 +406,12 @@ export function RideResultsScreen() {
                         {r.vehicleName ? ` · ${r.vehicleName}` : ''}
                       </Text>
                     </View>
+                    {r.colleagueAt ? (
+                      <View style={styles.trackedLine}>
+                        <Icon name="briefcase-outline" size={13} color={c.primary} />
+                        <Text style={[styles.rideMeta, { color: c.primary }]}>{t('results.worksAt', { company: r.colleagueAt })}</Text>
+                      </View>
+                    ) : null}
                     {r.trackedCar ? (
                       <View style={styles.trackedLine} accessibilityLabel={t('results.trackedLabel')}>
                         <Icon name="crosshairs-gps" size={13} color={c.success} />

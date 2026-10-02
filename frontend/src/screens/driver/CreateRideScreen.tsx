@@ -126,6 +126,14 @@ export function CreateRideScreen() {
         : [{ text: t('createRide.notNow'), style: 'cancel' }, { text: t('createRide.verifyMyIdentity'), onPress: () => navigation.navigate('IdentityCheck') }],
     );
   };
+  // A driver in a company programme can keep a ride to colleagues (UC-C02)
+  const [company, setCompany] = useState<string | null>(null);
+  const [colleaguesOnly, setColleaguesOnly] = useState(false);
+  useEffect(() => {
+    userService.getWork()
+      .then(w => setCompany(w.work?.organisation.active ? w.work.organisation.name : null))
+      .catch(() => setCompany(null));
+  }, []);
   const [smokingAllowed, setSmokingAllowed] = useState(false);
   const [petsAllowed, setPetsAllowed] = useState(false);
   const [luggage, setLuggage] = useState<Luggage>('medium');
@@ -278,7 +286,7 @@ export function CreateRideScreen() {
         returnDepartureTime: withReturn ? returnDeparture.toISOString() : undefined,
         totalSeats: seats,
         pricePerSeat: Math.round(priceNumber * 100) / 100,
-        preferences: { womenOnly, smokingAllowed, petsAllowed, luggageSize: luggage },
+        preferences: { womenOnly, colleaguesOnly: Boolean(company) && colleaguesOnly, smokingAllowed, petsAllowed, luggageSize: luggage },
       });
       setPublished(result);
     } catch (err) {
@@ -625,6 +633,7 @@ export function CreateRideScreen() {
             <Text style={[styles.label, { color: c.textSec }]}>{t('createRide.rideRules')}</Text>
             {[
               { label: t('createRide.rules.womenOnly'), value: womenOnly, set: chooseWomenOnly },
+              ...(company ? [{ label: t('createRide.rules.colleaguesOnly', { company }), value: colleaguesOnly, set: setColleaguesOnly }] : []),
               { label: t('createRide.rules.smoking'), value: smokingAllowed, set: setSmokingAllowed },
               { label: t('createRide.rules.pets'), value: petsAllowed, set: setPetsAllowed },
             ].map(p => (

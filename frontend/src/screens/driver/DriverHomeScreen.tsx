@@ -111,8 +111,8 @@ export function DriverHomeScreen() {
         const booked = (r.seats ?? 0) - (r.availableSeats ?? 0);
         return {
           id: r._id,
-          from: r.pickupLocation?.address || 'Pickup',
-          to: r.dropoffLocation?.address || 'Drop',
+          from: r.pickupLocation?.address || t('common.pickup'),
+          to: r.dropoffLocation?.address || t('common.drop'),
           departure: r.scheduledDeparture,
           booked,
           total: r.seats ?? 0,
@@ -126,7 +126,7 @@ export function DriverHomeScreen() {
     } finally {
       if (isActive()) setLoaded(true);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -208,7 +208,7 @@ export function DriverHomeScreen() {
             <Pressable
               onPress={() => navigation.navigate('Earnings')}
               accessibilityRole="button"
-              accessibilityLabel={`Today: ${money(todayEarnings)} earned from ${ridesToday} ${ridesToday === 1 ? 'ride' : 'rides'}. View earnings`}
+              accessibilityLabel={t('driverHome.todayLabel', { amount: money(todayEarnings), rides: ridesToday === 1 ? t('driverHome.rideOne') : t('driverHome.rideMany', { count: ridesToday }) })}
               style={[styles.statsCard, { borderColor: c.border }]}
             >
               <Stat label={t('driverHome.earnedToday')} value={`${money(todayEarnings)}`} />
@@ -216,8 +216,8 @@ export function DriverHomeScreen() {
               <Stat label={t('driverHome.ridesToday')} value={String(ridesToday)} />
               <View style={[styles.statDivider, { backgroundColor: c.border }]} />
               <Stat
-                label={rating ? `${rating.count} ${rating.count === 1 ? 'rating' : 'ratings'}` : 'Rating'}
-                value={rating ? rating.avg.toFixed(1) : 'New'}
+                label={rating ? (rating.count === 1 ? t('common.ratingOne') : t('common.ratingMany', { count: rating.count })) : t('common.rating')}
+                value={rating ? rating.avg.toFixed(1) : t('common.new')}
                 icon={rating ? 'star' : undefined}
               />
             </Pressable>
@@ -228,7 +228,7 @@ export function DriverHomeScreen() {
             <Pressable
               onPress={() => navigation.navigate('DriverTabs', { screen: 'ManageRequests' })}
               accessibilityRole="button"
-              accessibilityLabel={`${pendingCount} ${pendingCount === 1 ? 'request' : 'requests'} waiting. Review requests`}
+              accessibilityLabel={t('driverHome.requestsLabel', { requests: pendingCount === 1 ? t('driverHome.requestOne') : t('driverHome.requestMany', { count: pendingCount }) })}
               style={[styles.banner, { backgroundColor: c.primaryLight, borderColor: c.primaryLight }]}
             >
               <View style={[styles.bannerIcon, { backgroundColor: c.surface }]}>

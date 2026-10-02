@@ -74,7 +74,7 @@ export function ChatListScreen(): React.ReactElement {
                   name: otherParty?.name || (role === 'driver' ? t('chatList.rider') : t('chatList.driver')),
                   avatar: otherParty?.profilePhotoUrl,
                   time: new Date(b.createdAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' }),
-                  ride: `${b.pickup?.address || 'Pickup'} to ${b.dropoff?.address || 'drop'}`,
+                  ride: t('common.route', { from: b.pickup?.address || t('common.pickup'), to: b.dropoff?.address || t('common.dropLower') }),
                   status: b.status,
                 };
               });

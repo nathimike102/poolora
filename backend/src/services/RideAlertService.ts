@@ -21,6 +21,7 @@ import { NotificationService } from './NotificationService';
 import { money } from '../config/region';
 import { localTime } from '../config/region';
 import { phrase } from '../i18n';
+import { activeOrganisationOf } from './OrganisationService';
 
 const HOUR = 3_600_000;
 const EARTH_RADIUS_KM = 6378.1;
@@ -79,6 +80,8 @@ export class RideAlertService {
       if (alert.departureTime && Math.abs(alert.departureTime.getTime() - ride.departureTime.getTime()) > TIME_WINDOW_MS) continue;
       // A women-only ride is news only to a verified woman, as in search
       if (ride.preferences?.womenOnly && !isVerifiedWoman(await User.findById(alert.rider).select('gender identity').lean())) continue;
+      // And a colleagues-only ride only to staff of the same company
+      if (ride.preferences?.colleaguesOnly && String((await activeOrganisationOf(alert.rider))?._id ?? '') !== String(ride.organisation)) continue;
       const [pl, pa] = alert.pickup.location.coordinates;
       const [dl, da] = alert.dropoff.location.coordinates;
       const board = nearestOnPath({ lat: pa, lng: pl }, path);

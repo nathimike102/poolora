@@ -2,7 +2,31 @@
   "common": {
     "notSent": "Not sent",
     "done": "Done",
-    "manage": "Manage"
+    "manage": "Manage",
+    "rider": "Rider",
+    "driver": "Driver",
+    "pickup": "Pickup",
+    "drop": "Drop",
+    "dropLower": "drop",
+    "start": "Start",
+    "endLower": "end",
+    "member": "Member",
+    "someone": "Someone",
+    "you": "You",
+    "unavailable": "Unavailable",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "new": "New",
+    "notification": "Notification",
+    "chat": "Chat",
+    "rating": "Rating",
+    "route": "{{from}} to {{to}}",
+    "ratingOne": "1 rating",
+    "ratingMany": "{{count}} ratings",
+    "riderOne": "1 rider",
+    "riderMany": "{{count}} riders",
+    "dayOne": "1 day",
+    "dayMany": "{{count}} days"
   },
   "language": {
     "title": "Language",
@@ -473,7 +497,10 @@
     "book": "Book {{vehicle}} · {{price}}",
     "onlyLeftOne": "Only 1 seat left",
     "onlyLeftMany": "Only {{count}} seats left",
-    "choose": "Choose a ride"
+    "choose": "Choose a ride",
+    "colleagues": "Colleagues",
+    "colleaguesOnlyTag": "COLLEAGUES ONLY",
+    "worksAt": "Works at {{company}}"
   },
   "detail": {
     "luggage": {
@@ -516,7 +543,9 @@
     "full": "Ride full",
     "request": "Request ride",
     "loading": "Loading ride",
-    "minutes": "{{count}} min"
+    "minutes": "{{count}} min",
+    "worksAt": "Works at {{company}}",
+    "colleaguesOnly": "Colleagues only"
   },
   "booking": {
     "summary": "{{from}} to {{to}} · {{seats}}",
@@ -730,7 +759,8 @@
     "rules": {
       "womenOnly": "Women passengers only",
       "smoking": "Smoking allowed",
-      "pets": "Pets allowed"
+      "pets": "Pets allowed",
+      "colleaguesOnly": "Colleagues at {{company}} only"
     },
     "suggested": "Suggested {{price}} · choose {{min}} to {{max}}",
     "mustBeBetween": "For this route the price must be between {{min}} and {{max}}."
@@ -759,7 +789,13 @@
     "allowLocation": "Allow location to see your area",
     "rideLabel": "Ride to {{to}}, {{when}}, {{booked}} of {{total}} seats booked",
     "to": "To {{place}}",
-    "areaLabel": "Your area: {{area}}"
+    "areaLabel": "Your area: {{area}}",
+    "todayLabel": "Today: {{amount}} earned from {{rides}}. View earnings",
+    "rideOne": "1 ride",
+    "rideMany": "{{count}} rides",
+    "requestsLabel": "{{requests}} waiting. Review requests",
+    "requestOne": "1 request",
+    "requestMany": "{{count}} requests"
   },
   "driverProfile": {
     "verifiedDriver": "Verified driver",
@@ -836,7 +872,12 @@
       "fees": "Platform fees"
     },
     "fromOne": "From 1 completed ride",
-    "fromMany": "From {{count}} completed rides"
+    "fromMany": "From {{count}} completed rides",
+    "period": {
+      "today": "Today",
+      "week": "7 days",
+      "month": "4 weeks"
+    }
   },
   "editRide": {
     "loadingRide": "Loading ride",
@@ -967,7 +1008,13 @@
     "seatOne": "1 seat",
     "seatMany": "{{count}} seats",
     "passengerOne": "1 passenger",
-    "passengerMany": "{{count}} passengers"
+    "passengerMany": "{{count}} passengers",
+    "rider": "Rider",
+    "pickup": "Pickup",
+    "drop": "Drop",
+    "tripOne": "1 trip",
+    "tripMany": "{{count}} trips",
+    "worksAt": "Works at {{company}}"
   },
   "upcomingRides": {
     "upcomingRides": "Upcoming rides",
@@ -1775,7 +1822,8 @@
       "money": "Money"
     },
     "activityPlaceholder": "Waterfall hike",
-    "summary": "{{type}} · {{count}} of {{max}} going"
+    "summary": "{{type}} · {{count}} of {{max}} going",
+    "paidSplit": "{{who}} paid · split {{count}} ways"
   },
   "tripPartners": {
     "haveAnInviteCode": "Have an invite code?",

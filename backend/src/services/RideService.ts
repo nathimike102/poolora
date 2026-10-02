@@ -30,6 +30,7 @@ import { logger } from '../utils/logger';
 import { isVerifiedWoman, womenOnlyRefusal } from './IdentityService';
 import { isTracked } from './TrackerService';
 import { money } from '../config/region';
+import { activeOrganisationOf, colleaguesOf } from './OrganisationService';
 
 /**
  * A search hit as it goes out over the API: a plain object from the
@@ -137,6 +138,11 @@ export class RideService {
     // A women-only ride is only as safe as its driver: she must be a verified woman
     if (data.preferences?.womenOnly && !isVerifiedWoman(driver)) {
       throw new AppError('Only women who have verified their identity can post women-only rides. Verify it in Profile > Identity check.', 403, 'IDENTITY_NOT_VERIFIED');
+    }
+    // A colleagues-only ride belongs to the driver's company while its programme is active (UC-C02)
+    const company = data.preferences?.colleaguesOnly ? await activeOrganisationOf(driverId) : null;
+    if (data.preferences?.colleaguesOnly && !company) {
+      throw new AppError('Only staff of a company on Poolora can post colleagues-only rides. Join from Profile > Work.', 403, 'NOT_A_COMPANY_MEMBER');
     }
 
     // Check max active rides
@@ -248,6 +254,7 @@ export class RideService {
       totalSeats: data.totalSeats,
       recurring: data.recurring,
       preferences: data.preferences,
+      ...(company ? { organisation: company._id } : {}),
       parcelInfo: data.parcelInfo,
     });
 
@@ -317,6 +324,9 @@ export class RideService {
     } else if (!isVerifiedWoman(currentUser)) {
       filter['preferences.womenOnly'] = { $ne: true };
     }
+    // Colleagues-only rides are seen by staff of the same company, while its programme is active
+    const myCompany = await activeOrganisationOf(currentUser);
+    filter.$or = [{ 'preferences.colleaguesOnly': { $ne: true } }, ...(myCompany ? [{ organisation: myCompany._id }] : [])];
     if (params.hasAC !== undefined) {
       filter['vehicle.hasAC'] = params.hasAC;
     }
@@ -381,6 +391,8 @@ export class RideService {
     const scores = await this.matchingEngine.scoreRides(candidates, params);
     const scoreByRide = new Map(scores.map((s) => [s.rideId, s]));
 
+    // "Works at": only for drivers at the searcher's own company, never their work email
+    const colleagues = await colleaguesOf(currentUser, candidates.map(({ driver }) => driver._id));
     // Public driver details only: phone numbers are shared after a booking is confirmed
     const items: SearchResultRide[] = candidates.map(({ ride, driver }) => ({
       ...withoutRouteLine(ride),
@@ -399,6 +411,7 @@ export class RideService {
         identityVerified: driver.identity?.status === 'verified',
         // A GPS tracker in this car reported in the last day
         trackedCar: isTracked(driver.vehicles?.find((v) => String(v._id) === String(ride.vehicle?.vehicleId))?.tracker),
+        ...(colleagues.has(driver._id.toString()) ? { colleagueAt: colleagues.get(driver._id.toString()) } : {}),
       },
       matchScore: scoreByRide.get(ride._id.toString())?.overallScore,
     }));

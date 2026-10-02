@@ -283,8 +283,8 @@ export function RideDatePicker({
     return {
       date: d,
       label:
-        offset === 0 ? 'Today' :
-        offset === 1 ? 'Tomorrow' :
+        offset === 0 ? t('common.today') :
+        offset === 1 ? t('common.tomorrow') :
         d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' }),
     };
   });

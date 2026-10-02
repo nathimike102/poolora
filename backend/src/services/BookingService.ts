@@ -22,6 +22,7 @@ import { NotificationService } from './NotificationService';
 import { isVerifiedWoman, womenOnlyRefusal } from './IdentityService';
 import type { FilterQuery } from 'mongoose';
 import { phrase } from '../i18n';
+import { activeOrganisationOf, colleaguesOf } from './OrganisationService';
 
 const walletService = new WalletService();
 const carbonService = new CarbonService();
@@ -113,6 +114,13 @@ export class BookingService {
     if (ride.preferences?.womenOnly) {
       const rider = await User.findById(riderId).select('gender identity').lean();
       if (!isVerifiedWoman(rider)) throw womenOnlyRefusal(rider);
+    }
+    // Search hides colleagues-only rides from other companies; a ride id must not get round that either
+    if (ride.preferences?.colleaguesOnly) {
+      const company = await activeOrganisationOf(riderId);
+      if (!company || String(company._id) !== String(ride.organisation)) {
+        throw new AppError('This ride is only for the driver\'s colleagues.', 403, 'COLLEAGUES_ONLY');
+      }
     }
 
     if (ride.status !== RideStatus.SCHEDULED && ride.status !== RideStatus.ACTIVE) {
@@ -841,6 +849,20 @@ export class BookingService {
       const person = booking.get(counterpart) as { phone?: string } | null;
       if (booking.status !== BookingStatus.CONFIRMED && person && typeof person === 'object') {
         person.phone = undefined;
+      }
+    }
+
+    // A driver sees "Works at" on riders from their own company, never their work email
+    if (role === 'driver') {
+      const riderIds = bookings.map((b) => (b.get('rider') as { _id?: Types.ObjectId } | null)?._id).filter((id): id is Types.ObjectId => Boolean(id));
+      const colleagues = await colleaguesOf(userId, riderIds);
+      if (colleagues.size) {
+        const items = bookings.map((b) => {
+          const json = b.toJSON() as Record<string, unknown> & { rider?: { _id?: unknown } };
+          const at = json.rider?._id ? colleagues.get(String(json.rider._id)) : undefined;
+          return at ? { ...json, rider: { ...json.rider, colleagueAt: at } } : json;
+        });
+        return paginate(items as unknown as typeof bookings, total, page, limit);
       }
     }
 

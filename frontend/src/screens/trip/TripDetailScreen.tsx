@@ -90,7 +90,7 @@ export function TripDetailScreen() {
   }
 
   const me = trip.viewerId ?? '';
-  const nameOf = (id: string) => trip.members.find(m => m.user._id === id)?.user.name ?? 'Member';
+  const nameOf = (id: string) => trip.members.find(m => m.user._id === id)?.user.name ?? t('common.member');
   const memberIds = trip.members.map(m => m.user._id);
   const organizerName = typeof trip.organizer === 'object' ? trip.organizer.name : undefined;
   const organizerStats = typeof trip.organizer === 'object' ? trip.organizer.stats : undefined;
@@ -101,7 +101,7 @@ export function TripDetailScreen() {
     <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
       <Text style={{ fontSize: 20, fontWeight: '800', color: c.text }} accessibilityRole="header">{trip.title}</Text>
       <Text style={{ fontSize: 14, color: c.textSec }}>
-        {trip.destinations.map(d => d.name).join(' → ')} · {tripDates(trip)} ({tripDays(trip)} {tripDays(trip) === 1 ? 'day' : 'days'})
+        {trip.destinations.map(d => d.name).join(' → ')} · {tripDates(trip)} ({tripDays(trip) === 1 ? t('common.dayOne') : t('common.dayMany', { count: tripDays(trip) })})
       </Text>
       <Text style={{ fontSize: 13, color: c.textSec }}>
         {t('tripDetail.summary', { type: t(`planTrip.types.${trip.tripType}`, { defaultValue: cap(trip.tripType) }), count: trip.members.length, max: trip.maxGroupSize })}
@@ -267,7 +267,7 @@ export function TripDetailScreen() {
           <Text style={[styles.cardTitle, { color: c.text }]}>{t('tripDetail.askingToJoin')}</Text>
           {trip.joinRequests.map(r => (
             <View key={r._id} style={[styles.item, { borderColor: c.border }]}>
-              <Text style={{ fontWeight: '600', color: c.text }}>{r.user.name ?? 'Someone'}</Text>
+              <Text style={{ fontWeight: '600', color: c.text }}>{r.user.name ?? t('common.someone')}</Text>
               {r.message ? <Text style={{ fontSize: 13, color: c.textSec }}>“{r.message}”</Text> : null}
               <View style={styles.row}>
                 <Pressable onPress={() => act(() => tripService.respond(tripId, r._id, true))} disabled={busy} accessibilityRole="button" style={[styles.smallBtn, { backgroundColor: c.primary }]}>
@@ -351,7 +351,7 @@ export function TripDetailScreen() {
           <Text style={{ fontSize: 14, color: c.textSec }}>{t('tripDetail.spent', { total: money(settlement.total), each: money(settlement.perPerson) })}</Text>
           {settlement.members.map(m => (
             <View key={m.userId} style={styles.row}>
-              <Text style={{ flex: 1, color: c.text }}>{m.userId === me ? 'You' : m.name}</Text>
+              <Text style={{ flex: 1, color: c.text }}>{m.userId === me ? t('common.you') : m.name}</Text>
               <Text style={{ fontSize: 13, color: c.textSec }}>{t('tripDetail.paidShare', { paid: money(m.paid), share: money(m.share) })}</Text>
               <Text style={{ width: 84, textAlign: 'right', fontWeight: '700', color: m.balance > 0 ? c.success : m.balance < 0 ? c.error : c.textSec }}>
                 {m.balance > 0 ? `+${money(m.balance)}` : m.balance < 0 ? `−${money(-m.balance)}` : 'even'}
@@ -406,7 +406,7 @@ export function TripDetailScreen() {
             const on = (expense.paidBy || me) === id;
             return (
               <Pressable key={id} onPress={() => setExpense(s => ({ ...s, paidBy: id }))} accessibilityRole="radio" accessibilityState={{ checked: on }} style={[styles.chip, { borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryLight : c.bg }]}>
-                <Text style={{ color: on ? c.primary : c.text }}>{id === me ? 'You' : nameOf(id)}</Text>
+                <Text style={{ color: on ? c.primary : c.text }}>{id === me ? t('common.you') : nameOf(id)}</Text>
               </Pressable>
             );
           })}
@@ -427,7 +427,7 @@ export function TripDetailScreen() {
                 accessibilityState={{ checked: on }}
                 style={[styles.chip, { borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryLight : c.bg }]}
               >
-                <Text style={{ color: on ? c.primary : c.text }}>{id === me ? 'You' : nameOf(id)}</Text>
+                <Text style={{ color: on ? c.primary : c.text }}>{id === me ? t('common.you') : nameOf(id)}</Text>
               </Pressable>
             );
           })}
@@ -462,7 +462,7 @@ export function TripDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ color: c.text }}>{e.description}</Text>
               <Text style={{ fontSize: 12, color: c.textSec }}>
-                {e.paidBy?._id === me ? 'You' : e.paidBy?.name ?? 'Member'} paid · split {e.splitAmong.length} ways
+                {t('tripDetail.paidSplit', { who: e.paidBy?._id === me ? t('common.you') : e.paidBy?.name ?? t('common.member'), count: e.splitAmong.length })}
               </Text>
             </View>
             <Text style={{ fontWeight: '700', color: c.text }}>{money(e.amount)}</Text>

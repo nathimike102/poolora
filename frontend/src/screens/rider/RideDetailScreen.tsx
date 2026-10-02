@@ -173,6 +173,7 @@ export function RideDetailScreen() {
   if (ride) {
     if (ride.hasAC) prefs.push({ icon: 'snowflake', label: t('detail.ac') });
     if (ride.womenOnly) prefs.push({ icon: 'human-female', label: t('detail.womenOnly') });
+    if (ride.colleaguesOnly) prefs.push({ icon: 'briefcase-outline', label: t('detail.colleaguesOnly') });
     if (ride.preferences) {
       prefs.push(
         ride.preferences.smokingAllowed
@@ -287,6 +288,12 @@ export function RideDetailScreen() {
               <View style={styles.flex1}>
                 <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{driverName}</Text>
                 {ride.driverVerified ? <VerifiedBadge /> : null}
+                {ride.colleagueAt ? (
+                  <View style={styles.idChecked}>
+                    <Icon name="briefcase-outline" size={14} color={c.primary} />
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.primary }}>{t('detail.worksAt', { company: ride.colleagueAt })}</Text>
+                  </View>
+                ) : null}
                 {ride.trackedCar ? (
                   <View style={styles.idChecked} accessibilityLabel={t('detail.trackedLabel')}>
                     <Icon name="crosshairs-gps" size={14} color={c.success} />

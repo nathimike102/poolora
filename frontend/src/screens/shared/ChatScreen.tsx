@@ -43,7 +43,7 @@ export function ChatScreen(): React.ReactElement {
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>();
   const chatId = route.params?.chatId;
-  const recipientName = route.params?.recipientName || 'Chat';
+  const recipientName = route.params?.recipientName || t('common.chat');
 
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const [sendError, setSendError] = useState('');

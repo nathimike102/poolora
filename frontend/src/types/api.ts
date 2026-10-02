@@ -96,6 +96,8 @@ export interface User {
   identityVerified?: boolean;
   /** On a driver in search results: a GPS tracker in this car reported in the last day */
   trackedCar?: boolean;
+  /** The company this person works at, shown only to their colleagues (UC-C02) */
+  colleagueAt?: string;
   /** The identity check behind women-only rides */
   identity?: { status: 'pending' | 'verified' | 'rejected' };
   capabilities: UserCapability[];
@@ -197,6 +199,8 @@ export interface Ride {
   description?: string;
   amenities?: string[];
   womenOnly: boolean;
+  /** Only staff of the driver's company see and book it (UC-C02) */
+  colleaguesOnly?: boolean;
   hasAC: boolean;
   allowLuggage: boolean;
   passengers?: User[];
@@ -213,6 +217,8 @@ export interface Ride {
   driverVerified?: boolean;
   /** A GPS tracker in this car reported in the last day */
   trackedCar?: boolean;
+  /** The driver's company, when the viewer works there too (UC-C02) */
+  colleagueAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -246,6 +252,7 @@ export interface UpcomingBooking {
 
 export interface RidePreferences {
   womenOnly: boolean;
+  colleaguesOnly?: boolean;
   smokingAllowed: boolean;
   petsAllowed: boolean;
   luggageSize: 'none' | 'small' | 'medium' | 'large';
@@ -263,6 +270,7 @@ export interface CreateRideRequest {
   pricePerSeat: number;
   preferences: {
     womenOnly: boolean;
+    colleaguesOnly?: boolean;
     smokingAllowed: boolean;
     petsAllowed: boolean;
     luggageSize: 'none' | 'small' | 'medium' | 'large';

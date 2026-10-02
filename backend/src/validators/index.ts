@@ -111,6 +111,7 @@ export const createRideSchema = {
     recurring: Joi.string().valid(...Object.values(RecurringPattern)).default(RecurringPattern.NONE),
     preferences: Joi.object({
       womenOnly: Joi.boolean().default(false),
+      colleaguesOnly: Joi.boolean().default(false),
       smokingAllowed: Joi.boolean().default(false),
       petsAllowed: Joi.boolean().default(false),
       luggageSize: Joi.string().valid('none', 'small', 'medium', 'large').default('medium'),

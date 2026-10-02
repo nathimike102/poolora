@@ -72,6 +72,37 @@ function view(org: IOrganisation | (Record<string, unknown> & { _id: Types.Objec
   };
 }
 
+/**
+ * The company a person belongs to, if its programme is active. A suspended
+ * company's members get none of its benefits, colleagues-only rides included.
+ */
+export async function activeOrganisationOf(
+  person: string | Types.ObjectId | { work?: { organisation?: Types.ObjectId } } | null,
+): Promise<{ _id: Types.ObjectId; name: string } | null> {
+  // A user already loaded saves a query
+  const user = typeof person === 'string' || person instanceof Types.ObjectId
+    ? await User.findById(person).select('work.organisation').lean()
+    : person;
+  if (!user?.work?.organisation) return null;
+  return Organisation.findOne({ _id: user.work.organisation, status: 'active' }).select('name').lean();
+}
+
+/**
+ * Which of these people work at the viewer's company: their ids, mapped to
+ * the company's name, for the "Works at" badge. Only colleagues ever see it.
+ */
+export async function colleaguesOf(
+  viewer: string | { _id?: unknown; work?: { organisation?: Types.ObjectId } },
+  userIds: Array<string | Types.ObjectId>,
+): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+  const mine = await activeOrganisationOf(viewer);
+  if (!mine || !userIds.length) return found;
+  const others = await User.find({ _id: { $in: userIds }, 'work.organisation': mine._id }).select('_id').lean();
+  for (const o of others) found.set(o._id.toString(), mine.name);
+  return found;
+}
+
 export class OrganisationService {
   // ── Admin (UC-C01) ───────────────────────────────────────────────────────
 
