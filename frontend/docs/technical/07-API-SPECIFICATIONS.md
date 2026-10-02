@@ -534,6 +534,12 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | GET | `/admin/organisations/:id` | The company and its members (name, phone, work email, joined) |
 | PATCH | `/admin/organisations/:id` | Any of the fields above, and `status` (`active`, `suspended`). Removing a domain stops new joins with it; members stay. Audited. `policy` (UC-C01): `sharePercent` (0–100), `monthlyCapUsd` (0 for no limit), `weekdaysOnly`, and `sites` (up to 10: `name`, `address`, `radiusKm` 0.2–20; a site without `lat`/`lng` is found on the map from its address, else `422 SITE_NOT_FOUND`). Applies to bookings made afterwards |
 | DELETE | `/admin/organisations/:id/members/:userId` | Removes someone from the company. `?reason=` for the audit log |
+| GET | `/admin/organisations/:id/invoices` | The company's monthly bills (UC-C03), newest first, without their lines: `number`, `month`, `trips`, `members`, `amount`, `adjustments`, `total`, `status` (`issued`, `paid`), `overdue`, `issuedAt`, `dueAt` (30 days on), `emailedAt` or `emailError`, `paidAt`, `paidReference`. The company's `billingHold` (on `GET /admin/organisations/:id`) is set while a bill is more than 30 days unpaid; its contribution to fares pauses until then |
+| POST | `/admin/organisations/:id/invoices` | Bills last month now for trips not billed yet, and emails it. `409 NOTHING_TO_BILL` when there is nothing. Audited |
+| GET | `/admin/invoices/:id` | One bill with its lines (date, member, fare, company share, CO₂; never routes or places) |
+| GET | `/admin/invoices/:id/file` | The bill as a file: `?format=pdf` (default) or `xlsx` |
+| POST | `/admin/invoices/:id/paid` | Body: `reference` (the bank transfer's). Lifts the billing hold once nothing else is overdue. Audited |
+| POST | `/admin/invoices/:id/adjust` | Body: `amount` (negative for a credit), `reason`. Only before payment; the total never goes below zero. Audited |
 | GET | `/admin/parcel-claims` | Parcel claims |
 | POST | `/admin/parcel-claims/:id/decide` | Body: `decision` (`approve`, `reject`), `note` (the claimant sees it), optional `payout` (up to the cover limit; paid to the wallet) and `insurerReference` |
 | GET | `/admin/parcels/:id/photos/:photoId` | A parcel photo |

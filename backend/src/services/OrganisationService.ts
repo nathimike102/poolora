@@ -120,6 +120,7 @@ function view(org: IOrganisation | (Record<string, unknown> & { _id: Types.Objec
     status: o.status,
     notes: o.notes,
     policy: policyView(o.policy),
+    billingHold: o.billingHold ? { invoice: o.billingHold.invoice.toString(), since: o.billingHold.since } : null,
     createdAt: o.createdAt,
     ...(members === undefined ? {} : { members }),
   };
@@ -187,6 +188,8 @@ export async function companyContribution(input: {
   const org = await Organisation.findOne({ _id: user.work.organisation, status: 'active' }).lean();
   const policy = org?.policy;
   if (!org || !policy || !(policy.sharePercent > 0) || !policy.sites?.length) return null;
+  // An unpaid bill over 30 days old pauses the contribution until it is paid (UC-C03 3a)
+  if (org.billingHold) return null;
 
   const when = demandTime(input.departure);
   if (policy.weekdaysOnly && (when.weekday >= 5 || when.isHoliday)) return null;
@@ -349,7 +352,7 @@ export class OrganisationService {
 
   /** The caller's company, or the address waiting to be confirmed */
   async status(userId: string) {
-    const user = await User.findById(userId).select('work +workPending').populate<{ work?: { organisation: IOrganisation; email: string; verifiedAt: Date } }>('work.organisation', 'name status policy').lean();
+    const user = await User.findById(userId).select('work +workPending').populate<{ work?: { organisation: IOrganisation; email: string; verifiedAt: Date } }>('work.organisation', 'name status policy billingHold').lean();
     if (!user) throw new NotFoundError('User');
     const pending = user.workPending && user.workPending.sentAt.getTime() > Date.now() - WORK_LINK_TTL_MS
       ? { email: user.workPending.email, sentAt: user.workPending.sentAt }
@@ -358,7 +361,7 @@ export class OrganisationService {
     return {
       work: user.work && org
         ? {
-          organisation: { _id: org._id.toString(), name: org.name, active: org.status === 'active' },
+          organisation: { _id: org._id.toString(), name: org.name, active: org.status === 'active', contributionPaused: Boolean(org.billingHold) },
           email: user.work.email,
           since: user.work.verifiedAt,
           // What the company pays, so staff know before they book (UC-C01)

@@ -10,6 +10,7 @@ import { SocketGateway } from './sockets/SocketGateway';
 import { EventBridge } from './events';
 import { BookingSweeper } from './jobs/BookingSweeper';
 import { ReportScheduler } from './jobs/ReportScheduler';
+import { InvoiceScheduler } from './jobs/InvoiceScheduler';
 import { AlertMonitor } from './jobs/AlertMonitor';
 import { SosMonitor } from './jobs/SosMonitor';
 import { backfillRouteLines } from './jobs/backfillRouteLines';
@@ -116,6 +117,7 @@ async function bootstrap(): Promise<void> {
     SosMonitor.start();
     // Scheduled admin report emails (UC-A06)
     ReportScheduler.start();
+    InvoiceScheduler.start();
     // Admins' alert rules: dashboard, email and SMS (UC-A02)
     AlertMonitor.start();
 
@@ -147,6 +149,7 @@ async function shutdown(signal: string): Promise<void> {
       BookingSweeper.stop();
       RideCheckInService.stop();
       ReportScheduler.stop();
+      InvoiceScheduler.stop();
       AlertMonitor.stop();
 
       // Close Socket.io connections

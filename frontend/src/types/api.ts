@@ -335,7 +335,8 @@ export interface Impact {
 /** GET /users/me/work (UC-C02): the user's company programme, or a work email waiting to be confirmed */
 export interface WorkStatus {
   work: {
-    organisation: { _id: string; name: string; active: boolean };
+    /** contributionPaused: a bill is more than 30 days unpaid, so the company pays nothing for now (UC-C03) */
+    organisation: { _id: string; name: string; active: boolean; contributionPaused?: boolean };
     email: string;
     since: string;
     /** What the company pays towards fares (UC-C01), or null when it pays nothing */

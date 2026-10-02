@@ -115,6 +115,7 @@ export function WorkScreen() {
             ) : (
               <Text style={{ color: c.textSec }}>{t('work.paysNothing', { company: status.work.organisation.name })}</Text>
             )}
+            {status.work.organisation.contributionPaused ? <Text style={{ color: c.warning }}>{t('work.paused', { company: status.work.organisation.name })}</Text> : null}
             {!status.work.organisation.active ? <Text style={{ color: c.warning }}>{t('work.suspended')}</Text> : null}
             <Pressable onPress={leave} disabled={busy} accessibilityRole="button" style={s.link}>
               <Text style={{ color: c.error, fontWeight: '600' }}>{t('work.leave')}</Text>

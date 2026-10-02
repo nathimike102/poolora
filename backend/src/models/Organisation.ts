@@ -29,6 +29,8 @@ export interface IOrganisation extends Document {
     /** Trips that start or end within a site's radius are eligible */
     sites: Array<{ name: string; address: string; location: { type: 'Point'; coordinates: [number, number] }; radiusKm: number }>;
   };
+  /** Set while a bill is more than 30 days unpaid: the company's contribution pauses (UC-C03 3a) */
+  billingHold?: { invoice: Types.ObjectId; since: Date };
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -62,6 +64,10 @@ const OrganisationSchema = new Schema<IOrganisation>(
         }],
         default: [],
       },
+    },
+    billingHold: {
+      type: new Schema({ invoice: { type: Schema.Types.ObjectId, ref: 'CompanyInvoice', required: true }, since: { type: Date, required: true } }, { _id: false }),
+      default: undefined,
     },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },

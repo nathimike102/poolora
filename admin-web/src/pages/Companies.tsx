@@ -16,6 +16,120 @@ interface Company {
   createdAt: string;
   members?: number;
   policy: Policy;
+  billingHold?: { invoice: string; since: string } | null;
+}
+
+interface Bill {
+  _id: string;
+  month: string;
+  number: string;
+  trips: number;
+  members: number;
+  amount: number;
+  adjustments: Array<{ amount: number; reason: string; at: string }>;
+  total: number;
+  status: 'issued' | 'paid';
+  overdue: boolean;
+  issuedAt: string;
+  dueAt: string;
+  emailedAt?: string;
+  emailError?: string;
+  paidAt?: string;
+  paidReference?: string;
+}
+
+const monthName = (m: string) => new Date(`${m}-15T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+/** The company's monthly bills (UC-C03): download, record payment, adjust before payment */
+function Bills({ companyId, onChange }: { companyId: string; onChange: () => void }) {
+  const { data, error, loading, reload } = useApi<{ invoices: Bill[] }>(`/admin/organisations/${companyId}/invoices`);
+  const [paying, setPaying] = useState<Bill | null>(null);
+  const [adjusting, setAdjusting] = useState<Bill | null>(null);
+  const [billing, setBilling] = useState(false);
+  const [text, setText] = useState('');
+  const [amount, setAmount] = useState('');
+  useEffect(() => { setText(''); setAmount(''); }, [paying, adjusting]);
+  const refresh = () => { reload(); onChange(); };
+
+  return (
+    <section className="stack">
+      <div className="spread">
+        <h2 className="section-label">Bills</h2>
+        <button className="btn" onClick={() => setBilling(true)}>Bill last month now</button>
+      </div>
+      <p className="faint" style={{ margin: 0 }}>Bills go out by email on the 1st for the company's share of completed trips, payable by bank transfer within 30 days. A bill more than 30 days unpaid pauses the company's contribution until it is paid.</p>
+      <ErrorBox error={error} onRetry={reload} />
+      {loading && !data ? <Loading /> : null}
+      {data && !data.invoices.length ? <Empty>No bills yet.</Empty> : null}
+      {data?.invoices.map((b) => (
+        <div key={b._id} className="card stack" style={{ gap: 6 }}>
+          <div className="spread">
+            <strong>{monthName(b.month)}: {money(b.total)}</strong>
+            <Badge tone={b.status === 'paid' ? 'good' : b.overdue ? 'danger' : 'warn'}>{b.status === 'paid' ? 'Paid' : b.overdue ? 'Overdue' : 'Waiting for payment'}</Badge>
+          </div>
+          <div className="faint">
+            {b.number}. {b.trips} trip{b.trips === 1 ? '' : 's'} by {b.members} member{b.members === 1 ? '' : 's'}. Issued {when(b.issuedAt)}, due {when(b.dueAt)}.
+            {b.emailedAt ? ` Emailed ${when(b.emailedAt)}.` : b.emailError ? ` Not emailed yet: ${b.emailError}.` : ' Not emailed yet.'}
+            {b.paidAt ? ` Paid ${when(b.paidAt)}, reference ${b.paidReference}.` : ''}
+          </div>
+          {b.adjustments.map((a, i) => <div key={i} className="faint">Adjustment {a.amount < 0 ? '−' : '+'}{money(Math.abs(a.amount))}: {a.reason}</div>)}
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn" onClick={() => api.download(`/admin/invoices/${b._id}/file?format=pdf`, `${b.number}.pdf`)}>PDF</button>
+            <button className="btn" onClick={() => api.download(`/admin/invoices/${b._id}/file?format=xlsx`, `${b.number}.xlsx`)}>Spreadsheet</button>
+            {b.status === 'issued' ? (
+              <>
+                <button className="btn primary" onClick={() => setPaying(b)}>Record payment</button>
+                <button className="btn" onClick={() => setAdjusting(b)}>Adjust</button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ))}
+
+      <ActionDialog
+        open={billing}
+        title="Bill last month now"
+        confirmLabel="Issue and email the bill"
+        tone="primary"
+        canConfirm
+        onConfirm={() => api.post(`/admin/organisations/${companyId}/invoices`).then(refresh)}
+        onClose={() => setBilling(false)}
+      >
+        <p style={{ margin: 0 }}>Issues last month's bill for trips not billed yet and emails it to the billing contact, instead of waiting for the 1st. Nothing is billed twice.</p>
+      </ActionDialog>
+
+      <ActionDialog
+        open={paying !== null}
+        title={`Record payment of ${paying ? money(paying.total) : ''}`}
+        confirmLabel="Mark as paid"
+        tone="primary"
+        canConfirm={text.trim().length >= 3}
+        onConfirm={() => api.post(`/admin/invoices/${paying!._id}/paid`, { reference: text.trim() }).then(refresh)}
+        onClose={() => setPaying(null)}
+      >
+        <Field label="Bank transfer reference">
+          <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="CBZ-TRF-0001" />
+        </Field>
+      </ActionDialog>
+
+      <ActionDialog
+        open={adjusting !== null}
+        title={`Adjust ${adjusting?.number ?? ''}`}
+        confirmLabel="Save adjustment"
+        tone="primary"
+        canConfirm={Number(amount) !== 0 && Number.isFinite(Number(amount)) && text.trim().length >= 5}
+        onConfirm={() => api.post(`/admin/invoices/${adjusting!._id}/adjust`, { amount: Number(amount), reason: text.trim() }).then(refresh)}
+        onClose={() => setAdjusting(null)}
+      >
+        <Field label="Amount in US$ (negative to take off, e.g. -5)">
+          <input className="input" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </Field>
+        <Field label="Why (shown on the bill)">
+          <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Refund after a dispute on a trip" />
+        </Field>
+      </ActionDialog>
+    </section>
+  );
 }
 
 interface Site { name: string; address: string; radiusKm: number; lat?: number; lng?: number }
@@ -203,6 +317,7 @@ export function CompanyDetailPage() {
             Billing: {c.billingContact.name}, {c.billingContact.email}{c.billingContact.phone ? `, ${c.billingContact.phone}` : ''}. Set up {when(c.createdAt)}.
           </div>
           {c.status === 'suspended' ? <p className="faint" style={{ margin: 0 }}>Suspended: nobody new can join, and members get none of the programme's benefits.</p> : null}
+          {c.billingHold ? <p style={{ margin: 0 }}><Badge tone="danger">Contribution paused</Badge> A bill is more than 30 days unpaid (since {when(c.billingHold.since)}). Staff pay full fares until it is paid.</p> : null}
           {c.notes ? <p style={{ margin: 0 }}>{c.notes}</p> : null}
         </div>
       ) : null}
@@ -220,6 +335,8 @@ export function CompanyDetailPage() {
           </div>
         </section>
       ) : null}
+
+      {c ? <Bills companyId={c._id} onChange={reload} /> : null}
 
       {data ? (
         <section className="stack">

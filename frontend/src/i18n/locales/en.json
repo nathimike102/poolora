@@ -2074,6 +2074,7 @@
     "tripsAll": "trips",
     "capUsed": "This month: {{used}} of {{cap}}.",
     "noCap": "No monthly limit.",
-    "paysNothing": "{{company}} does not pay towards fares yet."
+    "paysNothing": "{{company}} does not pay towards fares yet.",
+    "paused": "{{company}}'s contribution is paused for now, so you pay the full fare. It starts again once the company's bill is settled."
   }
 }

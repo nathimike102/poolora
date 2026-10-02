@@ -31,6 +31,7 @@ import { SupportService } from '../services/SupportService';
 import { WithdrawalService } from '../services/WithdrawalService';
 import { AppError } from '../utils/AppError';
 import { OrganisationService } from '../services/OrganisationService';
+import { InvoiceService } from '../services/InvoiceService';
 
 const overview = new AdminOverviewService();
 const analytics = new ProductAnalyticsService();
@@ -50,6 +51,7 @@ const ratings = new RatingService();
 const support = new SupportService();
 const withdrawals = new WithdrawalService();
 const organisations = new OrganisationService();
+const invoices = new InvoiceService();
 
 type Handler = (req: Request, adminId: string) => Promise<unknown>;
 
@@ -191,6 +193,22 @@ export const AdminWebController = {
   organisation: handle((req) => organisations.get(id(req))),
   createOrganisation: handle((req, admin) => organisations.create(req.body ?? {}, admin)),
   updateOrganisation: handle((req, admin) => organisations.update(id(req), req.body ?? {}, admin)),
+  invoices: handle((req) => invoices.list(id(req))),
+  billNow: handle((req, admin) => invoices.billNow(id(req), admin)),
+  invoice: handle((req) => invoices.get(id(req))),
+  invoicePaid: handle((req, admin) => invoices.markPaid(id(req), admin, req.body?.reference)),
+  adjustInvoice: handle((req, admin) => invoices.adjust(id(req), admin, req.body?.amount, req.body?.reason)),
+  /** The bill as a PDF or spreadsheet: ?format=pdf (default) or xlsx */
+  invoiceFile: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const file = await invoices.file(id(req), queryString(req, 'format') === 'xlsx' ? 'xlsx' : 'pdf');
+      res.setHeader('Content-Type', file.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+      res.status(200).send(file.body);
+    } catch (error) {
+      next(error);
+    }
+  },
   removeOrganisationMember: handle((req, admin) => organisations.removeMember(id(req), id(req, 'userId'), admin, req.body?.reason ?? queryString(req, 'reason'))),
 
   // ── Parcel claims (UC-P05) ─────────────────────────────────────────────

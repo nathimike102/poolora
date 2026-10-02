@@ -75,6 +75,8 @@ export interface IBooking extends Document {
   organisation?: Types.ObjectId;
   /** The month the company's contribution counts against its cap, YYYY-MM in market time */
   companyMonth?: string;
+  /** The company bill this booking's share is on (UC-C03); a trip completed after its month was billed goes on the next one */
+  companyInvoice?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -149,6 +151,7 @@ const BookingSchema = new Schema<IBooking>(
     companyShare: { type: Number, min: 0 },
     organisation: { type: Schema.Types.ObjectId, ref: 'Organisation' },
     companyMonth: { type: String },
+    companyInvoice: { type: Schema.Types.ObjectId, ref: 'CompanyInvoice' },
   },
   {
     timestamps: true,
