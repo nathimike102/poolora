@@ -7,6 +7,8 @@ describe('redactUrl', () => {
     ['/track/contact/abc123', '/track/contact/[redacted]'],
     ['/payments/paynow/return?ref=B1&hash=ABCDEF', '/payments/paynow/return?ref=B1&hash=[redacted]'],
     ['/auth/x?token=t1&code=9&page=2', '/auth/x?token=[redacted]&code=[redacted]&page=2'],
+    ['/track/work/0123456789abcdef0123456789abcdef', '/track/work/[redacted]'],
+    ['/api/v1/track/work/0123456789abcdef?x=1', '/api/v1/track/work/[redacted]?x=1'],
   ])('hides the credential in %s', (url, expected) => {
     expect(redactUrl(url)).toBe(expected);
   });
