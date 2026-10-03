@@ -57,7 +57,7 @@ function Bills({ companyId, onChange }: { companyId: string; onChange: () => voi
         <h2 className="section-label">Bills</h2>
         <button className="btn" onClick={() => setBilling(true)}>Bill last month now</button>
       </div>
-      <p className="faint" style={{ margin: 0 }}>Bills go out by email on the 1st for the company's share of completed trips, payable by bank transfer within 30 days. A bill more than 30 days unpaid pauses the company's contribution until it is paid.</p>
+      <p className="faint" style={{ margin: 0 }}>Bills go out by email on the 1st for the company's share of completed trips, payable by bank transfer within 30 days. A bill more than 30 days unpaid pauses the company's contribution to new bookings until it is paid; trips already booked keep theirs.</p>
       <ErrorBox error={error} onRetry={reload} />
       {loading && !data ? <Loading /> : null}
       {data && !data.invoices.length ? <Empty>No bills yet.</Empty> : null}

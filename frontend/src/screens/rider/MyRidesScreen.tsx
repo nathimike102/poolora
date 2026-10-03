@@ -32,6 +32,7 @@ import type { RootStackParamList, RiderTabParamList } from '../../navigation/typ
 import { Icon } from '../../components/Icon';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import { REGION, money } from '../../utils/region';
+import { riderPays } from '../../utils/fares';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 
@@ -83,7 +84,8 @@ function toItem(b: Booking): RideItem {
     to: b.dropoff?.address || i18n.t('myRides.dropPoint'),
     departure: ride?.departureTime ? new Date(ride.departureTime) : null,
     driver: b.driver?.name || i18n.t('myRides.driver'),
-    price: b.finalFare ?? b.estimatedFare ?? 0,
+    // The rider's own part: charges and refunds are on that, not on what a company paid
+    price: riderPays(b),
     status: b.status,
     reason: b.noShow ? i18n.t('myRides.reason.noShow') : b.status === 'rejected' ? i18n.t('myRides.reason.declined') : b.cancellationReason || i18n.t('myRides.reason.cancelled'),
     refunded: b.refundAmount ?? 0,

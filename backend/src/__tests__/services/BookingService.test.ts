@@ -56,6 +56,8 @@ describe('BookingService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // The rider's hold on making one booking at a time is free
+    (User.updateOne as jest.Mock).mockResolvedValue({ modifiedCount: 1 });
     bookingService = new BookingService();
   });
 

@@ -82,6 +82,9 @@ export function cancellationSplit(fare: number, refundRate: number, byPolicy: bo
 /** Wrong pickup codes before only the rider can confirm the pickup */
 export const PICKUP_PIN_MAX_TRIES = 5;
 
+/** How long a rider's booking in progress holds off another one, at most */
+const BOOKING_HOLD_MS = 30_000;
+
 export class BookingService {
   private matchingEngine = new MatchingEngineClient();
 
@@ -106,6 +109,29 @@ export class BookingService {
       /** Catching a bus from the drop (UC-R12) */
       connection?: { departsAt: string | Date };
     },
+  ): Promise<{ booking: IBooking; paidViaWallet: boolean }> {
+    // One booking at a time per rider: the company's monthly cap, the
+    // pending limit and the duplicate check are read before the booking is
+    // written, so two requests at once could both pass them. The hold
+    // expires by itself if the server stops part-way.
+    const until = new Date(Date.now() + BOOKING_HOLD_MS);
+    const held = await User.updateOne(
+      { _id: riderId, $or: [{ bookingHoldUntil: { $exists: false } }, { bookingHoldUntil: { $lt: new Date() } }] },
+      { $set: { bookingHoldUntil: until } },
+    );
+    if (!held.modifiedCount && (await User.exists({ _id: riderId }))) {
+      throw new ConflictError('Another booking of yours is being made. Try again in a moment.');
+    }
+    try {
+      return await this.placeBooking(riderId, data);
+    } finally {
+      if (held.modifiedCount) await User.updateOne({ _id: riderId, bookingHoldUntil: until }, { $unset: { bookingHoldUntil: 1 } });
+    }
+  }
+
+  private async placeBooking(
+    riderId: string,
+    data: Parameters<BookingService['createBooking']>[1],
   ): Promise<{ booking: IBooking; paidViaWallet: boolean }> {
     const ride = await Ride.findById(data.rideId);
     if (!ride) throw new NotFoundError('Ride');

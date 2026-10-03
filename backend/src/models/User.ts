@@ -24,6 +24,8 @@ export interface IUser extends Document {
    * address links sign-ins or makes someone a company admin.
    */
   emailVerifiedAt?: Date;
+  /** Set while a booking of theirs is being made, so two cannot pass the same checks at once */
+  bookingHoldUntil?: Date;
   name: string;
   dateOfBirth?: Date;
   gender?: 'male' | 'female' | 'other';
@@ -220,6 +222,7 @@ const UserSchema = new Schema<IUser>(
       trim: true,
     },
     emailVerifiedAt: { type: Date },
+    bookingHoldUntil: { type: Date, select: false },
     name: { type: String, required: true, trim: true, maxlength: 100 },
     dateOfBirth: Date,
     gender: { type: String, enum: ['male', 'female', 'other'] },

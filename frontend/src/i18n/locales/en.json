@@ -2097,7 +2097,7 @@
     "suspended": "Your company's programme is paused, so its benefits do not apply for now.",
     "leave": "Leave the programme",
     "leaveTitle": "Leave {{company}}?",
-    "leaveBody": "You will no longer see colleagues-only rides, and your company will stop contributing to your fares.",
+    "leaveBody": "You will no longer see colleagues-only rides, and your company will stop contributing to new bookings. Trips you have already booked keep its part.",
     "cancel": "Cancel",
     "notSent": "Not sent",
     "couldNotLoad": "Could not load",

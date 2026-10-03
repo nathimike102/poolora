@@ -157,6 +157,21 @@ describe('when the company pays', () => {
     await Booking.updateOne({ _id: first.booking._id }, { $set: { status: BookingStatus.CANCELLED } });
     expect(await contribution(day)).toMatchObject({ share: 5 });
   });
+
+  it('never goes over the cap when two bookings are made at once', async () => {
+    await setPolicy({ monthlyCapUsd: 6 });
+    const day = next(2);
+    const [a, b] = [await ride(day), await ride(day)];
+    const results = await Promise.allSettled([book(a), book(b)]);
+    const made = results.filter((r) => r.status === 'fulfilled');
+    // Either the second waits its turn and is refused, or it comes after and gets what is left
+    for (const r of results) if (r.status === 'rejected') expect(r.reason).toMatchObject({ statusCode: 409 });
+    const shares = await Booking.find({ rider: riderId }).lean();
+    expect(shares.reduce((sum, x) => sum + (x.companyShare ?? 0), 0)).toBeLessThanOrEqual(6);
+    expect(made.length).toBeGreaterThanOrEqual(1);
+    // The hold is let go either way
+    expect(await book(await ride(day))).toBeTruthy();
+  });
 });
 
 describe('what the rider pays', () => {

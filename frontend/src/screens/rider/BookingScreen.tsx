@@ -33,6 +33,7 @@ import { Icon } from '../../components/Icon';
 import type { BookingQuote, Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { money, REGION } from '../../utils/region';
+import { riderPays } from '../../utils/fares';
 import { useTranslation } from 'react-i18next';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Booking'>;
@@ -64,6 +65,7 @@ export function BookingScreen(): React.ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [walletBooked, setWalletBooked] = useState(false);
+  const [paidAmount, setPaidAmount] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(false);
@@ -157,13 +159,17 @@ export function BookingScreen(): React.ReactElement {
         connection: atTerminus && busAt ? { departsAt: busAt.toISOString() } : undefined,
       });
 
+      // The booking says what the rider is charged: the quote may have come
+      // late, or the company's part changed (cap used up, paused) since
+      const charged = riderPays(result.booking);
       if (result.paidViaWallet) {
+        setPaidAmount(charged);
         setWalletBooked(true);
         return;
       }
       navigation.replace('Payment', {
         bookingId: result.booking._id,
-        amount: youPay,
+        amount: charged,
         summary: t('booking.summary', { from: boardAt.address || t('booking.pickup'), to: leaveAt.address || t('booking.dropLower'), seats: seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats }) }),
       });
     } catch (error) {
@@ -171,7 +177,7 @@ export function BookingScreen(): React.ReactElement {
     } finally {
       setIsSubmitting(false);
     }
-  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, youPay, atTerminus, busAt, t]);
+  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, atTerminus, busAt, t]);
 
   // ── Booked with wallet ──────────────────────────────────────────
   if (walletBooked) {
@@ -184,7 +190,7 @@ export function BookingScreen(): React.ReactElement {
           {t('booking.sent')}
         </Text>
         <Text style={[styles.confirmedSub, { color: c.textSec }]}>
-          {t('booking.paidFromWallet', { amount: money(youPay) })}
+          {t('booking.paidFromWallet', { amount: money(paidAmount ?? youPay) })}
         </Text>
         <Pressable
           onPress={() => navigation.navigate('RiderTabs', { screen: 'MyRides' })}

@@ -67,7 +67,7 @@ function OverviewPage({ company }: { company?: Company }) {
     <div className="stack">
       <PageHead title={company ? company.name : 'Overview'} sub={data ? `${monthName(data.month)} so far` : undefined} />
       {company?.contributionPaused ? (
-        <div className="card"><Badge tone="danger">Contribution paused</Badge> A bill is more than 30 days unpaid, so staff pay full fares until it is settled. See Bills.</div>
+        <div className="card"><Badge tone="danger">Contribution paused</Badge> A bill is more than 30 days unpaid, so new bookings are at full fare until it is settled; trips already booked keep the company's part. See Bills.</div>
       ) : null}
       <ErrorBox error={error} onRetry={reload} />
       {loading && !data ? <Loading /> : null}
@@ -101,7 +101,7 @@ function StaffPage() {
   const [removing, setRemoving] = useState<Member | null>(null);
   return (
     <div className="stack">
-      <PageHead title="Staff" sub="People who confirmed a work email. Remove anyone who has left, and they stop getting the company's contribution." />
+      <PageHead title="Staff" sub="People who confirmed a work email. Remove anyone who has left, and their new bookings no longer get the company's contribution. Trips they already booked keep it and are on the bill." />
       <ErrorBox error={error} onRetry={reload} />
       {loading && !data ? <Loading /> : null}
       {data && !data.members.length ? <Empty>Nobody has joined yet. Staff join from Profile, Work in the Poolora app.</Empty> : null}
@@ -133,7 +133,7 @@ function StaffPage() {
         onConfirm={() => api.del(`/company/members/${removing!._id}`).then(reload)}
         onClose={() => setRemoving(null)}
       >
-        <p style={{ margin: 0 }}>They keep their Poolora account, but no longer see colleagues-only rides or get the company's contribution.</p>
+        <p style={{ margin: 0 }}>They keep their Poolora account, but no longer see colleagues-only rides or get the company's contribution on new bookings. Trips they have already booked keep it, at the price they were given, and are billed when they complete.</p>
       </ActionDialog>
     </div>
   );

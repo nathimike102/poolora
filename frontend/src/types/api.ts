@@ -391,6 +391,8 @@ export interface Booking {
   /** 0-100 route and schedule match computed when the booking was made */
   matchScore?: number;
   estimatedFare?: number;
+  /** What the rider's company pays of the fare (UC-C01); the rider pays the rest */
+  companyShare?: number;
   cancellationReason?: string;
   /** Set by the backend when the booking is completed */
   driverEarnings?: number;
