@@ -155,6 +155,8 @@ export function SOSScreen() {
   const [soundOnly, setSoundOnly] = useState(false);
   const [recordingNow, setRecordingNow] = useState(false);
   const videoSession = useRef<SosVideoSession | null>(null);
+  // False once the camera should be off: a camera still starting is stopped as soon as it is on
+  const cameraWanted = useRef(false);
   const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseScale = useSharedValue(1);
 
@@ -320,17 +322,25 @@ export function SOSScreen() {
   const startCamera = async () => {
     if (!emergency || camera !== 'off') return;
     setCamera('starting');
+    cameraWanted.current = true;
     try {
       const session = await startSosVideo(emergency._id, !recordAudio, video.recorded, () => {
         videoSession.current = null;
+        cameraWanted.current = false;
         setCamera('off');
       });
+      // The screen was left, or the SOS closed, while it started
+      if (!cameraWanted.current) {
+        await session.stop();
+        return;
+      }
       videoSession.current = session;
       setRecordingNow(session.recording);
       setSoundOnly(false);
       setCamera('live');
       refresh();
     } catch (error) {
+      cameraWanted.current = false;
       setCamera('off');
       if (error instanceof SosVideoUnsupported) Alert.alert(t('sos.video.updateTitle'), error.message);
       else Alert.alert(t('sos.video.failedTitle'), t('sos.video.failedBody', { message: errorHandler.process(error).message, number: REGION.emergency.general }));
@@ -339,6 +349,7 @@ export function SOSScreen() {
   const stopCamera = async () => {
     const session = videoSession.current;
     videoSession.current = null;
+    cameraWanted.current = false;
     setCamera('off');
     await session?.stop();
     refresh();
@@ -350,11 +361,13 @@ export function SOSScreen() {
   };
   useEffect(() => {
     if (open) return;
+    cameraWanted.current = false;
     videoSession.current?.stop();
     videoSession.current = null;
     setCamera('off');
   }, [open]);
   useEffect(() => () => {
+    cameraWanted.current = false;
     videoSession.current?.stop();
   }, []);
   // Asked for video: the phone buzzes, without a sound

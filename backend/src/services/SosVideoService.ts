@@ -11,7 +11,8 @@
  * - Recorded with the incident's evidence (sos/<id>/) only when the platform
  *   setting is on, and the phone says so before the camera comes on. The
  *   setting stays off until legal advice allows recording in the car.
- * - The video ends when the person stops it or the SOS closes.
+ * - The video ends when the person stops it, their phone drops out of it
+ *   for good (LiveKit's webhook), or the SOS closes.
  */
 
 import { EmergencyRecord, IEmergencyRecord } from '../models/EmergencyRecord';
@@ -23,7 +24,7 @@ import { config } from '../config';
 import { phrase } from '../i18n';
 import { audit } from './AuditService';
 import { pageSafetyTeam, tellUser } from './SafetyAlerts';
-import { closeRoom, joinPass, recordingAvailable, roomFor, startRecording, stopRecording, videoAvailable } from './LiveVideo';
+import { closeRoom, inRoom, joinPass, recordingAvailable, roomFor, startRecording, stopRecording, videoAvailable } from './LiveVideo';
 
 const OPEN = [SOSStatus.TRIGGERED, SOSStatus.ACKNOWLEDGED];
 
@@ -86,22 +87,22 @@ export class SosVideoService {
 
     const user = await User.findById(userId).select('name').lean();
     const room = roomFor(emergencyId);
-    const pass = await joinPass(room, `user:${userId}`, user?.name ?? 'Person in danger', 'sender').catch(() => {
+    const { roomSid, ...pass } = await joinPass(room, `user:${userId}`, user?.name ?? 'Person in danger', 'sender').catch(() => {
       throw unavailable();
     });
-    // A camera turned on again while a recording runs keeps that recording,
-    // unless this screen said it would not be: then the recording stops
-    const running = live(record) && record.video?.egressId ? record.video.egressId : undefined;
-    const recording = toldRecorded && (running ? Boolean(record.video?.recording) : recordingAvailable());
-    if (running && !recording && running !== 'starting') await stopRecording(running);
+    // Turned on again (the app was closed or crashed): a recording of the
+    // earlier camera ends with it, and this one gets its own if it is recorded
+    const running = live(record) ? record.video?.egressId : undefined;
+    if (running && running !== 'starting') await stopRecording(running);
+    const recording = toldRecorded && recordingAvailable();
     const now = new Date();
     record.video = {
       room,
+      roomSid,
       requestedAt: record.video?.requestedAt,
       requestedBy: record.video?.requestedBy,
       startedAt: now,
       recording,
-      egressId: recording ? running : undefined,
     };
     record.timeline.push({ event: 'Turned on the camera', timestamp: now, details: recording ? 'Recorded with the incident' : 'Live only, not recorded' });
     await record.save();
@@ -168,11 +169,11 @@ export class SosVideoService {
     const record = await this.openRecord(emergencyId);
     const admin = await User.findById(adminId).select('name').lean();
     const room = roomFor(emergencyId);
-    const pass = await joinPass(room, `admin:${adminId}`, admin?.name ?? 'Safety team', 'watcher').catch(() => {
+    const { url, token } = await joinPass(room, `admin:${adminId}`, admin?.name ?? 'Safety team', 'watcher').catch(() => {
       throw unavailable();
     });
     await audit(adminId, 'sos.video.watch', 'sos', emergencyId);
-    return { ...pass, room, live: live(record), recording: Boolean(record.video?.recording) };
+    return { url, token, room, live: live(record), recording: Boolean(record.video?.recording) };
   }
 }
 
@@ -190,20 +191,72 @@ async function end(record: IEmergencyRecord, event: string): Promise<void> {
   published(String(record._id));
 }
 
+/** How long a phone that dropped out has to come back before its video ends */
+export const PHONE_GRACE_MS = 30_000;
+
+const sosIdOf = (room: string) => /^sos-([a-f0-9]{24})$/.exec(room)?.[1];
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms).unref?.());
+
 /**
  * LiveKit says someone left an SOS room. When it is the phone of the person
- * who raised it (the app closed, crashed or lost its signal for good), the
- * video has ended, so the team no longer sees "Camera on". A phone that left
- * an earlier video, before the camera was turned on again, changes nothing.
+ * who raised it (the app closed, crashed or lost its signal), the video has
+ * ended unless the phone comes back within the grace period, as it does
+ * after a short loss of signal. Then the team no longer sees "Camera on". A
+ * phone leaving an earlier video, before the camera was turned on again,
+ * changes nothing.
  */
-export async function phoneLeftRoom(room: string, identity: string, joinedAt: Date | null): Promise<void> {
-  const match = /^sos-([a-f0-9]{24})$/.exec(room);
-  if (!match || !identity.startsWith('user:')) return;
-  const record = await EmergencyRecord.findById(match[1]);
+export async function phoneLeftRoom(room: string, identity: string, joinedAt: Date | null, graceMs = PHONE_GRACE_MS): Promise<void> {
+  const id = sosIdOf(room);
+  if (!id || !identity.startsWith('user:')) return;
+  const record = await EmergencyRecord.findById(id);
   if (!record || !live(record) || `user:${String(record.triggeredBy)}` !== identity) return;
   // The camera's start is set just before the phone joins (a second's slack for clocks in whole seconds)
-  if (joinedAt && record.video?.startedAt && joinedAt.getTime() < record.video.startedAt.getTime() - 1000) return;
-  await end(record, 'Camera stopped: the phone left the video');
+  const startedAt = record.video!.startedAt!;
+  if (joinedAt && joinedAt.getTime() < startedAt.getTime() - 1000) return;
+
+  await wait(graceMs);
+  if (await inRoom(room, identity)) return;
+  const now = await EmergencyRecord.findById(id);
+  // Turned off, ended or turned on again meanwhile
+  if (!now || !live(now) || now.video!.startedAt!.getTime() !== startedAt.getTime()) return;
+  await end(now, 'Camera stopped: the phone left the video');
+}
+
+/**
+ * LiveKit closed an SOS room because nobody was left in it, for instance
+ * when the phone never managed to join. A video still shown as on has ended.
+ * Only this video's own room counts, not one closed before it was turned on again.
+ */
+export async function videoRoomClosed(room: string, roomSid: string): Promise<void> {
+  const id = sosIdOf(room);
+  if (!id) return;
+  const record = await EmergencyRecord.findById(id);
+  if (!record || !live(record) || !roomSid || record.video?.roomSid !== roomSid) return;
+  await end(record, 'Video ended: nobody was left in it');
+}
+
+/**
+ * LiveKit finished a recording. If it failed and wrote nothing, its file is
+ * taken off the incident's evidence, and the team sees that this video is
+ * not being recorded. Either way a later recording can start.
+ */
+export async function recordingEnded(info: { room: string; egressId: string; failed: boolean; file?: string; error?: string }): Promise<void> {
+  const id = sosIdOf(info.room);
+  if (!id) return;
+  const now = new Date();
+  if (info.failed && info.file) {
+    await EmergencyRecord.updateOne({ _id: id }, { $pull: { videoRecordingUrls: `s3://${config.aws.s3Bucket}/${info.file}` } });
+  }
+  const current = await EmergencyRecord.updateOne(
+    { _id: id, 'video.egressId': info.egressId },
+    {
+      $unset: { 'video.egressId': 1 },
+      ...(info.failed
+        ? { $set: { 'video.recording': false }, $push: { timeline: { event: 'Video could not be recorded', timestamp: now, details: info.error || 'It is still live to the safety team' } } }
+        : {}),
+    },
+  );
+  if (current.modifiedCount || info.failed) published(id);
 }
 
 /** Called when an SOS closes, however it closes. */

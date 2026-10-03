@@ -37,6 +37,8 @@ export interface IEmergencyRecord extends Document {
    */
   video?: {
     room: string;
+    /** LiveKit's id for this video's room, so events about an earlier room are ignored */
+    roomSid?: string;
     requestedAt?: Date;
     requestedBy?: Types.ObjectId;
     /** The phone's camera came on (the latest time, if turned on again) */
@@ -131,6 +133,7 @@ const EmergencyRecordSchema = new Schema<IEmergencyRecord>(
       type: new Schema(
         {
           room: { type: String, required: true },
+          roomSid: String,
           requestedAt: Date,
           requestedBy: { type: Schema.Types.ObjectId, ref: 'User' },
           startedAt: Date,

@@ -60,24 +60,30 @@ export async function startSosVideo(emergencyId: string, withSound: boolean, tol
     videoCaptureDefaults: { resolution: preset.resolution, facingMode: facing },
     publishDefaults: { videoEncoding: preset.encoding, simulcast: false },
   });
+  // LiveKit's audio session only with sound: on iOS, ending it would stop
+  // the SOS audio recording that has the microphone instead
+  const audioOff = () => (withSound ? native.AudioSession.stopAudioSession().catch(() => undefined) : Promise.resolve());
+  const tellStopped = () => apiClient.post(API_ENDPOINTS.safety.sosVideoStop(emergencyId)).catch(() => undefined);
   let stopping = false;
   room.on(client.RoomEvent.Disconnected, () => {
     if (stopping) return;
     // Dropped for good: tell the server if it can be reached (LiveKit tells it otherwise)
-    native.AudioSession.stopAudioSession().catch(() => undefined);
-    apiClient.post(API_ENDPOINTS.safety.sosVideoStop(emergencyId)).catch(() => undefined);
+    audioOff();
+    tellStopped();
     onEnded();
   });
 
-  await native.AudioSession.startAudioSession();
   try {
+    if (withSound) await native.AudioSession.startAudioSession();
     await room.connect(pass.url, pass.token);
     await room.localParticipant.setCameraEnabled(true);
     if (withSound) await room.localParticipant.setMicrophoneEnabled(true);
   } catch (error) {
     stopping = true;
     await room.disconnect().catch(() => undefined);
-    await native.AudioSession.stopAudioSession().catch(() => undefined);
+    await audioOff();
+    // The server already shows the camera as on to the safety team
+    await tellStopped();
     throw error;
   }
 
@@ -106,8 +112,8 @@ export async function startSosVideo(emergencyId: string, withSound: boolean, tol
     async stop() {
       stopping = true;
       await room.disconnect().catch(() => undefined);
-      await native.AudioSession.stopAudioSession().catch(() => undefined);
-      await apiClient.post(API_ENDPOINTS.safety.sosVideoStop(emergencyId)).catch(() => undefined);
+      await audioOff();
+      await tellStopped();
     },
   };
 }

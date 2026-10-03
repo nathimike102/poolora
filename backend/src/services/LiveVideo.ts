@@ -59,16 +59,30 @@ function apiHost(): string {
 
 export const roomFor = (emergencyId: string) => `sos-${emergencyId}`;
 
-/** Creates the incident's room (or finds it) and returns a pass for one person. */
-export async function joinPass(room: string, identity: string, name: string, role: VideoRole): Promise<{ url: string; token: string }> {
+/**
+ * Creates the incident's room (or finds it) and returns a pass for one
+ * person, and the room's own id (a room closed and made again has a new one).
+ */
+export async function joinPass(room: string, identity: string, name: string, role: VideoRole): Promise<{ url: string; token: string; roomSid: string }> {
   const v = video();
-  await new RoomServiceClient(apiHost(), v.apiKey, v.apiSecret)
+  const created = await new RoomServiceClient(apiHost(), v.apiKey, v.apiSecret)
     .createRoom({ name: room, emptyTimeout: EMPTY_ROOM_SECONDS, maxParticipants: 12 });
   const pass = new AccessToken(v.apiKey, v.apiSecret, { identity, name, ttl: PASS_TTL });
   pass.addGrant(role === 'sender'
     ? { room, roomJoin: true, canPublish: true, canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE], canSubscribe: false, canPublishData: false }
     : { room, roomJoin: true, canPublish: false, canSubscribe: true, canPublishData: false, hidden: true });
-  return { url: v.url, token: await pass.toJwt() };
+  return { url: v.url, token: await pass.toJwt(), roomSid: created.sid };
+}
+
+/** Whether someone is in the room now (false if LiveKit cannot say) */
+export async function inRoom(room: string, identity: string): Promise<boolean> {
+  const v = video();
+  try {
+    await new RoomServiceClient(apiHost(), v.apiKey, v.apiSecret).getParticipant(room, identity);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

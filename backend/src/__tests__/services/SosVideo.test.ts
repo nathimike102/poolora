@@ -6,12 +6,13 @@
 import mongoose, { Types } from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
-const mockLive = { available: true, recording: false, egress: 'EG_1' as string | null };
+const mockLive = { available: true, recording: false, egress: 'EG_1' as string | null, roomSid: 'RM_1', present: false };
 jest.mock('../../services/LiveVideo', () => ({
   videoAvailable: () => mockLive.available,
   recordingAvailable: () => mockLive.recording,
   roomFor: (id: string) => `sos-${id}`,
-  joinPass: jest.fn(async (_room: string, identity: string, _name: string, role: string) => ({ url: 'wss://poolora.livekit.cloud', token: `${role}:${identity}` })),
+  joinPass: jest.fn(async (_room: string, identity: string, _name: string, role: string) => ({ url: 'wss://poolora.livekit.cloud', token: `${role}:${identity}`, roomSid: mockLive.roomSid })),
+  inRoom: jest.fn(async () => mockLive.present),
   startRecording: jest.fn(async () => mockLive.egress),
   stopRecording: jest.fn(async () => undefined),
   closeRoom: jest.fn(async () => undefined),
@@ -31,7 +32,7 @@ import { config } from '../../config';
 import { AdminAuditLog } from '../../models/AdminAuditLog';
 import { EmergencyRecord } from '../../models/EmergencyRecord';
 import { User } from '../../models/User';
-import { phoneLeftRoom, SosVideoService } from '../../services/SosVideoService';
+import { phoneLeftRoom, recordingEnded, SosVideoService, videoRoomClosed } from '../../services/SosVideoService';
 import { SafetyService } from '../../services/SafetyService';
 import { SOSStatus } from '../../types';
 
@@ -59,7 +60,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   jest.clearAllMocks();
-  Object.assign(mockLive, { available: true, recording: false, egress: 'EG_1' });
+  Object.assign(mockLive, { available: true, recording: false, egress: 'EG_1', roomSid: 'RM_1', present: false });
   await Promise.all([EmergencyRecord.deleteMany({}), User.deleteMany({}), AdminAuditLog.deleteMany({})]);
   await User.collection.insertMany([
     { _id: rudo, name: 'Rudo Moyo', phone: '+263771000001', capabilities: ['rider'], stats: {} },
@@ -142,6 +143,19 @@ describe('turning the camera on', () => {
     expect(mocked(LiveVideo.startRecording)).toHaveBeenCalledTimes(1);
   });
 
+  it('gives a camera turned on again its own recording, ending the earlier one', async () => {
+    mockLive.recording = true;
+    await video.start(sosId, rudo.toString(), true);
+    await video.sending(sosId, rudo.toString());
+    mockLive.egress = 'EG_2';
+    expect((await video.start(sosId, rudo.toString(), true)).recording).toBe(true);
+    expect(mocked(LiveVideo.stopRecording)).toHaveBeenCalledWith('EG_1');
+    expect(await video.sending(sosId, rudo.toString())).toEqual({ recording: true });
+    const record = await EmergencyRecord.findById(sosId).lean();
+    expect(record?.video?.egressId).toBe('EG_2');
+    expect(record?.videoRecordingUrls).toHaveLength(2);
+  });
+
   it('drops a recording that starts after the camera came on again as "not recorded"', async () => {
     mockLive.recording = true;
     await video.start(sosId, rudo.toString(), true);
@@ -170,6 +184,41 @@ describe('watching', () => {
   });
 });
 
+describe('when a recording ends by itself', () => {
+  async function recordedVideo() {
+    mockLive.recording = true;
+    await video.start(sosId, rudo.toString(), true);
+    await video.sending(sosId, rudo.toString());
+    return (await EmergencyRecord.findById(sosId).lean())!.videoRecordingUrls[0];
+  }
+
+  it('takes a failed recording off the evidence and shows the video is not recorded', async () => {
+    const url = await recordedVideo();
+    const file = url.replace('s3://poolora-test/', '');
+    await recordingEnded({ room: `sos-${sosId}`, egressId: 'EG_1', failed: true, file, error: 'S3 access denied' });
+    const record = await EmergencyRecord.findById(sosId).lean();
+    expect(record?.videoRecordingUrls).toEqual([]);
+    expect(record?.video).toMatchObject({ recording: false });
+    expect(record?.video?.egressId).toBeUndefined();
+    expect(record?.timeline.at(-1)).toMatchObject({ event: 'Video could not be recorded', details: 'S3 access denied' });
+  });
+
+  it('keeps a finished recording, and lets a later one start', async () => {
+    const url = await recordedVideo();
+    await recordingEnded({ room: `sos-${sosId}`, egressId: 'EG_1', failed: false, file: url.replace('s3://poolora-test/', '') });
+    const record = await EmergencyRecord.findById(sosId).lean();
+    expect(record?.videoRecordingUrls).toEqual([url]);
+    expect(record?.video).toMatchObject({ recording: true });
+    expect(record?.video?.egressId).toBeUndefined();
+  });
+
+  it('leaves the current recording alone when an earlier one ends', async () => {
+    await recordedVideo();
+    await recordingEnded({ room: `sos-${sosId}`, egressId: 'EG_OLD', failed: false });
+    expect((await EmergencyRecord.findById(sosId).lean())?.video?.egressId).toBe('EG_1');
+  });
+});
+
 describe('ending', () => {
   it('stops the recording and closes the room when the person turns it off', async () => {
     mockLive.recording = true;
@@ -182,17 +231,45 @@ describe('ending', () => {
     expect(await video.stop(sosId, rudo.toString())).toEqual({ stopped: false });
   });
 
-  it('ends when LiveKit says the phone left, but not for an earlier video\'s phone', async () => {
+  it('ends when LiveKit says the phone left and it does not come back, but not for an earlier video\'s phone', async () => {
     await video.start(sosId, rudo.toString());
     const startedAt = (await EmergencyRecord.findById(sosId).lean())!.video!.startedAt!;
-    await phoneLeftRoom(`sos-${sosId}`, `user:${rudo}`, new Date(startedAt.getTime() - 60_000));
-    await phoneLeftRoom(`sos-${sosId}`, `user:${driver}`, new Date());
-    await phoneLeftRoom(`sos-${sosId}`, `admin:${admin}`, new Date());
+    await phoneLeftRoom(`sos-${sosId}`, `user:${rudo}`, new Date(startedAt.getTime() - 60_000), 0);
+    await phoneLeftRoom(`sos-${sosId}`, `user:${driver}`, new Date(), 0);
+    await phoneLeftRoom(`sos-${sosId}`, `admin:${admin}`, new Date(), 0);
     expect((await EmergencyRecord.findById(sosId).lean())?.video?.endedAt).toBeUndefined();
 
-    await phoneLeftRoom(`sos-${sosId}`, `user:${rudo}`, new Date(startedAt.getTime() + 500));
+    await phoneLeftRoom(`sos-${sosId}`, `user:${rudo}`, new Date(startedAt.getTime() + 500), 0);
     expect((await EmergencyRecord.findById(sosId).lean())?.video?.endedAt).toBeInstanceOf(Date);
     expect(await events()).toContain('Camera stopped: the phone left the video');
+  });
+
+  it('stays on when the phone comes back after a short loss of signal', async () => {
+    await video.start(sosId, rudo.toString());
+    mockLive.present = true;
+    await phoneLeftRoom(`sos-${sosId}`, `user:${rudo}`, new Date(), 0);
+    expect((await EmergencyRecord.findById(sosId).lean())?.video?.endedAt).toBeUndefined();
+    expect(mocked(LiveVideo.closeRoom)).not.toHaveBeenCalled();
+  });
+
+  it('stays on when the camera was turned on again during the wait', async () => {
+    await video.start(sosId, rudo.toString());
+    mocked(LiveVideo.inRoom).mockImplementationOnce(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      await video.start(sosId, rudo.toString());
+      return false;
+    });
+    await phoneLeftRoom(`sos-${sosId}`, `user:${rudo}`, new Date(), 0);
+    expect((await EmergencyRecord.findById(sosId).lean())?.video?.endedAt).toBeUndefined();
+  });
+
+  it('ends when LiveKit closes its room empty, but not for an earlier room', async () => {
+    await video.start(sosId, rudo.toString());
+    await videoRoomClosed(`sos-${sosId}`, 'RM_OLD');
+    expect((await EmergencyRecord.findById(sosId).lean())?.video?.endedAt).toBeUndefined();
+    await videoRoomClosed(`sos-${sosId}`, 'RM_1');
+    expect((await EmergencyRecord.findById(sosId).lean())?.video?.endedAt).toBeInstanceOf(Date);
+    expect(await events()).toContain('Video ended: nobody was left in it');
   });
 
   it('ends with the SOS, and a closed SOS cannot be watched', async () => {
