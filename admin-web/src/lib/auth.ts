@@ -25,14 +25,19 @@ export interface AdminUser {
   company?: { _id: string; name: string };
 }
 
-/** A non-admin may still be a company admin; anyone else is refused */
+/**
+ * A non-admin may still be a company admin; anyone else is refused. Only
+ * the server saying so refuses them: a dropped connection is an error to
+ * retry, not a reason to sign a company admin out.
+ */
 async function withCompany(user: AdminUser): Promise<AdminUser | null> {
   if (user.capabilities?.includes('admin')) return user;
   try {
     const { company } = await api.get<{ company: { _id: string; name: string } }>('/company/me');
     return { ...user, company: { _id: company._id, name: company.name } };
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 403 || error.status === 404)) return null;
+    throw error;
   }
 }
 

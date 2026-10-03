@@ -7,7 +7,10 @@
  * complete.
  */
 
-export const round2 = (n: number) => Math.round(n * 100) / 100;
+import { roundMoney } from '../config/region';
+
+/** To the cent, by the same rule as every other amount */
+export const round2 = roundMoney;
 
 export function riderPays(booking: { estimatedFare: number; companyShare?: number }): number {
   return round2(Math.max(0, booking.estimatedFare - (booking.companyShare ?? 0)));

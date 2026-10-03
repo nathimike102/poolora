@@ -392,7 +392,7 @@ export class RideService {
     const scoreByRide = new Map(scores.map((s) => [s.rideId, s]));
 
     // "Works at": only for drivers at the searcher's own company, never their work email
-    const colleagues = await colleaguesOf(currentUser, candidates.map(({ driver }) => driver._id));
+    const colleagues = await colleaguesOf(currentUser, candidates.map(({ driver }) => driver._id), myCompany);
     // Public driver details only: phone numbers are shared after a booking is confirmed
     const items: SearchResultRide[] = candidates.map(({ ride, driver }) => ({
       ...withoutRouteLine(ride),

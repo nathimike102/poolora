@@ -38,7 +38,8 @@ export function globalErrorHandler(
   const respond = (status: number, response: ApiResponse): void => {
     if (response.error) {
       const route = `${req.baseUrl}${req.route?.path ?? ''}` || 'unmatched';
-      recordError(response.error.id, status, route, (req as AuthenticatedRequest).user?.userId);
+      const user = (req as AuthenticatedRequest).user;
+      recordError(response.error.id, status, route, user?.userId, user?.capabilities);
     }
     res.status(status).json(response);
   };

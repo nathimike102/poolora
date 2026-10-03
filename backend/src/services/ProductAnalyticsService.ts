@@ -76,8 +76,10 @@ export function recordActivity(userId: string, capabilities: readonly string[], 
 /**
  * An error a signed-in user was shown (`userId` set), or any server fault.
  * `route` is the route pattern ("/bookings/:id/cancel"), never the real URL.
+ * Admins' errors are left out, as admins are from every other figure.
  */
-export function recordError(errorId: string, status: number, route: string, userId?: string, now = new Date()): void {
+export function recordError(errorId: string, status: number, route: string, userId?: string, capabilities: readonly string[] = [], now = new Date()): void {
+  if (capabilities.includes(UserCapability.ADMIN)) return;
   if (!userId && status < 500) return;
   const redis = getRedisClient();
   if (redis) {
@@ -112,7 +114,7 @@ async function riderOf(bookingId: unknown): Promise<string | undefined> {
 
 /** Domain event → tracking-plan event (docs/ANALYTICS_PLAN.md) */
 export const EVENT_MAP: Record<string, Mapping> = {
-  'user.registered': { name: 'user_signed_up', actor: (d) => str(d.userId), props: () => ({ method: 'phone_otp' }) },
+  'user.registered': { name: 'user_signed_up', actor: (d) => str(d.userId), props: (d) => ({ method: d.provider === 'firebase' ? 'firebase' : 'phone_otp' }) },
   'user.logged_in': { name: 'user_logged_in', actor: (d) => str(d.userId), props: (d) => ({ method: d.provider === 'firebase' ? 'firebase' : 'phone_otp' }) },
   'ride.created': { name: 'ride_published', actor: (d) => str(d.driverId), props: (d) => ({ ride_id: str(d.rideId) }) },
   'booking.created': { name: 'booking_requested', actor: (d) => str(d.riderId), props: (d) => ({ booking_id: str(d.bookingId), ride_id: str(d.rideId) }) },

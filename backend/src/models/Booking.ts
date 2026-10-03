@@ -174,6 +174,9 @@ BookingSchema.pre('validate', function (next) {
 BookingSchema.index({ rider: 1, status: 1 });
 // A company's monthly cap per person (UC-C01)
 BookingSchema.index({ rider: 1, organisation: 1, companyMonth: 1 }, { sparse: true });
+// Company bills (UC-C03): only trips a company paid towards
+BookingSchema.index({ organisation: 1, companyMonth: 1, status: 1 }, { partialFilterExpression: { companyShare: { $gt: 0 } } });
+BookingSchema.index({ companyInvoice: 1 }, { sparse: true });
 BookingSchema.index({ driver: 1, status: 1 });
 BookingSchema.index({ status: 1, createdAt: 1 }); // booking sweeper
 BookingSchema.index(

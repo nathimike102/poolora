@@ -42,7 +42,7 @@ const DOMAIN = /^(?=.{3,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}
 const EMAIL = /^[^\s@]+@([^\s@]+)$/;
 
 const hash = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
-const domainOf = (email: string) => EMAIL.exec(email.trim().toLowerCase())?.[1] ?? null;
+export const domainOf = (email: string) => EMAIL.exec(email.trim().toLowerCase())?.[1] ?? null;
 
 type OrganisationInput = {
   name?: unknown;
@@ -148,9 +148,11 @@ export async function activeOrganisationOf(
 export async function colleaguesOf(
   viewer: string | { _id?: unknown; work?: { organisation?: Types.ObjectId } },
   userIds: Array<string | Types.ObjectId>,
+  /** The viewer's company, when the caller already looked it up */
+  viewerCompany?: { _id: Types.ObjectId; name: string } | null,
 ): Promise<Map<string, string>> {
   const found = new Map<string, string>();
-  const mine = await activeOrganisationOf(viewer);
+  const mine = viewerCompany !== undefined ? viewerCompany : await activeOrganisationOf(viewer);
   if (!mine || !userIds.length) return found;
   const others = await User.find({ _id: { $in: userIds }, 'work.organisation': mine._id }).select('_id').lean();
   for (const o of others) found.set(o._id.toString(), mine.name);

@@ -14,7 +14,7 @@ import { User } from '../../models/User';
 import { Booking } from '../../models/Booking';
 import { Ride } from '../../models/Ride';
 import { UserActivity } from '../../models/UserActivity';
-import { ProductAnalyticsService, EVENT_MAP, localDay, recordActivity, trackDomainEvent } from '../../services/ProductAnalyticsService';
+import { ProductAnalyticsService, EVENT_MAP, localDay, recordActivity, recordError, trackDomainEvent } from '../../services/ProductAnalyticsService';
 
 jest.setTimeout(60_000);
 
@@ -138,6 +138,17 @@ describe('tracking-plan events', () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(capture).toHaveBeenCalledWith(ids.rider.toString(), 'user_signed_up', expect.objectContaining({ method: 'phone_otp' }));
     expect(JSON.stringify(capture.mock.calls)).not.toContain('+263771234567');
+  });
+
+  it('tags a sign-up through Firebase as one, and leaves admins\' errors out', async () => {
+    trackDomainEvent('user.registered', { userId: ids.rider.toString(), provider: 'firebase' });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(capture).toHaveBeenCalledWith(ids.rider.toString(), 'user_signed_up', expect.objectContaining({ method: 'firebase' }));
+    capture.mockClear();
+    recordError('FORBIDDEN', 403, '/admin/users', ids.admin.toString(), ['rider', 'admin']);
+    expect(capture).not.toHaveBeenCalled();
+    recordError('NOT_FOUND', 404, '/bookings/:id', ids.rider.toString(), ['rider']);
+    expect(capture).toHaveBeenCalledWith(ids.rider.toString(), 'error_shown', expect.objectContaining({ code: 'NOT_FOUND' }));
   });
 
   it('leaves admins out and finds the rider of a completed trip', async () => {

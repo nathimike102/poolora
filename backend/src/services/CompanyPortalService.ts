@@ -10,7 +10,7 @@
 import crypto from 'crypto';
 import { Types } from 'mongoose';
 import { config } from '../config';
-import { toLocalClock } from '../config/region';
+import { fromLocalClock, toLocalClock } from '../config/region';
 import { Booking } from '../models/Booking';
 import { CompanyInvoice } from '../models/CompanyInvoice';
 import { Organisation } from '../models/Organisation';
@@ -22,9 +22,15 @@ import { logger } from '../utils/logger';
 import { audit } from './AuditService';
 import { InvoiceService, invoiceView } from './InvoiceService';
 import { emailLayout, escapeHtml, mailEnabled, sendMail } from './Mailer';
+import { domainOf } from './OrganisationService';
 import { takeVerifiedEmail } from './VerifiedEmail';
 
-const domainOf = (email: string) => email.split('@')[1] ?? '';
+
+/** The month on the market's own clock, as a range of instants */
+function monthRange(month: string) {
+  const [y, m] = month.split('-').map(Number);
+  return { $gte: fromLocalClock(new Date(Date.UTC(y, m - 1, 1))), $lt: fromLocalClock(new Date(Date.UTC(y, m, 1))) };
+}
 
 /** The company this person is an admin of, or a refusal */
 export async function companyOfAdmin(userId: string) {
@@ -49,7 +55,7 @@ export class CompanyPortalService {
     const email = String(input.email ?? '').trim().toLowerCase();
     const name = String(input.name ?? '').trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AppError('Give their email address', 422, 'VALIDATION_ERROR');
-    if (!org.domains.includes(domainOf(email)) && email !== org.billingContact.email) {
+    if (!org.domains.includes(domainOf(email) ?? '') && email !== org.billingContact.email) {
       throw new AppError(`Use an address on ${org.domains.join(' or ')}, or the billing contact's`, 422, 'NOT_COMPANY_EMAIL');
     }
     if (org.admins.some((a) => a.email === email)) throw new ConflictError('They are already a company admin');
@@ -170,7 +176,7 @@ export class CompanyPortalService {
         { $project: { trips: 1, spend: 1, fares: 1, co2: 1, riders: { $size: '$riders' } } },
       ]),
       User.aggregate<{ n: number }>([
-        { $match: { 'work.organisation': org._id, 'work.verifiedAt': { $gte: new Date(`${month}-01T00:00:00Z`) } } },
+        { $match: { 'work.organisation': org._id, 'work.verifiedAt': monthRange(month) } },
         { $count: 'n' },
       ]),
     ]);
