@@ -18,6 +18,12 @@ export interface IUser extends Document {
   firebaseUid?: string;
   phone: string;
   email?: string;
+  /**
+   * When the owner of `email` proved it (a Firebase sign-in with a verified
+   * address). Unset for an address typed into the profile: only a verified
+   * address links sign-ins or makes someone a company admin.
+   */
+  emailVerifiedAt?: Date;
   name: string;
   dateOfBirth?: Date;
   gender?: 'male' | 'female' | 'other';
@@ -213,6 +219,7 @@ const UserSchema = new Schema<IUser>(
       lowercase: true,
       trim: true,
     },
+    emailVerifiedAt: { type: Date },
     name: { type: String, required: true, trim: true, maxlength: 100 },
     dateOfBirth: Date,
     gender: { type: String, enum: ['male', 'female', 'other'] },

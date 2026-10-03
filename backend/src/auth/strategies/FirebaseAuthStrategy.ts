@@ -7,6 +7,7 @@ import { AuthenticationError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import { EventBridge } from '../../events';
 import { errorCode } from '../../utils/errors';
+import { giveVerifiedEmail, takeVerifiedEmail } from '../../services/VerifiedEmail';
 
 /**
  * Verifies Firebase ID tokens and synchronizes the user into the local database.
@@ -54,16 +55,27 @@ export class FirebaseAuthStrategy implements AuthStrategy {
 
     // 1. Fast path — user already linked
     let user = await User.findOne({ firebaseUid: uid, isActive: true });
-    if (user) return user;
+    if (user) {
+      // Their sign-in proves the address: on their account, or for an account
+      // made before they verified it, which has none
+      if (email && !user.emailVerifiedAt && (!user.email || user.email === email) && (await giveVerifiedEmail(user._id, email))) {
+        user.email = email;
+        user.emailVerifiedAt = new Date();
+      }
+      return user;
+    }
 
     // 2. Try matching by phone (most people here sign in by phone)
     if (phone) {
       user = await User.findOne({ phone, isActive: true });
       if (user) {
         user.firebaseUid = uid;
-        if (email && !user.email) user.email = email;
         if (picture && !user.profilePhotoUrl) user.profilePhotoUrl = picture;
         await user.save();
+        if (email && !user.emailVerifiedAt && (!user.email || user.email === email) && (await giveVerifiedEmail(user._id, email))) {
+          user.email = email;
+          user.emailVerifiedAt = new Date();
+        }
 
         logger.info('Linked existing user to Firebase UID (phone match)', {
           userId: user._id, uid,
@@ -72,9 +84,10 @@ export class FirebaseAuthStrategy implements AuthStrategy {
       }
     }
 
-    // 3. Try matching by email
+    // 3. Try matching by email, only where that account proved the address
+    //    too: one typed into a profile proves nothing
     if (email) {
-      user = await User.findOne({ email, isActive: true });
+      user = await User.findOne({ email, emailVerifiedAt: { $exists: true }, isActive: true });
       if (user) {
         user.firebaseUid = uid;
         if (phone && !user.phone) user.phone = phone;
@@ -86,6 +99,8 @@ export class FirebaseAuthStrategy implements AuthStrategy {
         });
         return user;
       }
+      // The owner of the address takes it from any account that only typed it in
+      await takeVerifiedEmail(email);
     }
 
     // An unverified address someone already uses cannot be claimed or reused
@@ -100,10 +115,13 @@ export class FirebaseAuthStrategy implements AuthStrategy {
       );
     }
 
+    // A closed account that proved the same address keeps it
+    const ownEmail = email && !(await User.exists({ email })) ? email : undefined;
     const newUser = await User.create({
       firebaseUid: uid,
       phone: phone || `firebase:${uid}`,       // phone is required field; placeholder for email-only accounts
-      email,
+      email: ownEmail,
+      emailVerifiedAt: ownEmail ? new Date() : undefined,
       name: name || decoded.name || 'User',
       profilePhotoUrl: picture,
       capabilities: [UserCapability.RIDER],

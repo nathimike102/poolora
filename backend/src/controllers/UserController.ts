@@ -69,8 +69,17 @@ export class UserController {
       if (name !== undefined) update.name = name;
       if (dateOfBirth !== undefined) update.dateOfBirth = dateOfBirth;
       if (language !== undefined) update.language = language;
-      if (email) update.email = email;
-      else if (email === null || email === '') unset.email = '';
+      // A different address is only typed in, so it is not verified until its owner signs in with it
+      if (email) {
+        const current = await User.findById(userId).select('email').lean();
+        if (current?.email !== String(email).trim().toLowerCase()) {
+          update.email = email;
+          unset.emailVerifiedAt = '';
+        }
+      } else if (email === null || email === '') {
+        unset.email = '';
+        unset.emailVerifiedAt = '';
+      }
 
       const user = await User.findByIdAndUpdate(
         userId,

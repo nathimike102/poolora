@@ -22,6 +22,7 @@ import { logger } from '../utils/logger';
 import { audit } from './AuditService';
 import { InvoiceService, invoiceView } from './InvoiceService';
 import { emailLayout, escapeHtml, mailEnabled, sendMail } from './Mailer';
+import { takeVerifiedEmail } from './VerifiedEmail';
 
 const domainOf = (email: string) => email.split('@')[1] ?? '';
 
@@ -53,18 +54,35 @@ export class CompanyPortalService {
     }
     if (org.admins.some((a) => a.email === email)) throw new ConflictError('They are already a company admin');
 
-    let user = await User.findOne({ email });
+    // Only someone who proved the address: by confirming it as their work
+    // email here, or by signing in with it. An address typed into a profile
+    // proves nothing, and anyone can make a Firebase sign-in for any address.
+    let user = await User.findOne({ 'work.email': email, 'work.organisation': org._id })
+      ?? await User.findOne({ email, emailVerifiedAt: { $exists: true } });
     let link: string | null = null;
     if (!user) {
       if (name.length < 2) throw new AppError('Give their name', 422, 'VALIDATION_ERROR');
       const account = await this.firebaseAccount(email, name);
-      user = await User.create({
-        firebaseUid: account?.uid,
-        phone: `company:${crypto.randomBytes(8).toString('hex')}`,
-        email,
-        name,
-        capabilities: ['rider'],
-      });
+      if (account?.existing && !account.verified) {
+        throw new AppError(
+          'This address already has a sign-in that was never verified, perhaps not by its owner. Ask them to choose "Forgot password" on the dashboard\'s sign-in page with this address, then add them again.',
+          409,
+          'EMAIL_NOT_VERIFIED',
+        );
+      }
+      user = account ? await User.findOne({ firebaseUid: account.uid }) : null;
+      if (!user) {
+        await takeVerifiedEmail(email);
+        user = await User.create({
+          firebaseUid: account?.uid,
+          phone: `company:${crypto.randomBytes(8).toString('hex')}`,
+          email,
+          // A Firebase sign-in that already proved the address; a new one is proved when they set their password
+          emailVerifiedAt: account?.verified ? new Date() : undefined,
+          name,
+          capabilities: ['rider'],
+        });
+      }
       link = account?.link ?? null;
     }
     if (user.capabilities.includes('admin' as never)) throw new ConflictError('Poolora admins already see every company');
@@ -85,16 +103,21 @@ export class CompanyPortalService {
     return { removed: true };
   }
 
-  /** A Firebase account for an email-only admin, and a link to set its password; null without Firebase */
-  private async firebaseAccount(email: string, name: string): Promise<{ uid: string; link: string } | null> {
+  /**
+   * The Firebase sign-in for the address: an existing one (and whether its
+   * owner verified it), or a new one with a link to set its password. Null
+   * without Firebase.
+   */
+  private async firebaseAccount(email: string, name: string): Promise<{ uid: string; existing: boolean; verified: boolean; link: string | null } | null> {
     try {
       const { getFirebaseAuth } = await import('../config/firebase');
       const auth = getFirebaseAuth();
       const existing = await auth.getUserByEmail(email).catch(() => null);
-      const account = existing ?? (await auth.createUser({ email, displayName: name }));
+      if (existing) return { uid: existing.uid, existing: true, verified: existing.emailVerified, link: null };
+      const account = await auth.createUser({ email, displayName: name });
       const continueUrl = config.admin.webUrl || undefined;
       const link = await auth.generatePasswordResetLink(email, continueUrl ? { url: continueUrl } : undefined);
-      return { uid: account.uid, link };
+      return { uid: account.uid, existing: false, verified: false, link };
     } catch (error) {
       logger.warn('Could not set up a sign-in for a company admin', { error: (error as Error).message });
       return null;

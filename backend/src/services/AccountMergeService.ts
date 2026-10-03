@@ -262,14 +262,17 @@ export class AccountMergeService {
     if (target.kyc?.status === 'none' && source.kyc?.status && source.kyc.status !== 'none') set.kyc = source.kyc;
     if (!target.vehicles?.length && source.vehicles?.length) set.vehicles = source.vehicles;
     if (!target.emergencyContacts?.length && source.emergencyContacts?.length) set.emergencyContacts = source.emergencyContacts;
-    if (!target.email && source.email) set.email = source.email;
+    if (!target.email && source.email) {
+      set.email = source.email;
+      if (source.emailVerifiedAt) set.emailVerifiedAt = source.emailVerifiedAt;
+    }
 
     // Close the duplicate first so its email is free for the kept account
     await User.updateOne(
       { _id: from },
       {
         $set: { isBlocked: true, blockReason: `Merged into another account (phone ending ${lastFour(target.phone)})`, mergedInto: to, fcmTokens: [] },
-        $unset: { email: 1, pendingBlock: 1 },
+        $unset: { email: 1, emailVerifiedAt: 1, pendingBlock: 1 },
       },
     );
     await User.updateOne(

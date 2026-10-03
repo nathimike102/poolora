@@ -33,10 +33,10 @@ npm run dev             # http://localhost:5174
 - **Admin accounts:** an account becomes an admin by having the `admin` capability. There is no self-service way to get it; set it in the database:
 
   ```js
-  db.users.updateOne({ email: 'someone@poolora.app' }, { $addToSet: { capabilities: 'admin' } })
+  db.users.updateOne({ email: 'someone@poolora.app', emailVerifiedAt: { $exists: true } }, { $addToSet: { capabilities: 'admin' } })
   ```
 
-  The account must already exist (sign in once from the app or this site first).
+  The person signs in once on this site first, with Google or with their email and password. If they are told to verify the address, they choose "Forgot password?" and set the password from the email, which proves it. Keep `emailVerifiedAt` in the filter: anyone can type any address into their profile in the app, and without the filter the capability could go to their account instead. If nothing matches, they have not signed in here with a verified address yet.
 
 ## Scripts
 

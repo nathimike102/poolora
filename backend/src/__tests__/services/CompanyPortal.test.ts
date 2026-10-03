@@ -13,7 +13,13 @@ jest.mock('../../services/Mailer', () => ({
   mailEnabled: () => true,
   sendMail: (mail: unknown) => mockSend(mail),
 }));
-jest.mock('../../config/firebase', () => ({ getFirebaseAuth: () => { throw new Error('Firebase not initialized'); } }));
+const mockFirebase: { auth: Record<string, jest.Mock> | null } = { auth: null };
+jest.mock('../../config/firebase', () => ({
+  getFirebaseAuth: () => {
+    if (!mockFirebase.auth) throw new Error('Firebase not initialized');
+    return mockFirebase.auth;
+  },
+}));
 
 import { toLocalClock } from '../../config/region';
 import { Booking } from '../../models/Booking';
@@ -57,11 +63,12 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   mockSend.mockClear();
+  mockFirebase.auth = null;
   await Promise.all([Booking.deleteMany({}), CompanyInvoice.deleteMany({}), Organisation.deleteMany({}), User.deleteMany({})]);
   econet = (await Organisation.create({ name: 'Econet', domains: ['econet.co.zw'], billingContact: { name: 'Accounts', email: 'accounts@econet-billing.co.zw' }, notes: 'Contract: 12 months', createdBy: pooloraAdmin }))._id;
   delta = (await Organisation.create({ name: 'Delta', domains: ['delta.co.zw'], billingContact: { name: 'Accounts', email: 'pay@delta.co.zw' }, createdBy: pooloraAdmin }))._id;
   await User.collection.insertMany([
-    { _id: pooloraAdmin, name: 'Poolora Admin', phone: '+263771000009', email: 'ops@poolora.co.zw', capabilities: ['rider', 'admin'], stats: {} },
+    { _id: pooloraAdmin, name: 'Poolora Admin', phone: '+263771000009', email: 'ops@poolora.co.zw', emailVerifiedAt: new Date(), capabilities: ['rider', 'admin'], stats: {} },
     { _id: rudo, name: 'Rudo Moyo', phone: '+263771000001', capabilities: ['rider'], stats: {}, work: { organisation: econet, email: 'rudo@econet.co.zw', verifiedAt: new Date() } },
     { _id: outsider, name: 'Farai Dube', phone: '+263771000002', capabilities: ['rider'], stats: {}, work: { organisation: delta, email: 'farai@delta.co.zw', verifiedAt: new Date() } },
   ]);
@@ -82,6 +89,51 @@ describe('naming company admins', () => {
     await expect(adminOf(econet, 'hr@econet.co.zw')).rejects.toThrow('already a company admin');
     await Organisation.updateOne({ _id: delta }, { $push: { domains: 'poolora.co.zw' } });
     await expect(adminOf(delta, 'ops@poolora.co.zw')).rejects.toThrow('Poolora admins already see every company');
+  });
+});
+
+describe('who becomes the company admin', () => {
+  it('never someone who only typed the address into their profile', async () => {
+    const squatter = new Types.ObjectId();
+    await User.collection.insertOne({ _id: squatter, name: 'Squatter', phone: '+263771000666', email: 'hr@econet.co.zw', capabilities: ['rider'], stats: {} });
+    const hr = await adminOf(econet, 'hr@econet.co.zw');
+    expect(hr).not.toBe(squatter.toString());
+    expect((await User.findById(hr).lean())?.email).toBe('hr@econet.co.zw');
+    expect((await User.findById(squatter).lean())?.email).toBeUndefined();
+    await expect(portal.me(squatter.toString())).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it('the staff member who confirmed that work email here', async () => {
+    expect(await adminOf(econet, 'rudo@econet.co.zw')).toBe(rudo.toString());
+  });
+
+  it('never through a Firebase sign-in for the address that nobody verified', async () => {
+    // Anyone can make one with the public web key, without the inbox
+    mockFirebase.auth = { getUserByEmail: jest.fn().mockResolvedValue({ uid: 'fb-attacker', emailVerified: false }), createUser: jest.fn() };
+    await expect(adminOf(econet, 'finance@econet.co.zw')).rejects.toMatchObject({ errorId: 'EMAIL_NOT_VERIFIED' });
+    expect(await User.exists({ firebaseUid: 'fb-attacker' })).toBeNull();
+    expect((await Organisation.findById(econet).lean())?.admins).toEqual([]);
+  });
+
+  it('the account already behind a verified Firebase sign-in for the address', async () => {
+    // Staff member who signed up with this email, so their account has its uid but no email yet
+    const tari = new Types.ObjectId();
+    await User.collection.insertOne({ _id: tari, firebaseUid: 'fb-tari', name: 'Tari Moyo', phone: 'firebase:fb-tari', capabilities: ['rider'], stats: {} });
+    mockFirebase.auth = { getUserByEmail: jest.fn().mockResolvedValue({ uid: 'fb-tari', emailVerified: true }), createUser: jest.fn() };
+    expect(await adminOf(econet, 'tari@econet.co.zw')).toBe(tari.toString());
+    expect(mockFirebase.auth.createUser).not.toHaveBeenCalled();
+  });
+
+  it('a new account and a link to set its password when there is no sign-in yet', async () => {
+    mockFirebase.auth = {
+      getUserByEmail: jest.fn().mockRejectedValue(Object.assign(new Error('none'), { code: 'auth/user-not-found' })),
+      createUser: jest.fn().mockResolvedValue({ uid: 'fb-new' }),
+      generatePasswordResetLink: jest.fn().mockResolvedValue('https://reset.example/link'),
+    };
+    const hr = await adminOf(econet, 'hr@econet.co.zw');
+    expect(await User.findById(hr).lean()).toMatchObject({ firebaseUid: 'fb-new', email: 'hr@econet.co.zw' });
+    expect((await User.findById(hr).lean())?.emailVerifiedAt).toBeUndefined();
+    expect(mockSend.mock.calls[0][0].text).toContain('https://reset.example/link');
   });
 });
 
