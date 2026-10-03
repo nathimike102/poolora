@@ -10,7 +10,7 @@ import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 
 import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
-import { fetchPlaceSuggestions, suggestionLabel, type PlaceSuggestion } from '../services/placesService';
+import { choosePlace, fetchPlaceSuggestions, type PlaceSuggestion } from '../services/placesService';
 
 const DEBOUNCE_MS = 300;
 
@@ -74,7 +74,7 @@ export function PlaceField({
             <Pressable
               key={place.placeId}
               onPress={() => {
-                onChange(suggestionLabel(place));
+                onChange(choosePlace(place));
                 setSuggestions([]);
               }}
               accessibilityRole="button"

@@ -30,7 +30,7 @@ import { useApp } from '../../context/AppContext';
 import { Icon } from '../../components/Icon';
 import { RideDatePicker } from '../../components/RideDatePicker';
 import { ClockTimePicker } from '../../components/ClockTimePicker';
-import { fetchPlaceSuggestions, geocodePlace, suggestionLabel, type PlaceSuggestion } from '../../services/placesService';
+import { choosePlace, fetchPlaceSuggestions, geocodePlace, type PlaceSuggestion } from '../../services/placesService';
 import { rideService } from '../../services/rideService';
 import { userService } from '../../services/userService';
 import { errorHandler } from '../../utils/errorHandler';
@@ -208,7 +208,7 @@ export function CreateRideScreen() {
   };
 
   const pick = (place: PlaceSuggestion) => {
-    if (activeField !== null) setField(activeField, suggestionLabel(place));
+    if (activeField !== null) setField(activeField, choosePlace(place));
     setSuggestions([]);
     setActiveField(null);
   };

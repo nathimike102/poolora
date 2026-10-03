@@ -50,8 +50,17 @@ export async function fetchPlaceSuggestions(input: string, near?: { lat: number;
   }));
 }
 
+/**
+ * Ranks and termini chosen from the suggestions, by the text they put in the
+ * field: an admin placed each pin, so that exact position is used, not a
+ * search for the text.
+ */
+const chosenHubs = new Map<string, GeocodedPlace>();
+
 /** Resolve an address to coordinates. */
 export async function geocodePlace(address: string): Promise<GeocodedPlace> {
+  const hub = chosenHubs.get(address.trim());
+  if (hub) return hub;
   const response = await apiClient.get<ApiResponse<GeocodedPlace>>(API_ENDPOINTS.maps.geocode, {
     params: { address },
   });
@@ -69,4 +78,11 @@ export async function reverseGeocodePlace(lat: number, lng: number): Promise<Geo
 /** The text to put in an input when a suggestion is chosen. */
 export function suggestionLabel(s: PlaceSuggestion): string {
   return s.subtitle ? `${s.name}, ${s.subtitle}` : s.name;
+}
+
+/** A suggestion was chosen: its text for the input, keeping a rank's or terminus's exact position for geocodePlace. */
+export function choosePlace(s: PlaceSuggestion): string {
+  const label = suggestionLabel(s);
+  if (s.hub && s.lat != null && s.lng != null) chosenHubs.set(label, { formattedAddress: label, lat: s.lat, lng: s.lng, placeId: s.placeId });
+  return label;
 }
