@@ -43,8 +43,8 @@ describe('SOS video', () => {
   });
 
   test('sends the back camera at low resolution, and says whether the server records it', async () => {
-    const session = await startSosVideo('e1', true, jest.fn());
-    expect(post).toHaveBeenNthCalledWith(1, '/safety/sos/e1/video');
+    const session = await startSosVideo('e1', true, false, jest.fn());
+    expect(post).toHaveBeenNthCalledWith(1, '/safety/sos/e1/video', { toldRecorded: false });
     expect(mockRoom.connect).toHaveBeenCalledWith('wss://lk', 'pass');
     expect(mockRoomOptions[0]).toMatchObject({ videoCaptureDefaults: { facingMode: 'environment', resolution: { height: 240 } }, publishDefaults: { simulcast: false } });
     expect(mockParticipant.setCameraEnabled).toHaveBeenCalledWith(true);
@@ -58,13 +58,13 @@ describe('SOS video', () => {
   });
 
   test('leaves the microphone to the SOS audio recording when that is on', async () => {
-    await startSosVideo('e1', false, jest.fn());
+    await startSosVideo('e1', false, false, jest.fn());
     expect(mockParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
   });
 
   test('leaves the room when the camera cannot start', async () => {
     mockParticipant.setCameraEnabled.mockRejectedValueOnce(new Error('Camera permission denied'));
-    await expect(startSosVideo('e1', true, jest.fn())).rejects.toThrow('Camera permission denied');
+    await expect(startSosVideo('e1', true, false, jest.fn())).rejects.toThrow('Camera permission denied');
     expect(mockRoom.disconnect).toHaveBeenCalled();
     expect(post).toHaveBeenCalledTimes(1); // never said it was sending
   });

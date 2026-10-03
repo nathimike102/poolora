@@ -33,7 +33,7 @@ let globalsRegistered = false;
  * phone records SOS audio itself, so the two never fight over the microphone
  * and that recording carries on. `onEnded` runs if the video drops for good.
  */
-export async function startSosVideo(emergencyId: string, withSound: boolean, onEnded: () => void): Promise<SosVideoSession> {
+export async function startSosVideo(emergencyId: string, withSound: boolean, toldRecorded: boolean, onEnded: () => void): Promise<SosVideoSession> {
   let native: typeof import('@livekit/react-native');
   let client: typeof import('livekit-client');
   try {
@@ -49,7 +49,8 @@ export async function startSosVideo(emergencyId: string, withSound: boolean, onE
     throw new SosVideoUnsupported('Video needs the latest version of the app.');
   }
 
-  const { data } = await apiClient.post<ApiResponse<{ url: string; token: string; recording: boolean }>>(API_ENDPOINTS.safety.sosVideo(emergencyId));
+  // What the screen told the person about recording: the server never records beyond it
+  const { data } = await apiClient.post<ApiResponse<{ url: string; token: string; recording: boolean }>>(API_ENDPOINTS.safety.sosVideo(emergencyId), { toldRecorded });
   const pass = data.data;
   const preset = client.VideoPresets43.h240;
   let facing: 'environment' | 'user' = 'environment';
@@ -61,7 +62,11 @@ export async function startSosVideo(emergencyId: string, withSound: boolean, onE
   });
   let stopping = false;
   room.on(client.RoomEvent.Disconnected, () => {
-    if (!stopping) onEnded();
+    if (stopping) return;
+    // Dropped for good: tell the server if it can be reached (LiveKit tells it otherwise)
+    native.AudioSession.stopAudioSession().catch(() => undefined);
+    apiClient.post(API_ENDPOINTS.safety.sosVideoStop(emergencyId)).catch(() => undefined);
+    onEnded();
   });
 
   await native.AudioSession.startAudioSession();

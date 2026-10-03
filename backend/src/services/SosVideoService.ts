@@ -74,9 +74,12 @@ export class SosVideoService {
 
   /**
    * The person turns on their camera, asked or not. Returns where to send it,
-   * and whether it will be recorded (decided now, so the phone can say so).
+   * and whether it is recorded. It is recorded only if recording is on and
+   * the phone told them so before they turned it on (`toldRecorded`): a
+   * setting changed while the screen was open never records someone who
+   * was told it would not be.
    */
-  async start(emergencyId: string, userId: string) {
+  async start(emergencyId: string, userId: string, toldRecorded = false) {
     if (!videoAvailable()) throw unavailable();
     const record = await this.openRecord(emergencyId);
     this.assertTriggerer(record, userId);
@@ -86,8 +89,11 @@ export class SosVideoService {
     const pass = await joinPass(room, `user:${userId}`, user?.name ?? 'Person in danger', 'sender').catch(() => {
       throw unavailable();
     });
-    // A camera turned on again while a recording runs keeps that recording
-    const recording = live(record) && record.video?.egressId ? record.video.recording : recordingAvailable();
+    // A camera turned on again while a recording runs keeps that recording,
+    // unless this screen said it would not be: then the recording stops
+    const running = live(record) && record.video?.egressId ? record.video.egressId : undefined;
+    const recording = toldRecorded && (running ? Boolean(record.video?.recording) : recordingAvailable());
+    if (running && !recording && running !== 'starting') await stopRecording(running);
     const now = new Date();
     record.video = {
       room,
@@ -95,7 +101,7 @@ export class SosVideoService {
       requestedBy: record.video?.requestedBy,
       startedAt: now,
       recording,
-      egressId: live(record) ? record.video?.egressId : undefined,
+      egressId: recording ? running : undefined,
     };
     record.timeline.push({ event: 'Turned on the camera', timestamp: now, details: recording ? 'Recorded with the incident' : 'Live only, not recorded' });
     await record.save();
@@ -123,16 +129,22 @@ export class SosVideoService {
     const egressId = await startRecording(record.video.room, `user:${userId}`, key);
     const now = new Date();
     if (egressId) {
-      await EmergencyRecord.updateOne(
-        { _id: emergencyId },
+      // Keep it only if this video still has its claim: a camera turned on
+      // again as "not recorded", or ended, meanwhile wins
+      const kept = await EmergencyRecord.updateOne(
+        { _id: emergencyId, 'video.egressId': 'starting', 'video.recording': true, 'video.endedAt': { $exists: false } },
         {
           $set: { 'video.egressId': egressId },
           $push: { videoRecordingUrls: `s3://${config.aws.s3Bucket}/${key}`, timeline: { event: 'Recording video', timestamp: now } },
         },
       );
+      if (!kept.modifiedCount) {
+        await stopRecording(egressId);
+        return { recording: false };
+      }
     } else {
       await EmergencyRecord.updateOne(
-        { _id: emergencyId },
+        { _id: emergencyId, 'video.egressId': 'starting' },
         { $unset: { 'video.egressId': 1 }, $push: { timeline: { event: 'Video could not be recorded', timestamp: now, details: 'It is still live to the safety team' } } },
       );
     }
@@ -176,6 +188,22 @@ async function end(record: IEmergencyRecord, event: string): Promise<void> {
     { $set: { 'video.endedAt': now }, $push: { timeline: { event, timestamp: now } } },
   );
   published(String(record._id));
+}
+
+/**
+ * LiveKit says someone left an SOS room. When it is the phone of the person
+ * who raised it (the app closed, crashed or lost its signal for good), the
+ * video has ended, so the team no longer sees "Camera on". A phone that left
+ * an earlier video, before the camera was turned on again, changes nothing.
+ */
+export async function phoneLeftRoom(room: string, identity: string, joinedAt: Date | null): Promise<void> {
+  const match = /^sos-([a-f0-9]{24})$/.exec(room);
+  if (!match || !identity.startsWith('user:')) return;
+  const record = await EmergencyRecord.findById(match[1]);
+  if (!record || !live(record) || `user:${String(record.triggeredBy)}` !== identity) return;
+  // The camera's start is set just before the phone joins (a second's slack for clocks in whole seconds)
+  if (joinedAt && record.video?.startedAt && joinedAt.getTime() < record.video.startedAt.getTime() - 1000) return;
+  await end(record, 'Camera stopped: the phone left the video');
 }
 
 /** Called when an SOS closes, however it closes. */

@@ -117,7 +117,7 @@ export class SafetyController {
   static async startVideo(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;
-      sendSuccess(res, await sosVideo.start(String(req.params.id), user.userId), 200, req.requestId);
+      sendSuccess(res, await sosVideo.start(String(req.params.id), user.userId, req.body?.toldRecorded === true), 200, req.requestId);
     } catch (error) {
       next(error);
     }

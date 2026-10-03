@@ -321,7 +321,7 @@ export function SOSScreen() {
     if (!emergency || camera !== 'off') return;
     setCamera('starting');
     try {
-      const session = await startSosVideo(emergency._id, !recordAudio, () => {
+      const session = await startSosVideo(emergency._id, !recordAudio, video.recorded, () => {
         videoSession.current = null;
         setCamera('off');
       });

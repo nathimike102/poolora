@@ -91,7 +91,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `CALL_RECORDING` | no | `false` turns off recording of masked calls (on by default; both sides hear a notice) |
 | `LIVEKIT_URL` | for SOS video | The `wss://` URL of the LiveKit Cloud project (or a self-hosted LiveKit server). Without it, and the two below, the app never offers video during an SOS |
 | `LIVEKIT_API_KEY` | for SOS video | The project's API key |
-| `LIVEKIT_API_SECRET` | for SOS video | The project's API secret |
+| `LIVEKIT_API_SECRET` | for SOS video | The project's API secret. Also set the project's webhook (LiveKit Cloud, Settings, Webhooks) to `https://<api host>/video/webhook`, so the team stops seeing "Camera on" when a phone drops out |
 | `SOS_VIDEO_RECORDING` | no | `true` records SOS video with the incident's evidence in the S3 bucket. Off by default until legal advice allows it; also a platform setting |
 | `LIVEKIT_RECORDING_AWS_ACCESS_KEY_ID`, `LIVEKIT_RECORDING_AWS_SECRET_ACCESS_KEY` | to record SOS video | A separate IAM user whose only permission is `s3:PutObject` on `arn:aws:s3:::<bucket>/sos/*`. LiveKit is given these to write the recording; never give it the backend's own keys, which can read identity documents. Without them nothing is recorded, whatever the setting says |
 | `KYC_VERIFY_URL`, `KYC_VERIFY_API_KEY` | no | A background-check vendor for driver applications (UC-A01). The vendor answers at `<APP_BASE_URL>/kyc-verify/callback` with the key in `X-Kyc-Verify-Key`. Without it, only the automatic document checks run |

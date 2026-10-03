@@ -24,6 +24,7 @@ import callRoutes from './call.routes';
 import kycVerifyRoutes from './kycVerify.routes';
 import trackerRoutes from './tracker.routes';
 import companyRoutes from './company.routes';
+import videoRoutes from './video.routes';
 
 const router = Router();
 
@@ -41,6 +42,8 @@ router.use('/maps', mapsRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
 router.use('/company', companyRoutes);
+// LiveKit's webhook for SOS video (UC-X04); signed, so outside sign-in
+router.use('/video', videoRoutes);
 router.use('/track', trackRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/dev/simulate', simulationRoutes);

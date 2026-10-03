@@ -97,6 +97,8 @@ if (config.isProduction) {
 // Paynow posts status updates as URL-encoded forms. Keep them as text so the
 // hash is checked over the values exactly as sent, in their order.
 app.use(['/payments/paynow/result', '/api/v1/payments/paynow/result'], express.text({ type: () => true, limit: '64kb' }));
+// LiveKit signs its webhook over the body as sent (application/webhook+json)
+app.use(['/video/webhook', '/api/v1/video/webhook'], express.text({ type: () => true, limit: '64kb' }));
 // Tighter body limits — 1 MB is ample for API payloads; prevents abuse
 // Parcel photos arrive as base64 JSON (UC-P03, UC-P05): a larger limit on that route only
 app.use(/^\/(api\/v1\/)?parcels\/[a-f0-9]{24}\/photos$/, express.json({ limit: '8mb' }));

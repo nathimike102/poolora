@@ -31,7 +31,7 @@ import { config } from '../../config';
 import { AdminAuditLog } from '../../models/AdminAuditLog';
 import { EmergencyRecord } from '../../models/EmergencyRecord';
 import { User } from '../../models/User';
-import { SosVideoService } from '../../services/SosVideoService';
+import { phoneLeftRoom, SosVideoService } from '../../services/SosVideoService';
 import { SafetyService } from '../../services/SafetyService';
 import { SOSStatus } from '../../types';
 
@@ -101,7 +101,7 @@ describe('turning the camera on', () => {
 
   it('records once, with the incident, when the setting is on', async () => {
     mockLive.recording = true;
-    expect((await video.start(sosId, rudo.toString())).recording).toBe(true);
+    expect((await video.start(sosId, rudo.toString(), true)).recording).toBe(true);
     const [first, second] = await Promise.all([video.sending(sosId, rudo.toString()), video.sending(sosId, rudo.toString())]);
     expect([first, second]).toEqual([{ recording: true }, { recording: true }]);
     expect(mocked(LiveVideo.startRecording)).toHaveBeenCalledTimes(1);
@@ -114,11 +114,47 @@ describe('turning the camera on', () => {
   it('stays live when the recording cannot start, and tries again next time', async () => {
     mockLive.recording = true;
     mockLive.egress = null;
-    await video.start(sosId, rudo.toString());
+    await video.start(sosId, rudo.toString(), true);
     expect(await video.sending(sosId, rudo.toString())).toEqual({ recording: false });
     expect(await events()).toContain('Video could not be recorded');
     mockLive.egress = 'EG_2';
     expect(await video.sending(sosId, rudo.toString())).toEqual({ recording: true });
+  });
+
+  it('never records someone whose screen said it would not be', async () => {
+    // Recording was switched on after their SOS screen opened
+    mockLive.recording = true;
+    expect((await video.start(sosId, rudo.toString(), false)).recording).toBe(false);
+    expect(await video.sending(sosId, rudo.toString())).toEqual({ recording: false });
+    expect(mocked(LiveVideo.startRecording)).not.toHaveBeenCalled();
+  });
+
+  it('stops a running recording when the camera comes on again as "not recorded"', async () => {
+    // Recorded at first; the app crashed and reopened after recording was switched off
+    mockLive.recording = true;
+    await video.start(sosId, rudo.toString(), true);
+    await video.sending(sosId, rudo.toString());
+    expect((await video.start(sosId, rudo.toString(), false)).recording).toBe(false);
+    expect(mocked(LiveVideo.stopRecording)).toHaveBeenCalledWith('EG_1');
+    expect((await EmergencyRecord.findById(sosId).lean())?.video).toMatchObject({ recording: false });
+    expect((await EmergencyRecord.findById(sosId).lean())?.video?.egressId).toBeUndefined();
+    expect(await video.sending(sosId, rudo.toString())).toEqual({ recording: false });
+    expect(mocked(LiveVideo.startRecording)).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a recording that starts after the camera came on again as "not recorded"', async () => {
+    mockLive.recording = true;
+    await video.start(sosId, rudo.toString(), true);
+    // The new camera wins while LiveKit is still starting the old recording
+    mocked(LiveVideo.startRecording).mockImplementationOnce(async () => {
+      await video.start(sosId, rudo.toString(), false);
+      return 'EG_LATE';
+    });
+    expect(await video.sending(sosId, rudo.toString())).toEqual({ recording: false });
+    expect(mocked(LiveVideo.stopRecording)).toHaveBeenCalledWith('EG_LATE');
+    const record = await EmergencyRecord.findById(sosId).lean();
+    expect(record?.video?.egressId).toBeUndefined();
+    expect(record?.videoRecordingUrls).toEqual([]);
   });
 
   it('refuses "sending" before the camera is on', async () => {
@@ -137,13 +173,26 @@ describe('watching', () => {
 describe('ending', () => {
   it('stops the recording and closes the room when the person turns it off', async () => {
     mockLive.recording = true;
-    await video.start(sosId, rudo.toString());
+    await video.start(sosId, rudo.toString(), true);
     await video.sending(sosId, rudo.toString());
     expect(await video.stop(sosId, rudo.toString())).toEqual({ stopped: true });
     expect(mocked(LiveVideo.stopRecording)).toHaveBeenCalledWith('EG_1');
     expect(mocked(LiveVideo.closeRoom)).toHaveBeenCalledWith(`sos-${sosId}`);
     expect((await EmergencyRecord.findById(sosId).lean())?.video?.endedAt).toBeInstanceOf(Date);
     expect(await video.stop(sosId, rudo.toString())).toEqual({ stopped: false });
+  });
+
+  it('ends when LiveKit says the phone left, but not for an earlier video\'s phone', async () => {
+    await video.start(sosId, rudo.toString());
+    const startedAt = (await EmergencyRecord.findById(sosId).lean())!.video!.startedAt!;
+    await phoneLeftRoom(`sos-${sosId}`, `user:${rudo}`, new Date(startedAt.getTime() - 60_000));
+    await phoneLeftRoom(`sos-${sosId}`, `user:${driver}`, new Date());
+    await phoneLeftRoom(`sos-${sosId}`, `admin:${admin}`, new Date());
+    expect((await EmergencyRecord.findById(sosId).lean())?.video?.endedAt).toBeUndefined();
+
+    await phoneLeftRoom(`sos-${sosId}`, `user:${rudo}`, new Date(startedAt.getTime() + 500));
+    expect((await EmergencyRecord.findById(sosId).lean())?.video?.endedAt).toBeInstanceOf(Date);
+    expect(await events()).toContain('Camera stopped: the phone left the video');
   });
 
   it('ends with the SOS, and a closed SOS cannot be watched', async () => {

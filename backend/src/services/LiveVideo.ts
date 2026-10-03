@@ -12,6 +12,8 @@
 
 import {
   AccessToken,
+  WebhookReceiver,
+  type WebhookEvent,
   EgressClient,
   EncodedFileOutput,
   EncodedFileType,
@@ -104,6 +106,20 @@ export async function stopRecording(egressId: string): Promise<void> {
     // Already stopped, for instance because the phone left the room
     logger.debug('Could not stop SOS video recording', { egressId, error: error.message });
   });
+}
+
+/**
+ * Checks a webhook from LiveKit (signed with the API secret over the body)
+ * and returns the event, or null if it is not genuinely from LiveKit.
+ */
+export async function readWebhook(body: string, authorization?: string): Promise<WebhookEvent | null> {
+  if (!videoAvailable()) return null;
+  const v = video();
+  try {
+    return await new WebhookReceiver(v.apiKey, v.apiSecret).receive(body, authorization);
+  } catch {
+    return null;
+  }
 }
 
 /** Ends the room for everyone in it. */
