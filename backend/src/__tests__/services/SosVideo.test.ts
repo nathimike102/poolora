@@ -281,3 +281,36 @@ describe('ending', () => {
     await expect(video.watch(sosId, admin.toString())).rejects.toMatchObject({ errorId: 'SOS_CLOSED' });
   });
 });
+
+describe('at the same moment', () => {
+  it('never hides a camera turned on while the team was asking for it', async () => {
+    // The camera comes on while the ask is looking up the admin's name
+    const findById = User.findById.bind(User);
+    const spy = jest.spyOn(User, 'findById').mockImplementationOnce(((id: unknown) => {
+      const query = findById(id as string);
+      const lean = query.lean.bind(query);
+      return Object.assign(query, {
+        lean: () => lean().then(async (admin: unknown) => {
+          await video.start(sosId, rudo.toString());
+          return admin;
+        }),
+      });
+    }) as never);
+    expect(await video.ask(sosId, admin.toString())).toEqual({ asked: false, live: true });
+    spy.mockRestore();
+    const record = (await EmergencyRecord.findById(sosId).lean())!;
+    expect(record.video?.startedAt).toBeDefined();
+    expect(record.video?.endedAt).toBeUndefined();
+    expect(record.video?.roomSid).toBe('RM_1');
+  });
+
+  it('never shows a camera on for an SOS that closed while it was turning on', async () => {
+    mocked(LiveVideo.joinPass).mockImplementationOnce(async () => {
+      await safety.resolveSOS(sosId, admin.toString(), 'Rudo is safe at home', false);
+      return { url: 'wss://poolora.livekit.cloud', token: 'sender', roomSid: 'RM_1' };
+    });
+    await expect(video.start(sosId, rudo.toString())).rejects.toMatchObject({ errorId: 'SOS_CLOSED' });
+    expect((await EmergencyRecord.findById(sosId).lean())!.video?.startedAt).toBeUndefined();
+    expect(mocked(LiveVideo.closeRoom)).toHaveBeenCalledWith(`sos-${sosId}`);
+  });
+});

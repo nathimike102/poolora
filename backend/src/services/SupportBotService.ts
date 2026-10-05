@@ -24,6 +24,7 @@ import { SupportService } from './SupportService';
 import { getRedisClient } from '../config/redis';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
+import { riderPays } from '../utils/fares';
 
 const MODEL = process.env.SUPPORT_BOT_MODEL || 'claude-opus-5-5';
 const MAX_TOOL_ROUNDS = 5;
@@ -83,7 +84,7 @@ ${HELP}`;
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: 'get_my_recent_bookings',
-    description: "The signed-in user's 10 most recent bookings as a rider or driver: id, role, status, route, departure, fare, refund. Use it before answering anything about their trips or payments.",
+    description: "The signed-in user's 10 most recent bookings as a rider or driver: id, role, status, route, departure, fare, the company's part and the user's own when their company paid towards it, refund. Use it before answering anything about their trips or payments.",
     input_schema: { type: 'object', properties: {}, additionalProperties: false },
     strict: true,
   },
@@ -206,6 +207,8 @@ export class SupportBotService {
             to: b.dropoff?.address ?? b.ride?.dropoff?.address,
             departure: b.ride?.departureTime,
             fare: b.estimatedFare,
+            // A company may pay part of the fare (UC-C01); the user paid only the rest
+            ...(b.companyShare ? { company_paid: b.companyShare, user_paid: riderPays(b) } : {}),
             paid_by: b.paymentMethod === 'online' ? 'EcoCash, OneMoney, InnBucks or card' : 'Poolora wallet',
             refunded: b.refundAmount ?? 0,
             cancelled_reason: b.cancellationReason,

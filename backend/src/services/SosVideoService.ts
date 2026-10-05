@@ -58,9 +58,23 @@ export class SosVideoService {
 
     const admin = await User.findById(adminId).select('name').lean();
     const now = new Date();
-    record.video = { ...(record.video ?? { room: roomFor(emergencyId), recording: false }), requestedAt: now, requestedBy: admin?._id };
-    record.timeline.push({ event: 'Safety team asked for video', timestamp: now, details: admin?.name });
-    await record.save();
+    // Only the ask is written, and only while the camera is off: a camera
+    // turned on meanwhile is never overwritten by this stale copy
+    const asked = await EmergencyRecord.updateOne(
+      {
+        _id: emergencyId,
+        status: { $in: OPEN },
+        $or: [{ 'video.startedAt': { $exists: false } }, { 'video.endedAt': { $exists: true } }],
+      },
+      {
+        $set: { 'video.room': roomFor(emergencyId), 'video.requestedAt': now, 'video.requestedBy': admin?._id },
+        $push: { timeline: { event: 'Safety team asked for video', timestamp: now, details: admin?.name } },
+      },
+    );
+    if (!asked.modifiedCount) {
+      await this.openRecord(emergencyId);
+      return { asked: false, live: true };
+    }
 
     await audit(adminId, 'sos.video.ask', 'sos', emergencyId);
     published(emergencyId);
@@ -96,16 +110,20 @@ export class SosVideoService {
     if (running && running !== 'starting') await stopRecording(running);
     const recording = toldRecorded && recordingAvailable();
     const now = new Date();
-    record.video = {
-      room,
-      roomSid,
-      requestedAt: record.video?.requestedAt,
-      requestedBy: record.video?.requestedBy,
-      startedAt: now,
-      recording,
-    };
-    record.timeline.push({ event: 'Turned on the camera', timestamp: now, details: recording ? 'Recorded with the incident' : 'Live only, not recorded' });
-    await record.save();
+    // Written only while the SOS is open: one closed meanwhile has already
+    // ended its video, and must not show a camera on again
+    const saved = await EmergencyRecord.updateOne(
+      { _id: emergencyId, status: { $in: OPEN } },
+      {
+        $set: { 'video.room': room, 'video.roomSid': roomSid, 'video.startedAt': now, 'video.recording': recording },
+        $unset: { 'video.endedAt': 1, 'video.egressId': 1 },
+        $push: { timeline: { event: 'Turned on the camera', timestamp: now, details: recording ? 'Recorded with the incident' : 'Live only, not recorded' } },
+      },
+    );
+    if (!saved.modifiedCount) {
+      await closeRoom(room);
+      throw new AppError('This SOS is already closed', 409, 'SOS_CLOSED');
+    }
 
     published(emergencyId);
     void pageSafetyTeam(emergencyId, `${user?.name ?? 'The person'} turned on their camera. Watch it on the SOS page.`);
