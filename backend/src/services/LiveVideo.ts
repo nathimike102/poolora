@@ -28,6 +28,13 @@ import { logger } from '../utils/logger';
 const PASS_TTL = '10m';
 /** A room nobody is in closes after this */
 const EMPTY_ROOM_SECONDS = 300;
+/**
+ * A room everyone has left closes after this. Longer than the phone's grace
+ * period (PHONE_GRACE_MS), so a phone that lost its signal can come back
+ * before the room, and with it the video, is ended under it. LiveKit's own
+ * default (20 seconds) is shorter.
+ */
+const DEPARTURE_SECONDS = 60;
 
 export type VideoRole = 'sender' | 'watcher';
 
@@ -66,7 +73,7 @@ export const roomFor = (emergencyId: string) => `sos-${emergencyId}`;
 export async function joinPass(room: string, identity: string, name: string, role: VideoRole): Promise<{ url: string; token: string; roomSid: string }> {
   const v = video();
   const created = await new RoomServiceClient(apiHost(), v.apiKey, v.apiSecret)
-    .createRoom({ name: room, emptyTimeout: EMPTY_ROOM_SECONDS, maxParticipants: 12 });
+    .createRoom({ name: room, emptyTimeout: EMPTY_ROOM_SECONDS, departureTimeout: DEPARTURE_SECONDS, maxParticipants: 12 });
   const pass = new AccessToken(v.apiKey, v.apiSecret, { identity, name, ttl: PASS_TTL });
   pass.addGrant(role === 'sender'
     ? { room, roomJoin: true, canPublish: true, canPublishSources: [TrackSource.CAMERA, TrackSource.MICROPHONE], canSubscribe: false, canPublishData: false }
