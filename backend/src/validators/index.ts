@@ -197,6 +197,8 @@ export const createBookingSchema = {
     rideId: Joi.string().hex().length(24).required(),
     seatsBooked: Joi.number().integer().min(1).max(8).default(1),
     useWallet: Joi.boolean().default(false),
+    /** What the screen told the rider they pay: the booking is refused if it would cost them more */
+    expectedYouPay: Joi.number().min(0).optional(),
     note: Joi.string().trim().max(300).allow('').optional(),
     /** Catching a bus from the drop (UC-R12) */
     connection: Joi.object({ departsAt: Joi.date().iso().required() }).optional(),

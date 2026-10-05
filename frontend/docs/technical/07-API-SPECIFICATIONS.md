@@ -253,6 +253,7 @@ Phone numbers of the other party appear only on confirmed bookings.
 
 - With `useWallet: true`, the fare is taken from the wallet at once, and the response has `paidViaWallet: true`.
 - `note` is optional (up to 300 characters) and is shown on the driver's request card.
+- `expectedYouPay` is optional: what the app showed the rider they pay. If their company's part has shrunk since (cap used up, contribution paused), the booking is refused with `409 PRICE_CHANGED` before anything is charged, so the rider sees the new price first.
 - Otherwise the booking is created with `paymentMethod: "online"`, and the app pays for it with `POST /payments/start` (section 7). The driver can accept only once it is paid.
 
 Rules:

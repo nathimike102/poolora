@@ -192,6 +192,18 @@ describe('what the rider pays', () => {
     expect((await Wallet.findOne({ userId: riderId }))!.balance).toBe(100);
   });
 
+  it('never charges more than the rider was shown when the company\'s part shrank meanwhile', async () => {
+    const r = await ride(next(2));
+    const quote = await bookings.quote(riderId.toString(), { rideId: r.id, seatsBooked: 1, pickup: HOME, dropoff: OFFICE });
+    await setPolicy({ sharePercent: 0 });
+    await expect(bookings.createBooking(riderId.toString(), {
+      rideId: r.id, seatsBooked: 1, useWallet: true, expectedYouPay: quote.youPay,
+      pickup: { ...HOME, address: 'From' }, dropoff: { ...OFFICE, address: 'To' },
+    })).rejects.toMatchObject({ errorId: 'PRICE_CHANGED' });
+    expect(await Booking.countDocuments({ rider: riderId })).toBe(0);
+    expect((await Wallet.findOne({ userId: riderId }))!.balance).toBe(100);
+  });
+
   it('refunds only what the rider paid when they cancel', async () => {
     const { booking } = await book(await ride(next(2)));
     await bookings.cancelBooking(booking.id, riderId.toString(), 'Plans changed');

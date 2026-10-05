@@ -450,6 +450,8 @@ export interface CreateBookingRequest {
   note?: string;
   /** Catching a bus from the drop (UC-R12) */
   connection?: { departsAt: string };
+  /** What the screen showed the rider they pay; the server refuses to charge more (409 PRICE_CHANGED) */
+  expectedYouPay?: number;
 }
 
 export interface CreateBookingResult {

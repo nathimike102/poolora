@@ -26,6 +26,7 @@ import { activeOrganisationOf, colleaguesOf } from './OrganisationService';
 import { companyContribution } from './OrganisationService';
 import { riderPays } from '../utils/fares';
 import { TransitHubService } from './TransitHubService';
+import { money } from '../config/region';
 
 const walletService = new WalletService();
 const carbonService = new CarbonService();
@@ -108,6 +109,8 @@ export class BookingService {
       note?: string;
       /** Catching a bus from the drop (UC-R12) */
       connection?: { departsAt: string | Date };
+      /** What the rider was shown they pay; never charged more than this */
+      expectedYouPay?: number;
     },
   ): Promise<{ booking: IBooking; paidViaWallet: boolean }> {
     // One booking at a time per rider: the company's monthly cap, the
@@ -217,6 +220,11 @@ export class BookingService {
       ? { companyShare: company.share, organisation: company.organisation, companyMonth: company.month }
       : {};
     const youPay = riderPays({ estimatedFare, companyShare: company?.share });
+    // The company's part can shrink after the quote (cap used, paused, policy
+    // changed): the rider sees the new price before anything is taken
+    if (data.expectedYouPay !== undefined && youPay > data.expectedYouPay + 0.005) {
+      throw new AppError(`The price has changed: you would now pay ${money(youPay)}. Check it and book again.`, 409, 'PRICE_CHANGED');
+    }
     const connection = data.connection ? await this.connectionFor(ride, data.dropoff, data.connection.departsAt) : undefined;
 
     // Compute match score

@@ -115,6 +115,8 @@ export function BookingScreen(): React.ReactElement {
   );
   // What the rider's company pays of this fare (UC-C01); the rider is charged the rest
   const [quote, setQuote] = useState<BookingQuote | null>(null);
+  // Asked again when the server says the price changed
+  const [quoteAgain, setQuoteAgain] = useState(0);
   useEffect(() => {
     if (!ride) return;
     let active = true;
@@ -123,7 +125,7 @@ export function BookingScreen(): React.ReactElement {
       .then(q => { if (active) setQuote(q); })
       .catch(() => { if (active) setQuote(null); });
     return () => { active = false; };
-  }, [ride, rideId, seats, boardAt, leaveAt]);
+  }, [ride, rideId, seats, boardAt, leaveAt, quoteAgain]);
   // Only a quote for the fare on screen counts
   const companyPart = quote && Math.abs(quote.fare - total) < 0.005 ? quote.companyShare : 0;
   const youPay = Math.round((total - companyPart) * 100) / 100;
@@ -155,6 +157,7 @@ export function BookingScreen(): React.ReactElement {
         pickup: boardAt,
         dropoff: leaveAt,
         useWallet: method === 'wallet',
+        expectedYouPay: youPay,
         note: note.trim() || undefined,
         connection: atTerminus && busAt ? { departsAt: busAt.toISOString() } : undefined,
       });
@@ -173,11 +176,14 @@ export function BookingScreen(): React.ReactElement {
         summary: t('booking.summary', { from: boardAt.address || t('booking.pickup'), to: leaveAt.address || t('booking.dropLower'), seats: seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats }) }),
       });
     } catch (error) {
-      setSubmitError(errorHandler.process(error).message);
+      const problem = errorHandler.process(error);
+      // The company's part shrank since the quote: show the new price before they book again
+      if (problem.errorId === 'PRICE_CHANGED') setQuoteAgain(n => n + 1);
+      setSubmitError(problem.message);
     } finally {
       setIsSubmitting(false);
     }
-  }, [ride, isSubmitting, rideId, seats, method, note, navigation, boardAt, leaveAt, atTerminus, busAt, t]);
+  }, [ride, isSubmitting, rideId, seats, method, youPay, note, navigation, boardAt, leaveAt, atTerminus, busAt, t]);
 
   // ── Booked with wallet ──────────────────────────────────────────
   if (walletBooked) {
