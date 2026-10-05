@@ -25,7 +25,10 @@ module.exports = {
         backgroundColor: '#0B7A75',
       },
       googleServicesFile: './google-services.json',
-      permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
+      // RECEIVE_BOOT_COMPLETED: expo-location hands each background position (SOS and trip
+      // tracking) to a job Android keeps across restarts, and refuses that job without it,
+      // crashing the app on the first position after an SOS or the start of a trip
+      permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION', 'RECEIVE_BOOT_COMPLETED'],
     },
     autolinking: {
       searchPaths: ['./node_modules'],
