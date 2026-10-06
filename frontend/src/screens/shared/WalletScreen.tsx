@@ -9,14 +9,16 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
+import { ActivityIndicator, RefreshControl } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '../../context/AppContext';
 import type { RootStackParamList } from '../../navigation/types';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Radius, Spacing, Typography } from '../../theme';
 import { walletService } from '../../services/walletService';
 import { errorHandler } from '../../utils/errorHandler';
@@ -25,6 +27,8 @@ import { formatPhone, money, moneyInput, nationalDigits, REGION } from '../../ut
 import type { Transaction, Withdrawal } from '../../types/api';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
+
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -52,7 +56,9 @@ function withdrawalLine(w: Withdrawal): string {
 export function WalletScreen() {
   const navigation = useNavigation<Nav>();
   const { t } = useTranslation();
-  const { c, user } = useApp();
+  const {
+    user
+  } = useApp();
   const insets = useSafeAreaInsets();
   const ownPhone = realPhone(user?.phone);
 
@@ -142,38 +148,39 @@ export function WalletScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={[styles.headerTitle, { color: c.text }]}>{t('wallet.wallet')}</Text>
-      </View>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('wallet.wallet')} />
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing['2xl'] }]}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <View style={[styles.card, { backgroundColor: c.primary, borderColor: c.primary }]}>
-          <Text style={{ fontSize: Typography.base, color: c.textOnPrimary, opacity: 0.85 }}>{t('wallet.balance')}</Text>
+        <View style={[styles.card, tc.backgroundColor_primary, tc.borderColor_primary]}>
+          <Text style={[{ fontSize: Typography.base, opacity: 0.85 }, tc.color_textOnPrimary]}>{t('wallet.balance')}</Text>
           {balance === null && !loadError ? (
-            <ActivityIndicator color={c.textOnPrimary} style={{ alignSelf: 'flex-start', marginTop: 8 }} />
+            <ActivityIndicator color={tk.textOnPrimary} style={{ alignSelf: 'flex-start', marginTop: 8 }} />
           ) : (
-            <Text style={{ fontSize: 36, fontWeight: '800', color: c.textOnPrimary, marginTop: 4 }} accessibilityLiveRegion="polite">
+            <Text style={[{ fontSize: 36, fontWeight: '800', marginTop: 4 }, tc.color_textOnPrimary]} accessibilityLiveRegion="polite">
               {balance === null ? t('common.unavailable') : money(balance)}
             </Text>
           )}
-          <Text style={{ fontSize: 13, color: c.textOnPrimary, opacity: 0.85, marginTop: 6 }}>{t('wallet.refundsAndEarningsArriveHere')}</Text>
+          <Text style={[{ fontSize: 13, opacity: 0.85, marginTop: 6 }, tc.color_textOnPrimary]}>{t('wallet.refundsAndEarningsArriveHere')}</Text>
         </View>
         {loadError ? (
-          <View style={[styles.notice, { backgroundColor: c.errorLight }]}>
-            <Text style={{ color: c.text }}>{loadError}</Text>
-            <Pressable onPress={load} accessibilityRole="button" style={styles.linkBtn}><Text style={{ color: c.primary, fontWeight: '600' }}>{t('wallet.tryAgain')}</Text></Pressable>
+          <View style={[styles.notice, tc.backgroundColor_errorLight]}>
+            <Text style={tc.color_text}>{loadError}</Text>
+            <Pressable onPress={load} accessibilityRole="button" style={styles.linkBtn}><Text style={[{ fontWeight: '600' }, tc.color_primary]}>{t('wallet.tryAgain')}</Text></Pressable>
           </View>
         ) : null}
 
         {/* Top up */}
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>{t('wallet.topUp')}</Text>
+        <View style={[
+          styles.card,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
+          <Text style={[styles.cardTitle, tc.color_text]}>{t('wallet.topUp')}</Text>
           <View style={styles.chips}>
             {TOP_UPS.map(v => (
               <Pressable
@@ -181,9 +188,15 @@ export function WalletScreen() {
                 onPress={() => setTopUp(String(v))}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: topUpAmount === v }}
-                style={[styles.chip, { borderColor: topUpAmount === v ? c.primary : c.border, backgroundColor: topUpAmount === v ? c.primaryLight : 'transparent' }]}
+                style={[
+                  styles.chip,
+                  topUpAmount === v ? tc.borderColor_primary : tc.borderColor_border,
+                  topUpAmount === v ? tc.backgroundColor_primaryLight : {
+                    backgroundColor: 'transparent'
+                  }
+                ]}
               >
-                <Text style={{ fontWeight: '700', color: c.text }}>{money(v)}</Text>
+                <Text style={[{ fontWeight: '700' }, tc.color_text]}>{money(v)}</Text>
               </Pressable>
             ))}
           </View>
@@ -192,25 +205,33 @@ export function WalletScreen() {
             onChangeText={t => setTopUp(moneyInput(t))}
             keyboardType="decimal-pad"
             accessibilityLabel={t('wallet.topUpAmountInUs')}
-            style={[styles.input, { borderColor: topUpOk || !topUp ? c.border : c.error, color: c.text }]}
+            style={[
+              styles.input,
+              topUpOk || !topUp ? tc.borderColor_border : tc.borderColor_error,
+              tc.color_text
+            ]}
           />
-          <Text style={{ fontSize: 12, color: c.textSec }}>{t('wallet.topUpRange', { min: money(MIN_TOP_UP), max: money(MAX_TOP_UP) })}</Text>
+          <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('wallet.topUpRange', { min: money(MIN_TOP_UP), max: money(MAX_TOP_UP) })}</Text>
           <Pressable
             onPress={() => navigation.navigate('Payment', { amount: topUpAmount, summary: 'Poolora wallet top-up' })}
             disabled={!topUpOk}
             accessibilityRole="button"
             accessibilityState={{ disabled: !topUpOk }}
-            style={[styles.btn, { backgroundColor: c.primary, opacity: topUpOk ? 1 : 0.5 }]}
+            style={[styles.btn, { opacity: topUpOk ? 1 : 0.5 }, tc.backgroundColor_primary]}
           >
-            <Text style={{ color: c.textOnPrimary, fontWeight: '700', fontSize: 16 }}>{t('wallet.topUpAmount', { amount: topUpOk ? money(topUpAmount) : '' }).trim()}</Text>
+            <Text style={[{ fontWeight: '700', fontSize: 16 }, tc.color_textOnPrimary]}>{t('wallet.topUpAmount', { amount: topUpOk ? money(topUpAmount) : '' }).trim()}</Text>
           </Pressable>
         </View>
 
         {/* Withdraw */}
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>{t('wallet.withdrawToMobileMoney')}</Text>
+        <View style={[
+          styles.card,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
+          <Text style={[styles.cardTitle, tc.color_text]}>{t('wallet.withdrawToMobileMoney')}</Text>
           {pending ? (
-            <Text style={{ fontSize: 14, color: c.textSec }}>{t('wallet.youHaveAWithdrawalWaiting')}</Text>
+            <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('wallet.youHaveAWithdrawalWaiting')}</Text>
           ) : (
             <>
               <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel={t('wallet.sendTo')}>
@@ -220,9 +241,15 @@ export function WalletScreen() {
                     onPress={() => setChannel(ch.id)}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: channel === ch.id }}
-                    style={[styles.chip, { borderColor: channel === ch.id ? c.primary : c.border, backgroundColor: channel === ch.id ? c.primaryLight : 'transparent' }]}
+                    style={[
+                      styles.chip,
+                      channel === ch.id ? tc.borderColor_primary : tc.borderColor_border,
+                      channel === ch.id ? tc.backgroundColor_primaryLight : {
+                        backgroundColor: 'transparent'
+                      }
+                    ]}
                   >
-                    <Text style={{ fontWeight: '700', color: c.text }}>{ch.label}</Text>
+                    <Text style={[{ fontWeight: '700' }, tc.color_text]}>{ch.label}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -231,45 +258,49 @@ export function WalletScreen() {
                 onChangeText={setPayNumber}
                 keyboardType="phone-pad"
                 placeholder="0771 234 567"
-                placeholderTextColor={c.textSec}
+                placeholderTextColor={tk.textSec}
                 accessibilityLabel={t('wallet.numberLabel', { wallet: CHANNEL_LABEL[channel] })}
-                style={[styles.input, { borderColor: numberOk || !payNumber ? c.border : c.error, color: c.text }]}
+                style={[
+                  styles.input,
+                  numberOk || !payNumber ? tc.borderColor_border : tc.borderColor_error,
+                  tc.color_text
+                ]}
               />
               <TextInput
                 value={amount}
                 onChangeText={t => setAmount(moneyInput(t))}
                 keyboardType="decimal-pad"
                 placeholder={t('wallet.withdrawPlaceholder', { min: money(MIN_WITHDRAWAL) })}
-                placeholderTextColor={c.textSec}
+                placeholderTextColor={tk.textSec}
                 accessibilityLabel={t('wallet.amountToWithdrawInUs')}
-                style={[styles.input, { borderColor: c.border, color: c.text }]}
+                style={[styles.input, tc.borderColor_border, tc.color_text]}
               />
               {balance !== null && balance > 0 ? (
                 <Pressable onPress={() => setAmount(String(Math.floor(balance * 100) / 100))} accessibilityRole="button" style={styles.linkBtn}>
-                  <Text style={{ color: c.primary, fontWeight: '600' }}>{t('wallet.withdrawAll', { amount: money(balance) })}</Text>
+                  <Text style={[{ fontWeight: '600' }, tc.color_primary]}>{t('wallet.withdrawAll', { amount: money(balance) })}</Text>
                 </Pressable>
               ) : null}
-              {withdrawError ? <Text style={{ color: c.error }}>{withdrawError}</Text> : null}
+              {withdrawError ? <Text style={tc.color_error}>{withdrawError}</Text> : null}
               <Pressable
                 onPress={withdraw}
                 disabled={!canWithdraw || sending}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !canWithdraw || sending, busy: sending }}
-                style={[styles.btn, { borderWidth: 1.5, borderColor: c.primary, opacity: canWithdraw ? 1 : 0.5 }]}
+                style={[styles.btn, { borderWidth: 1.5, opacity: canWithdraw ? 1 : 0.5 }, tc.borderColor_primary]}
               >
-                {sending ? <ActivityIndicator color={c.primary} /> : <Text style={{ color: c.primary, fontWeight: '700', fontSize: 16 }}>{t('wallet.withdraw')}</Text>}
+                {sending ? <ActivityIndicator color={tk.primary} /> : <Text style={[{ fontWeight: '700', fontSize: 16 }, tc.color_primary]}>{t('wallet.withdraw')}</Text>}
               </Pressable>
             </>
           )}
           {withdrawals.slice(0, 5).map(w => (
-            <View key={w._id} style={[styles.item, { borderColor: c.border }]}>
+            <View key={w._id} style={[styles.item, tc.borderColor_border]}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '600', color: c.text }}>{t('wallet.sentTo', { amount: money(w.amount), wallet: CHANNEL_LABEL[w.channel], number: formatPhone(w.payNumber) })}</Text>
-                <Text style={{ fontSize: 12, color: c.textSec }}>{withdrawalLine(w)}</Text>
+                <Text style={[{ fontWeight: '600' }, tc.color_text]}>{t('wallet.sentTo', { amount: money(w.amount), wallet: CHANNEL_LABEL[w.channel], number: formatPhone(w.payNumber) })}</Text>
+                <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{withdrawalLine(w)}</Text>
               </View>
               {w.status === 'pending' ? (
                 <Pressable onPress={() => cancel(w)} accessibilityRole="button" accessibilityLabel={t('wallet.cancelWithdrawal', { amount: money(w.amount) })} style={styles.linkBtn}>
-                  <Text style={{ color: c.error, fontWeight: '600' }}>{t('wallet.cancel')}</Text>
+                  <Text style={[{ fontWeight: '600' }, tc.color_error]}>{t('wallet.cancel')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -278,19 +309,23 @@ export function WalletScreen() {
 
         {/* Activity */}
         {activity.length ? (
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.cardTitle, { color: c.text }]}>{t('wallet.recentActivity')}</Text>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[styles.cardTitle, tc.color_text]}>{t('wallet.recentActivity')}</Text>
             {activity.map(tx => {
               const moneyIn = MONEY_IN.has(tx.type);
               return (
-                <View key={tx._id} style={[styles.item, { borderColor: c.border }]}>
+                <View key={tx._id} style={[styles.item, tc.borderColor_border]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: c.text }} numberOfLines={2}>{tx.description}</Text>
-                    <Text style={{ fontSize: 12, color: c.textSec }}>
+                    <Text style={tc.color_text} numberOfLines={2}>{tx.description}</Text>
+                    <Text style={[{ fontSize: 12 }, tc.color_textSec]}>
                       {new Date(tx.createdAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' })}{tx.status === 'pending' ? t('wallet.processing') : ''}
                     </Text>
                   </View>
-                  <Text style={{ fontWeight: '700', color: moneyIn ? c.success : c.text }}>{moneyIn ? '+' : '−'}{money(tx.amount)}</Text>
+                  <Text style={[{ fontWeight: '700' }, moneyIn ? tc.color_success : tc.color_text]}>{moneyIn ? '+' : '−'}{money(tx.amount)}</Text>
                 </View>
               );
             })}

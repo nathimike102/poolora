@@ -7,15 +7,14 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
 } from 'react-native';
+import { Text, TextInput } from '../components/Text';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -28,11 +27,15 @@ import { signInWithEmail, sendPasswordReset } from '../services/authService';
 import type { RootStackParamList } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
 
+import { tc, tk } from '../theme/themed';
+
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'EmailLogin'>;
 
 export function EmailLoginScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c, finishSignIn } = useApp();
+  const {
+    finishSignIn
+  } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
@@ -78,7 +81,7 @@ export function EmailLoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}
+      style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}
       behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
@@ -93,7 +96,7 @@ export function EmailLoginScreen() {
         keyboardShouldPersistTaps="handled"
         bounces={false}
       >
-        <Text style={[styles.title, { color: c.text }]}>
+        <Text style={[styles.title, tc.color_text]}>
           {t('login.emailTitle')}
         </Text>
 
@@ -101,11 +104,12 @@ export function EmailLoginScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.emailLabel')}</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.emailLabel')}</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -113,8 +117,8 @@ export function EmailLoginScreen() {
             autoCapitalize="none"
             autoComplete="email"
             placeholder={t('login.emailPlaceholder')}
-            placeholderTextColor={c.textSec}
-            style={[styles.input, { color: c.text }]}
+            placeholderTextColor={tk.textSec}
+            style={[styles.input, tc.color_text]}
           />
         </View>
 
@@ -122,18 +126,19 @@ export function EmailLoginScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.passwordLabel')}</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.passwordLabel')}</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             placeholder={t('login.passwordPlaceholder')}
-            placeholderTextColor={c.textSec}
-            style={[styles.input, { color: c.text }]}
+            placeholderTextColor={tk.textSec}
+            style={[styles.input, tc.color_text]}
           />
         </View>
 
@@ -142,7 +147,7 @@ export function EmailLoginScreen() {
           onPress={handleForgotPassword}
           style={styles.forgotRow}
         >
-          <Text style={[styles.forgotText, { color: c.primary }]}>
+          <Text style={[styles.forgotText, tc.color_primary]}>
             {t('login.forgot')}
           </Text>
         </TouchableOpacity>
@@ -153,31 +158,32 @@ export function EmailLoginScreen() {
           onPress={handleLogin}
           disabled={!isValid || loading}
           loading={loading}
-          colorStart={c.primary}
-          colorEnd={c.primaryDark}
-          disabledColor={c.border}
+          colorStart={tk.primary}
+          colorEnd={tk.primaryDark}
+          disabledColor={tk.border}
         />
 
         {/* Divider */}
         <View style={styles.dividerRow}>
-          <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
-          <Text style={[styles.dividerLabel, { color: c.textSec }]}>
+          <View style={[styles.dividerLine, tc.backgroundColor_border]} />
+          <Text style={[styles.dividerLabel, tc.color_textSec]}>
             {t('login.noAccount')}
           </Text>
-          <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
+          <View style={[styles.dividerLine, tc.backgroundColor_border]} />
         </View>
 
         {/* Create Account */}
         <TouchableOpacity accessibilityRole="button"
           style={[
             styles.signupButton,
-            { borderColor: c.border, backgroundColor: c.surface },
-            Shadow.sm,
+            tc.borderColor_surfaceVariant,
+            tc.backgroundColor_surfaceVariant,
+            Shadow.sm
           ]}
           activeOpacity={0.7}
           onPress={() => navigation.navigate('EmailSignup')}
         >
-          <Text style={[styles.signupLabel, { color: c.primary }]}>
+          <Text style={[styles.signupLabel, tc.color_primary]}>
             {t('login.createAccount')}
           </Text>
         </TouchableOpacity>

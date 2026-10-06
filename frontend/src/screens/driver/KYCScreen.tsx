@@ -9,24 +9,21 @@
 import React, { useCallback, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
   Alert,
-  Switch,
   Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { ActivityIndicator, Switch } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import { userService } from '../../services/userService';
 import { kycService, type LocalFile } from '../../services/kycService';
@@ -36,6 +33,8 @@ import type { User, VehicleType } from '../../types/api';
 import { REGISTRABLE_VEHICLES } from '../../utils/vehicles';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
+
+import { tc, tk } from '../../theme/themed';
 
 type DocKey = 'licence' | 'registration' | 'insurance' | 'vehiclePhoto';
 
@@ -48,9 +47,7 @@ const DOCS: { key: DocKey; label: string; hint: string }[] = [
 
 
 export function KYCScreen() {
-  const navigation = useNavigation();
   const { t } = useTranslation();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
 
   const [profile, setProfile] = useState<User | null>(null);
@@ -150,23 +147,20 @@ export function KYCScreen() {
   const status = profile?.kyc?.status ?? 'none';
 
   const header = (
-    <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
-      <BackButton onPress={() => navigation.goBack()} />
-      <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('kYC.driverVerification')}</Text>
-    </View>
+    <ScreenHeader title={t('kYC.driverVerification')} />
   );
 
   if (status === 'pending' || status === 'approved') {
     const approved = status === 'approved';
     return (
-      <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
         {header}
         <View style={styles.centered}>
-          <Icon name={approved ? 'check-decagram' : 'timer-sand'} size={56} color={approved ? c.success : c.primary} />
-          <Text style={[styles.statusTitle, { color: c.text }]}>
+          <Icon name={approved ? 'check-decagram' : 'timer-sand'} size={56} color={approved ? tk.success : tk.primary} />
+          <Text style={[styles.statusTitle, tc.color_text]}>
             {approved ? t('kYC.youAreVerified') : t('kYC.documentsUnderReview')}
           </Text>
-          <Text style={[styles.statusBody, { color: c.textSec }]}>
+          <Text style={[styles.statusBody, tc.color_textSec]}>
             {approved
               ? t('kYC.youCanOfferRidesNow') : t('kYC.aMemberOfThePoolora')}
           </Text>
@@ -176,43 +170,51 @@ export function KYCScreen() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {header}
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {status === 'rejected' && (
-            <View style={[styles.notice, { backgroundColor: c.errorLight }]} accessibilityLiveRegion="polite">
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{t('kYC.yourLastSubmissionWasNot')}</Text>
+            <View style={[styles.notice, tc.backgroundColor_errorLight]} accessibilityLiveRegion="polite">
+              <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_text]}>{t('kYC.yourLastSubmissionWasNot')}</Text>
               {profile?.kyc?.rejectionReason ? (
-                <Text style={{ fontSize: 14, color: c.text, marginTop: 4 }}>{profile.kyc.rejectionReason}</Text>
+                <Text style={[{ fontSize: 14, marginTop: 4 }, tc.color_text]}>{profile.kyc.rejectionReason}</Text>
               ) : null}
-              <Text style={{ fontSize: 14, color: c.text, marginTop: 4 }}>{t('kYC.correctTheDetailsBelowAnd')}</Text>
+              <Text style={[{ fontSize: 14, marginTop: 4 }, tc.color_text]}>{t('kYC.correctTheDetailsBelowAnd')}</Text>
             </View>
           )}
 
-          <Text style={{ fontSize: 14, color: c.textSec, lineHeight: 20 }}>
+          <Text style={[{ fontSize: 14, lineHeight: 20 }, tc.color_textSec]}>
             {t('kYC.privacy')}
           </Text>
 
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.sectionTitle, { color: c.text }]}>{t('kYC.licence')}</Text>
-            <Field label={t('kYC.drivingLicenceNumber')} value={licenseNumber} onChange={setLicenseNumber} autoCapitalize="characters" c={c} />
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[styles.sectionTitle, tc.color_text]}>{t('kYC.licence')}</Text>
+            <Field label={t('kYC.drivingLicenceNumber')} value={licenseNumber} onChange={setLicenseNumber} autoCapitalize="characters" />
           </View>
 
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.sectionTitle, { color: c.text }]}>{t('kYC.vehicle')}</Text>
-            <Field label={t('kYC.make')} value={make} onChange={setMake} placeholder={t('kYC.forExampleToyota')} c={c} />
-            <Field label={t('kYC.model')} value={model} onChange={setModel} placeholder={t('kYC.forExampleCorolla')} c={c} />
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[styles.sectionTitle, tc.color_text]}>{t('kYC.vehicle')}</Text>
+            <Field label={t('kYC.make')} value={make} onChange={setMake} placeholder={t('kYC.forExampleToyota')} />
+            <Field label={t('kYC.model')} value={model} onChange={setModel} placeholder={t('kYC.forExampleCorolla')} />
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
-                <Field label={t('kYC.year')} value={year} onChange={t => setYear(t.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={4} c={c} />
+                <Field label={t('kYC.year')} value={year} onChange={t => setYear(t.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={4} />
               </View>
               <View style={{ flex: 1 }}>
-                <Field label={t('kYC.colour')} value={color} onChange={setColor} c={c} />
+                <Field label={t('kYC.colour')} value={color} onChange={setColor} />
               </View>
             </View>
-            <Field label={t('kYC.registrationNumber')} value={plate} onChange={setPlate} autoCapitalize="characters" placeholder={t('kYC.forExampleAea1234')} c={c} />
-            <Text style={[styles.label, { color: c.textSec }]}>{t('kYC.type')}</Text>
+            <Field label={t('kYC.registrationNumber')} value={plate} onChange={setPlate} autoCapitalize="characters" placeholder={t('kYC.forExampleAea1234')} />
+            <Text style={[styles.label, tc.color_textSec]}>{t('kYC.type')}</Text>
             <View style={styles.chips} accessibilityRole="radiogroup">
               {REGISTRABLE_VEHICLES.map(t => {
                 const selected = vehicleType === t.value;
@@ -222,21 +224,29 @@ export function KYCScreen() {
                     onPress={() => setVehicleType(t.value)}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: selected }}
-                    style={[styles.chip, { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primaryLight : c.bg }]}
+                    style={[
+                      styles.chip,
+                      selected ? tc.borderColor_primary : tc.borderColor_border,
+                      selected ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface
+                    ]}
                   >
-                    <Text style={{ fontSize: 14, color: selected ? c.primary : c.text }}>{t.label}</Text>
+                    <Text style={[{ fontSize: 14 }, selected ? tc.color_primary : tc.color_text]}>{t.label}</Text>
                   </Pressable>
                 );
               })}
             </View>
             <View style={styles.switchRow}>
-              <Text style={{ flex: 1, fontSize: 15, color: c.text }}>{t('kYC.airConditioning')}</Text>
-              <Switch value={hasAC} onValueChange={setHasAC} accessibilityLabel={t('kYC.airConditioning')} trackColor={{ false: c.border, true: c.primary }} />
+              <Text style={[{ flex: 1, fontSize: 15 }, tc.color_text]}>{t('kYC.airConditioning')}</Text>
+              <Switch value={hasAC} onValueChange={setHasAC} accessibilityLabel={t('kYC.airConditioning')} trackColor={{ false: tk.border, true: tk.primary }} />
             </View>
           </View>
 
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.sectionTitle, { color: c.text }]}>{t('kYC.documents')}</Text>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[styles.sectionTitle, tc.color_text]}>{t('kYC.documents')}</Text>
             {DOCS.map(doc => {
               const file = files[doc.key];
               return (
@@ -246,27 +256,27 @@ export function KYCScreen() {
                   disabled={submitting}
                   accessibilityRole="button"
                   accessibilityLabel={file ? t('kYC.docAdded', { label: doc.label }) : t('kYC.docMissing', { label: doc.label })}
-                  style={[styles.docRow, { borderColor: file ? c.success : c.border }]}
+                  style={[styles.docRow, file ? tc.borderColor_success : tc.borderColor_border]}
                 >
                   {file ? (
                     <Image source={{ uri: file.uri }} style={styles.thumb} />
                   ) : (
-                    <View style={[styles.thumb, styles.thumbEmpty, { backgroundColor: c.bg }]}>
-                      <Icon name="camera-plus-outline" size={22} color={c.textSec} />
+                    <View style={[styles.thumb, styles.thumbEmpty, tc.backgroundColor_surface]}>
+                      <Icon name="camera-plus-outline" size={22} color={tk.textSec} />
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>{doc.label}</Text>
-                    <Text style={{ fontSize: 13, color: c.textSec }}>{file ? t('kYC.addedReplace') : doc.hint}</Text>
+                    <Text style={[{ fontSize: 15, fontWeight: '600' }, tc.color_text]}>{doc.label}</Text>
+                    <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{file ? t('kYC.addedReplace') : doc.hint}</Text>
                   </View>
-                  {file ? <Icon name="check-circle" size={22} color={c.success} /> : null}
+                  {file ? <Icon name="check-circle" size={22} color={tk.success} /> : null}
                 </Pressable>
               );
             })}
           </View>
 
           {error ? (
-            <Text style={{ color: c.error, fontSize: 14 }} accessibilityLiveRegion="polite">{error}</Text>
+            <Text style={[{ fontSize: 14 }, tc.color_error]} accessibilityLiveRegion="polite">{error}</Text>
           ) : null}
 
           <Pressable
@@ -274,15 +284,15 @@ export function KYCScreen() {
             disabled={!complete || submitting}
             accessibilityRole="button"
             accessibilityState={{ disabled: !complete || submitting, busy: submitting }}
-            style={[styles.primaryBtn, { backgroundColor: complete ? c.primary : c.border }]}
+            style={[styles.primaryBtn, complete ? tc.backgroundColor_primary : tc.backgroundColor_border]}
           >
             {submitting ? (
               <View style={styles.row}>
-                <ActivityIndicator color={c.textOnPrimary} />
-                <Text style={[styles.primaryBtnText, { color: c.textOnPrimary }]} accessibilityLiveRegion="polite">{progress}</Text>
+                <ActivityIndicator color={tk.textOnPrimary} />
+                <Text style={[styles.primaryBtnText, tc.color_textOnPrimary]} accessibilityLiveRegion="polite">{progress}</Text>
               </View>
             ) : (
-              <Text style={[styles.primaryBtnText, { color: complete ? c.textOnPrimary : c.textSec }]}>{t('kYC.submitForReview')}</Text>
+              <Text style={[styles.primaryBtnText, complete ? tc.color_textOnPrimary : tc.color_textSec]}>{t('kYC.submitForReview')}</Text>
             )}
           </Pressable>
         </ScrollView>
@@ -295,7 +305,6 @@ function Field({
   label,
   value,
   onChange,
-  c,
   placeholder,
   keyboardType,
   autoCapitalize,
@@ -304,7 +313,6 @@ function Field({
   label: string;
   value: string;
   onChange: (t: string) => void;
-  c: ReturnType<typeof useApp>['c'];
   placeholder?: string;
   keyboardType?: 'default' | 'number-pad';
   autoCapitalize?: 'none' | 'characters' | 'words';
@@ -312,17 +320,22 @@ function Field({
 }) {
   return (
     <View style={{ marginBottom: Spacing.md }}>
-      <Text style={[styles.label, { color: c.textSec }]}>{label}</Text>
+      <Text style={[styles.label, tc.color_textSec]}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor={c.textSec}
+        placeholderTextColor={tk.textSec}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize ?? 'words'}
         maxLength={maxLength}
         accessibilityLabel={label}
-        style={[styles.input, { borderColor: c.border, backgroundColor: c.bg, color: c.text }]}
+        style={[
+          styles.input,
+          tc.borderColor_border,
+          tc.backgroundColor_surface,
+          tc.color_text
+        ]}
       />
     </View>
   );

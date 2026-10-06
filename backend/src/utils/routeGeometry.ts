@@ -162,3 +162,17 @@ export function toLineString(
   if (kept.length < 2) return null;
   return { type: 'LineString', coordinates: kept.map((p) => [p.lng, p.lat]) };
 }
+
+/** A point a rider chose off the route (pickup, stop, drop) and how far off it lies */
+export interface PlannedPoint extends LatLng {
+  offRouteKm: number;
+}
+
+/**
+ * Whether a car that has left the route is on its way to (or back from) a point
+ * a rider asked for: within the circle around that point that reaches back to
+ * the route, plus the deviation allowance. A car anywhere else is off its plan.
+ */
+export function onPlannedDetour(position: LatLng, points: PlannedPoint[], allowanceKm: number): boolean {
+  return points.some((p) => haversineDistanceKm(position.lat, position.lng, p.lat, p.lng) <= p.offRouteKm + allowanceKm);
+}

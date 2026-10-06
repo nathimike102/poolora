@@ -154,7 +154,7 @@ describe('organizer ratings (UC-T02)', () => {
     await expect(service.rateOrganizer(id, bob, 1)).rejects.toThrow('already rated');
 
     const organizer = await User.findById(alice).lean();
-    expect(organizer?.stats).toMatchObject({ avgRatingAsOrganizer: 4.5, totalRatingsAsOrganizer: 2 });
+    expect(organizer?.stats).toMatchObject({ avgRatingAsOrganizer: 4.92, totalRatingsAsOrganizer: 2, ratingSumAsOrganizer: 9 });
     const view = await service.get(id, bob);
     expect(view).toMatchObject({ canRateOrganizer: false, myOrganizerRating: { score: 5, comment: 'Great planning' } });
     expect(view.organizerRatings).toBeUndefined(); // other members' comments stay private

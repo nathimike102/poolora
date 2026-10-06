@@ -5,23 +5,23 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
   Dimensions,
 } from 'react-native';
+import { Text } from '../components/Text';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientButton } from '../components/GradientButton';
 import { Icon, type IconName } from '../components/Icon';
 import { Typography, Spacing, Radius } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
+import { tc, tk, useColors } from '../theme/themed';
 
 export const ONBOARDING_SEEN_KEY = '@poolora_onboarding_seen';
 
@@ -59,11 +59,11 @@ const SLIDES = [
 // ─── Animated Dot ──────────────────────────────────────────────────────────────
 interface DotProps {
   active: boolean;
-  primaryColor: string;
-  borderColor: string;
 }
 
-function ProgressDot({ active, primaryColor, borderColor }: DotProps) {
+function ProgressDot({ active }: DotProps) {
+  // The colours animate, so the dot reads them itself (and re-renders alone for a theme change)
+  const { primary: primaryColor, border: borderColor } = useColors();
   // Animated width for active/inactive state
   const width = useRef(new Animated.Value(active ? 28 : 8)).current;
   const bg = useRef(
@@ -105,7 +105,6 @@ function ProgressDot({ active, primaryColor, borderColor }: DotProps) {
 
 export function OnboardingScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [current, setCurrent] = useState(0);
@@ -195,11 +194,11 @@ export function OnboardingScreen() {
   const slide = SLIDES[current];
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {/* Skip button */}
       <View style={styles.skipRow}>
         <TouchableOpacity accessibilityRole="button" onPress={skip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={[styles.skipLabel, { color: c.textSec }]}>{t('onboarding.skip')}</Text>
+          <Text style={[styles.skipLabel, tc.color_textSec]}>{t('onboarding.skip')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -213,7 +212,7 @@ export function OnboardingScreen() {
 
         {/* Gradient overlay */}
         <View
-          style={[styles.gradientOverlay, { backgroundColor: c.bg }]}
+          style={[styles.gradientOverlay, tc.backgroundColor_surface]}
           pointerEvents="none"
         />
 
@@ -240,8 +239,8 @@ export function OnboardingScreen() {
             },
           ]}
         >
-          <Text style={[styles.title, { color: c.text }]}>{t(`onboarding.${slide.key}.title`)}</Text>
-          <Text style={[styles.subtitle, { color: c.textSec }]}>
+          <Text style={[styles.title, tc.color_text]}>{t(`onboarding.${slide.key}.title`)}</Text>
+          <Text style={[styles.subtitle, tc.color_textSec]}>
             {t(`onboarding.${slide.key}.subtitle`)}
           </Text>
         </Animated.View>
@@ -252,8 +251,6 @@ export function OnboardingScreen() {
             <ProgressDot
               key={i}
               active={i === current}
-              primaryColor={c.primary}
-              borderColor={c.border}
             />
           ))}
         </View>
@@ -262,8 +259,8 @@ export function OnboardingScreen() {
         <GradientButton
           label={current < SLIDES.length - 1 ? t('onboarding.continue') : t('onboarding.getStarted')}
           onPress={next}
-          colorStart={c.primary}
-          colorEnd={c.primaryDark}
+          colorStart={tk.primary}
+          colorEnd={tk.primaryDark}
         />
       </View>
     </View>

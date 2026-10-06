@@ -7,14 +7,13 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
 } from 'react-native';
+import { Text, TextInput } from '../components/Text';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -27,11 +26,15 @@ import { signUpWithEmail } from '../services/authService';
 import type { RootStackParamList } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
 
+import { tc, tk } from '../theme/themed';
+
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'EmailSignup'>;
 
 export function EmailSignupScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c, finishSignIn } = useApp();
+  const {
+    finishSignIn
+  } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
@@ -79,7 +82,7 @@ export function EmailSignupScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}
+      style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}
       behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
@@ -94,7 +97,7 @@ export function EmailSignupScreen() {
         keyboardShouldPersistTaps="handled"
         bounces={false}
       >
-        <Text style={[styles.title, { color: c.text }]}>
+        <Text style={[styles.title, tc.color_text]}>
           {t('login.createAccount')}
         </Text>
 
@@ -102,18 +105,19 @@ export function EmailSignupScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.firstNameLabel')}</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.firstNameLabel')}</Text>
           <TextInput
             value={firstName}
             onChangeText={setFirstName}
             placeholder={t('login.firstName')}
-            placeholderTextColor={c.textSec}
+            placeholderTextColor={tk.textSec}
             autoCapitalize="words"
-            style={[styles.input, { color: c.text }]}
+            style={[styles.input, tc.color_text]}
           />
         </View>
 
@@ -121,18 +125,19 @@ export function EmailSignupScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.lastNameLabel')}</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.lastNameLabel')}</Text>
           <TextInput
             value={lastName}
             onChangeText={setLastName}
             placeholder={t('login.lastName')}
-            placeholderTextColor={c.textSec}
+            placeholderTextColor={tk.textSec}
             autoCapitalize="words"
-            style={[styles.input, { color: c.text }]}
+            style={[styles.input, tc.color_text]}
           />
         </View>
 
@@ -140,11 +145,12 @@ export function EmailSignupScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.emailLabel')}</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.emailLabel')}</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -152,8 +158,8 @@ export function EmailSignupScreen() {
             autoCapitalize="none"
             autoComplete="email"
             placeholder={t('login.emailPlaceholder')}
-            placeholderTextColor={c.textSec}
-            style={[styles.input, { color: c.text }]}
+            placeholderTextColor={tk.textSec}
+            style={[styles.input, tc.color_text]}
           />
         </View>
 
@@ -161,18 +167,19 @@ export function EmailSignupScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.passwordLabel')}</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.passwordLabel')}</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             placeholder={t('login.newPassword')}
-            placeholderTextColor={c.textSec}
-            style={[styles.input, { color: c.text }]}
+            placeholderTextColor={tk.textSec}
+            style={[styles.input, tc.color_text]}
           />
         </View>
 
@@ -180,24 +187,25 @@ export function EmailSignupScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>{t('login.confirmLabel')}</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.confirmLabel')}</Text>
           <TextInput
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
             placeholder={t('login.confirmPlaceholder')}
-            placeholderTextColor={c.textSec}
-            style={[styles.input, { color: c.text }]}
+            placeholderTextColor={tk.textSec}
+            style={[styles.input, tc.color_text]}
           />
         </View>
 
         {/* Password mismatch hint */}
         {confirmPassword.length > 0 && password !== confirmPassword && (
-          <Text style={[styles.errorHint, { color: c.error }]}>
+          <Text style={[styles.errorHint, tc.color_error]}>
             {t('login.mismatch')}
           </Text>
         )}
@@ -209,9 +217,9 @@ export function EmailSignupScreen() {
             onPress={handleSignUp}
             disabled={!isValid || loading}
             loading={loading}
-            colorStart={c.primary}
-            colorEnd={c.primaryDark}
-            disabledColor={c.border}
+            colorStart={tk.primary}
+            colorEnd={tk.primaryDark}
+            disabledColor={tk.border}
           />
         </View>
       </ScrollView>

@@ -198,6 +198,10 @@ export interface IUserStats {
   totalRatingsAsRider: number;
   avgRatingAsOrganizer?: number;
   totalRatingsAsOrganizer?: number;
+  /** Sums of the ratings received; the averages above are scores (utils/ratingScore) */
+  ratingSumAsDriver?: number;
+  ratingSumAsRider?: number;
+  ratingSumAsOrganizer?: number;
   cancellationRate: number;
   acceptanceRate: number;
   /** CO₂ saved by this user's shared trips, as rider and driver (UC-R11) */

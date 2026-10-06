@@ -48,7 +48,8 @@
  *   oklch(0.95 0.006) -> #F3F4F6   oklch(0.269 0 0) -> #374151
  *   oklch(0.708 0 0)  -> #9CA3AF   oklch(0.205 0 0) -> #374151 (approx)
  *
- * .dark {} overrides -> DarkColors object (switched via isDarkMode in AppContext)
+ * .dark {} overrides -> DarkColors object (registered with Unistyles in theme/unistyles.ts;
+ *   screens use theme/themed, so a theme change repaints natively)
  *
  * scrollbar-width: none -> showsVerticalScrollIndicator={false} on ScrollView
  */
@@ -172,6 +173,10 @@ export interface AppColors {
   warningLight: string;
   error: string;
   errorLight: string;
+  /** Rating stars: gold, the colour people read as a rating */
+  star: string;
+  /** A favourite place's heart */
+  heart: string;
   info: string;
   infoLight: string;
   green: string;
@@ -181,6 +186,8 @@ export interface AppColors {
   surfaceVariant: string;
   border: string;
   shadow: string;
+  /** The soft lift under an outlined card: a faint shadow in light mode, none in dark */
+  cardLift: string;
   // Shadcn-mapped extras
   muted: string;
   mutedFg: string;
@@ -205,6 +212,8 @@ export const LightColors: AppColors = {
   warningLight: Palette.warningLight,
   error:        Palette.error,
   errorLight:   Palette.errorLight,
+  star:         '#F5B301',
+  heart:        '#E5484D',
   info:         Palette.info,
   infoLight:    Palette.infoLight,
   green:        Palette.green,
@@ -214,6 +223,7 @@ export const LightColors: AppColors = {
   surfaceVariant: Palette.grey100,
   border:         Palette.grey200,
   shadow:         'rgba(0,0,0,0.06)',
+  cardLift:       '0 6px 18px rgba(20, 24, 40, 0.08)',
   muted:    '#ECECF0',
   mutedFg:  '#717182',
   accent:   '#E9EBEF',
@@ -236,6 +246,9 @@ export const DarkColors: AppColors = {
   warningLight: '#451A03',
   error:        '#F87171',
   errorLight:   '#450A0A',
+  // A touch brighter so both stand out on dark cards
+  star:         '#FFC531',
+  heart:        '#FF6369',
   info:         '#60A5FA',
   infoLight:    '#1E3A5F',
   green:        '#69F0AE',
@@ -245,6 +258,7 @@ export const DarkColors: AppColors = {
   surfaceVariant: '#242424',
   border:         '#2E2E2E',
   shadow:         'rgba(0,0,0,0.4)',
+  cardLift:       '0 0 0 0 transparent',
   muted:    '#374151',
   mutedFg:  '#9CA3AF',
   accent:   '#374151',

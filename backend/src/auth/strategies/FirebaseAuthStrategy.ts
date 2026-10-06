@@ -56,6 +56,11 @@ export class FirebaseAuthStrategy implements AuthStrategy {
     // 1. Fast path — user already linked
     let user = await User.findOne({ firebaseUid: uid, isActive: true });
     if (user) {
+      // The Google picture fills an empty profile; a picture they chose stays
+      if (picture && !user.profilePhotoUrl) {
+        user.profilePhotoUrl = picture;
+        await User.updateOne({ _id: user._id }, { $set: { profilePhotoUrl: picture } });
+      }
       // Their sign-in proves the address: on their account, or for an account
       // made before they verified it, which has none
       if (email && !user.emailVerifiedAt && (!user.email || user.email === email) && (await giveVerifiedEmail(user._id, email))) {

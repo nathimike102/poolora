@@ -25,7 +25,8 @@
     "requested": {
       "title": "New Booking Request",
       "push": "You have a new ride booking request. Tap to review.",
-      "body": "A rider has requested to join your ride."
+      "body": "A rider has requested to join your ride.",
+      "bodyWithStops": "A rider has requested to join your ride and added stops on the way ({{count}}). Check them before you accept."
     },
     "confirmed": {
       "title": "Booking Confirmed",

@@ -57,7 +57,10 @@ ${refreshSeconds ? `<meta http-equiv="refresh" content="${refreshSeconds}">` : '
 function contactHeaders(res: Response): void {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-  res.setHeader('Referrer-Policy', 'no-referrer');
+  // same-origin, not no-referrer: with no-referrer the browser sends the Confirm
+  // form's post with "Origin: null", which CORS refuses. The link's token still
+  // never leaves this site, since these pages link nowhere else.
+  res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",

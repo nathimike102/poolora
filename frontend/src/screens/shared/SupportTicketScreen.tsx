@@ -7,19 +7,29 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type SupportCategory, type SupportTicket } from '../../services/supportService';
 import { errorHandler } from '../../utils/errorHandler';
 import { REGION } from '../../utils/region';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
+import { tc, tk } from '../../theme/themed';
 
 const CATEGORIES: Array<{ value: SupportCategory; label: string }> = [
   { value: 'safety', get label() { return i18n.t('supportTicket.categories.safety'); } },
@@ -34,7 +44,6 @@ const CATEGORIES: Array<{ value: SupportCategory; label: string }> = [
 export function SupportTicketScreen() {
   const { ticketId, bookingId } = useRoute<RouteProp<RootStackParamList, 'SupportTicket'>>().params ?? {};
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { c } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
@@ -92,16 +101,12 @@ export function SupportTicketScreen() {
   const title = ticketId ? ticket?.subject ?? t('supportTicket.yourRequest') : t('supportTicket.contactUs');
 
   return (
-    <KeyboardAvoidingView style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.header, { borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header" numberOfLines={1}>{title}</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <KeyboardAvoidingView style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScreenHeader title={title} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {!ticketId ? (
           <>
-            <Text style={[styles.label, { color: c.text }]}>{t('supportTicket.whatIsItAbout')}</Text>
+            <Text style={[styles.label, tc.color_text]}>{t('supportTicket.whatIsItAbout')}</Text>
             <View style={styles.chips} accessibilityRole="radiogroup">
               {CATEGORIES.map(cat => {
                 const selected = category === cat.value;
@@ -111,49 +116,64 @@ export function SupportTicketScreen() {
                     onPress={() => setCategory(cat.value)}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: selected }}
-                    style={[styles.chip, { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primaryLight : c.surface }]}
+                    style={[
+                      styles.chip,
+                      selected ? tc.borderColor_primary : tc.borderColor_border,
+                      selected ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface
+                    ]}
                   >
-                    <Text style={{ fontSize: 14, color: selected ? c.primary : c.text, fontWeight: selected ? '700' : '400' }}>{cat.label}</Text>
+                    <Text style={[{ fontSize: 14, fontWeight: selected ? '700' : '400' }, selected ? tc.color_primary : tc.color_text]}>{cat.label}</Text>
                   </Pressable>
                 );
               })}
             </View>
             {category === 'safety' ? (
-              <Text style={{ fontSize: 13, color: c.error }}>
+              <Text style={[{ fontSize: 13 }, tc.color_error]}>
                 If you are in danger now, call {REGION.emergency.general}. During a ride, use SOS: it reaches our safety team fastest.
               </Text>
             ) : null}
-            <Text style={[styles.label, { color: c.text }]}>{t('supportTicket.subject')}</Text>
+            <Text style={[styles.label, tc.color_text]}>{t('supportTicket.subject')}</Text>
             <TextInput
               value={subject}
               onChangeText={setSubject}
               maxLength={120}
               placeholder={t('supportTicket.chargedTwiceForOneTrip')}
-              placeholderTextColor={c.textSec}
+              placeholderTextColor={tk.textSec}
               accessibilityLabel={t('supportTicket.subject')}
-              style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
+              style={[
+                styles.input,
+                tc.borderColor_surfaceVariant,
+                tc.color_text,
+                tc.backgroundColor_surfaceVariant
+              ]}
             />
-            <Text style={[styles.label, { color: c.text }]}>{t('supportTicket.tellUsMore')}</Text>
+            <Text style={[styles.label, tc.color_text]}>{t('supportTicket.tellUsMore')}</Text>
             <TextInput
               value={message}
               onChangeText={setMessage}
               multiline
               maxLength={4000}
               placeholder={t('supportTicket.whatHappenedWhenAndOn')}
-              placeholderTextColor={c.textSec}
+              placeholderTextColor={tk.textSec}
               accessibilityLabel={t('supportTicket.message')}
-              style={[styles.input, styles.multi, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
+              style={[
+                styles.input,
+                styles.multi,
+                tc.borderColor_surfaceVariant,
+                tc.color_text,
+                tc.backgroundColor_surfaceVariant
+              ]}
             />
-            <Pressable onPress={create} disabled={!canCreate} accessibilityRole="button" style={[styles.primary, { backgroundColor: canCreate ? c.primary : c.border }]}>
-              {sending ? <ActivityIndicator color={c.textOnPrimary} /> : (
-                <Text style={{ fontSize: 16, fontWeight: '700', color: canCreate ? c.textOnPrimary : c.textSec }}>{t('supportTicket.send')}</Text>
+            <Pressable onPress={create} disabled={!canCreate} accessibilityRole="button" style={[styles.primary, canCreate ? tc.backgroundColor_primary : tc.backgroundColor_border]}>
+              {sending ? <ActivityIndicator color={tk.textOnPrimary} /> : (
+                <Text style={[{ fontSize: 16, fontWeight: '700' }, canCreate ? tc.color_textOnPrimary : tc.color_textSec]}>{t('supportTicket.send')}</Text>
               )}
             </Pressable>
           </>
         ) : loadError ? (
-          <Text style={{ fontSize: 14, color: c.textSec }}>{t('supportTicket.thisRequestCouldNotBe')}</Text>
+          <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('supportTicket.thisRequestCouldNotBe')}</Text>
         ) : !ticket ? (
-          <ActivityIndicator color={c.primary} />
+          <ActivityIndicator color={tk.primary} />
         ) : (
           <>
             {ticket.messages.map((m, i) => {
@@ -161,16 +181,20 @@ export function SupportTicketScreen() {
               return (
                 <View
                   key={i}
-                  style={[styles.bubble, mine ? { alignSelf: 'flex-end', backgroundColor: c.primaryLight } : { alignSelf: 'flex-start', backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 }]}
+                  style={[styles.bubble, mine ? [{ alignSelf: 'flex-end' }, tc.backgroundColor_primaryLight] : [
+                    { alignSelf: 'flex-start', borderWidth: 1 },
+                    tc.backgroundColor_surfaceVariant,
+                    tc.borderColor_surfaceVariant
+                  ]]}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSec }}>{mine ? t('supportTicket.you') : t('supportTicket.pooloraSupport')}</Text>
-                  <Text style={{ fontSize: 15, color: c.text }}>{m.text}</Text>
-                  <Text style={{ fontSize: 11, color: c.textSec }}>{new Date(m.at).toLocaleString(REGION.dateLocale, { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+                  <Text style={[{ fontSize: 12, fontWeight: '700' }, tc.color_textSec]}>{mine ? t('supportTicket.you') : t('supportTicket.pooloraSupport')}</Text>
+                  <Text style={[{ fontSize: 15 }, tc.color_text]}>{m.text}</Text>
+                  <Text style={[{ fontSize: 11 }, tc.color_textSec]}>{new Date(m.at).toLocaleString(REGION.dateLocale, { dateStyle: 'medium', timeStyle: 'short' })}</Text>
                 </View>
               );
             })}
             {ticket.status === 'open' ? (
-              <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center' }}>
+              <Text style={[{ fontSize: 13, textAlign: 'center' }, tc.color_textSec]}>
                 {ticket.priority === 'urgent' ? t('supportTicket.urgentRequestsAreAnsweredFirst') : t('supportTicket.weUsuallyReplyWithinA')}
               </Text>
             ) : null}
@@ -180,13 +204,19 @@ export function SupportTicketScreen() {
               multiline
               maxLength={4000}
               placeholder={ticket.status === 'closed' ? t('supportTicket.writeToReopenThisRequest') : t('supportTicket.addAMessage')}
-              placeholderTextColor={c.textSec}
+              placeholderTextColor={tk.textSec}
               accessibilityLabel={t('supportTicket.message')}
-              style={[styles.input, styles.multi, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
+              style={[
+                styles.input,
+                styles.multi,
+                tc.borderColor_surfaceVariant,
+                tc.color_text,
+                tc.backgroundColor_surfaceVariant
+              ]}
             />
-            <Pressable onPress={reply} disabled={!message.trim() || sending} accessibilityRole="button" style={[styles.primary, { backgroundColor: message.trim() ? c.primary : c.border }]}>
-              {sending ? <ActivityIndicator color={c.textOnPrimary} /> : (
-                <Text style={{ fontSize: 16, fontWeight: '700', color: message.trim() ? c.textOnPrimary : c.textSec }}>{t('supportTicket.send')}</Text>
+            <Pressable onPress={reply} disabled={!message.trim() || sending} accessibilityRole="button" style={[styles.primary, message.trim() ? tc.backgroundColor_primary : tc.backgroundColor_border]}>
+              {sending ? <ActivityIndicator color={tk.textOnPrimary} /> : (
+                <Text style={[{ fontSize: 16, fontWeight: '700' }, message.trim() ? tc.color_textOnPrimary : tc.color_textSec]}>{t('supportTicket.send')}</Text>
               )}
             </Pressable>
           </>

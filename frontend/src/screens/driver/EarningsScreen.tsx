@@ -1,28 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  Share,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert, Share } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { ScreenHeader } from '../../components/ScreenHeader';
+import { Text } from '../../components/Text';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { bookingService } from '../../services/bookingService';
 import { userService } from '../../services/userService';
 import type { Booking, EarningsStatement } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { Icon } from '../../components/Icon';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Defs, LinearGradient as SvgGrad, Stop, Polyline, Line } from 'react-native-svg';
+import Svg, { Path, Defs, LinearGradient as SvgGrad, Stop, Polyline, Line } from '../../components/ThemedSvg';
 
-import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Shadow } from '../../theme';
 import { money, REGION } from '../../utils/region';
 import { useTranslation } from 'react-i18next';
+
+import { tc, tk, useThemeColor, type AnyColor } from '../../theme/themed';
 
 type Period = 'today' | 'week' | 'month';
 
@@ -61,7 +55,7 @@ function monthLabel(key: string): string {
  * A month's statement (UC-D09): fares, platform fees and earnings, shared as
  * a spreadsheet or emailed to the address on the profile.
  */
-function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
+function MonthlyStatement() {
   const [offset, setOffset] = useState(0);
   const { t } = useTranslation();
   const [statement, setStatement] = useState<EarningsStatement | null>(null);
@@ -108,12 +102,17 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
 
   const empty = statement && statement.lines.length === 0;
   return (
-    <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border, gap: 12 }]}>
+    <View style={[
+      styles.chartCard,
+      { gap: 12 },
+      tc.backgroundColor_surfaceVariant,
+      tc.borderColor_surfaceVariant
+    ]}>
       <View style={styles.monthRow}>
         <Pressable onPress={() => setOffset(o => o - 1)} accessibilityRole="button" accessibilityLabel={t('earnings.previousMonth')} style={styles.monthBtn}>
-          <Icon name="chevron-left" size={22} color={c.text} />
+          <Icon name="chevron-left" size={22} color={tk.text} />
         </Pressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: c.text }} accessibilityLiveRegion="polite">
+        <Text style={[{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700' }, tc.color_text]} accessibilityLiveRegion="polite">
           {monthLabel(month)}
         </Text>
         <Pressable
@@ -124,16 +123,16 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
           accessibilityState={{ disabled: offset === 0 }}
           style={styles.monthBtn}
         >
-          <Icon name="chevron-right" size={22} color={offset === 0 ? c.border : c.text} />
+          <Icon name="chevron-right" size={22} color={offset === 0 ? tk.border : tk.text} />
         </Pressable>
       </View>
 
       {failed ? (
-        <Text style={{ fontSize: 14, color: c.textSec }}>{t('earnings.weCouldntLoadThisMonths')}</Text>
+        <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('earnings.weCouldntLoadThisMonths')}</Text>
       ) : !statement ? (
-        <ActivityIndicator color={c.primary} />
+        <ActivityIndicator color={tk.primary} />
       ) : empty ? (
-        <Text style={{ fontSize: 14, color: c.textSec }}>{t('earnings.noTripsOrCancellationFees')}</Text>
+        <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('earnings.noTripsOrCancellationFees')}</Text>
       ) : (
         <View style={{ gap: 6 }}>
           {[
@@ -142,32 +141,32 @@ function MonthlyStatement({ c }: { c: ReturnType<typeof useApp>['c'] }) {
             [t('earnings.lines.fees'), `−${money(statement.totals.platformFee)}`],
           ].map(([label, value]) => (
             <View key={label} style={styles.lineRow}>
-              <Text style={{ fontSize: 14, color: c.textSec }}>{label}</Text>
-              <Text style={{ fontSize: 14, color: c.text }}>{value}</Text>
+              <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{label}</Text>
+              <Text style={[{ fontSize: 14 }, tc.color_text]}>{value}</Text>
             </View>
           ))}
-          <View style={[styles.lineRow, { borderTopWidth: 1, borderTopColor: c.border, paddingTop: 6 }]}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{t('earnings.yourEarnings')}</Text>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: c.success }}>{money(statement.totals.earnings)}</Text>
+          <View style={[styles.lineRow, { borderTopWidth: 1, paddingTop: 6 }, tc.borderTopColor_border]}>
+            <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_text]}>{t('earnings.yourEarnings')}</Text>
+            <Text style={[{ fontSize: 15, fontWeight: '800' }, tc.color_success]}>{money(statement.totals.earnings)}</Text>
           </View>
         </View>
       )}
 
       {statement && !empty ? (
         <View style={styles.lineRow}>
-          <Pressable onPress={share} disabled={busy !== null} accessibilityRole="button" style={[styles.stmtBtn, { borderColor: c.primary }]}>
-            {busy === 'share' ? <ActivityIndicator color={c.primary} /> : (
+          <Pressable onPress={share} disabled={busy !== null} accessibilityRole="button" style={[styles.stmtBtn, tc.borderColor_primary]}>
+            {busy === 'share' ? <ActivityIndicator color={tk.primary} /> : (
               <>
-                <Icon name="share-variant-outline" size={18} color={c.primary} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>{t('earnings.shareSpreadsheet')}</Text>
+                <Icon name="share-variant-outline" size={18} color={tk.primary} />
+                <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_primary]}>{t('earnings.shareSpreadsheet')}</Text>
               </>
             )}
           </Pressable>
-          <Pressable onPress={email} disabled={busy !== null} accessibilityRole="button" style={[styles.stmtBtn, { borderColor: c.primary }]}>
-            {busy === 'email' ? <ActivityIndicator color={c.primary} /> : (
+          <Pressable onPress={email} disabled={busy !== null} accessibilityRole="button" style={[styles.stmtBtn, tc.borderColor_primary]}>
+            {busy === 'email' ? <ActivityIndicator color={tk.primary} /> : (
               <>
-                <Icon name="email-outline" size={18} color={c.primary} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>{t('earnings.emailItToMe')}</Text>
+                <Icon name="email-outline" size={18} color={tk.primary} />
+                <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_primary]}>{t('earnings.emailItToMe')}</Text>
               </>
             )}
           </Pressable>
@@ -232,9 +231,11 @@ function MiniChart({
   borderColor,
 }: {
   data: { time: string; amt: number }[];
-  color: string;
-  borderColor: string;
+  color: AnyColor;
+  borderColor: AnyColor;
 }) {
+  // The labels are text, so the chart resolves their colour (and re-renders alone)
+  const labelColor = useThemeColor(borderColor);
   const maxV = Math.max(...data.map(d => d.amt), 1);
   const pts = data.map((d, i) => {
     const x = CHART_PAD + (i / (data.length - 1)) * (CHART_W - CHART_PAD * 2);
@@ -288,7 +289,7 @@ function MiniChart({
       {/* X labels (RN Text – positioned below) */}
       <View style={styles.xLabels}>
         {data.map((d, i) => (
-          <Text key={i} style={[styles.xLabel, { color: borderColor }]}>
+          <Text key={i} style={[styles.xLabel, { color: labelColor }]}>
             {d.time}
           </Text>
         ))}
@@ -301,7 +302,6 @@ function MiniChart({
 export function EarningsScreen() {
   const navigation = useNavigation();
   const { t } = useTranslation();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<Period>('today');
   const [loading, setLoading] = useState(true);
@@ -352,91 +352,79 @@ export function EarningsScreen() {
   const periodLabel = period === 'today' ? 'Today' : period === 'week' ? t('earnings.last7Days') : t('earnings.last4Weeks');
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       <ScrollView
         style={styles.flex1}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ──────────────────────────────────────── */}
-        <LinearGradient
-          colors={['#0B2447', c.primary]}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
-          style={styles.gradientHeader}
-        >
-          <View style={styles.headerRow}>
-            {navigation.canGoBack() && (
-              <Pressable
-                onPress={() => navigation.goBack()}
-                accessibilityRole="button"
-                accessibilityLabel={t('earnings.goBack')}
-                hitSlop={8}
-                style={styles.backBtn}
-              >
-                <Icon name="arrow-left" size={24} color="#FFFFFF" />
-              </Pressable>
-            )}
-            <Text style={styles.headerTitle} accessibilityRole="header">{t('earnings.earnings')}</Text>
-          </View>
+        <ScreenHeader title={t('earnings.earnings')} noBack={!navigation.canGoBack()} />
 
-          {/* Period tabs */}
-          <View style={styles.periodBar} accessibilityRole="tablist">
-            {(['today', 'week', 'month'] as Period[]).map(p => {
-              const active = period === p;
-              return (
-                <Pressable
-                  key={p}
-                  onPress={() => setPeriod(p)}
-                  style={styles.flex1}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
-                >
-                  <View style={[styles.periodTab, active && styles.periodTabActive]}>
-                    <Text style={[styles.periodText, { color: active ? c.primary : '#FFFFFF' }]}>
-                      {p === 'today' ? t('earnings.period.today') : p === 'week' ? t('earnings.period.week') : t('earnings.period.month')}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </LinearGradient>
+        {/* Period tabs */}
+        <View style={[styles.periodBar, tc.backgroundColor_surfaceVariant]} accessibilityRole="tablist">
+          {(['today', 'week', 'month'] as Period[]).map(p => {
+            const active = period === p;
+            return (
+              <Pressable
+                key={p}
+                onPress={() => setPeriod(p)}
+                style={styles.flex1}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+              >
+                <View style={[styles.periodTab, active && tc.backgroundColor_surfaceVariant]}>
+                  <Text style={[styles.periodText, active ? tc.color_text : tc.color_textSec]}>
+                    {p === 'today' ? t('earnings.period.today') : p === 'week' ? t('earnings.period.week') : t('earnings.period.month')}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
 
         {loadError ? (
           <View style={styles.section}>
-            <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border, alignItems: 'center' }]}>
-              <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>{t('earnings.weCouldntLoadYourEarnings')}</Text>
-              <Text style={{ fontSize: 13, color: c.textSec, marginTop: 4 }}>{t('earnings.pullBackToThisScreen')}</Text>
+            <View style={[
+              styles.chartCard,
+              { alignItems: 'center' },
+              tc.backgroundColor_surfaceVariant,
+              tc.borderColor_surfaceVariant
+            ]}>
+              <Text style={[{ fontSize: 15, fontWeight: '600' }, tc.color_text]}>{t('earnings.weCouldntLoadYourEarnings')}</Text>
+              <Text style={[{ fontSize: 13, marginTop: 4 }, tc.color_textSec]}>{t('earnings.pullBackToThisScreen')}</Text>
             </View>
           </View>
         ) : (
           <>
             {/* ── Earnings card ────────────────────────────── */}
             <View style={styles.cardWrap}>
-              <View style={[styles.earningsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <Text style={{ fontSize: 12, color: c.textSec, marginBottom: 4 }}>
+              <View style={[
+                styles.earningsCard,
+                tc.backgroundColor_surfaceVariant,
+                tc.borderColor_surfaceVariant
+              ]}>
+                <Text style={[{ fontSize: 12, marginBottom: 4 }, tc.color_textSec]}>
                   {periodLabel.toUpperCase()}
                 </Text>
                 {loading || !stats ? (
-                  <View style={[styles.skeleton, { backgroundColor: c.surfaceVariant }]} />
+                  <View style={[styles.skeleton, tc.backgroundColor_surfaceVariant]} />
                 ) : (
-                  <Text style={{ fontSize: 36, fontWeight: '800', color: c.text }}>
+                  <Text style={[{ fontSize: 36, fontWeight: '800' }, tc.color_text]}>
                     {money(stats.earnings)}
                   </Text>
                 )}
 
                 <View style={styles.statsRow}>
                   <View style={styles.statCol}>
-                    <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>{stats?.rides ?? 0}</Text>
-                    <Text style={{ fontSize: 12, color: c.textSec }}>{t('earnings.completedRides')}</Text>
+                    <Text style={[{ fontSize: 22, fontWeight: '800' }, tc.color_primary]}>{stats?.rides ?? 0}</Text>
+                    <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('earnings.completedRides')}</Text>
                   </View>
-                  <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+                  <View style={[styles.statDivider, tc.backgroundColor_border]} />
                   <View style={styles.statCol}>
-                    <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>
+                    <Text style={[{ fontSize: 22, fontWeight: '800' }, tc.color_primary]}>
                       {money(stats?.rides ? Math.round(stats.earnings / stats.rides) : 0)}
                     </Text>
-                    <Text style={{ fontSize: 12, color: c.textSec }}>{t('earnings.averagePerRide')}</Text>
+                    <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('earnings.averagePerRide')}</Text>
                   </View>
                 </View>
               </View>
@@ -445,41 +433,49 @@ export function EarningsScreen() {
             {/* ── Chart ────────────────────────────────────── */}
             {stats && stats.rides > 0 && (
               <View style={styles.section}>
-                <View style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginBottom: 4 }}>
+                <View style={[
+                  styles.chartCard,
+                  tc.backgroundColor_surfaceVariant,
+                  tc.borderColor_surfaceVariant
+                ]}>
+                  <Text style={[{ fontSize: 15, fontWeight: '700', marginBottom: 4 }, tc.color_text]}>
                     {t('earnings.earningsOverTime')}
                   </Text>
-                  <MiniChart data={stats.chart} color={c.primary} borderColor={c.textSec} />
+                  <MiniChart data={stats.chart} color={tk.primary} borderColor={tk.textSec} />
                 </View>
               </View>
             )}
 
             {/* ── Recent completed rides ───────────────────── */}
             <View style={styles.section}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 12 }}>
+              <Text style={[{ fontSize: 16, fontWeight: '700', marginBottom: 12 }, tc.color_text]}>
                 {t('earnings.recentCompletedRides')}
               </Text>
-              <View style={[styles.txList, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <View style={[
+                styles.txList,
+                tc.backgroundColor_surfaceVariant,
+                tc.borderColor_surfaceVariant
+              ]}>
                 {recent.length === 0 && !loading ? (
                   <View style={{ padding: 20, alignItems: 'center' }}>
-                    <Text style={{ color: c.textSec, textAlign: 'center' }}>
+                    <Text style={[{ textAlign: 'center' }, tc.color_textSec]}>
                       {t('earnings.completedRidesAndWhatYou')}
                     </Text>
                   </View>
                 ) : (
                   recent.map((t, i) => (
                     <View key={t.id}>
-                      {i > 0 && <View style={[styles.txDivider, { backgroundColor: c.border }]} />}
+                      {i > 0 && <View style={[styles.txDivider, tc.backgroundColor_border]} />}
                       <View style={styles.txRow}>
-                        <View style={[styles.txIcon, { backgroundColor: c.successLight }]}>
-                          <Icon name="car" size={22} color={c.success} />
+                        <View style={[styles.txIcon, tc.backgroundColor_successLight]}>
+                          <Icon name="car" size={22} color={tk.success} />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{t.rider}</Text>
-                          {t.route ? <Text style={{ fontSize: 12, color: c.textSec }}>{t.route}</Text> : null}
-                          <Text style={{ fontSize: 11, color: c.textSec }}>{t.time}</Text>
+                          <Text style={[{ fontSize: 14, fontWeight: '600' }, tc.color_text]}>{t.rider}</Text>
+                          {t.route ? <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t.route}</Text> : null}
+                          <Text style={[{ fontSize: 11 }, tc.color_textSec]}>{t.time}</Text>
                         </View>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: c.success }}>
+                        <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_success]}>
                           +{money(t.amount)}
                         </Text>
                       </View>
@@ -491,20 +487,20 @@ export function EarningsScreen() {
 
             {/* ── Monthly statement ────────────────────────── */}
             <View style={styles.section}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 12 }}>{t('earnings.monthlyStatement')}</Text>
-              <MonthlyStatement c={c} />
+              <Text style={[{ fontSize: 16, fontWeight: '700', marginBottom: 12 }, tc.color_text]}>{t('earnings.monthlyStatement')}</Text>
+              <MonthlyStatement />
             </View>
 
             {/* ── Lifetime ─────────────────────────────────── */}
             {lifetime && (
               <View style={[styles.section, { marginBottom: 8 }]}>
-                <View style={[styles.payoutCard, { backgroundColor: c.primaryLight }]}>
+                <View style={[styles.payoutCard, tc.backgroundColor_primaryLight]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>{t('earnings.allTimeEarnings')}</Text>
-                    <Text style={{ fontSize: 22, fontWeight: '800', color: c.primary }}>
+                    <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_text]}>{t('earnings.allTimeEarnings')}</Text>
+                    <Text style={[{ fontSize: 22, fontWeight: '800' }, tc.color_primary]}>
                       {money(lifetime.earnings)}
                     </Text>
-                    <Text style={{ fontSize: 12, color: c.textSec }}>
+                    <Text style={[{ fontSize: 12 }, tc.color_textSec]}>
                       {lifetime.rides === 1 ? t('earnings.fromOne') : t('earnings.fromMany', { count: lifetime.rides })}
                     </Text>
                   </View>
@@ -525,24 +521,19 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 100 },
 
   /* Header */
-  gradientHeader: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.15)' },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: 'white' },
 
   /* Period */
   periodBar: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginHorizontal: 20,
     borderRadius: 12,
     padding: 4,
   },
   periodTab: { height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  periodTabActive: { backgroundColor: 'white' },
   periodText: { fontSize: 13, fontWeight: '600' },
 
   /* Earnings card */
-  cardWrap: { paddingHorizontal: 20, marginTop: -12 },
+  cardWrap: { paddingHorizontal: 20, marginTop: 16 },
   skeleton: { height: 40, width: 160, borderRadius: 8, marginVertical: 2 },
   earningsCard: {
     borderRadius: 20,

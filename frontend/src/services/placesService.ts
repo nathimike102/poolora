@@ -75,6 +75,15 @@ export async function reverseGeocodePlace(lat: number, lng: number): Promise<Geo
   return response.data.data;
 }
 
+/**
+ * A place whose position is already known (pinned on the map, or where the
+ * phone is), so geocodePlace returns that point rather than a lookup of its
+ * address, which can land somewhere else.
+ */
+export function rememberExactPlace(label: string, lat: number, lng: number): void {
+  chosenHubs.set(label.trim(), { formattedAddress: label, lat, lng, placeId: `pin:${lat},${lng}` });
+}
+
 /** The text to put in an input when a suggestion is chosen. */
 export function suggestionLabel(s: PlaceSuggestion): string {
   return s.subtitle ? `${s.name}, ${s.subtitle}` : s.name;

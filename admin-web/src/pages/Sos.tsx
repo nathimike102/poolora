@@ -110,6 +110,26 @@ interface SosDetail {
 }
 
 /** What is happening now, in words: the badges an admin scans the list for */
+/**
+ * An unacknowledged SOS re-pages the team every few minutes, and each page is
+ * logged. Back-to-back pages show as one line with a count, so the rest of the
+ * timeline stays readable; the record itself keeps every entry.
+ */
+type TimelineEntry = { event: string; timestamp: string; details?: string };
+function foldRepages(timeline: TimelineEntry[]): Array<TimelineEntry & { count: number; firstAt: string }> {
+  const out: Array<TimelineEntry & { count: number; firstAt: string }> = [];
+  for (const entry of timeline) {
+    const last = out[out.length - 1];
+    if (entry.event === 'Safety team paged again' && last?.event === entry.event) {
+      last.count += 1;
+      last.timestamp = entry.timestamp;
+    } else {
+      out.push({ ...entry, count: 1, firstAt: entry.timestamp });
+    }
+  }
+  return out;
+}
+
 function SosNow({ i }: { i: Incident }) {
   if (i.cancelledAt) return <Badge tone="neutral">Cancelled by the user</Badge>;
   if (i.status !== 'triggered' && i.status !== 'acknowledged') return <span className="faint">—</span>;
@@ -501,10 +521,14 @@ export function SosDetailPage() {
         <div className="card">
           <h2>Timeline</h2>
           <ol className="timeline">
-            {[...record.timeline].reverse().map((t, i) => (
+            {foldRepages(record.timeline).reverse().map((t, i) => (
               <li key={i}>
                 <time dateTime={t.timestamp}>{when(t.timestamp)}</time>
-                <div><strong>{t.event}</strong>{t.details ? <div className="muted">{t.details}</div> : null}</div>
+                <div>
+                  <strong>{t.event}{t.count > 1 ? ` (${t.count} times)` : ''}</strong>
+                  {t.count > 1 ? <div className="muted">First at {when(t.firstAt)}, latest at {when(t.timestamp)}</div> : null}
+                  {t.details ? <div className="muted">{t.details}</div> : null}
+                </div>
               </li>
             ))}
           </ol>

@@ -148,11 +148,9 @@ export class NotificationService {
               body,
             },
             data: data || {},
+            // No clickAction: tapping opens the app (a Flutter-style action has no activity here)
             android: {
               priority: 'high',
-              notification: {
-                clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-              },
             },
             apns: {
               headers: {

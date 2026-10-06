@@ -1,27 +1,30 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Pressable,
-  TextInput,
 } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { bookingService } from '../../services/bookingService';
 import { chatService } from '../../services/chatService';
 import type { Booking } from '../../types/api';
-import { ActivityIndicator } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import 'react-native';
+import Svg, { Path } from '../../components/ThemedSvg';
 
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImageWithFallback } from '../../components/ImageWithFallback';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
+import { EmptyState } from '../../components/EmptyState';
 import type { RootStackParamList } from '../../navigation/types';
 import { REGION } from '../../utils/region';
 import { useTranslation } from 'react-i18next';
+
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,7 +42,9 @@ interface Conversation {
 export function ChatListScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
   const { t } = useTranslation();
-  const { c, role } = useApp();
+  const {
+    role
+  } = useApp();
   const insets = useSafeAreaInsets();
   // Riders open this from their profile; drivers have it as a tab
   const pushed = useRoute().name === 'Messages';
@@ -100,41 +105,46 @@ export function ChatListScreen(): React.ReactElement {
   }, [conversations, query]);
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {/* ── Header ──────────────────────────────────────────── */}
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <View style={s.headerTop}>
-          {pushed && <BackButton onPress={() => navigation.goBack()} />}
-          <Text style={{ flex: 1, fontSize: 22, fontWeight: '800', color: c.text }} accessibilityRole="header">{t('chatList.messages')}</Text>
-          {totalUnread > 0 && (
-            <View style={[s.newBadge, { backgroundColor: c.errorLight }]}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: c.error }}>{totalUnread} new</Text>
-            </View>
-          )}
-        </View>
+      {/* A tab for drivers, a pushed screen for riders */}
+      <ScreenHeader
+        title={t('chatList.messages')}
+        noBack={!pushed}
+        right={totalUnread > 0 ? (
+          <View style={[s.newBadge, tc.backgroundColor_errorLight]}>
+            <Text style={[{ fontSize: 13, fontWeight: '700' }, tc.color_error]}>{totalUnread} new</Text>
+          </View>
+        ) : null}
+      />
+      <View style={[s.header, tc.backgroundColor_surface, tc.borderBottomColor_border]}>
 
         {/* Search */}
-        <View style={[s.searchBar, { backgroundColor: c.bg, borderColor: c.border }]}>
+        <View style={[
+          s.searchBar,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
           <Svg width={16} height={16} viewBox="0 0 24 24">
             <Path
               d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
-              fill={c.textSec}
+              fill={tk.textSec}
             />
           </Svg>
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder={t('chatList.searchByNameOrPlace')}
-            placeholderTextColor={c.textSec}
+            placeholderTextColor={tk.textSec}
             accessibilityLabel={t('chatList.searchConversations')}
-            style={[s.searchInput, { color: c.text }]}
+            style={[s.searchInput, tc.color_text]}
           />
         </View>
       </View>
 
       {loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={c.primary} />
+          <ActivityIndicator size="large" color={tk.primary} />
         </View>
       ) : (
         <FlatList
@@ -143,11 +153,11 @@ export function ChatListScreen(): React.ReactElement {
           showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 16 }}
         ListHeaderComponent={
-          <View style={[s.notice, { backgroundColor: c.warningLight }]}>
+          <View style={[s.notice, tc.backgroundColor_warningLight]}>
             <Svg width={14} height={14} viewBox="0 0 24 24" style={{ marginTop: 2 }}>
               <Path
                 d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
-                fill={c.warning}
+                fill={tk.warning}
               />
             </Svg>
             <Text style={{ fontSize: 12, color: '#7A5200', flex: 1 }}>
@@ -156,35 +166,39 @@ export function ChatListScreen(): React.ReactElement {
           </View>
         }
         ListEmptyComponent={
-          <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', paddingTop: 24, paddingHorizontal: 24 }}>
-            {query ? t('chatList.noConversationsMatchYourSearch') : t('chatList.youHaveNoChatsYet')}
-          </Text>
+          query ? (
+            <Text style={[{ fontSize: 14, textAlign: 'center', paddingTop: 24, paddingHorizontal: 24 }, tc.color_textSec]}>
+              {t('chatList.noConversationsMatchYourSearch')}
+            </Text>
+          ) : (
+            <EmptyState icon="speechBalloon" title={t('chatList.noChatsTitle')} body={t('chatList.noChatsBody')} />
+          )
         }
         renderItem={({ item: convo }) => (
           <Pressable
             onPress={() => navigation.navigate('Chat', { chatId: convo.id, recipientName: convo.name })}
             accessibilityRole="button"
             accessibilityLabel={t('chatList.chatWith', { name: convo.name, ride: convo.ride })}
-            style={[s.convoRow, { borderBottomColor: c.border }]}
+            style={[s.convoRow, tc.borderBottomColor_border]}
           >
             {convo.avatar ? (
               <ImageWithFallback src={convo.avatar} alt={convo.name} width={52} height={52} borderRadius={16} />
             ) : (
-              <View style={[s.avatarFallback, { backgroundColor: c.primaryLight }]}>
-                <Text style={{ fontSize: 20, fontWeight: '700', color: c.primary }}>{convo.name.charAt(0).toUpperCase()}</Text>
+              <View style={[s.avatarFallback, tc.backgroundColor_primaryLight]}>
+                <Text style={[{ fontSize: 20, fontWeight: '700' }, tc.color_primary]}>{convo.name.charAt(0).toUpperCase()}</Text>
               </View>
             )}
 
             {/* Content */}
             <View style={s.flex1}>
               <View style={s.nameRow}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{convo.name}</Text>
-                <Text style={{ fontSize: 12, color: c.textSec }}>{convo.time}</Text>
+                <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_text]}>{convo.name}</Text>
+                <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{convo.time}</Text>
               </View>
-              <Text style={{ fontSize: 12, color: c.textSec, marginBottom: 3 }} numberOfLines={1}>
+              <Text style={[{ fontSize: 12, marginBottom: 3 }, tc.color_textSec]} numberOfLines={1}>
                 {convo.ride}
               </Text>
-              <Text style={{ fontSize: 13, color: c.textSec }}>
+              <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
                 {convo.status === 'completed' ? t('chatList.rideCompleted') : t('chatList.rideConfirmed')}
               </Text>
             </View>
@@ -204,8 +218,7 @@ const s = StyleSheet.create({
   flex1: { flex: 1 },
 
   /* Header */
-  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderBottomWidth: 1 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  header: { paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1 },
   newBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8 },
 
   /* Search */

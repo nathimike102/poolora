@@ -19,9 +19,6 @@ export const COMPANY = {
   name: 'Poolora',
   website: SITE_ORIGIN,
   supportEmail: role('support'),
-  /** Mirrors phone in web-landing/src/config/company.ts */
-  supportPhone: '+919032232881',
-  supportPhoneDisplay: '+91 90322 32881',
   privacyUrl: `${SITE_ORIGIN}/privacy`,
   termsUrl: `${SITE_ORIGIN}/terms`,
   faqUrl: `${SITE_ORIGIN}/#faq`,

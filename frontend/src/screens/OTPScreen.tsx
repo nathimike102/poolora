@@ -5,9 +5,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   Animated,
   Keyboard,
   Alert,
@@ -15,9 +13,10 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import { Text, TextInput } from '../components/Text';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path } from '../components/ThemedSvg';
 
 import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +29,8 @@ import type { RootStackParamList } from '../navigation/types';
 import { formatPhone, REGION } from '../utils/region';
 import { useTranslation } from 'react-i18next';
 
+import { tc, tk } from '../theme/themed';
+
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'OTP'>;
 type RouteType = RouteProp<RootStackParamList, 'OTP'>;
 
@@ -39,7 +40,10 @@ const RESEND_SECONDS = 30;
 export function OTPScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteType>();
-  const { c, setUser, setRole } = useApp();
+  const {
+    setUser,
+    setRole
+  } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
@@ -190,7 +194,7 @@ export function OTPScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}
+      style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
@@ -207,13 +211,13 @@ export function OTPScreen() {
           <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
             <Path
               d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.25 14.5h-2.5v-2.5h2.5v2.5zm0-4.5h-2.5V7.5h2.5v4.5z"
-              fill={c.primary}
+              fill={tk.primary}
             />
           </Svg>
         </View>
 
-        <Text style={[styles.title, { color: c.text }]}>{t('login.enterCode')}</Text>
-        <Text style={[styles.subtitle, { color: c.textSec }]}>{t('login.codeSent', { phone: formatPhone(`${REGION.dialCode}${phone}`) })}</Text>
+        <Text style={[styles.title, tc.color_text]}>{t('login.enterCode')}</Text>
+        <Text style={[styles.subtitle, tc.color_textSec]}>{t('login.codeSent', { phone: formatPhone(`${REGION.dialCode}${phone}`) })}</Text>
 
         <View style={styles.otpRow}>
           {otp.map((value, idx) => (
@@ -229,8 +233,12 @@ export function OTPScreen() {
                 keyboardType="number-pad"
                 maxLength={1}
                 placeholder="•"
-                placeholderTextColor={c.textSec}
-                style={[styles.otpBox, { borderColor: error ? c.error : c.border, color: c.text }]}
+                placeholderTextColor={tk.textSec}
+                style={[
+                  styles.otpBox,
+                  error ? tc.borderColor_error : tc.borderColor_border,
+                  tc.color_text
+                ]}
                 textAlign="center"
                 autoFocus={idx === 0}
               />
@@ -239,16 +247,16 @@ export function OTPScreen() {
         </View>
 
         <Animated.View style={[styles.errorRow, { opacity: errorOpacity }]}>  
-          <Text style={[styles.errorText, { color: c.error }]}>{t('login.invalidCode')}</Text>
+          <Text style={[styles.errorText, tc.color_error]}>{t('login.invalidCode')}</Text>
         </Animated.View>
 
         <View style={styles.resendRow}>
-          <Text style={[styles.resendPrompt, { color: c.textSec }]}>{t('login.noCode')}</Text>
+          <Text style={[styles.resendPrompt, tc.color_textSec]}>{t('login.noCode')}</Text>
           <Text
             accessibilityRole="button"
             accessibilityState={{ disabled: !canResend }}
             onPress={handleResend}
-            style={[styles.resendLink, { color: canResend ? c.primary : c.textSec }]}
+            style={[styles.resendLink, canResend ? tc.color_primary : tc.color_textSec]}
           >
             {' '}{canResend ? t('login.resend') : t('login.resendIn', { seconds: timer })}
           </Text>
@@ -259,9 +267,9 @@ export function OTPScreen() {
           onPress={() => handleVerifyOtp(otp.join(''))}
           disabled={otp.some(val => !val) || verifying}
           loading={verifying}
-          colorStart={c.primary}
-          colorEnd={c.primaryDark}
-          disabledColor={c.border}
+          colorStart={tk.primary}
+          colorEnd={tk.primaryDark}
+          disabledColor={tk.border}
         />
       </ScrollView>
     </KeyboardAvoidingView>

@@ -6,24 +6,23 @@
  * integrates with React Navigation's tab state automatically.
  */
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useCallback } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Animated,
-  Dimensions,
 } from 'react-native';
+import { Text } from './Text';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Rect } from './ThemedSvg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../context/AppContext';
 import { Typography } from '../theme';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+import { tc, useColors } from '../theme/themed';
+
 const TAB_BAR_HEIGHT = 68;
 
 // ─── SVG Icons ─────────────────────────────────────────────────────────────────
@@ -138,14 +137,16 @@ interface TabItemProps {
   routeName: string;
   isActive: boolean;
   onPress: () => void;
-  primaryColor: string;
 }
 
-function TabItem({ label, routeName, isActive, onPress, primaryColor }: TabItemProps) {
+function TabItem({ label, routeName, isActive, onPress }: TabItemProps) {
+  // A tab item is small, so it re-renders itself for a theme change
+  const c = useColors();
+  const primaryColor = c.primary;
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
-    Animated.spring(scale, { toValue: 0.88, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
+    Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
   };
   const handlePressOut = () => {
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }).start();
@@ -155,7 +156,9 @@ function TabItem({ label, routeName, isActive, onPress, primaryColor }: TabItemP
 
   return (
     <Animated.View style={[styles.tabItem, { transform: [{ scale }] }]}>
-      <TouchableOpacity accessibilityRole="button"
+      <TouchableOpacity accessibilityRole="tab"
+        accessibilityState={{ selected: isActive }}
+        accessibilityLabel={label}
         testID={`custom-tab-${routeName}`}
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -163,15 +166,18 @@ function TabItem({ label, routeName, isActive, onPress, primaryColor }: TabItemP
         activeOpacity={1}
         style={styles.tabTouchable}
       >
-        <View style={styles.iconWrapper}>
-          {renderIcon ? renderIcon(isActive, primaryColor) : null}
+        {/* The open tab's icon sits in a glowing dot of the brand colour */}
+        <View
+          style={[
+            styles.iconWrapper,
+            isActive && [styles.iconDot, { backgroundColor: primaryColor, boxShadow: `0 0 12px ${primaryColor}` }],
+          ]}
+        >
+          {renderIcon ? renderIcon(isActive, isActive ? c.textOnPrimary : c.textSec) : null}
         </View>
         <Text
-          style={[
-            styles.tabLabel,
-            { color: isActive ? primaryColor : '#9CA3AF' },
-            isActive && styles.tabLabelActive,
-          ]}
+          numberOfLines={1}
+          style={[styles.tabLabel, isActive ? tc.color_text : tc.color_textSec, isActive && styles.tabLabelActive]}
         >
           {label}
         </Text>
@@ -183,24 +189,7 @@ function TabItem({ label, routeName, isActive, onPress, primaryColor }: TabItemP
 // ─── CustomTabBar ─────────────────────────────────────────────────────────────
 
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
-  const tabCount = state.routes.length;
-
-  const TAB_W = SCREEN_W / tabCount;
-  const INDICATOR_W = 24;
-  const indicatorX = useRef(
-    new Animated.Value(state.index * TAB_W + (TAB_W - INDICATOR_W) / 2),
-  ).current;
-
-  useEffect(() => {
-    Animated.spring(indicatorX, {
-      toValue: state.index * TAB_W + (TAB_W - INDICATOR_W) / 2,
-      useNativeDriver: true,
-      stiffness: 350,
-      damping: 30,
-    }).start();
-  }, [state.index, TAB_W, indicatorX]);
 
   const handlePress = useCallback(
     (routeName: string, routeKey: string, isFocused: boolean) => {
@@ -214,85 +203,60 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
   );
 
   return (
+    // A floating pill above the system bar, as on Uber; the strip around it
+    // matches the screens' surface so it reads as part of the page
     <View
       testID="custom-tab-bar"
-      style={[
-        styles.container,
-        {
-          // Grow by the inset so the tabs keep their full 68dp above the system bar
-          height: TAB_BAR_HEIGHT + insets.bottom,
-          paddingBottom: insets.bottom,
-          backgroundColor: c.surface,
-          borderTopColor: c.border,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          elevation: 12,
-        },
-      ]}
+      style={[styles.container, { paddingBottom: insets.bottom + 10 }, tc.backgroundColor_surface]}
     >
-      <Animated.View
-        style={[
-          styles.activeIndicator,
-          { backgroundColor: c.primary, bottom: insets.bottom },
-          { transform: [{ translateX: indicatorX }] },
-        ]}
-      />
+      <View
+        style={[styles.pill, tc.backgroundColor_surfaceVariant, tc.borderColor_border]}
+      >
+        {state.routes.map((route, index) => {
+          const { options } = descriptors[route.key];
+          const label = (options.title ?? route.name) as string;
+          const isFocused = state.index === index;
 
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const label = (options.title ?? route.name) as string;
-        const isFocused = state.index === index;
-
-        return (
-          <TabItem
-            key={route.key}
-            label={label}
-            routeName={route.name}
-            isActive={isFocused}
-            onPress={() => handlePress(route.name, route.key, isFocused)}
-            primaryColor={c.primary}
-          />
-        );
-      })}
+          return (
+            <TabItem
+              key={route.key}
+              label={label}
+              routeName={route.name}
+              isActive={isFocused}
+              onPress={() => handlePress(route.name, route.key, isFocused)}
+            />
+          );
+        })}
+      </View>
     </View>
   );
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: {
+  container: { paddingHorizontal: 16, paddingTop: 8 },
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopWidth: 1,
-    position: 'relative',
+    height: TAB_BAR_HEIGHT,
+    paddingHorizontal: 6,
+    borderRadius: TAB_BAR_HEIGHT / 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 10,
   },
-  activeIndicator: {
-    position: 'absolute',
-    width: 24,
-    height: 3,
-    borderRadius: 2,
-  },
-  tabItem: {
-    flex: 1,
-    height: '100%',
-  },
+  tabItem: { flex: 1, height: TAB_BAR_HEIGHT - 12 },
   tabTouchable: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 3,
+    borderRadius: (TAB_BAR_HEIGHT - 12) / 2,
   },
-  iconWrapper: {
-    position: 'relative',
-  },
-  tabLabel: {
-    fontSize: Typography.xs,
-    fontWeight: Typography.medium,
-  },
-  tabLabelActive: {
-    fontWeight: Typography.bold,
-  },
+  iconWrapper: { height: 24, justifyContent: 'center' },
+  iconDot: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginVertical: -5 },
+  tabLabel: { fontSize: Typography.xs, fontWeight: Typography.medium },
+  tabLabelActive: { fontWeight: Typography.bold },
 });

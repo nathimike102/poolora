@@ -125,4 +125,25 @@ describe('authService (backend-integrated)', () => {
     expect(setAuthorizationHeader).toHaveBeenCalledWith('access-2');
     expect(tokenStorage.clearTokens).toHaveBeenCalled();
   });
+
+  // The failed refresh logs out, and that logout must not wait on the very
+  // refresh that called it. A hang here left the old account signed in to
+  // Firebase, and the next sign-up was filled in with its name and email.
+  test('a failed refresh with an expired token logs out instead of hanging', async () => {
+    (tokenStorage.isTokenExpired as jest.Mock).mockResolvedValue(true);
+    (tokenStorage.getRefreshToken as jest.Mock).mockResolvedValue('refresh-1');
+    (apiClient.post as jest.Mock).mockReset().mockImplementation((path: string) =>
+      path === '/auth/refresh-token'
+        ? Promise.reject(new Error('User not found or inactive'))
+        : Promise.resolve({ data: {} }),
+    );
+
+    await expect(refreshAccessToken()).rejects.toThrow('User not found or inactive');
+    expect(tokenStorage.clearTokens).toHaveBeenCalledTimes(1);
+
+    // A later logout still runs rather than seeing one stuck in progress
+    await logoutAll();
+    expect(tokenStorage.clearTokens).toHaveBeenCalledTimes(2);
+    (tokenStorage.isTokenExpired as jest.Mock).mockResolvedValue(false);
+  });
 });

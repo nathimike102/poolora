@@ -129,6 +129,11 @@
       "updateTitle": "Update the app for video",
       "failedTitle": "Video did not connect",
       "failedBody": "{{message}} Call {{number}} if you can."
+    },
+    "banner": {
+      "open": "Your SOS is open. The safety team is with you",
+      "videoAsked": "The safety team asked to see what is happening",
+      "tap": "Tap to open your SOS"
     }
   },
   "ride": {
@@ -240,7 +245,7 @@
     "acceptFirst": "Accept a rider's request to start this ride.",
     "openMaps": "Open route in Maps",
     "completeTitle": "Complete this ride?",
-    "completeBody": "Riders will be asked to rate the trip.",
+    "completeBody": "Riders will be asked to rate the trip. Anyone you have not marked as picked up gets a full refund, and you are not paid for their seat.",
     "complete": "Complete ride",
     "testingTools": "Testing tools",
     "testRider": "Get a test rider request",
@@ -274,7 +279,10 @@
       "noShow": "No-show"
     },
     "busFrom": "Catching a bus at {{time}} from {{hub}}",
-    "bus": "Catching a bus at {{time}}"
+    "bus": "Catching a bus at {{time}}",
+    "stopAt": "Stop {{n}}: {{address}}",
+    "stopMade": "Done",
+    "stopMadeLabel": "Mark the stop at {{address}} as made"
   },
   "login": {
     "tryAgain": "Please try again",
@@ -339,6 +347,8 @@
     "fromGallery": "Choose from Gallery",
     "photoTitle": "Profile Photo",
     "chooseOption": "Choose an option",
+    "removePhoto": "Remove photo",
+    "photoFailed": "Your photo could not be saved. You can add it again from your profile.",
     "notCreated": "Your account could not be created. Please try again.",
     "saveFailed": "Couldn't save your profile",
     "title": "Complete your profile",
@@ -441,7 +451,26 @@
     "removeRoute": "Remove saved route {{name}}",
     "pickupLabel": "Pickup: {{place}}",
     "notifications": "Notifications",
-    "safety": "Safety"
+    "safety": "Safety",
+    "forYou": "For you",
+    "work": "Work",
+    "segments": {
+      "ride": "Ride",
+      "parcels": "Parcels",
+      "trips": "Trips"
+    },
+    "parcelWhere": "Where is your parcel going?",
+    "tripWhere": "Plan a trip with others",
+    "parcelsHint": "Parcels you send show up here, so you can follow each one to the door.",
+    "tripsHint": "Trips you plan or join show up here.",
+    "parcelTo": "To {{place}}",
+    "parcelLabel": "Parcel to {{place}}, {{status}}",
+    "parcelStatus": {
+      "pending": "Waiting for the driver",
+      "confirmed": "On its way"
+    },
+    "findPartners": "Find travel partners",
+    "tripLabel": "{{title}}, {{dates}}"
   },
   "search": {
     "now": "Now",
@@ -509,7 +538,7 @@
     "rideLabel": "{{vehicle}} with {{verified}}{{driver}}, {{price}} per seat, {{when}}, {{left}}",
     "verifiedDriver": "verified driver ",
     "womenOnlyTag": "WOMEN ONLY",
-    "newDriver": " · New driver",
+    "newDriver": " · ★ 5.0 · New driver",
     "trackedLabel": "Tracked car: a GPS tracker in the car",
     "tracked": "Tracked car",
     "perSeat": "per seat",
@@ -556,7 +585,7 @@
     "womanDriver": "Verified woman driver",
     "idChecked": "ID checked by Poolora",
     "ratedLabel": "Rated {{rating}} from {{count}} ratings",
-    "noRatings": "No ratings yet",
+    "noRatings": "★ 5.0 · New",
     "tripOne": "1 trip",
     "tripMany": "{{count}} trips",
     "since": "Since {{year}}",
@@ -582,7 +611,7 @@
     "loading": "Loading ride",
     "title": "Confirm booking",
     "driver": "Driver",
-    "noRatings": "No ratings yet",
+    "noRatings": "★ 5.0 · New",
     "drop": "Drop",
     "boardNote": "You board at the driver's pickup point shown above. Your seat is held once the driver accepts.",
     "seats": "Seats",
@@ -612,7 +641,22 @@
       "leaves": "My bus leaves at",
       "earlier": "Earlier",
       "later": "Later"
-    }
+    },
+    "driverStops": "The driver's stops",
+    "driverStopsHint": "Tap a stop to get on or off there instead.",
+    "getOnHere": "Get on here",
+    "getOffHere": "Get off here",
+    "useMyOwnPoint": "Use my own point",
+    "yourStops": "Your stops",
+    "yourStopsHint": "Add up to two stops along the way. Each adds a small charge, shown before you book, and the driver accepts them with your request.",
+    "addStop": "Add a stop",
+    "stopLabel": "Stop",
+    "addThisStop": "Add stop",
+    "removeStop": "Remove the stop at {{place}}",
+    "fareTotal": "Total",
+    "cancel": "Cancel",
+    "stopsLineOne": "1 stop",
+    "stopsLineMany": "{{count}} stops"
   },
   "payment": {
     "methods": {
@@ -870,7 +914,7 @@
     },
     "since": "Driving since {{year}}",
     "rating": "{{rating}} rating",
-    "noRatings": "No ratings yet",
+    "noRatings": "5.0 · New, everyone starts at 5 stars",
     "beingReviewed": "Your documents are being reviewed",
     "reason": "Reason: {{reason}}",
     "onlyReviewed": "Riders can only book drivers whose licence and vehicle documents have been reviewed.",
@@ -997,7 +1041,8 @@
   },
   "manageRequests": {
     "rideRequests": "Ride requests",
-    "noActiveTripsFound": "No active trips found",
+    "noTripsTitle": "No rides to manage",
+    "noTripsBody": "Offer a ride, and requests to join it appear here.",
     "fromBookedSeats": "from booked seats",
     "free": "Free",
     "waitingForYourAnswer": "Waiting for your answer",
@@ -1036,7 +1081,7 @@
     },
     "matchScore": "Match score {{score}} out of 100",
     "rated": "Rated {{rating}} ({{count}})",
-    "noRatings": "No ratings yet",
+    "noRatings": "★ 5.0 · New",
     "declineFrom": "Decline request from {{name}}",
     "acceptFrom": "Accept request from {{name}}",
     "route": "{{from}} to {{to}}",
@@ -1051,7 +1096,9 @@
     "tripMany": "{{count}} trips",
     "worksAt": "Works at {{company}}",
     "busFrom": "Catching a bus at {{time}} from {{hub}}",
-    "bus": "Catching a bus at {{time}}"
+    "bus": "Catching a bus at {{time}}",
+    "stopsOne": "1 stop on the way",
+    "stopsMany": "{{count}} stops on the way"
   },
   "upcomingRides": {
     "upcomingRides": "Upcoming rides",
@@ -1176,7 +1223,8 @@
     "choosePickupPoint": "Choose pickup point",
     "unavailable": "The map isn't available right now. Go back and type the address instead.",
     "notFound": "We couldn't find an address here. Move the pin slightly.",
-    "finding": "Finding address"
+    "finding": "Finding address",
+    "backToMyLocation": "Back to my location"
   },
   "myRides": {
     "loadingYourRides": "Loading your rides",
@@ -1288,7 +1336,14 @@
     "messages": "Messages",
     "parcels": "Parcels",
     "trips": "Trips",
-    "drive": "Drive & earn"
+    "drive": "Drive & earn",
+    "goAnywhere": "Go anywhere",
+    "sendSomething": "Send something",
+    "yourPoolora": "Your Poolora",
+    "work": "Work",
+    "wallet": "Wallet",
+    "impact": "Impact",
+    "receipts": "Receipts"
   },
   "appeal": {
     "whatHappenedAndWhyThe": "What happened, and why the decision should change. Mention any receipts or messages that show it.",
@@ -1323,7 +1378,8 @@
     "rider": "Rider",
     "driver": "Driver",
     "noConversationsMatchYourSearch": "No conversations match your search.",
-    "youHaveNoChatsYet": "You have no chats yet. They appear here when a booking is confirmed.",
+    "noChatsTitle": "No chats yet",
+    "noChatsBody": "A chat opens with the driver or rider once a booking is confirmed.",
     "rideCompleted": "Ride completed",
     "rideConfirmed": "Ride confirmed",
     "chatWith": "Chat with {{name}}, {{ride}}"
@@ -1466,7 +1522,9 @@
     "callUs": "Call us on {{phone}}. In danger now? Call {{number}}.",
     "callLabel": "Call Poolora support on {{phone}}",
     "noMatches": "No answers match \"{{query}}\". Ask us below.",
-    "orEmail": "Or email {{email}}"
+    "orEmail": "Or email {{email}}",
+    "reportUrgent": "Send us an urgent request and the team will get back to you. In danger now? Call {{number}}.",
+    "report": "Report"
   },
   "impact": {
     "coSavedInEachOf": "CO₂ saved in each of the last six months",
@@ -1536,11 +1594,18 @@
       "driveSub": "Share your empty seats and earn",
       "settings": "Settings",
       "work": "Work",
-      "workSub": "Ride with colleagues if your company is on Poolora"
+      "workSub": "Ride with colleagues if your company is on Poolora",
+      "receipts": "Receipts",
+      "receiptsSub": "Every trip receipt, kept in the app",
+      "walletShort": "Wallet",
+      "earnings": "Earnings",
+      "rideSub": "Book seats as a rider"
     },
     "complete": "Profile {{percent}}% complete",
+    "new": "New",
+    "photoFailed": "Your photo could not be saved. Try again.",
     "myRating": "{{rating}} My rating",
-    "noRatings": "No ratings yet",
+    "noRatings": "5.0 My rating · everyone starts at 5 stars",
     "version": "Poolora version {{version}}"
   },
   "raiseDispute": {
@@ -1624,7 +1689,7 @@
     "closing": {
       "coinsValue": " Your {{coins}} coins, worth {{value}}, will be lost. To keep their value, convert them in Wallet and withdraw the money first.",
       "coins": " Your {{coins}} coins will be lost.",
-      "body": "This removes your name, email, photo, driver documents, vehicles and emergency contacts, and signs you out on every phone. Trip and payment records are kept, without your name, as the law requires.{{coins}} This cannot be undone."
+      "body": "This removes your name, email, photo, driver documents, vehicles and emergency contacts, and signs you out on every phone. Trip and payment records are kept, without your name, as the law requires. Your phone number is remembered, in coded form, for a year, so a new account with it does not get the new-user offers again.{{coins}} This cannot be undone."
     },
     "enterName": "Enter your full name.",
     "fullName": "Full name",
@@ -1708,7 +1773,7 @@
     "confirmTitle": "Withdraw {{amount}}?",
     "confirmBody": "It leaves your wallet now and is sent to {{wallet}} {{number}}, usually within one working day. You can cancel until it is sent.",
     "topUpRange": "{{min}} to {{max}}, by EcoCash, OneMoney, InnBucks or card.",
-    "withdrawPlaceholder": "Amount, at least {{min}}, or all of a smaller balance",
+    "withdrawPlaceholder": "Amount, at least {{min}}",
     "withdrawAll": "Withdraw all ({{amount}})",
     "numberLabel": "{{wallet}} number",
     "sentTo": "{{amount}} to {{wallet}} {{number}}",
@@ -2108,5 +2173,14 @@
     "noCap": "No monthly limit.",
     "paysNothing": "{{company}} does not pay towards fares yet.",
     "paused": "{{company}}'s contribution is paused for now, so you pay the full fare. It starts again once the company's bill is settled."
+  },
+  "receipts": {
+    "title": "Receipts",
+    "loading": "Loading your receipts",
+    "loadFailed": "Your receipts could not be loaded. Check your connection and try again.",
+    "keptHere": "Every trip receipt is kept here. Open one to email or share it.",
+    "noneTitle": "No receipts yet",
+    "none": "You get one for each trip you pay for.",
+    "itemLabel": "{{place}}, {{when}}, {{amount}}, {{status}}"
   }
 }

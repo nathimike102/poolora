@@ -148,6 +148,54 @@ export class UserController {
     }
   }
 
+  /** PUT /users/me/push-token: this phone gets the caller's push notifications */
+  static async savePushToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { registerPushToken } = await import('../services/PushTokens');
+      await registerPushToken(userId, String(req.body.token));
+      sendSuccess(res, { saved: true }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** DELETE /users/me/push-token: signing out on this phone */
+  static async removePushToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { removePushToken } = await import('../services/PushTokens');
+      await removePushToken(userId, String(req.body.token));
+      sendSuccess(res, { removed: true }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** PUT /users/me/photo: the caller's profile picture */
+  static async setPhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { ProfilePhotoService } = await import('../services/ProfilePhotoService');
+      const profilePhotoUrl = await ProfilePhotoService.set(userId, String(req.body.data));
+      sendSuccess(res, { profilePhotoUrl }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** DELETE /users/me/photo */
+  static async removePhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { ProfilePhotoService } = await import('../services/ProfilePhotoService');
+      await ProfilePhotoService.remove(userId);
+      sendSuccess(res, { removed: true }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /** GET /users/me/impact: CO₂ saved by the caller's shared trips (UC-R11) */
   static async impact(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

@@ -35,7 +35,10 @@ module.exports = {
     },
     ios: {
       bundleIdentifier: 'com.poolora.app',
+      // Push notifications (Firebase Cloud Messaging through APNs)
+      entitlements: { 'aps-environment': 'production' },
       infoPlist: {
+        UIBackgroundModes: ['remote-notification'],
         NSLocationWhenInUseUsageDescription:
           'Poolora needs your location to show your position on the map, find rides near you and, during an SOS, share where you are with the safety team.',
       },
@@ -43,6 +46,9 @@ module.exports = {
     plugins: [
       '@react-native-firebase/app',
       '@react-native-firebase/auth',
+      '@react-native-firebase/messaging',
+      // Small icon and colour for Android push notifications
+      ['./plugins/withNotificationIcon', { icon: './assets/notification-icon.png', color: '#0B7A75' }],
       '@react-native-community/datetimepicker',
       '@sentry/react-native',
       [

@@ -8,12 +8,13 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert, Image } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text } from '../../components/Text';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import { identityService, type Gender, type IdentityStatus } from '../../services/identityService';
 import type { LocalFile } from '../../services/kycService';
@@ -21,6 +22,7 @@ import { errorHandler } from '../../utils/errorHandler';
 import { REGION } from '../../utils/region';
 import i18n from '../../i18n';
 import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
 /** Labels are in the catalogue under identity.genders */
 const GENDERS: Gender[] = ['female', 'male', 'other'];
@@ -46,9 +48,7 @@ async function pick(source: 'camera' | 'library', front = false): Promise<LocalF
 }
 
 export function IdentityCheckScreen() {
-  const navigation = useNavigation();
   const { t } = useTranslation();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<IdentityStatus | null>(null);
   const [gender, setGender] = useState<Gender | null>(null);
@@ -83,18 +83,18 @@ export function IdentityCheckScreen() {
   const canSend = status && (status.status === 'none' || status.status === 'rejected');
 
   const photoRow = (label: string, file: LocalFile | null, set: (f: LocalFile | null) => void, selfieMode: boolean) => (
-    <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-      <Text style={[s.cardTitle, { color: c.text }]}>{label}</Text>
+    <View style={[s.card, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]}>
+      <Text style={[s.cardTitle, tc.color_text]}>{label}</Text>
       {file ? <Image source={{ uri: file.uri }} style={s.preview} accessibilityLabel={t('identity.chosen', { label })} /> : null}
       <View style={s.row}>
-        <Pressable onPress={async () => set((await pick('camera', selfieMode)) ?? file)} style={[s.smallBtn, { borderColor: c.primary }]} accessibilityRole="button">
-          <Icon name="camera" size={18} color={c.primary} />
-          <Text style={{ color: c.primary, fontWeight: '700' }}>{file ? t('identity.retake') : selfieMode ? t('identity.takeASelfie') : t('identity.takeAPhoto')}</Text>
+        <Pressable onPress={async () => set((await pick('camera', selfieMode)) ?? file)} style={[s.smallBtn, tc.borderColor_primary]} accessibilityRole="button">
+          <Icon name="camera" size={18} color={tk.primary} />
+          <Text style={[{ fontWeight: '700' }, tc.color_primary]}>{file ? t('identity.retake') : selfieMode ? t('identity.takeASelfie') : t('identity.takeAPhoto')}</Text>
         </Pressable>
         {!selfieMode ? (
-          <Pressable onPress={async () => set((await pick('library')) ?? file)} style={[s.smallBtn, { borderColor: c.border }]} accessibilityRole="button">
-            <Icon name="image" size={18} color={c.text} />
-            <Text style={{ color: c.text, fontWeight: '600' }}>{t('identity.choose')}</Text>
+          <Pressable onPress={async () => set((await pick('library')) ?? file)} style={[s.smallBtn, tc.borderColor_border]} accessibilityRole="button">
+            <Icon name="image" size={18} color={tk.text} />
+            <Text style={[{ fontWeight: '600' }, tc.color_text]}>{t('identity.choose')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -102,67 +102,68 @@ export function IdentityCheckScreen() {
   );
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>{t('identity.identityCheck')}</Text>
-      </View>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('identity.identityCheck')} />
 
       <ScrollView contentContainerStyle={s.body}>
-        <Text style={{ fontSize: 14, color: c.textSec, lineHeight: 21 }}>
+        <Text style={[{ fontSize: 14, lineHeight: 21 }, tc.color_textSec]}>
           {t('identity.intro')}
         </Text>
 
-        {!status ? <ActivityIndicator color={c.primary} /> : null}
+        {!status ? <ActivityIndicator color={tk.primary} /> : null}
 
         {status?.status === 'verified' ? (
-          <View style={[s.banner, { backgroundColor: c.successLight }]} accessibilityLiveRegion="polite">
-            <Icon name="shield-check" size={22} color={c.success} />
-            <Text style={{ flex: 1, color: c.text }}>
+          <View style={[s.banner, tc.backgroundColor_successLight]} accessibilityLiveRegion="polite">
+            <Icon name="shield-check" size={22} color={tk.success} />
+            <Text style={[{ flex: 1 }, tc.color_text]}>
               {status.gender === 'female' ? t('identity.verifiedWoman') : t('identity.verified')}
             </Text>
           </View>
         ) : null}
         {status?.status === 'pending' ? (
-          <View style={[s.banner, { backgroundColor: c.primaryLight }]} accessibilityLiveRegion="polite">
-            <Icon name="clock-outline" size={22} color={c.primary} />
-            <Text style={{ flex: 1, color: c.text }}>
+          <View style={[s.banner, tc.backgroundColor_primaryLight]} accessibilityLiveRegion="polite">
+            <Icon name="clock-outline" size={22} color={tk.primary} />
+            <Text style={[{ flex: 1 }, tc.color_text]}>
               {t('identity.pending', { date: status.submittedAt ? new Date(status.submittedAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' }) : '' })}
             </Text>
           </View>
         ) : null}
         {status?.status === 'rejected' ? (
-          <View style={[s.banner, { backgroundColor: c.errorLight }]}>
-            <Icon name="alert-circle-outline" size={22} color={c.error} />
-            <Text style={{ flex: 1, color: c.text }}>{t('identity.rejected', { reason: status.rejectionReason })}</Text>
+          <View style={[s.banner, tc.backgroundColor_errorLight]}>
+            <Icon name="alert-circle-outline" size={22} color={tk.error} />
+            <Text style={[{ flex: 1 }, tc.color_text]}>{t('identity.rejected', { reason: status.rejectionReason })}</Text>
           </View>
         ) : null}
 
         {canSend ? (
           <>
-            <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Text style={[s.cardTitle, { color: c.text }]}>{t('identity.yourGender')}</Text>
+            <View style={[s.card, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]}>
+              <Text style={[s.cardTitle, tc.color_text]}>{t('identity.yourGender')}</Text>
               <View style={s.row} accessibilityRole="radiogroup">
                 {GENDERS.map(value => ({ value, label: t(`identity.genders.${value}`) })).map(g => (
                   <Pressable
                     key={g.value}
                     onPress={() => setGender(g.value)}
-                    style={[s.choice, { borderColor: gender === g.value ? c.primary : c.border, backgroundColor: gender === g.value ? c.primaryLight : c.surface }]}
+                    style={[
+                      s.choice,
+                      gender === g.value ? tc.borderColor_primary : tc.borderColor_border,
+                      gender === g.value ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface
+                    ]}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: gender === g.value }}
                   >
-                    <Text style={{ fontWeight: '700', color: gender === g.value ? c.primary : c.text, textAlign: 'center' }}>{g.label}</Text>
+                    <Text style={[{ fontWeight: '700', textAlign: 'center' }, gender === g.value ? tc.color_primary : tc.color_text]}>{g.label}</Text>
                   </Pressable>
                 ))}
               </View>
             </View>
             {photoRow(t('identity.idPhoto'), document, setDocument, false)}
             {photoRow(t('identity.selfie'), selfie, setSelfie, true)}
-            <Text style={{ fontSize: 13, color: c.textSec }}>{t('identity.makeSureThePhotoOn')}</Text>
+            <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{t('identity.makeSureThePhotoOn')}</Text>
             <Pressable
               onPress={submit}
               disabled={!gender || !document || !selfie || sending}
-              style={[s.submit, { backgroundColor: gender && document && selfie ? c.primary : c.border }]}
+              style={[s.submit, gender && document && selfie ? tc.backgroundColor_primary : tc.backgroundColor_border]}
               accessibilityRole="button"
             >
               {sending ? <ActivityIndicator color="white" /> : <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>{t('identity.sendForReview')}</Text>}

@@ -41,6 +41,16 @@ export const userService = {
     }
   },
 
+  /** Sets the profile picture from a base64 JPEG or PNG; returns its link */
+  async setPhoto(base64: string): Promise<string> {
+    const response = await apiClient.put<ApiResponse<{ profilePhotoUrl: string }>>(API_ENDPOINTS.users.photo, { data: base64 }, { timeout: 60_000 });
+    return response.data.data.profilePhotoUrl;
+  },
+
+  async removePhoto(): Promise<void> {
+    await apiClient.delete(API_ENDPOINTS.users.photo);
+  },
+
   /** Whether the account can be closed now, and what is in the way if not */
   async getClosureCheck(): Promise<{ canClose: boolean; blockers: string[]; walletBalance: number; coins: number; coinsValue: number }> {
     const response = await apiClient.get<ApiResponse<{ canClose: boolean; blockers: string[]; walletBalance: number; coins: number; coinsValue: number }>>(API_ENDPOINTS.users.closure);

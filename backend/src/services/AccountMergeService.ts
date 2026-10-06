@@ -16,6 +16,7 @@
  * a merge interrupted part-way is finished by approving it again.
  */
 
+import { ratingScore, ratingSum, type RatingRole } from '../utils/ratingScore';
 import { Types } from 'mongoose';
 import { AccountMerge, IAccountMerge } from '../models/AccountMerge';
 import { User, IUser } from '../models/User';
@@ -239,18 +240,21 @@ export class AccountMergeService {
     const a = source.stats ?? ({} as IUser['stats']);
     const b = target.stats ?? ({} as IUser['stats']);
     const weighted = (x = 0, nx = 0, y = 0, ny = 0) => (nx + ny ? round2((x * nx + y * ny) / (nx + ny)) : 0);
+    // Ratings: the sums and counts add up, and the score is worked out again from them
+    const mergedRating = (role: RatingRole) => {
+      const sum = ratingSum(a, role) + ratingSum(b, role);
+      const count = (a[`totalRatingsAs${role}`] ?? 0) + (b[`totalRatingsAs${role}`] ?? 0);
+      return { [`avgRatingAs${role}`]: ratingScore(sum, count), [`totalRatingsAs${role}`]: count, [`ratingSumAs${role}`]: sum };
+    };
     const rides = (u: IUser['stats']) => (u.totalRidesAsDriver ?? 0) + (u.totalRidesAsRider ?? 0);
     const stats = {
       totalRidesAsDriver: (a.totalRidesAsDriver ?? 0) + (b.totalRidesAsDriver ?? 0),
       totalRidesAsRider: (a.totalRidesAsRider ?? 0) + (b.totalRidesAsRider ?? 0),
       totalEarnings: round2((a.totalEarnings ?? 0) + (b.totalEarnings ?? 0)),
       totalSpent: round2((a.totalSpent ?? 0) + (b.totalSpent ?? 0)),
-      avgRatingAsDriver: weighted(a.avgRatingAsDriver, a.totalRatingsAsDriver, b.avgRatingAsDriver, b.totalRatingsAsDriver),
-      avgRatingAsRider: weighted(a.avgRatingAsRider, a.totalRatingsAsRider, b.avgRatingAsRider, b.totalRatingsAsRider),
-      totalRatingsAsDriver: (a.totalRatingsAsDriver ?? 0) + (b.totalRatingsAsDriver ?? 0),
-      totalRatingsAsRider: (a.totalRatingsAsRider ?? 0) + (b.totalRatingsAsRider ?? 0),
-      avgRatingAsOrganizer: weighted(a.avgRatingAsOrganizer, a.totalRatingsAsOrganizer, b.avgRatingAsOrganizer, b.totalRatingsAsOrganizer),
-      totalRatingsAsOrganizer: (a.totalRatingsAsOrganizer ?? 0) + (b.totalRatingsAsOrganizer ?? 0),
+      ...mergedRating('Driver'),
+      ...mergedRating('Rider'),
+      ...mergedRating('Organizer'),
       cancellationRate: weighted(a.cancellationRate, rides(a), b.cancellationRate, rides(b)),
       acceptanceRate: weighted(a.acceptanceRate ?? 1, a.totalRidesAsDriver, b.acceptanceRate ?? 1, b.totalRidesAsDriver) || (b.acceptanceRate ?? 1),
     };

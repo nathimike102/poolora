@@ -149,13 +149,4 @@ ${r.co2SavedKg ? row('CO₂ saved by sharing (estimate)', `${number(r.co2SavedKg
     const sent = await sendMail({ to: user.email, subject: `Your Poolora receipt ${receipt.receiptNumber}`, text: this.text(receipt), html: this.html(receipt) });
     return { sent, to: user.email };
   }
-
-  /** Sent automatically when a rider's trip is completed. Silent when there is no email. */
-  async emailOnCompletion(bookingId: string, riderId: string): Promise<void> {
-    if (!mailEnabled()) return;
-    const user = await User.findById(riderId).select('email').lean();
-    if (!user?.email) return;
-    const receipt = await this.build(bookingId, riderId);
-    await sendMail({ to: user.email, subject: `Your Poolora receipt ${receipt.receiptNumber}`, text: this.text(receipt), html: this.html(receipt) });
-  }
 }

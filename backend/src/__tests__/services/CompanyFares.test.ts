@@ -15,7 +15,7 @@ jest.mock('../../services/ReceiptService', () => ({
   ...jest.requireActual('../../services/ReceiptService'),
   ReceiptService: jest.fn().mockImplementation(() => {
     const real = new (jest.requireActual('../../services/ReceiptService').ReceiptService)();
-    return { build: real.build.bind(real), text: real.text.bind(real), html: real.html.bind(real), emailOnCompletion: jest.fn().mockResolvedValue(undefined) };
+    return { build: real.build.bind(real), text: real.text.bind(real), html: real.html.bind(real) };
   }),
 }));
 jest.mock('../../services/NotificationService', () => ({
@@ -216,7 +216,7 @@ describe('completing a company-paid trip', () => {
   it('takes the company commission on the company\'s part and the usual one on the rider\'s', async () => {
     const r = await ride(next(2));
     const { booking } = await book(r);
-    await Booking.updateOne({ _id: booking._id }, { $set: { status: BookingStatus.CONFIRMED } });
+    await Booking.updateOne({ _id: booking._id }, { $set: { status: BookingStatus.CONFIRMED, actualPickupTime: new Date() } });
     await Ride.updateOne({ _id: r._id }, { $set: { status: RideStatus.IN_PROGRESS } });
 
     const done = await bookings.completeBooking(booking.id, driverId.toString());

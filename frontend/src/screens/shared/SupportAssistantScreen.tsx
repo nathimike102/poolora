@@ -7,17 +7,19 @@
  * screen and is sent with each message.
  */
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type AssistantTurn } from '../../services/supportService';
 import { errorHandler } from '../../utils/errorHandler';
 import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
 type Turn = AssistantTurn & { ticketId?: string };
 
@@ -28,7 +30,6 @@ const MAX_TURNS = 40;
 
 export function SupportAssistantScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { c } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
@@ -61,18 +62,22 @@ export function SupportAssistantScreen() {
     return (
       <View
         key={key}
-        style={[styles.bubble, mine ? { alignSelf: 'flex-end', backgroundColor: c.primaryLight } : { alignSelf: 'flex-start', backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 }]}
+        style={[styles.bubble, mine ? [{ alignSelf: 'flex-end' }, tc.backgroundColor_primaryLight] : [
+          { alignSelf: 'flex-start', borderWidth: 1 },
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]]}
       >
-        <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSec }}>{mine ? t('supportAssistant.you') : t('supportAssistant.pooloraAssistant')}</Text>
-        <Text style={{ fontSize: 15, lineHeight: 21, color: c.text }}>{turn.text}</Text>
+        <Text style={[{ fontSize: 12, fontWeight: '700' }, tc.color_textSec]}>{mine ? t('supportAssistant.you') : t('supportAssistant.pooloraAssistant')}</Text>
+        <Text style={[{ fontSize: 15, lineHeight: 21 }, tc.color_text]}>{turn.text}</Text>
         {turn.ticketId ? (
           <Pressable
             onPress={() => navigation.navigate('SupportTicket', { ticketId: turn.ticketId })}
             accessibilityRole="button"
             style={styles.ticketLink}
           >
-            <Icon name="ticket-outline" size={16} color={c.primary} />
-            <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>{t('supportAssistant.openTheSupportRequest')}</Text>
+            <Icon name="ticket-outline" size={16} color={tk.primary} />
+            <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_primary]}>{t('supportAssistant.openTheSupportRequest')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -80,12 +85,8 @@ export function SupportAssistantScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.header, { borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('supportAssistant.assistant')}</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <KeyboardAvoidingView style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScreenHeader title={t('supportAssistant.assistant')} compact />
       <ScrollView
         ref={scroll}
         contentContainerStyle={styles.content}
@@ -96,49 +97,68 @@ export function SupportAssistantScreen() {
         {turns.length === 0 ? (
           <View style={styles.suggestions}>
             {SUGGESTIONS.map(key => t(`supportAssistant.suggestions.${key}`)).map(s => (
-              <Pressable key={s} onPress={() => send(s)} accessibilityRole="button" style={[styles.chip, { borderColor: c.border, backgroundColor: c.surface }]}>
-                <Text style={{ fontSize: 14, color: c.text }}>{s}</Text>
+              <Pressable key={s} onPress={() => send(s)} accessibilityRole="button" style={[
+                styles.chip,
+                tc.borderColor_surfaceVariant,
+                tc.backgroundColor_surfaceVariant
+              ]}>
+                <Text style={[{ fontSize: 14 }, tc.color_text]}>{s}</Text>
               </Pressable>
             ))}
           </View>
         ) : null}
         {turns.map(bubble)}
         {thinking ? (
-          <View style={[styles.bubble, { alignSelf: 'flex-start', backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 }]} accessibilityLabel={t('supportAssistant.theAssistantIsWriting')}>
-            <ActivityIndicator color={c.primary} />
+          <View style={[
+            styles.bubble,
+            { alignSelf: 'flex-start', borderWidth: 1 },
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]} accessibilityLabel={t('supportAssistant.theAssistantIsWriting')}>
+            <ActivityIndicator color={tk.primary} />
           </View>
         ) : null}
         {failed ? (
           <View style={{ gap: 8 }} accessibilityLiveRegion="polite">
-            <Text style={{ fontSize: 14, color: c.error }}>{failed}</Text>
+            <Text style={[{ fontSize: 14 }, tc.color_error]}>{failed}</Text>
             <Pressable onPress={() => navigation.navigate('SupportTicket', {})} accessibilityRole="button" style={styles.link}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>{t('supportAssistant.contactAPersonInstead')}</Text>
+              <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_primary]}>{t('supportAssistant.contactAPersonInstead')}</Text>
             </Pressable>
           </View>
         ) : null}
-        <Text style={{ fontSize: 12, color: c.textSec, textAlign: 'center' }}>
+        <Text style={[{ fontSize: 12, textAlign: 'center' }, tc.color_textSec]}>
           {t('supportAssistant.theAssistantCanMakeMistakes')}
         </Text>
       </ScrollView>
-      <View style={[styles.composer, { borderTopColor: c.border, backgroundColor: c.surface, paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[
+        styles.composer,
+        { paddingBottom: Math.max(insets.bottom, 12) },
+        tc.borderTopColor_border,
+        tc.backgroundColor_surface
+      ]}>
         <TextInput
           value={draft}
           onChangeText={setDraft}
           multiline
           maxLength={4000}
           placeholder={t('supportAssistant.askAQuestion')}
-          placeholderTextColor={c.textSec}
+          placeholderTextColor={tk.textSec}
           accessibilityLabel={t('supportAssistant.messageToTheAssistant')}
-          style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+          style={[
+            styles.input,
+            tc.borderColor_border,
+            tc.color_text,
+            tc.backgroundColor_surface
+          ]}
         />
         <Pressable
           onPress={() => send(draft)}
           disabled={!draft.trim() || thinking}
           accessibilityRole="button"
           accessibilityLabel={t('supportAssistant.send')}
-          style={[styles.send, { backgroundColor: draft.trim() && !thinking ? c.primary : c.border }]}
+          style={[styles.send, draft.trim() && !thinking ? tc.backgroundColor_primary : tc.backgroundColor_border]}
         >
-          <Icon name="send" size={20} color={draft.trim() && !thinking ? c.textOnPrimary : c.textSec} />
+          <Icon name="send" size={20} color={draft.trim() && !thinking ? tk.textOnPrimary : tk.textSec} />
         </Pressable>
       </View>
     </KeyboardAvoidingView>

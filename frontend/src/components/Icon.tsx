@@ -9,22 +9,26 @@
 import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { useThemeColor, type AnyColor } from '../theme/themed';
+
 export type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 interface IconProps {
   name: IconName;
   size?: number;
-  color: string;
+  /** A colour or a theme colour (tk.textSec) */
+  color: AnyColor;
   /** Only set when the icon conveys information not present in nearby text. */
   label?: string;
 }
 
 export function Icon({ name, size = 20, color, label }: IconProps) {
+  const resolved = useThemeColor(color);
   return (
     <MaterialCommunityIcons
       name={name}
       size={size}
-      color={color}
+      color={resolved}
       accessible={Boolean(label)}
       accessibilityLabel={label}
       accessibilityElementsHidden={!label}

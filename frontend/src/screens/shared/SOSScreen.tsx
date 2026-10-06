@@ -17,19 +17,9 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Platform,
-  Share,
-  Switch,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert, Linking, Platform, Share } from 'react-native';
+import { ActivityIndicator, Switch } from '../../components/Themed';
+import { Text } from '../../components/Text';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,11 +32,10 @@ import ReAnimated, {
 } from 'react-native-reanimated';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle } from '../../components/ThemedSvg';
 
-import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import type { RootStackParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
 import { safetyService, type EmergencyContact, type SOSResponse, type SOSThreat } from '../../services/safetyService';
@@ -60,6 +49,7 @@ import { setSosAudioEnabled, sosAudioEnabled, useSosRecording } from '../../serv
 import { startSosVideo, SosVideoUnsupported, type SosVideoSession } from '../../services/sosVideo';
 import { useTranslation } from 'react-i18next';
 import i18n, { english } from '../../i18n';
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -137,7 +127,6 @@ function secondsUntil(iso?: string): number {
 export function SOSScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<RootStackParamList, 'SOS'>>();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
@@ -477,12 +466,16 @@ export function SOSScreen() {
         <Pressable
           key={label}
           onPress={() => call(number)}
-          style={[s.numberBtn, onRed ? s.numberBtnOnRed : { backgroundColor: c.surface, borderColor: c.border }]}
+          style={[s.numberBtn, onRed ? s.numberBtnOnRed : [tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]]}
           accessibilityRole="button"
           accessibilityLabel={t('sos.callService', { service: label.toLowerCase(), number })}
         >
-          <Text style={{ fontSize: 16, fontWeight: '800', color: onRed ? 'white' : c.text }}>{number}</Text>
-          <Text style={{ fontSize: 12, color: onRed ? 'white' : c.textSec }}>{label}</Text>
+          <Text style={[{ fontSize: 16, fontWeight: '800' }, onRed ? {
+            color: 'white'
+          } : tc.color_text]}>{number}</Text>
+          <Text style={[{ fontSize: 12 }, onRed ? {
+            color: 'white'
+          } : tc.color_textSec]}>{label}</Text>
         </Pressable>
       ))}
     </View>
@@ -511,17 +504,19 @@ export function SOSScreen() {
     }
 
     return (
-      <View style={[s.root, { backgroundColor: isClosed ? c.bg : '#B71C1C', paddingTop: insets.top }]}>
+      <View style={[s.root, { paddingTop: insets.top }, isClosed ? tc.backgroundColor_surface : {
+        backgroundColor: '#B71C1C'
+      }]}>
         <ScrollView contentContainerStyle={s.activeBody}>
           {phase === 'sending' || phase === 'retrying' ? (
             <ActivityIndicator size="large" color="white" />
           ) : (
             <ReAnimated.View style={[s.activeCircle, !isClosed && pulseStyle]}>
-              <Icon name={isClosed ? 'shield-check-outline' : 'alert'} size={54} color={isClosed ? c.primary : 'white'} />
+              <Icon name={isClosed ? 'shield-check-outline' : 'alert'} size={54} color={isClosed ? tk.primary : 'white'} />
             </ReAnimated.View>
           )}
-          <Text style={[s.activeTitle, isClosed && { color: c.text }]} accessibilityRole="header" accessibilityLiveRegion="assertive">{title}</Text>
-          {sub ? <Text style={[s.activeSub, isClosed && { color: c.textSec }]} accessibilityLiveRegion="polite">{sub}</Text> : null}
+          <Text style={[s.activeTitle, isClosed && tc.color_text]} accessibilityRole="header" accessibilityLiveRegion="assertive">{title}</Text>
+          {sub ? <Text style={[s.activeSub, isClosed && tc.color_textSec]} accessibilityLiveRegion="polite">{sub}</Text> : null}
 
           {open ? (
             <View style={s.sharingCard}>
@@ -669,7 +664,7 @@ export function SOSScreen() {
             </Pressable>
           ) : null}
           {isClosed ? (
-            <Pressable onPress={() => navigation.goBack()} style={[s.doneBtn, { backgroundColor: c.primary }]} accessibilityRole="button">
+            <Pressable onPress={() => navigation.goBack()} style={[s.doneBtn, tc.backgroundColor_primary]} accessibilityRole="button">
               <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>{t('common.done')}</Text>
             </Pressable>
           ) : null}
@@ -682,11 +677,8 @@ export function SOSScreen() {
   const canRaise = Boolean(bookingId);
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>{t('sos.title')}</Text>
-      </View>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('sos.title')} compact />
 
       <ScrollView style={s.flex1} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
         <View style={s.sosSection}>
@@ -719,7 +711,7 @@ export function SOSScreen() {
             <Icon name="alert" size={44} color="white" />
             <Text style={s.sosLabel}>{t('sos.sosLabel')}</Text>
           </Pressable>
-          <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center' }}>
+          <Text style={[{ fontSize: 14, textAlign: 'center' }, tc.color_textSec]}>
             {phase === 'loading'
               ? t('sos.checkingRide')
               : !canRaise
@@ -733,81 +725,90 @@ export function SOSScreen() {
         {!canRaise && phase !== 'loading' && (contacts?.length ?? 0) > 0 ? (
           <Pressable
             onPress={() => textContactsFromPhone(contacts ?? [])}
-            style={[s.bigCall, { backgroundColor: c.primaryLight }]}
+            style={[s.bigCall, tc.backgroundColor_primaryLight]}
             accessibilityRole="button"
             accessibilityHint={t('sos.textFromPhoneHint')}
           >
-            <Icon name="message-alert-outline" size={22} color={c.primary} />
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.primary }}>{t('sos.textFromPhone')}</Text>
+            <Icon name="message-alert-outline" size={22} color={tk.primary} />
+            <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_primary]}>{t('sos.textFromPhone')}</Text>
           </Pressable>
         ) : null}
         <Pressable
           onPress={() => call(REGION.emergency.general)}
-          style={[s.bigCall, { backgroundColor: c.errorLight }]}
+          style={[s.bigCall, tc.backgroundColor_errorLight]}
           accessibilityRole="button"
           accessibilityLabel={t('sos.callEmergencyLabel', { number: REGION.emergency.general })}
         >
-          <Icon name="phone" size={22} color={c.error} />
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>{t('sos.callEmergency', { number: REGION.emergency.general })}</Text>
+          <Icon name="phone" size={22} color={tk.error} />
+          <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_error]}>{t('sos.callEmergency', { number: REGION.emergency.general })}</Text>
         </Pressable>
         {emergencyNumbers(false)}
 
         <View style={s.quickRow}>
-          <Pressable onPress={shareLocation} style={[s.quickBtn, { backgroundColor: c.primaryLight }]} accessibilityRole="button">
-            <Icon name="map-marker" size={24} color={c.primary} />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>{t('sos.shareLocation')}</Text>
+          <Pressable onPress={shareLocation} style={[s.quickBtn, tc.backgroundColor_primaryLight]} accessibilityRole="button">
+            <Icon name="map-marker" size={24} color={tk.primary} />
+            <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_primary]}>{t('sos.shareLocation')}</Text>
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('FakeCall')} style={[s.quickBtn, { backgroundColor: c.primaryLight }]} accessibilityRole="button" accessibilityHint={t('sos.fakeCallHint')}>
-            <Icon name="phone-incoming" size={24} color={c.primary} />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>{t('sos.fakeCall')}</Text>
+          <Pressable onPress={() => navigation.navigate('FakeCall')} style={[s.quickBtn, tc.backgroundColor_primaryLight]} accessibilityRole="button" accessibilityHint={t('sos.fakeCallHint')}>
+            <Icon name="phone-incoming" size={24} color={tk.primary} />
+            <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_primary]}>{t('sos.fakeCall')}</Text>
           </Pressable>
         </View>
 
-        <View style={[s.contactsCard, s.audioRow, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <View style={[
+          s.contactsCard,
+          s.audioRow,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
           <View style={s.flex1}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{t('sos.audioTitle')}</Text>
-            <Text style={{ fontSize: 13, color: c.textSec, lineHeight: 19 }}>
+            <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_text]}>{t('sos.audioTitle')}</Text>
+            <Text style={[{ fontSize: 13, lineHeight: 19 }, tc.color_textSec]}>
               {t('sos.audioBody')}
             </Text>
           </View>
-          <Switch value={recordAudio} onValueChange={toggleAudio} accessibilityLabel={t('sos.audioTitle')} trackColor={{ false: c.border, true: c.primary }} />
+          <Switch value={recordAudio} onValueChange={toggleAudio} accessibilityLabel={t('sos.audioTitle')} trackColor={{ false: tk.border, true: tk.primary }} />
         </View>
 
         <View>
           <View style={s.sectionHeader}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{t('sos.contactsTitle')}</Text>
+            <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_text]}>{t('sos.contactsTitle')}</Text>
             <Pressable onPress={() => navigation.navigate('EmergencyContacts')} accessibilityRole="button" hitSlop={8}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>{t('common.manage')}</Text>
+              <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_primary]}>{t('common.manage')}</Text>
             </Pressable>
           </View>
 
-          <View style={[s.contactsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={[
+            s.contactsCard,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
             {contacts === null ? (
-              <ActivityIndicator style={{ padding: 16 }} color={c.primary} />
+              <ActivityIndicator style={{ padding: 16 }} color={tk.primary} />
             ) : contacts.length === 0 ? (
               <View style={s.contactRow}>
-                <Text style={{ flex: 1, fontSize: 14, color: c.textSec }}>
+                <Text style={[{ flex: 1, fontSize: 14 }, tc.color_textSec]}>
                   {t('sos.contactsEmpty')}
                 </Text>
               </View>
             ) : (
               contacts.map((contact, i) => (
                 <View key={contact.phone}>
-                  {i > 0 && <View style={[s.divider, { backgroundColor: c.border }]} />}
+                  {i > 0 && <View style={[s.divider, tc.backgroundColor_border]} />}
                   <View style={s.contactRow}>
-                    <View style={[s.contactIcon, { backgroundColor: c.primaryLight }]}>
-                      <Icon name="account" size={22} color={c.primary} />
+                    <View style={[s.contactIcon, tc.backgroundColor_primaryLight]}>
+                      <Icon name="account" size={22} color={tk.primary} />
                     </View>
                     <View style={s.flex1}>
                       <View style={s.contactNameRow}>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{contact.name}</Text>
+                        <Text style={[{ fontSize: 14, fontWeight: '600' }, tc.color_text]}>{contact.name}</Text>
                         {contact.relation ? (
-                          <View style={[s.relationBadge, { backgroundColor: c.bg }]}>
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSec }}>{contact.relation}</Text>
+                          <View style={[s.relationBadge, tc.backgroundColor_surface]}>
+                            <Text style={[{ fontSize: 11, fontWeight: '700' }, tc.color_textSec]}>{contact.relation}</Text>
                           </View>
                         ) : null}
                       </View>
-                      <Text style={{ fontSize: 13, color: c.textSec }}>
+                      <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
                         {displayPhone(contact.phone) ?? contact.phone}
                         {contact.notifyOnSos === false ? t('sos.notTextedOnSos') : ''}
                       </Text>

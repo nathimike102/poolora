@@ -1,27 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { ActivityIndicator, RefreshControl } from '../../components/Themed';
+import { Text } from '../../components/Text';
+import { EmptyArt } from '../../components/EmptyState';
 
-import { useApp } from '../../context/AppContext';
 import { Icon, type IconName } from '../../components/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackButton } from '../../components/BackButton';
-import type { RootStackParamList } from '../../navigation/types';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { notificationService } from '../../services/notificationService';
 import type { Notification } from '../../types/api';
 import { logger } from '../../utils/logger';
 import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const TYPE_COLORS: Record<string, string> = {
   success: '#E8F5E9',
@@ -33,9 +24,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function NotificationsScreen() {
-  const navigation = useNavigation<Nav>();
   const { t } = useTranslation();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,22 +97,23 @@ export function NotificationsScreen() {
   }, []);
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {/* ── Header ──────────────────────────────────────────── */}
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[s.headerTitle, { color: c.text }]}>{t('notifications.notifications')}</Text>
-        <Pressable accessibilityRole="button" onPress={onMarkAllRead} disabled={unreadCount === 0}>
-          <Text style={{ fontSize: 13, color: unreadCount ? c.primary : c.textSec, fontWeight: '600' }}>
-            {t('notifications.markAllRead')}
-          </Text>
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title={t('notifications.notifications')}
+        right={
+          <Pressable accessibilityRole="button" onPress={onMarkAllRead} disabled={unreadCount === 0} hitSlop={8}>
+            <Text style={[{ fontSize: 14, fontWeight: '700' }, unreadCount ? tc.color_primary : tc.color_textSec]}>
+              {t('notifications.markAllRead')}
+            </Text>
+          </Pressable>
+        }
+      />
 
       {/* ── List ────────────────────────────────────────────── */}
       {loading ? (
         <View style={[s.flex1, { alignItems: 'center', justifyContent: 'center' }]}>
-          <ActivityIndicator color={c.primary} />
+          <ActivityIndicator color={tk.primary} />
         </View>
       ) : (
       <ScrollView
@@ -134,11 +124,11 @@ export function NotificationsScreen() {
       >
         {items.length === 0 && (
           <View style={s.empty} accessibilityLiveRegion="polite">
-            <Icon name={loadError ? 'wifi-off' : 'bell-check-outline'} size={48} color={c.textSec} />
-            <Text style={[s.emptyTitle, { color: c.text }]}>
+            {loadError ? <Icon name="wifi-off" size={48} color={tk.textSec} /> : <EmptyArt icon="bell" />}
+            <Text style={[s.emptyTitle, tc.color_text]}>
               {loadError ? t('notifications.loadFailed') : t('notifications.caughtUp')}
             </Text>
-            <Text style={[s.emptySub, { color: c.textSec }]}>
+            <Text style={[s.emptySub, tc.color_textSec]}>
               {loadError
                 ? t('notifications.checkYourConnectionAndPull') : t('notifications.bookingUpdatesMessagesAndRide')}
             </Text>
@@ -151,43 +141,32 @@ export function NotificationsScreen() {
             <Pressable accessibilityRole="button"
               key={notif._id}
               onPress={() => !notif.isRead && onMarkRead(notif._id)}
-              style={[
-                s.notifRow,
-                {
-                  backgroundColor: notif.isRead ? 'transparent' : bg + '50',
-                  borderBottomColor: c.border,
-                },
-              ]}
+              style={[s.notifRow, { backgroundColor: notif.isRead ? 'transparent' : bg + '50' }, tc.borderBottomColor_border]}
             >
               {/* Icon */}
               <View style={[s.iconBox, { backgroundColor: bg }]}>
-                <Icon name={iconFor(notif.type)} size={22} color={c.text} />
+                <Icon name={iconFor(notif.type)} size={22} color={tk.text} />
               </View>
 
               {/* Content */}
               <View style={s.flex1}>
                 <View style={s.titleRow}>
                   <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: notif.isRead ? '600' : '700',
-                      color: c.text,
-                      flex: 1,
-                    }}
+                    style={[{ fontSize: 14, fontWeight: notif.isRead ? '600' : '700', flex: 1 }, tc.color_text]}
                   >
                     {notif.title ?? t('common.notification')}
                   </Text>
-                  <Text style={{ fontSize: 11, color: c.textSec, flexShrink: 0 }}>
+                  <Text style={[{ fontSize: 11, flexShrink: 0 }, tc.color_textSec]}>
                     {relativeTime(notif.createdAt)}
                   </Text>
                 </View>
-                <Text style={{ fontSize: 13, color: c.textSec, marginTop: 3, lineHeight: 18 }}>
+                <Text style={[{ fontSize: 13, marginTop: 3, lineHeight: 18 }, tc.color_textSec]}>
                   {notif.body}
                 </Text>
               </View>
 
               {/* Unread dot */}
-              {!notif.isRead && <View style={[s.unreadDot, { backgroundColor: c.primary }]} />}
+              {!notif.isRead && <View style={[s.unreadDot, tc.backgroundColor_primary]} />}
             </Pressable>
           );
         })}

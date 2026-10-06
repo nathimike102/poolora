@@ -242,6 +242,13 @@ export const config = {
     maxConcurrent: 3,
   },
 
+  accountClosure: {
+    /** How long a closed account's number is remembered, so new-user perks are not given to it again */
+    rememberPhoneDays: parseInt(optional('CLOSED_PHONE_REMEMBER_DAYS', '365'), 10),
+    /** Key for the hash of those numbers; changing it forgets every remembered number */
+    phoneHashSecret: process.env.PHONE_HASH_SECRET || required('JWT_ACCESS_SECRET'),
+  },
+
   tracking: {
     intervalMs: 5_000,
     startBeforePickupMins: 30,
@@ -293,6 +300,10 @@ export const config = {
     maxActivePerDriver: 5,
     maxPendingRequestsPerRider: 3,
     maxPickupDistanceFromRouteKm: 2,
+    /** Stops a rider may add between their pickup and drop (as on Rapido and Uber). Admin-editable. */
+    maxStopsPerBooking: 2,
+    /** Added to the fare for each stop the rider adds, once per booking, in the market's currency. Admin-editable. */
+    extraStopFee: 0.5,
     defaultSearchRadiusKm: 5,
     defaultTimeDeviationMins: 120,
     platformFeeRate: parseFloat(process.env.PLATFORM_FEE_RATE || '0.15'), // 15% default

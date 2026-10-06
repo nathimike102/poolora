@@ -9,7 +9,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 jest.mock('../../events', () => ({ EventBridge: { publish: jest.fn() } }));
 jest.mock('../../services/MapsService', () => ({ getRoute: jest.fn() }));
 jest.mock('../../services/ReceiptService', () => ({
-  ReceiptService: jest.fn().mockImplementation(() => ({ emailOnCompletion: jest.fn().mockResolvedValue(undefined) })),
+  ReceiptService: jest.fn().mockImplementation(() => ({})),
 }));
 jest.mock('../../services/NotificationService', () => ({
   NotificationService: jest.fn().mockImplementation(() => ({
@@ -117,7 +117,7 @@ describe('recorded on completion (real MongoDB)', () => {
   function confirmedBooking(rideId: Types.ObjectId, rider: Types.ObjectId, seats = 1) {
     return Booking.create({
       ride: rideId, rider, driver: driverId, status: BookingStatus.CONFIRMED, seatsBooked: seats,
-      pickup: point(FROM.lat, FROM.lng), dropoff: point(TO.lat, TO.lng), estimatedFare: 2 * seats,
+      pickup: point(FROM.lat, FROM.lng), dropoff: point(TO.lat, TO.lng), estimatedFare: 2 * seats, actualPickupTime: new Date(),
     });
   }
 

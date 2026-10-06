@@ -7,20 +7,19 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text } from '../../components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import { changeLanguage } from '../../i18n';
 import { offeredLanguages, type LanguageCode } from '../../i18n/languages';
 import { userService } from '../../services/userService';
+import { tc, tk } from '../../theme/themed';
 
 export function LanguageScreen() {
-  const navigation = useNavigation();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation();
   const [saving, setSaving] = useState<LanguageCode | null>(null);
@@ -39,33 +38,30 @@ export function LanguageScreen() {
   };
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>{t('language.title')}</Text>
-      </View>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('language.title')} />
       <ScrollView contentContainerStyle={s.body}>
-        <Text style={{ fontSize: 14, color: c.textSec, lineHeight: 21 }}>{t('language.intro')}</Text>
-        <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]} accessibilityRole="radiogroup">
+        <Text style={[{ fontSize: 14, lineHeight: 21 }, tc.color_textSec]}>{t('language.intro')}</Text>
+        <View style={[s.card, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]} accessibilityRole="radiogroup">
           {offeredLanguages().map((language, i) => {
             const selected = i18n.language === language.code;
             return (
               <Pressable
                 key={language.code}
                 onPress={() => choose(language.code)}
-                style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: c.border }]}
+                style={[s.row, i > 0 && [{ borderTopWidth: 1 }, tc.borderTopColor_border]]}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: selected }}
                 accessibilityLanguage={language.code}
               >
                 <View style={s.flex1}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: c.text }}>{language.nativeName}</Text>
-                  {language.nativeName !== language.name ? <Text style={{ fontSize: 13, color: c.textSec }}>{language.name}</Text> : null}
+                  <Text style={[{ fontSize: 16, fontWeight: '600' }, tc.color_text]}>{language.nativeName}</Text>
+                  {language.nativeName !== language.name ? <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{language.name}</Text> : null}
                 </View>
                 {saving === language.code ? (
-                  <ActivityIndicator color={c.primary} />
+                  <ActivityIndicator color={tk.primary} />
                 ) : selected ? (
-                  <Icon name="check-circle" size={22} color={c.primary} />
+                  <Icon name="check-circle" size={22} color={tk.primary} />
                 ) : null}
               </Pressable>
             );

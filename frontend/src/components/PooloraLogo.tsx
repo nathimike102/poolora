@@ -9,6 +9,7 @@ import { Image, View, Text, StyleSheet } from "react-native";
 
 // Rendered by scripts/generate_brand_assets.py from branding/poolora-icon.png.
 import logoMark from "../../assets/logo-mark.png";
+import { useThemeColor, type AnyColor } from "../theme/themed";
 
 /** Wordmark colour. */
 const INK = "#1A1446";
@@ -17,7 +18,7 @@ interface PooloraLogoProps {
   /** Container box size */
   size?: number;
   /** Container background color */
-  backgroundColor?: string;
+  backgroundColor?: AnyColor;
   /** Border radius of container; defaults to the tile's own corner radius */
   borderRadius?: number;
   /** Render the wordmark below the icon */
@@ -32,7 +33,7 @@ interface PooloraLogoProps {
 
 export function PooloraLogo({
   size = 44,
-  backgroundColor = "transparent",
+  backgroundColor: backgroundColorProp = "transparent",
   borderRadius,
   showWordmark = false,
   wordmark = "Poolora",
@@ -40,6 +41,7 @@ export function PooloraLogo({
   tone = "dark",
 }: PooloraLogoProps) {
   const br = borderRadius ?? size * 0.225; // Match the tile's corners
+  const backgroundColor = useThemeColor(backgroundColorProp);
 
   return (
     <View

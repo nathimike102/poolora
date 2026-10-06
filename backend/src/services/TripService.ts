@@ -6,6 +6,7 @@
  * Money is worked out in whole cents so shares always add up to the total.
  */
 
+import { addRatingPipeline } from '../utils/ratingScore';
 import crypto from 'crypto';
 import { Types } from 'mongoose';
 import { Trip, ITrip, TRIP_LIMITS, TripVote } from '../models/Trip';
@@ -578,17 +579,8 @@ export class TripService {
       { $push: { organizerRatings: { user: new Types.ObjectId(userId), score, comment: comment?.trim() || undefined, at: new Date() } } },
     );
     if (!saved) throw new ConflictError('You have already rated this organizer');
-    // Running average, updated in one step from the stored values
-    const n = { $ifNull: ['$stats.totalRatingsAsOrganizer', 0] };
-    const avg = { $ifNull: ['$stats.avgRatingAsOrganizer', 0] };
-    await User.updateOne({ _id: trip.organizer }, [
-      {
-        $set: {
-          'stats.avgRatingAsOrganizer': { $round: [{ $divide: [{ $add: [{ $multiply: [avg, n] }, score] }, { $add: [n, 1] }] }, 2] },
-          'stats.totalRatingsAsOrganizer': { $add: [n, 1] },
-        },
-      },
-    ]);
+    // Score updated in one step on the server (utils/ratingScore)
+    await User.updateOne({ _id: trip.organizer }, addRatingPipeline('Organizer', score));
     return { rated: true, score };
   }
 

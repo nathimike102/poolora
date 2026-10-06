@@ -65,7 +65,7 @@ beforeEach(async () => {
 it('stores category scores, counts the score at once and summarises them', async () => {
   const bookingId = await completedBooking(1);
   await service.createRating(riderId.toString(), { bookingId, score: 4, categories: { behavior: 5, cleanliness: 3, punctuality: 4 } });
-  expect((await User.findById(driverId).lean())?.stats).toMatchObject({ avgRatingAsDriver: 4, totalRatingsAsDriver: 1 });
+  expect((await User.findById(driverId).lean())?.stats).toMatchObject({ avgRatingAsDriver: 4.91, totalRatingsAsDriver: 1, ratingSumAsDriver: 4 });
   expect(await service.summary(driverId.toString(), 'driver')).toEqual({
     count: 1, overall: 4, categories: { behavior: 5, cleanliness: 3, punctuality: 4 },
   });

@@ -30,7 +30,8 @@ export type RiderTabParamList = {
 
 export type DriverTabParamList = {
   DriverHome: undefined;
-  CreateRide: undefined;
+  /** Set when coming back from the map picker */
+  CreateRide: { pickedLocation?: string; pickedField?: 'from' | 'to'; pickedLat?: number; pickedLng?: number } | undefined;
   ManageRequests: undefined;
   ChatList: undefined;
   DriverProfile: undefined;
@@ -69,6 +70,8 @@ export type RootStackParamList = {
         /** Address chosen on the map picker */
         pickedLocation?: string;
         pickedField?: 'from' | 'to';
+        pickedLat?: number;
+        pickedLng?: number;
         /** Open the date picker first */
         schedule?: boolean;
         /** Show only this kind of vehicle in the results */
@@ -100,6 +103,7 @@ export type RootStackParamList = {
   ActiveRide: { rideId: string; bookingId?: string };
   RideDetail: { rideId: string; pickup?: BookingStop; dropoff?: BookingStop };
   Receipt: { bookingId: string };
+  Receipts: undefined;
   /** Raise a dispute about a booking; `summary` names the trip on the form */
   RaiseDispute: { bookingId: string; summary?: string };
   RateTrip: { bookingId: string; rateeName: string; summary?: string };
@@ -168,7 +172,9 @@ export type RootStackParamList = {
   AdminVerifications: undefined;
 
   // Map picker
-  MapPicker: { field: 'from' | 'to' };
+  /** Returns the address and the exact pinned point to the screen it came from */
+  /** requestId: a form waiting on utils/mapPick for the point instead of a screen to return to */
+  MapPicker: { field: 'from' | 'to'; returnTo?: 'Search' | 'CreateRide'; requestId?: string };
 };
 
 // Convenience re-exports so screens don't need two imports

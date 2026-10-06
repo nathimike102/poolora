@@ -19,11 +19,15 @@
  * freed so it can sign up again as a new account. Bookings, payments,
  * ratings and chats stay, pointing at the anonymous account, because tax law
  * requires the payment records and the other party's history is theirs too.
+ * A keyed hash of the number is remembered for a while (ClosedPhone), so an
+ * account opened again with it does not get the new-user perks twice.
  * Every step can be repeated safely.
  */
 
+import { ProfilePhoto } from '../models/ProfilePhoto';
 import { Types } from 'mongoose';
 import { User } from '../models/User';
+import { rememberClosedPhone } from '../models/ClosedPhone';
 import { Booking } from '../models/Booking';
 import { Ride } from '../models/Ride';
 import { Dispute } from '../models/Dispute';
@@ -102,9 +106,9 @@ export class AccountClosureService {
       throw new AppError(status.blockers.join(' '), 409, 'ACCOUNT_CLOSE_BLOCKED');
     }
     const id = new Types.ObjectId(userId);
-    const user = await User.findById(id).select('firebaseUid');
+    const user = await User.findById(id).select('firebaseUid phone');
     if (!user) throw new NotFoundError('User');
-    const firebaseUid = user.firebaseUid;
+    const { firebaseUid, phone } = user;
     const closedAt = new Date();
 
     // Close first, so the account stops working even if a clean-up step fails
@@ -134,9 +138,15 @@ export class AccountClosureService {
     const [alerts, notifications] = await Promise.all([
       RideAlert.deleteMany({ rider: id }),
       Notification.deleteMany({ user: id }),
+      ProfilePhoto.deleteOne({ user: id }),
     ]);
 
     // Best effort from here: the account is already closed
+    try {
+      await rememberClosedPhone(phone, closedAt);
+    } catch (error) {
+      logger.error('Could not remember the number of a closed account', { userId, error: (error as Error).message });
+    }
     let documentsDeleted = 0;
     try {
       documentsDeleted = await deleteKycDocuments(userId);

@@ -6,24 +6,27 @@
  */
 
 import type { IconName } from '../components/Icon';
+import type { Icon3DName } from '../components/Icon3D';
 import type { VehicleType } from '../types/api';
 import i18n from '../i18n';
 
 export type VehicleCategory = 'car' | 'suv' | 'minivan' | 'auto' | 'bike';
 
 /** Labels and blurbs come from the catalogue (vehicles.*), read when shown so they follow the language */
-const category = (key: VehicleCategory, icon: IconName) => ({
+const category = (key: VehicleCategory, icon: IconName, icon3d: Icon3DName) => ({
   icon,
+  /** The 3D picture for tiles and ride options */
+  icon3d,
   get label() { return i18n.t(`vehicles.${key}.label`); },
   get blurb() { return i18n.t(`vehicles.${key}.blurb`); },
 });
 
-export const VEHICLE_CATEGORIES: Record<VehicleCategory, { label: string; icon: IconName; blurb: string }> = {
-  car: category('car', 'car-side'),
-  suv: category('suv', 'car-pickup'),
-  minivan: category('minivan', 'van-passenger'),
-  auto: category('auto', 'rickshaw'),
-  bike: category('bike', 'motorbike'),
+export const VEHICLE_CATEGORIES: Record<VehicleCategory, { label: string; icon: IconName; icon3d: Icon3DName; blurb: string }> = {
+  car: category('car', 'car-side', 'automobile'),
+  suv: category('suv', 'car-pickup', 'sportUtilityVehicle'),
+  minivan: category('minivan', 'van-passenger', 'minibus'),
+  auto: category('auto', 'rickshaw', 'autoRickshaw'),
+  bike: category('bike', 'motorbike', 'motorcycle'),
 };
 
 /** Rides with no vehicle on record are shown as cars, the most common case. */

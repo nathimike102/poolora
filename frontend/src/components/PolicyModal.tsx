@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
+import { Modal, View, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
+import { Text } from './Text';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COMPANY } from '../config/company';
 import { useTranslation } from 'react-i18next';

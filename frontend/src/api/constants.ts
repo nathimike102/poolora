@@ -70,6 +70,8 @@ export const API_ENDPOINTS = {
   // Users
   users: {
     me: '/users/me',
+    pushToken: '/users/me/push-token',
+    photo: '/users/me/photo',
     savedRoutes: '/users/saved-routes',
     detail: (id: string) => `/users/${id}`,
     statement: '/users/me/statement',

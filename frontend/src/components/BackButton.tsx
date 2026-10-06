@@ -1,7 +1,8 @@
 /**
  * components/BackButton.tsx
  *
- * Reusable back-navigation button.
+ * Reusable back-navigation button: a plain arrow, as on Uber. `floating`
+ * gives it a raised round backing for when it sits over a map.
  */
 
 import React from 'react';
@@ -10,19 +11,19 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Radius, Shadow } from '../theme';
-import { useApp } from '../context/AppContext';
+import { Icon } from './Icon';
+import { Shadow } from '../theme';
 import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../theme/themed';
 
 interface BackButtonProps {
   onPress?: () => void;
+  floating?: boolean;
 }
 
-export function BackButton({ onPress }: BackButtonProps) {
+export function BackButton({ onPress, floating }: BackButtonProps) {
   const navigation = useNavigation();
   const { t } = useTranslation();
-  const { c } = useApp();
 
   const handlePress = () => {
     if (onPress) {
@@ -36,20 +37,13 @@ export function BackButton({ onPress }: BackButtonProps) {
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('backButton.goBack')}
       testID="back-button"
       onPress={handlePress}
-      style={[
-        styles.button,
-        {
-          backgroundColor: c.surface,
-          borderColor: c.border,
-        },
-        Shadow.sm,
-      ]}
+      style={floating ? [styles.button, tc.backgroundColor_surface, Shadow.md] : styles.button}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
-      <MaterialCommunityIcons
+      <Icon
         name="arrow-left"
-        size={22}
-        color={c.text}
+        size={26}
+        color={tk.text}
       />
     </TouchableOpacity>
   );
@@ -57,10 +51,9 @@ export function BackButton({ onPress }: BackButtonProps) {
 
 const styles = StyleSheet.create({
   button: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.md,
-    borderWidth: 1,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

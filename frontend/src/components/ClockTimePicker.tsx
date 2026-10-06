@@ -15,16 +15,16 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   StyleSheet,
   GestureResponderEvent,
 } from 'react-native';
-import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
-import { useApp } from '../context/AppContext';
+import { Text } from './Text';
+import Svg, { Circle, Line, Text as SvgText } from './ThemedSvg';
 import { Typography, Spacing, Radius, Shadow } from '../theme';
 import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../theme/themed';
 
 // ── Clock geometry ────────────────────────────────────────────────────────────
 
@@ -86,7 +86,6 @@ export function ClockTimePicker({
   onConfirm,
   onDismiss,
 }: ClockTimePickerProps) {
-  const { c } = useApp();
   const { t } = useTranslation();
 
   const [hour,   setHour]   = useState(9);
@@ -154,10 +153,10 @@ export function ClockTimePicker({
       onRequestClose={onDismiss}
     >
       <View style={styles.overlay}>
-        <View style={[styles.dialog, { backgroundColor: c.surface }, Shadow.lg]}>
+        <View style={[styles.dialog, tc.backgroundColor_surface, Shadow.lg]}>
 
           {/* ── Header ──────────────────────────────────────────────── */}
-          <View style={[styles.header, { backgroundColor: c.primary }]}>
+          <View style={[styles.header, tc.backgroundColor_primary]}>
             <Text style={styles.headerLabel}>{t('clockTimePicker.selectTime')}</Text>
 
             <View style={styles.timeRow}>
@@ -208,20 +207,20 @@ export function ClockTimePicker({
             {/* SVG renders the visual clock — touch is handled by the overlay below */}
             <Svg width={CLOCK_SIZE} height={CLOCK_SIZE}>
               {/* Background circle */}
-              <Circle cx={CENTER} cy={CENTER} r={FACE_RADIUS} fill={c.surfaceVariant} />
+              <Circle cx={CENTER} cy={CENTER} r={FACE_RADIUS} fill={tk.surfaceVariant} />
 
               {/* Hand */}
               <Line
                 x1={CENTER} y1={CENTER}
                 x2={handTip.x} y2={handTip.y}
-                stroke={c.primary} strokeWidth={2.5} strokeLinecap="round"
+                stroke={tk.primary} strokeWidth={2.5} strokeLinecap="round"
               />
 
               {/* Centre pivot dot (drawn after the hand so it sits on top) */}
-              <Circle cx={CENTER} cy={CENTER} r={CENTER_DOT_R} fill={c.primary} />
+              <Circle cx={CENTER} cy={CENTER} r={CENTER_DOT_R} fill={tk.primary} />
 
               {/* Selection highlight at the hand tip */}
-              <Circle cx={handTip.x} cy={handTip.y} r={SEL_RADIUS} fill={c.primary} />
+              <Circle cx={handTip.x} cy={handTip.y} r={SEL_RADIUS} fill={tk.primary} />
 
               {/* Number labels */}
               {mode === 'hours'
@@ -234,7 +233,7 @@ export function ClockTimePicker({
                         textAnchor="middle"
                         fontSize={13}
                         fontWeight={h === hour ? '700' : '500'}
-                        fill={h === hour ? '#ffffff' : c.text}
+                        fill={h === hour ? '#ffffff' : tk.text}
                       >
                         {h}
                       </SvgText>
@@ -249,7 +248,7 @@ export function ClockTimePicker({
                         textAnchor="middle"
                         fontSize={12}
                         fontWeight={m === minute ? '700' : '500'}
-                        fill={m === minute ? '#ffffff' : c.text}
+                        fill={m === minute ? '#ffffff' : tk.text}
                       >
                         {m.toString().padStart(2, '0')}
                       </SvgText>
@@ -275,18 +274,18 @@ export function ClockTimePicker({
           </View>
 
           {/* ── Mode hint ────────────────────────────────────────────── */}
-          <Text style={[styles.modeHint, { color: c.textSec }]}>
+          <Text style={[styles.modeHint, tc.color_textSec]}>
             {mode === 'hours' ? t('clockTimePicker.selectHour') : t('clockTimePicker.selectMinute')}
           </Text>
 
           {/* ── Action buttons ───────────────────────────────────────── */}
-          <View style={[styles.actions, { borderTopColor: c.border }]}>
+          <View style={[styles.actions, tc.borderTopColor_border]}>
             <TouchableOpacity accessibilityRole="button"
               style={styles.actionBtn}
               onPress={onDismiss}
               activeOpacity={0.7}
             >
-              <Text style={[styles.btnText, { color: c.textSec }]}>{t('clockTimePicker.cancel')}</Text>
+              <Text style={[styles.btnText, tc.color_textSec]}>{t('clockTimePicker.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button"
               testID="confirm-btn"
@@ -294,7 +293,7 @@ export function ClockTimePicker({
               onPress={handleConfirm}
               activeOpacity={0.7}
             >
-              <Text style={[styles.btnText, { color: c.primary, fontWeight: Typography.bold }]}>
+              <Text style={[styles.btnText, { fontWeight: Typography.bold }, tc.color_primary]}>
                 {t('clockTimePicker.ok')}
               </Text>
             </TouchableOpacity>

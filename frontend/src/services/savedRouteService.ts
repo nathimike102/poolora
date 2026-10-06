@@ -52,3 +52,8 @@ export async function deleteSavedRoute(id: string): Promise<void> {
   const routes = await getSavedRoutes();
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(routes.filter(r => r.id !== id)));
 }
+
+/** The saved routes belong to the account, so logging out removes them. */
+export async function clearSavedRoutes(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+}

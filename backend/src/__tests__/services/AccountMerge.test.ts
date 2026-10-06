@@ -81,7 +81,7 @@ describe('merging duplicate accounts', () => {
     const [closed, kept] = await Promise.all([User.findById(oldId), User.findById(keptId).lean()]);
     expect(closed).toMatchObject({ isBlocked: true, mergedInto: keptId });
     expect(closed?.email).toBeUndefined();
-    expect(kept).toMatchObject({ email: 'asha@old.in', stats: { totalRidesAsRider: 10, avgRatingAsRider: 4.5, totalRatingsAsRider: 4 } });
+    expect(kept).toMatchObject({ email: 'asha@old.in', stats: { totalRidesAsRider: 10, avgRatingAsRider: 4.86, totalRatingsAsRider: 4, ratingSumAsRider: 18 } });
     expect(kept?.mergedFrom?.[0]).toMatchObject({ user: oldId, phone: '+919000001111' });
     await expect(checkAccountStatus(closed!)).rejects.toThrow('number ending 2222');
     await expect(checkAccountStatus(closed!, { allowBlocked: true })).rejects.toMatchObject({ errorId: 'ACCOUNT_MERGED' });

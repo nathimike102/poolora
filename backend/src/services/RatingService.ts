@@ -8,6 +8,7 @@
  * admins straight away. Riders who have not rated get one reminder after a day.
  */
 
+import { addRatingPipeline } from '../utils/ratingScore';
 import { Rating, IRating } from '../models/Rating';
 import type { FilterQuery } from 'mongoose';
 import { Types } from 'mongoose';
@@ -122,23 +123,8 @@ export class RatingService {
             flagReason,
         });
 
-        // Update ratee's aggregate rating
-        const ratingField = isRider ? 'avgRatingAsDriver' : 'avgRatingAsRider';
-        const countField = isRider ? 'totalRatingsAsDriver' : 'totalRatingsAsRider';
-        const ratee = await User.findById(rateeId);
-        if (ratee) {
-            const currentAvg = ratee.stats[ratingField] || 0;
-            const currentCount = ratee.stats[countField] || 0;
-            const newCount = currentCount + 1;
-            const newAvg = (currentAvg * currentCount + score) / newCount;
-
-            await User.findByIdAndUpdate(rateeId, {
-                $set: {
-                    [`stats.${ratingField}`]: Math.round(newAvg * 100) / 100,
-                    [`stats.${countField}`]: newCount,
-                },
-            });
-        }
+        // Update ratee's score: starts at 5 and moves only part way per rating (utils/ratingScore)
+        await User.updateOne({ _id: rateeId }, addRatingPipeline(isRider ? 'Driver' : 'Rider', score));
 
         if (safety !== undefined) {
             // Running average, kept apart from the public rating

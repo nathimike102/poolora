@@ -10,21 +10,20 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
+import { Icon3D } from '../../components/Icon3D';
 import { Icon, type IconName } from '../../components/Icon';
 import { ClockTimePicker } from '../../components/ClockTimePicker';
 import { RideDatePicker } from '../../components/RideDatePicker';
@@ -46,6 +45,8 @@ import { REGION } from '../../utils/region';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 
+import { tc, tk } from '../../theme/themed';
+
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Search'>;
 type SearchRoute = RouteProp<RootStackParamList, 'Search'>;
 
@@ -64,7 +65,6 @@ interface Stop {
 
 const EMPTY_STOP: Stop = { name: '', subtitle: '' };
 /** Cursor at the start, so a long address shows its first words */
-const START = { start: 0, end: 0 };
 
 function stopText(s: Stop): string {
   return s.subtitle ? `${s.name}, ${s.subtitle}` : s.name;
@@ -91,7 +91,6 @@ function formatWhen(when: Date | null): string {
 export function SearchScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<SearchRoute>();
-  const { c } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { place: here, status: hereStatus } = useCurrentPlace();
@@ -152,9 +151,9 @@ export function SearchScreen() {
     if (p.pickedLocation) {
       if (p.pickedField === 'from') {
         setPickupIsHere(false);
-        setPickup({ name: p.pickedLocation, subtitle: '' });
+        setPickup({ name: p.pickedLocation, subtitle: '', lat: p.pickedLat, lng: p.pickedLng });
       } else {
-        setDrop({ name: p.pickedLocation, subtitle: '' });
+        setDrop({ name: p.pickedLocation, subtitle: '', lat: p.pickedLat, lng: p.pickedLng });
       }
     }
     if (p.to || p.drop || (p.pickedLocation && p.pickedField !== 'from')) setAutoSearch(true);
@@ -166,6 +165,8 @@ export function SearchScreen() {
         drop: undefined,
         pickedLocation: undefined,
         pickedField: undefined,
+        pickedLat: undefined,
+        pickedLng: undefined,
         schedule: undefined,
       });
     }
@@ -245,6 +246,14 @@ export function SearchScreen() {
   };
 
   const pickupReady = pickupIsHere ? hereStatus === 'ready' : pickup.name.trim().length > 2;
+
+  const pickupValue = pickupIsHere && active !== 'pickup' ? pickup.name || (hereStatus === 'loading' ? t('home.findingLocation') : '') : stopText(pickup);
+  const dropValue = stopText(drop);
+  // An unfocused Android field shows the end of a long address and no
+  // selection brings it back, so it shows the start, cut short with "…", in
+  // text laid over it. Touches pass through to the field underneath.
+  const showPickupPreview = focused !== 'pickup' && pickupValue.length > 0;
+  const showDropPreview = focused !== 'drop' && dropValue.length > 0;
   const canSearch = pickupReady && drop.name.trim().length > 2;
 
   const runSearch = useCallback(async () => {
@@ -298,14 +307,14 @@ export function SearchScreen() {
   const showingSuggestions = query.trim().length >= 2;
 
   return (
-    <View style={[styles.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       <KeyboardAvoidingView style={styles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>
           <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('search.goBack')} hitSlop={8} style={styles.backBtn}>
-            <Icon name="arrow-left" size={26} color={c.text} />
+            <Icon name="arrow-left" size={26} color={tk.text} />
           </Pressable>
-          <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">
+          <Text style={[styles.title, tc.color_text]} accessibilityRole="header">
             {active === 'pickup' ? t('search.pickup') : t('search.drop')}
           </Text>
           <Pressable
@@ -313,11 +322,11 @@ export function SearchScreen() {
             accessibilityRole="button"
             accessibilityLabel={t('search.seatsLabel', { seats: seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats }) })}
             accessibilityState={{ expanded: showSeats }}
-            style={[styles.headerPill, { borderColor: c.border }]}
+            style={[styles.headerPill, tc.borderColor_border]}
           >
-            <Icon name="account-outline" size={18} color={c.text} />
-            <Text style={[styles.headerPillText, { color: c.text }]}>{seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats })}</Text>
-            <Icon name={showSeats ? 'chevron-up' : 'chevron-down'} size={18} color={c.text} />
+            <Icon name="account-outline" size={18} color={tk.text} />
+            <Text style={[styles.headerPillText, tc.color_text]}>{seats === 1 ? t('search.seatOne') : t('search.seatMany', { count: seats })}</Text>
+            <Icon name={showSeats ? 'chevron-up' : 'chevron-down'} size={18} color={tk.text} />
           </Pressable>
         </View>
 
@@ -332,9 +341,13 @@ export function SearchScreen() {
                   accessibilityRole="radio"
                   accessibilityState={{ checked: selected }}
                   accessibilityLabel={n === 1 ? t('search.seatOne') : t('search.seatMany', { count: n })}
-                  style={[styles.seatChip, { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primaryLight : c.surface }]}
+                  style={[
+                    styles.seatChip,
+                    selected ? tc.borderColor_primary : tc.borderColor_border,
+                    selected ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface
+                  ]}
                 >
-                  <Text style={[styles.seatChipText, { color: selected ? c.primary : c.text }]}>{n}</Text>
+                  <Text style={[styles.seatChipText, selected ? tc.color_primary : tc.color_text]}>{n}</Text>
                 </Pressable>
               );
             })}
@@ -342,47 +355,59 @@ export function SearchScreen() {
         )}
 
         {/* ── Pickup / drop card ──────────────────────────────── */}
-        <View style={[styles.routeCard, { backgroundColor: c.surfaceVariant, borderColor: c.border }]}>
+        <View style={[styles.routeCard, tc.backgroundColor_surfaceVariant, tc.borderColor_border]}>
           <View style={styles.dots}>
-            <View style={[styles.dotOuter, { backgroundColor: c.successLight }]}>
-              <View style={[styles.dotInner, { backgroundColor: c.success }]} />
+            <View style={[styles.dotOuter, tc.backgroundColor_successLight]}>
+              <View style={[styles.dotInner, tc.backgroundColor_success]} />
             </View>
-            <View style={[styles.dotLine, { borderColor: c.textSec }]} />
-            <View style={[styles.dotOuter, { backgroundColor: c.errorLight }]}>
-              <View style={[styles.dotInner, { backgroundColor: c.error }]} />
+            <View style={[styles.dotLine, tc.borderColor_textSec]} />
+            <View style={[styles.dotOuter, tc.backgroundColor_errorLight]}>
+              <View style={[styles.dotInner, tc.backgroundColor_error]} />
             </View>
           </View>
           <View style={styles.flex1}>
-            <TextInput
-              ref={pickupInput}
-              value={pickupIsHere && active !== 'pickup' ? pickup.name || (hereStatus === 'loading' ? t('home.findingLocation') : '') : stopText(pickup)}
-              onChangeText={onChangePickup}
-              onFocus={() => { setFocused('pickup'); focusField('pickup'); }}
-              onBlur={() => setFocused(null)}
-              selection={focused === 'pickup' ? undefined : START}
-              placeholder={pickupIsHere ? t('home.currentLocation') : t('search.pickupPlaceholder')}
-              placeholderTextColor={c.textSec}
-              accessibilityLabel={t('search.pickupPlaceholder')}
-              selectTextOnFocus
-              style={[styles.input, { color: c.text }]}
-              numberOfLines={1}
-            />
-            <View style={[styles.inputDivider, { backgroundColor: c.border }]} />
-            <TextInput
-              ref={dropInput}
-              value={stopText(drop)}
-              onChangeText={onChangeDrop}
-              onFocus={() => { setFocused('drop'); focusField('drop'); }}
-              onBlur={() => setFocused(null)}
-              selection={focused === 'drop' ? undefined : START}
-              placeholder={t('search.dropPlaceholder')}
-              placeholderTextColor={c.textSec}
-              accessibilityLabel={t('search.dropLabel')}
-              returnKeyType="search"
-              onSubmitEditing={runSearch}
-              style={[styles.input, styles.inputDrop, { color: c.text }]}
-              numberOfLines={1}
-            />
+            <View>
+              <TextInput
+                ref={pickupInput}
+                value={pickupValue}
+                onChangeText={onChangePickup}
+                onFocus={() => { setFocused('pickup'); focusField('pickup'); }}
+                onBlur={() => setFocused(null)}
+                placeholder={pickupIsHere ? t('home.currentLocation') : t('search.pickupPlaceholder')}
+                placeholderTextColor={tk.textSec}
+                accessibilityLabel={t('search.pickupPlaceholder')}
+                selectTextOnFocus
+                style={[styles.input, { opacity: showPickupPreview ? 0 : 1 }, tc.color_text]}
+                numberOfLines={1}
+              />
+              {showPickupPreview ? (
+                <View pointerEvents="none" style={styles.preview}>
+                  <Text style={[styles.input, styles.previewText, tc.color_text]} numberOfLines={1}>{pickupValue}</Text>
+                </View>
+              ) : null}
+            </View>
+            <View style={[styles.inputDivider, tc.backgroundColor_border]} />
+            <View>
+              <TextInput
+                ref={dropInput}
+                value={dropValue}
+                onChangeText={onChangeDrop}
+                onFocus={() => { setFocused('drop'); focusField('drop'); }}
+                onBlur={() => setFocused(null)}
+                placeholder={t('search.dropPlaceholder')}
+                placeholderTextColor={tk.textSec}
+                accessibilityLabel={t('search.dropLabel')}
+                returnKeyType="search"
+                onSubmitEditing={runSearch}
+                style={[styles.input, styles.inputDrop, { opacity: showDropPreview ? 0 : 1 }, tc.color_text]}
+                numberOfLines={1}
+              />
+              {showDropPreview ? (
+                <View pointerEvents="none" style={styles.preview}>
+                  <Text style={[styles.input, styles.inputDrop, styles.previewText, tc.color_text]} numberOfLines={1}>{dropValue}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -393,21 +418,25 @@ export function SearchScreen() {
               onPress={() => navigation.navigate('MapPicker', { field: active === 'pickup' ? 'from' : 'to' })}
               accessibilityRole="button"
               accessibilityLabel={active === 'pickup' ? t('search.mapPickup') : t('search.mapDrop')}
-              style={[styles.chip, { borderColor: c.border }]}
+              style={[styles.chip, tc.borderColor_border]}
             >
-              <Icon name="map-marker-outline" size={20} color={c.text} />
-              <Text style={[styles.chipText, { color: c.text }]}>{t('search.selectOnMap')}</Text>
+              <Icon3D name="worldMap" size={22} />
+              <Text style={[styles.chipText, tc.color_text]}>{t('search.selectOnMap')}</Text>
             </Pressable>
           )}
           <Pressable
             onPress={() => setShowDate(true)}
             accessibilityRole="button"
             accessibilityLabel={t('search.leavingLabel', { when: formatWhen(when) })}
-            style={[styles.chip, { borderColor: when ? c.primary : c.border, backgroundColor: when ? c.primaryLight : c.surface }]}
+            style={[
+              styles.chip,
+              when ? tc.borderColor_primary : tc.borderColor_border,
+              when ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface
+            ]}
           >
-            <Icon name="clock-outline" size={20} color={when ? c.primary : c.text} />
-            <Text style={[styles.chipText, { color: when ? c.primary : c.text }]}>{formatWhen(when)}</Text>
-            <Icon name="chevron-down" size={18} color={when ? c.primary : c.text} />
+            <Icon name="clock-outline" size={20} color={when ? tk.primary : tk.text} />
+            <Text style={[styles.chipText, when ? tc.color_primary : tc.color_text]}>{formatWhen(when)}</Text>
+            <Icon name="chevron-down" size={18} color={when ? tk.primary : tk.text} />
           </Pressable>
           {when && (
             <Pressable
@@ -415,14 +444,14 @@ export function SearchScreen() {
               accessibilityRole="button"
               accessibilityLabel={t('search.leaveNow')}
               hitSlop={8}
-              style={[styles.chip, { borderColor: c.border }]}
+              style={[styles.chip, tc.borderColor_border]}
             >
-              <Text style={[styles.chipText, { color: c.text }]}>{t('search.now')}</Text>
+              <Text style={[styles.chipText, tc.color_text]}>{t('search.now')}</Text>
             </Pressable>
           )}
         </View>
 
-        <View style={[styles.rule, { backgroundColor: c.border }]} />
+        <View style={[styles.rule, tc.backgroundColor_border]} />
 
         {/* ── Suggestions, or recent places ───────────────────── */}
         <ScrollView style={styles.flex1} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.listContent}>
@@ -438,16 +467,16 @@ export function SearchScreen() {
           {showingSuggestions ? (
             suggestState === 'error' ? (
               <View style={styles.notice} accessibilityLiveRegion="polite">
-                <Icon name="wifi-off" size={20} color={c.textSec} />
-                <Text style={[styles.noticeText, { color: c.textSec }]}>
+                <Icon name="wifi-off" size={20} color={tk.textSec} />
+                <Text style={[styles.noticeText, tc.color_textSec]}>
                   {t('search.suggestFailed')}
                 </Text>
               </View>
             ) : suggestions.length === 0 ? (
               suggestState === 'loading' ? (
-                <ActivityIndicator style={styles.loader} color={c.primary} accessibilityLabel={t('search.loadingSuggestions')} />
+                <ActivityIndicator style={styles.loader} color={tk.primary} accessibilityLabel={t('search.loadingSuggestions')} />
               ) : (
-                <Text style={[styles.noticeText, styles.notice, { color: c.textSec }]}>
+                <Text style={[styles.noticeText, styles.notice, tc.color_textSec]}>
                   {t('search.noMatches')}
                 </Text>
               )
@@ -481,25 +510,25 @@ export function SearchScreen() {
 
         {/* ── Search button, for typed addresses ──────────────── */}
         {canSearch && !showingSuggestions && (
-          <View style={[styles.ctaBar, { borderTopColor: c.border, backgroundColor: c.surface }]}>
+          <View style={[styles.ctaBar, tc.borderTopColor_border, tc.backgroundColor_surface]}>
             <Pressable
               onPress={runSearch}
               disabled={searching}
               accessibilityRole="button"
               accessibilityLabel={t('search.findRides')}
               accessibilityState={{ busy: searching }}
-              style={[styles.cta, { backgroundColor: c.primary }]}
+              style={[styles.cta, tc.backgroundColor_primary]}
             >
-              <Text style={[styles.ctaText, { color: c.textOnPrimary }]}>{t('search.findRides')}</Text>
+              <Text style={[styles.ctaText, tc.color_textOnPrimary]}>{t('search.findRides')}</Text>
             </Pressable>
           </View>
         )}
       </KeyboardAvoidingView>
 
       {searching && (
-        <View style={[styles.overlay, { backgroundColor: c.surface }]} accessibilityLiveRegion="polite">
-          <ActivityIndicator size="large" color={c.primary} />
-          <Text style={[styles.overlayText, { color: c.text }]}>{t('search.finding')}</Text>
+        <View style={[styles.overlay, tc.backgroundColor_surface]} accessibilityLiveRegion="polite">
+          <ActivityIndicator size="large" color={tk.primary} />
+          <Text style={[styles.overlayText, tc.color_text]}>{t('search.finding')}</Text>
         </View>
       )}
 
@@ -555,15 +584,14 @@ function Row({
   favourite?: boolean;
   onToggleFavourite?: () => void;
 }) {
-  const { c } = useApp();
   const { t } = useTranslation();
   return (
-    <View style={[styles.row, divider && [styles.dashed, { borderColor: c.border }]]}>
+    <View style={[styles.row, divider && [styles.dashed, tc.borderColor_border]]}>
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title} style={styles.rowMain}>
-        <Icon name={icon} size={22} color={c.textSec} />
+        <Icon name={icon} size={22} color={tk.textSec} />
         <View style={styles.flex1}>
-          <Text style={[styles.rowTitle, { color: c.text }]} numberOfLines={1}>{title}</Text>
-          {subtitle ? <Text style={[styles.rowSub, { color: c.textSec }]} numberOfLines={1}>{subtitle}</Text> : null}
+          <Text style={[styles.rowTitle, tc.color_text]} numberOfLines={1}>{title}</Text>
+          {subtitle ? <Text style={[styles.rowSub, tc.color_textSec]} numberOfLines={1}>{subtitle}</Text> : null}
         </View>
       </Pressable>
       {onToggleFavourite && (
@@ -574,7 +602,7 @@ function Row({
           hitSlop={10}
           style={styles.heartBtn}
         >
-          <Icon name={favourite ? 'heart' : 'heart-outline'} size={24} color={favourite ? c.error : c.textSec} />
+          <Icon name={favourite ? 'heart' : 'heart-outline'} size={24} color={favourite ? tk.heart : tk.textSec} />
         </Pressable>
       )}
     </View>
@@ -614,6 +642,8 @@ const styles = StyleSheet.create({
   input: { fontSize: Typography['2xl'], minHeight: 50, paddingVertical: 0 },
   inputDrop: { fontWeight: Typography.semibold },
   inputDivider: { height: 1 },
+  preview: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center' },
+  previewText: { minHeight: 0 },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.lg },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: Spacing.lg, borderRadius: Radius.full, borderWidth: 1 },

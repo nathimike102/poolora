@@ -12,14 +12,14 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, Vibration, StatusBar } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, StyleSheet, Pressable, Vibration, StatusBar } from 'react-native';
+import { Text, TextInput } from '../../components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
+import { tc } from '../../theme/themed';
 
 type Phase = 'setup' | 'waiting' | 'ringing' | 'talking';
 
@@ -41,9 +41,7 @@ function clock(totalSeconds: number): string {
 }
 
 export function FakeCallScreen() {
-  const navigation = useNavigation();
   const { t } = useTranslation();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [caller, setCaller] = useState(() => i18n.t('fakeCall.defaultCaller'));
   const [delay, setDelay] = useState(DELAYS[0].seconds);
@@ -119,38 +117,44 @@ export function FakeCallScreen() {
   }
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>{t('fakeCall.fakeCall')}</Text>
-      </View>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('fakeCall.fakeCall')} />
       <View style={s.body}>
-        <Text style={{ fontSize: 14, color: c.textSec, lineHeight: 20 }}>
+        <Text style={[{ fontSize: 14, lineHeight: 20 }, tc.color_textSec]}>
           {t('fakeCall.yourPhoneWillRingWith')}
         </Text>
-        <Text style={[s.label, { color: c.text }]}>{t('fakeCall.whoIsCalling')}</Text>
+        <Text style={[s.label, tc.color_text]}>{t('fakeCall.whoIsCalling')}</Text>
         <TextInput
           value={caller}
           onChangeText={setCaller}
           maxLength={30}
-          style={[s.input, { color: c.text, borderColor: c.border, backgroundColor: c.surface }]}
+          style={[
+            s.input,
+            tc.color_text,
+            tc.borderColor_surfaceVariant,
+            tc.backgroundColor_surfaceVariant
+          ]}
           accessibilityLabel={t('fakeCall.callerName')}
         />
-        <Text style={[s.label, { color: c.text }]}>{t('fakeCall.ringIn')}</Text>
+        <Text style={[s.label, tc.color_text]}>{t('fakeCall.ringIn')}</Text>
         <View style={s.delays} accessibilityRole="radiogroup">
           {DELAYS.map(d => (
             <Pressable
               key={d.seconds}
               onPress={() => setDelay(d.seconds)}
-              style={[s.delay, { borderColor: delay === d.seconds ? c.primary : c.border, backgroundColor: delay === d.seconds ? c.primaryLight : c.surface }]}
+              style={[
+                s.delay,
+                delay === d.seconds ? tc.borderColor_primary : tc.borderColor_border,
+                delay === d.seconds ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface
+              ]}
               accessibilityRole="radio"
               accessibilityState={{ checked: delay === d.seconds }}
             >
-              <Text style={{ fontWeight: '700', color: delay === d.seconds ? c.primary : c.text }}>{d.label}</Text>
+              <Text style={[{ fontWeight: '700' }, delay === d.seconds ? tc.color_primary : tc.color_text]}>{d.label}</Text>
             </Pressable>
           ))}
         </View>
-        <Pressable onPress={() => setPhase('waiting')} style={[s.start, { backgroundColor: c.primary }]} accessibilityRole="button">
+        <Pressable onPress={() => setPhase('waiting')} style={[s.start, tc.backgroundColor_primary]} accessibilityRole="button">
           <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>{t('fakeCall.start')}</Text>
         </Pressable>
       </View>

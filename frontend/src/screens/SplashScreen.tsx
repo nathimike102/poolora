@@ -15,20 +15,20 @@ import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import { useApp } from "../context/AppContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedDot } from "../components/AnimatedDot";
 import { PooloraLogo } from "../components/PooloraLogo";
 import { Typography, Spacing } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { ONBOARDING_SEEN_KEY } from "./OnboardingScreen";
+import { loadProfileDraft } from "../utils/profileDraft";
 import { useTranslation } from 'react-i18next';
+import { tc } from '../theme/themed';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, "Splash">;
 
 export function SplashScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
@@ -47,9 +47,17 @@ export function SplashScreen() {
     loaderOpacity.value = withDelay(1200, withTiming(1, { duration: 500 }));
     loaderTranslateY.value = withDelay(1200, withTiming(0, { duration: 500 }));
 
-    // 3. Auto-navigate after 2.8s; onboarding only until it has been seen once
+    // 3. Auto-navigate after 2.8s; onboarding only until it has been seen once.
+    // A profile form left unfinished when Android killed the app for the camera
+    // or gallery is reopened instead.
     const seen = AsyncStorage.getItem(ONBOARDING_SEEN_KEY).catch(() => null);
+    const draft = loadProfileDraft();
     const timer = setTimeout(async () => {
+      const unfinished = await draft;
+      if (unfinished) {
+        navigation.replace("ProfileSetup", unfinished.pendingSignup);
+        return;
+      }
       navigation.replace((await seen) ? "Login" : "Onboarding");
     }, 2800);
 
@@ -68,10 +76,7 @@ export function SplashScreen() {
 
   return (
     <View
-      style={[
-        styles.root,
-        { backgroundColor: c.primary, paddingTop: insets.top },
-      ]}
+      style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_primary]}
     >
       {/* Background decorative circles */}
       <View style={[styles.circleLarge, styles.absolutePosition]} />

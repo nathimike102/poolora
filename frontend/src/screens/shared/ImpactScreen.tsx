@@ -7,24 +7,25 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text } from '../../components/Text';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
+import { EmptyState } from '../../components/EmptyState';
 import { Icon } from '../../components/Icon';
 import { userService } from '../../services/userService';
 import type { Impact } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { formatKg, formatKm, monthLabel, petrolLitres } from '../../utils/carbon';
 import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
 const BAR_HEIGHT = 120;
 
 export function ImpactScreen() {
-  const navigation = useNavigation();
   const { t } = useTranslation();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [impact, setImpact] = useState<Impact | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,60 +48,51 @@ export function ImpactScreen() {
   const litres = all ? petrolLitres(all.co2SavedKg) : 0;
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>{t('impact.yourImpact')}</Text>
-      </View>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('impact.yourImpact')} />
 
       <ScrollView contentContainerStyle={s.body}>
-        {!impact && !error ? <ActivityIndicator color={c.primary} /> : null}
+        {!impact && !error ? <ActivityIndicator color={tk.primary} /> : null}
         {error ? (
-          <View style={[s.banner, { backgroundColor: c.errorLight }]}>
-            <Icon name="alert-circle-outline" size={22} color={c.error} />
-            <Text style={{ flex: 1, color: c.text }}>{t('impact.loadFailed', { error })}</Text>
+          <View style={[s.banner, tc.backgroundColor_errorLight]}>
+            <Icon name="alert-circle-outline" size={22} color={tk.error} />
+            <Text style={[{ flex: 1 }, tc.color_text]}>{t('impact.loadFailed', { error })}</Text>
           </View>
         ) : null}
 
         {all && all.trips === 0 ? (
-          <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Icon name="leaf" size={28} color={c.success} />
-            <Text style={[s.cardTitle, { color: c.text }]}>{t('impact.nothingCountedYet')}</Text>
-            <Text style={{ color: c.textSec, lineHeight: 21 }}>
-              {t('impact.everyTripYouShareAs')}
-            </Text>
-          </View>
+          <EmptyState icon="herb" title={t('impact.nothingCountedYet')} body={t('impact.everyTripYouShareAs')} />
         ) : null}
 
         {all && all.trips > 0 ? (
           <>
             <View
-              style={[s.hero, { backgroundColor: c.successLight }]}
+              style={[s.hero, tc.backgroundColor_successLight]}
               accessible
               accessibilityLabel={t('impact.heroLabel', { amount: formatKg(all.co2SavedKg) })}
             >
-              <Icon name="leaf" size={28} color={c.success} />
-              <Text style={[s.heroValue, { color: c.text }]}>{formatKg(all.co2SavedKg)}</Text>
-              <Text style={{ color: c.text, fontWeight: '600' }}>{t('impact.ofCoSavedBySharing')}</Text>
+              <Icon name="leaf" size={28} color={tk.success} />
+              <Text style={[s.heroValue, tc.color_text]}>{formatKg(all.co2SavedKg)}</Text>
+              <Text style={[{ fontWeight: '600' }, tc.color_text]}>{t('impact.ofCoSavedBySharing')}</Text>
               {litres >= 1 ? (
-                <Text style={{ color: c.textSec }}>{litres === 1 ? t('impact.litresOne') : t('impact.litresMany', { count: litres })}</Text>
+                <Text style={tc.color_textSec}>{litres === 1 ? t('impact.litresOne') : t('impact.litresMany', { count: litres })}</Text>
               ) : null}
             </View>
 
             <View style={s.row}>
-              <View style={[s.tile, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <Text style={[s.tileValue, { color: c.text }]}>{formatKm(all.kmShared)}</Text>
-                <Text style={{ color: c.textSec }}>{t('impact.shared')}</Text>
+              <View style={[s.tile, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]}>
+                <Text style={[s.tileValue, tc.color_text]}>{formatKm(all.kmShared)}</Text>
+                <Text style={tc.color_textSec}>{t('impact.shared')}</Text>
               </View>
-              <View style={[s.tile, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <Text style={[s.tileValue, { color: c.text }]}>{all.trips}</Text>
-                <Text style={{ color: c.textSec }}>{all.trips === 1 ? 'trip shared' : 'trips shared'}</Text>
+              <View style={[s.tile, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]}>
+                <Text style={[s.tileValue, tc.color_text]}>{all.trips}</Text>
+                <Text style={tc.color_textSec}>{all.trips === 1 ? 'trip shared' : 'trips shared'}</Text>
               </View>
             </View>
 
-            <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Text style={[s.cardTitle, { color: c.text }]}>{t('impact.thisMonth')}</Text>
-              <Text style={{ color: c.textSec }}>
+            <View style={[s.card, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]}>
+              <Text style={[s.cardTitle, tc.color_text]}>{t('impact.thisMonth')}</Text>
+              <Text style={tc.color_textSec}>
                 {impact!.thisMonth.trips > 0
                   ? impact!.thisMonth.trips === 1
                     ? t('impact.monthOne', { amount: formatKg(impact!.thisMonth.co2SavedKg) })
@@ -117,15 +109,10 @@ export function ImpactScreen() {
                   >
                     <View style={[s.barTrack, { height: BAR_HEIGHT }]}>
                       <View
-                        style={{
-                          height: m.co2SavedKg > 0 ? Math.max(4, (m.co2SavedKg / peak) * BAR_HEIGHT) : 0,
-                          backgroundColor: c.success,
-                          borderTopLeftRadius: 4,
-                          borderTopRightRadius: 4,
-                        }}
+                        style={[{ height: m.co2SavedKg > 0 ? Math.max(4, (m.co2SavedKg / peak) * BAR_HEIGHT) : 0, borderTopLeftRadius: 4, borderTopRightRadius: 4 }, tc.backgroundColor_success]}
                       />
                     </View>
-                    <Text style={{ color: c.textSec, fontSize: 12 }}>{monthLabel(m.month)}</Text>
+                    <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{monthLabel(m.month)}</Text>
                   </View>
                 ))}
               </View>
@@ -136,16 +123,16 @@ export function ImpactScreen() {
         {impact ? (
           <Pressable
             onPress={() => setShowMethod(v => !v)}
-            style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}
+            style={[s.card, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]}
             accessibilityRole="button"
             accessibilityState={{ expanded: showMethod }}
           >
             <View style={[s.row, { alignItems: 'center', justifyContent: 'space-between' }]}>
-              <Text style={[s.cardTitle, { color: c.text }]}>{t('impact.howWeCount')}</Text>
-              <Icon name={showMethod ? 'chevron-up' : 'chevron-down'} size={22} color={c.textSec} />
+              <Text style={[s.cardTitle, tc.color_text]}>{t('impact.howWeCount')}</Text>
+              <Icon name={showMethod ? 'chevron-up' : 'chevron-down'} size={22} color={tk.textSec} />
             </View>
             {showMethod ? (
-              <Text style={{ color: c.textSec, lineHeight: 21 }}>
+              <Text style={[{ lineHeight: 21 }, tc.color_textSec]}>
                 {t('impact.method1', { kg: impact.method.baselineKgPerKm })}{'\n\n'}{t('impact.method2')}
               </Text>
             ) : null}

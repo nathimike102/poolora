@@ -14,10 +14,10 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
 } from 'react-native';
+import { Text } from './Text';
 import { reportError } from '../config/errorTracking';
 import { COMPANY } from '../config/company';
 import i18n from '../i18n';

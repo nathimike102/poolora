@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { Booking, IBooking } from '../models/Booking';
-import { Ride, rideRoutePath } from '../models/Ride';
+import { Ride, rideRoutePath, type IRide } from '../models/Ride';
 import { User } from '../models/User';
 import { config } from '../config';
 import { BookingStatus, PaymentStatus, RideStatus } from '../types';
@@ -80,6 +80,64 @@ export function cancellationSplit(fare: number, refundRate: number, byPolicy: bo
   return { refund, retained, platformFee, driverEarnings: round2(retained - platformFee) };
 }
 
+type Place = { lng: number; lat: number; address: string };
+
+/**
+ * Where a rider joins and leaves a ride, and the stops they add in between,
+ * checked against its route (UC-R03): each point near the route, the pickup
+ * before the drop, and every stop between them. Stops come back in the order
+ * the car meets them. The fare is the seats plus extraStopFee per stop.
+ */
+export function planBooking(
+  ride: Pick<IRide, 'routePolyline' | 'pickup' | 'dropoff' | 'waypoints' | 'pricePerSeat'>,
+  data: { seatsBooked: number; pickup: Pick<Place, 'lat' | 'lng'>; dropoff: Pick<Place, 'lat' | 'lng'>; stops?: Place[] },
+) {
+  const path = rideRoutePath(ride);
+  const maxKm = config.ride.maxPickupDistanceFromRouteKm;
+  const boarding = nearestOnPath({ lat: data.pickup.lat, lng: data.pickup.lng }, path);
+  const leaving = nearestOnPath({ lat: data.dropoff.lat, lng: data.dropoff.lng }, path);
+  if (boarding.distanceKm > maxKm) {
+    throw new AppError(`Pickup location must be within ${maxKm}km of the ride route`, 400, 'PICKUP_TOO_FAR');
+  }
+  if (leaving.distanceKm > maxKm) {
+    throw new AppError(`Drop location must be within ${maxKm}km of the ride route`, 400, 'DROPOFF_TOO_FAR');
+  }
+  if (leaving.alongKm <= boarding.alongKm) {
+    throw new AppError('This ride goes the other way: your drop comes before your pickup on its route', 400, 'WRONG_DIRECTION');
+  }
+
+  const asked = data.stops ?? [];
+  // Admin-editable, so read as a plain number (0 turns stops off)
+  const maxStops: number = config.ride.maxStopsPerBooking;
+  if (asked.length > maxStops) {
+    throw new AppError(
+      maxStops === 0
+        ? 'Extra stops are not available at the moment'
+        : `You can add up to ${maxStops} stops`,
+      400,
+      'TOO_MANY_STOPS',
+    );
+  }
+  const stops = asked
+    .map((stop) => {
+      const at = nearestOnPath({ lat: stop.lat, lng: stop.lng }, path);
+      // A stop is a detour the other riders share, so it stays as close to the route as a pickup
+      if (at.distanceKm > maxKm) {
+        throw new AppError(`Each stop must be within ${maxKm}km of the ride route`, 400, 'STOP_TOO_FAR');
+      }
+      if (at.alongKm <= boarding.alongKm || at.alongKm >= leaving.alongKm) {
+        throw new AppError('Each stop must be between your pickup and your drop on the ride\'s route', 400, 'STOP_OUT_OF_ORDER');
+      }
+      return { stop, alongKm: at.alongKm };
+    })
+    .sort((a, b) => a.alongKm - b.alongKm)
+    .map(({ stop }) => stop);
+
+  const stopsFee = stops.length ? round2(stops.length * config.ride.extraStopFee) : 0;
+  const fare = round2(ride.pricePerSeat * data.seatsBooked + stopsFee);
+  return { boarding, leaving, stops, stopsFee, fare };
+}
+
 /** Wrong pickup codes before only the rider can confirm the pickup */
 export const PICKUP_PIN_MAX_TRIES = 5;
 
@@ -111,6 +169,8 @@ export class BookingService {
       connection?: { departsAt: string | Date };
       /** What the rider was shown they pay; never charged more than this */
       expectedYouPay?: number;
+      /** Stops between the pickup and the drop, in any order (planBooking orders them) */
+      stops?: Place[];
     },
   ): Promise<{ booking: IBooking; paidViaWallet: boolean }> {
     // One booking at a time per rider: the company's monthly cap, the
@@ -192,24 +252,19 @@ export class BookingService {
       throw new ConflictError('You already have a booking for this ride');
     }
 
-    // Riders may join and leave part-way, so both ends are measured against
-    // the whole route (UC-R03), and the pickup must come before the drop
-    const path = rideRoutePath(ride);
-    const maxKm = config.ride.maxPickupDistanceFromRouteKm;
-    const boarding = nearestOnPath({ lat: data.pickup.lat, lng: data.pickup.lng }, path);
-    const leaving = nearestOnPath({ lat: data.dropoff.lat, lng: data.dropoff.lng }, path);
-    if (boarding.distanceKm > maxKm) {
-      throw new AppError(`Pickup location must be within ${maxKm}km of the ride route`, 400, 'PICKUP_TOO_FAR');
-    }
-    if (leaving.distanceKm > maxKm) {
-      throw new AppError(`Drop location must be within ${maxKm}km of the ride route`, 400, 'DROPOFF_TOO_FAR');
-    }
-    if (leaving.alongKm <= boarding.alongKm) {
-      throw new AppError('This ride goes the other way: your drop comes before your pickup on its route', 400, 'WRONG_DIRECTION');
-    }
+    // Riders may join and leave part-way, so both ends (and any stops they
+    // add) are measured against the whole route (UC-R03)
+    const plan = planBooking(ride, data);
+    const { boarding } = plan;
+    const stopFields = plan.stops.length
+      ? {
+          stops: plan.stops.map((p) => ({ location: toGeoPoint(p.lng, p.lat), address: p.address })),
+          stopsFee: plan.stopsFee,
+        }
+      : {};
 
     // Calculate estimated fare, and what the rider's company pays of it (UC-C01)
-    const estimatedFare = ride.pricePerSeat * data.seatsBooked;
+    const estimatedFare = plan.fare;
     const rider = await User.findById(riderId);
     const driver = await User.findById(ride.driver);
     if (!rider || !driver) throw new NotFoundError('User');
@@ -260,6 +315,7 @@ export class BookingService {
           location: toGeoPoint(data.dropoff.lng, data.dropoff.lat),
           address: data.dropoff.address,
         },
+        ...stopFields,
         estimatedFare,
         ...companyFields,
         ...(connection ? { connection } : {}),
@@ -282,6 +338,7 @@ export class BookingService {
           riderId,
           driverId: ride.driver.toString(),
           seatsBooked: data.seatsBooked,
+          stopCount: plan.stops.length,
           paidViaWallet: true,
         },
       });
@@ -304,6 +361,7 @@ export class BookingService {
         location: toGeoPoint(data.dropoff.lng, data.dropoff.lat),
         address: data.dropoff.address,
       },
+      ...stopFields,
       estimatedFare,
       ...companyFields,
       ...(connection ? { connection } : {}),
@@ -320,6 +378,7 @@ export class BookingService {
         riderId,
         driverId: ride.driver.toString(),
         seatsBooked: data.seatsBooked,
+        stopCount: plan.stops.length,
       },
     });
 
@@ -790,16 +849,20 @@ export class BookingService {
    * What a booking would cost the rider, before they make it: the fare, what
    * their company pays (UC-C01) and the rest, which is theirs to pay.
    */
-  async quote(riderId: string, data: { rideId: string; seatsBooked: number; pickup: { lat: number; lng: number }; dropoff: { lat: number; lng: number } }) {
-    const ride = await Ride.findById(data.rideId).select('pricePerSeat departureTime');
+  async quote(riderId: string, data: { rideId: string; seatsBooked: number; pickup: { lat: number; lng: number }; dropoff: { lat: number; lng: number }; stops?: Place[] }) {
+    const ride = await Ride.findById(data.rideId).select('pricePerSeat departureTime routePolyline pickup dropoff waypoints');
     if (!ride) throw new NotFoundError('Ride');
-    const fare = round2(ride.pricePerSeat * data.seatsBooked);
+    // Stops are checked here too, so the rider hears about one off the route before paying
+    const { fare, stopsFee, stops } = data.stops?.length
+      ? planBooking(ride, data)
+      : { fare: round2(ride.pricePerSeat * data.seatsBooked), stopsFee: 0, stops: [] };
     const company = await companyContribution({ riderId, fare, departure: ride.departureTime, pickup: data.pickup, dropoff: data.dropoff });
     // A drop at a bus terminus lets the rider add when their bus leaves (UC-R12)
     const hub = await new TransitHubService().at(data.dropoff).catch(() => null);
     return {
       ...(hub ? { dropoffHub: { name: hub.name, kind: hub.kind } } : {}),
       fare,
+      ...(stops.length ? { stopsFee, stopCount: stops.length } : {}),
       companyShare: company?.share ?? 0,
       youPay: riderPays({ estimatedFare: fare, companyShare: company?.share }),
       ...(company ? { company: company.company, ...(company.limitedBy ? { limitedBy: company.limitedBy } : {}) } : {}),
@@ -817,6 +880,10 @@ export class BookingService {
     }
     if (booking.status !== BookingStatus.CONFIRMED) {
       throw new ConflictError('Booking must be confirmed to complete');
+    }
+    // No pickup, no fare: the driver is paid and a company billed only for a rider who got in
+    if (!booking.actualPickupTime) {
+      throw new ConflictError('Mark the rider as picked up first');
     }
 
     // Calculate final fare (in production, use actual distance/time)
@@ -896,10 +963,8 @@ export class BookingService {
       });
     }
 
-    // Receipt by email when the rider has an address and mail is set up
-    import('./ReceiptService')
-      .then(({ ReceiptService }) => new ReceiptService().emailOnCompletion(bookingId, booking.rider.toString()))
-      .catch((error) => logger.warn('Receipt email failed', { bookingId, error: (error as Error).message }));
+    // No receipt email: receipts stay in the app (My rides and Receipts), and the
+    // rider can send themself a copy from there when they need one
 
     return booking;
   }

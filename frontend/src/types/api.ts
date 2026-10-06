@@ -234,6 +234,9 @@ export interface BookingQuote {
   limitedBy?: 'cap';
   /** The drop is at a kombi rank or bus terminus (UC-R12) */
   dropoffHub?: { name: string; kind: 'kombi_rank' | 'bus_terminus' };
+  /** What the rider's own stops add to the fare (already in fare), when they added any */
+  stopsFee?: number;
+  stopCount?: number;
 }
 
 /** GET /bookings/:id/cancellation-quote */
@@ -399,6 +402,10 @@ export interface Booking {
   finalFare?: number;
   pickup?: { address?: string; location?: { coordinates: [number, number] } };
   dropoff?: { address?: string; location?: { coordinates: [number, number] } };
+  /** Stops the rider added between pickup and drop, in the order the car meets them */
+  stops?: Array<{ address: string; location: { coordinates: [number, number] } }>;
+  /** What those stops added to the fare */
+  stopsFee?: number;
   /** Message from the rider to the driver with the request */
   /** The rider is catching a bus from the drop (UC-R12) */
   connection?: { departsAt: string; hubName?: string };
@@ -452,6 +459,8 @@ export interface CreateBookingRequest {
   connection?: { departsAt: string };
   /** What the screen showed the rider they pay; the server refuses to charge more (409 PRICE_CHANGED) */
   expectedYouPay?: number;
+  /** Stops the rider adds between pickup and drop; the server puts them in route order */
+  stops?: Array<{ lat: number; lng: number; address: string }>;
 }
 
 export interface CreateBookingResult {

@@ -36,6 +36,7 @@ type BackendRide = Record<string, unknown> & {
   availableSeats?: number;
   vehicle?: { hasAC?: boolean };
   preferences?: RidePreferences;
+  waypoints?: Array<BackendPlace & { order?: number }>;
 };
 
 /** One entry of GET /rides/upcoming. */
@@ -68,6 +69,8 @@ export function normalizeRide(payload: unknown): Ride {
     ...raw,
     pickupLocation: toLocation(raw.pickup),
     dropoffLocation: toLocation(raw.dropoff),
+    // The driver's stops on the way, in the order the car meets them
+    stops: [...(raw.waypoints ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(toLocation),
     scheduledDeparture: raw.departureTime,
     estimatedArrival: raw.estimatedArrivalTime,
     seats: raw.totalSeats,

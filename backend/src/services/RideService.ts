@@ -690,11 +690,17 @@ export class RideService {
     const confirmedBookings = await Booking.find({
       ride: rideId,
       status: BookingStatus.CONFIRMED,
-    }).select('_id');
+    }).select('_id actualPickupTime');
     const { BookingService } = await import('./BookingService');
     const bookingService = new BookingService();
-    for (const { _id } of confirmedBookings) {
+    for (const { _id, actualPickupTime } of confirmedBookings) {
       try {
+        // A rider never picked up (and not reported as a no-show) is refunded in
+        // full, as when a driver cancels; only riders who got in are charged
+        if (!actualPickupTime) {
+          await bookingService.cancelBooking(_id.toString(), driverId, 'The driver ended the trip without picking you up');
+          continue;
+        }
         await bookingService.completeBooking(_id.toString(), driverId);
       } catch (error) {
         logger.error('Failed to complete booking for completed ride', {

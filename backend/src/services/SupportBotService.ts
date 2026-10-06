@@ -51,7 +51,7 @@ During a ride
 
 After a ride
 - Ratings: right after the ride or later from My rides, for 7 days. Written reviews appear after a check.
-- Receipts: My rides, the trip, Receipt; it can be emailed.
+- Receipts: Profile, Receipts, or My rides, the trip, Receipt. They are kept in the app, not emailed after each trip; any one can be emailed or shared from its page.
 - Problems with a trip: My rides, the trip, Report a problem. Reviewed within 48 to 72 hours.
 - Suspended or blocked accounts can appeal within 30 days from Help, Appeal a suspension or block.
 

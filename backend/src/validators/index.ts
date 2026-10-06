@@ -212,6 +212,12 @@ export const createBookingSchema = {
       lat: Joi.number().min(-90).max(90).required(),
       address: Joi.string().required(),
     }).required(),
+    /** Stops the rider adds between pickup and drop; the limit is an admin setting, checked by the service */
+    stops: Joi.array().items(Joi.object({
+      lng: Joi.number().min(-180).max(180).required(),
+      lat: Joi.number().min(-90).max(90).required(),
+      address: Joi.string().trim().max(300).required(),
+    })).max(3).optional(),
   }),
 };
 
@@ -384,6 +390,16 @@ export const updateMeSchema = {
 
 export const vehicleParamSchema = {
   params: Joi.object({ vehicleId: Joi.string().hex().length(24).required() }),
+};
+
+/** PUT and DELETE /users/me/push-token: a Firebase Cloud Messaging token */
+export const pushTokenSchema = {
+  body: Joi.object({ token: Joi.string().trim().min(20).max(4096).required() }),
+};
+
+/** PUT /users/me/photo: base64 of a JPEG or PNG (the service checks the bytes and size) */
+export const profilePhotoSchema = {
+  body: Joi.object({ data: Joi.string().max(5_000_000).required() }),
 };
 
 /** PUT /users/me/vehicles/:vehicleId/tracker */

@@ -247,23 +247,28 @@ Phone numbers of the other party appear only on confirmed bookings.
   "useWallet": false,
   "pickup":  { "lng": 31.0530, "lat": -17.8270, "address": "Samora Machel Ave" },
   "dropoff": { "lng": 31.0930, "lat": -17.7620, "address": "Borrowdale Village" },
+  "stops": [{ "lng": 31.0710, "lat": -17.7950, "address": "Avondale Shops" }],
   "note": "I'll wait at the kombi stop by the bank."
 }
 ```
 
 - With `useWallet: true`, the fare is taken from the wallet at once, and the response has `paidViaWallet: true`.
 - `note` is optional (up to 300 characters) and is shown on the driver's request card.
+- `stops` is optional: places the rider wants to stop at between their pickup and drop, as on Rapido and Uber (any order; the booking keeps them in the order the car meets them). Each adds the admin setting `extraStopFee` to the fare once, whatever the seats, and the booking records it as `stopsFee`. The driver sees the stops on the request and accepts them with it. `POST /bookings/quote` takes the same `stops` and returns `stopsFee` and `stopCount`.
+- To get on or off at one of the driver's own stops, the app sends that stop as the `pickup` or `dropoff`; there is no extra charge.
 - `expectedYouPay` is optional: what the app showed the rider they pay. If their company's part has shrunk since (cap used up, contribution paused), the booking is refused with `409 PRICE_CHANGED` before anything is charged, so the rider sees the new price first.
 - Otherwise the booking is created with `paymentMethod: "online"`, and the app pays for it with `POST /payments/start` (section 7). The driver can accept only once it is paid.
 
 Rules:
 - the pickup and the drop must each be within **2 km of the ride's route** (measured against the road route, so riders can join and leave part-way)
 - along the route, the pickup must come before the drop
+- each stop must be within the same **2 km of the route**, and between the pickup and the drop
+- at most `maxStopsPerBooking` stops (admin setting, default **2**; 0 turns stops off)
 - at most **3 pending requests** per rider
 - no booking of one's own ride
 - one active booking per ride
 
-Errors: `PICKUP_TOO_FAR`, `DROPOFF_TOO_FAR`, `WRONG_DIRECTION`, `MAX_PENDING_BOOKINGS`, `INSUFFICIENT_SEATS`, `SELF_BOOKING`, `CONFLICT`.
+Errors: `PICKUP_TOO_FAR`, `DROPOFF_TOO_FAR`, `WRONG_DIRECTION`, `STOP_TOO_FAR`, `STOP_OUT_OF_ORDER`, `TOO_MANY_STOPS`, `MAX_PENDING_BOOKINGS`, `INSUFFICIENT_SEATS`, `SELF_BOOKING`, `CONFLICT`.
 
 ### 5.2 Automatic rules
 

@@ -8,13 +8,14 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import type { RootStackParamList } from '../../navigation/types';
 import { rideService } from '../../services/rideService';
@@ -22,6 +23,7 @@ import type { Ride } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { money, moneyInput, REGION } from '../../utils/region';
 import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
 const STEP_MINS = 15;
 const MAX_SHIFT_MINS = 120;
@@ -35,7 +37,6 @@ function timeLabel(d: Date): string {
 export function EditRideScreen() {
   const { rideId } = useRoute<RouteProp<RootStackParamList, 'EditRide'>>().params;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { c } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
@@ -61,8 +62,8 @@ export function EditRideScreen() {
 
   if (!ride) {
     return (
-      <View style={[styles.root, styles.center, { backgroundColor: c.bg }]}>
-        <ActivityIndicator color={c.primary} accessibilityLabel={t('editRide.loadingRide')} />
+      <View style={[styles.root, styles.center, tc.backgroundColor_surface]}>
+        <ActivityIndicator color={tk.primary} accessibilityLabel={t('editRide.loadingRide')} />
       </View>
     );
   }
@@ -102,35 +103,35 @@ export function EditRideScreen() {
   const stepper = (label: string, value: string, onMinus: () => void, onPlus: () => void, minusDisabled: boolean, plusDisabled: boolean) => (
     <View style={styles.stepper}>
       <Pressable onPress={onMinus} disabled={minusDisabled} accessibilityRole="button" accessibilityLabel={t('editRide.less', { what: label })}
-        style={[styles.stepBtn, { borderColor: c.border, opacity: minusDisabled ? 0.4 : 1 }]}>
-        <Icon name="minus" size={20} color={c.text} />
+        style={[styles.stepBtn, { opacity: minusDisabled ? 0.4 : 1 }, tc.borderColor_border]}>
+        <Icon name="minus" size={20} color={tk.text} />
       </Pressable>
-      <Text style={{ flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: c.text }} accessibilityLiveRegion="polite">{value}</Text>
+      <Text style={[{ flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700' }, tc.color_text]} accessibilityLiveRegion="polite">{value}</Text>
       <Pressable onPress={onPlus} disabled={plusDisabled} accessibilityRole="button" accessibilityLabel={t('editRide.more', { what: label })}
-        style={[styles.stepBtn, { borderColor: c.border, opacity: plusDisabled ? 0.4 : 1 }]}>
-        <Icon name="plus" size={20} color={c.text} />
+        style={[styles.stepBtn, { opacity: plusDisabled ? 0.4 : 1 }, tc.borderColor_border]}>
+        <Icon name="plus" size={20} color={tk.text} />
       </Pressable>
     </View>
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('editRide.changeRide')}</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('editRide.changeRide')} />
       <ScrollView contentContainerStyle={styles.content}>
         {tooLate ? (
-          <View style={[styles.note, { backgroundColor: c.errorLight }]}>
-            <Text style={{ color: c.error, fontSize: 14 }}>
+          <View style={[styles.note, tc.backgroundColor_errorLight]}>
+            <Text style={[{ fontSize: 14 }, tc.color_error]}>
               Rides can be changed until {EDIT_CUTOFF_HOURS} hours before departure. If you cannot go, cancel the ride; your riders are refunded in full.
             </Text>
           </View>
         ) : null}
 
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.label, { color: c.textSec }]}>{t('editRide.departure')}</Text>
+        <View style={[
+          styles.card,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
+          <Text style={[styles.label, tc.color_textSec]}>{t('editRide.departure')}</Text>
           {stepper(
             t('editRide.what.time'),
             timeLabel(departure),
@@ -139,28 +140,41 @@ export function EditRideScreen() {
             tooLate || shiftMins <= -MAX_SHIFT_MINS || departure.getTime() - STEP_MINS * 60_000 <= Date.now(),
             tooLate || shiftMins >= MAX_SHIFT_MINS,
           )}
-          <Text style={[styles.help, { color: c.textSec }]}>
+          <Text style={[styles.help, tc.color_textSec]}>
             {booked > 0 ? t('editRide.timeHelpBooked') : t('editRide.timeHelp')}
           </Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.label, { color: c.textSec }]}>{t('editRide.seats')}</Text>
+        <View style={[
+          styles.card,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
+          <Text style={[styles.label, tc.color_textSec]}>{t('editRide.seats')}</Text>
           {stepper(t('editRide.what.seats'), t('editRide.seatsValue', { count: seats }), () => setSeats(n => n - 1), () => setSeats(n => n + 1), tooLate || seats <= (ride.seats ?? 1), tooLate || seats >= 8)}
-          <Text style={[styles.help, { color: c.textSec }]}>{t('editRide.youCanAddSeatsRiders')}</Text>
+          <Text style={[styles.help, tc.color_textSec]}>{t('editRide.youCanAddSeatsRiders')}</Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.label, { color: c.textSec }]}>{t('editRide.pricePerSeatUs')}</Text>
+        <View style={[
+          styles.card,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
+          <Text style={[styles.label, tc.color_textSec]}>{t('editRide.pricePerSeatUs')}</Text>
           <TextInput
             value={price}
             onChangeText={t => setPrice(moneyInput(t))}
             editable={!priceLocked && !tooLate}
             keyboardType="decimal-pad"
             accessibilityLabel={t('editRide.pricePerSeatInUs')}
-            style={[styles.input, { borderColor: priceValid ? c.border : c.error, color: c.text, opacity: priceLocked ? 0.5 : 1 }]}
+            style={[
+              styles.input,
+              { opacity: priceLocked ? 0.5 : 1 },
+              priceValid ? tc.borderColor_border : tc.borderColor_error,
+              tc.color_text
+            ]}
           />
-          <Text style={[styles.help, { color: priceValid ? c.textSec : c.error }]}>
+          <Text style={[styles.help, priceValid ? tc.color_textSec : tc.color_error]}>
             {priceLocked ? t('editRide.priceLocked') : t('editRide.priceRange', { min: money(minPrice), max: money(maxPrice) })}
           </Text>
         </View>
@@ -169,10 +183,13 @@ export function EditRideScreen() {
           onPress={save}
           disabled={!changed || !priceValid || saving || tooLate}
           accessibilityRole="button"
-          style={[styles.save, { backgroundColor: changed && priceValid && !tooLate ? c.primary : c.border }]}
+          style={[styles.save, changed && priceValid && !tooLate ? tc.backgroundColor_primary : tc.backgroundColor_border]}
         >
-          {saving ? <ActivityIndicator color={c.textOnPrimary} /> : (
-            <Text style={{ fontSize: 16, fontWeight: '700', color: changed && priceValid && !tooLate ? c.textOnPrimary : c.textSec }}>{t('editRide.saveChanges')}</Text>
+          {saving ? <ActivityIndicator color={tk.textOnPrimary} /> : (
+            <Text style={[
+              { fontSize: 16, fontWeight: '700' },
+              changed && priceValid && !tooLate ? tc.color_textOnPrimary : tc.color_textSec
+            ]}>{t('editRide.saveChanges')}</Text>
           )}
         </Pressable>
       </ScrollView>

@@ -7,16 +7,18 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { ActivityIndicator } from './Themed';
+import { Text, TextInput } from './Text';
+import Svg, { Path } from './ThemedSvg';
 
-import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
 import { errorHandler } from '../utils/errorHandler';
 import type { RatingCategory, RatingInput, RatingIssue } from '../services/ratingService';
 import { REGION } from '../utils/region';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
+import { tc, tk } from '../theme/themed';
 
 /** Words for 1 to 5 stars are in the catalogue under ratingForm.levels */
 
@@ -86,7 +88,6 @@ export function RatingForm({
   onSubmit: (input: RatingInput) => Promise<unknown>;
   onSkip?: () => void;
 }) {
-  const { c } = useApp();
   const { t } = useTranslation();
   const [score, setScore] = useState(0);
   const [categories, setCategories] = useState<Partial<Record<RatingCategory, number>>>({});
@@ -114,20 +115,25 @@ export function RatingForm({
 
   return (
     <View style={styles.wrap}>
-      <Text style={{ fontSize: 20, fontWeight: '800', color: c.text, textAlign: 'center' }} accessibilityRole="header">
+      <Text style={[{ fontSize: 20, fontWeight: '800', textAlign: 'center' }, tc.color_text]} accessibilityRole="header">
         How was your ride with {rateeName}?
       </Text>
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <View style={[styles.card, tc.backgroundColor_surface, tc.borderColor_border]}>
         <StarRating value={score} onChange={setScore} label={t('ratingForm.overall')} />
-        {score > 0 && <Text style={{ fontSize: 14, color: c.textSec, marginTop: 8 }}>{t(`ratingForm.levels.${score}`)}</Text>}
+        {score > 0 && <Text style={[{ fontSize: 14, marginTop: 8 }, tc.color_textSec]}>{t(`ratingForm.levels.${score}`)}</Text>}
       </View>
 
       {score > 0 && (
         <>
-          <View style={[styles.card, styles.left, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={[
+            styles.card,
+            styles.left,
+            tc.backgroundColor_surface,
+            tc.borderColor_border
+          ]}>
             {CATEGORIES.map(cat => (
               <View key={cat.key} style={styles.catRow}>
-                <Text style={{ flex: 1, fontSize: 14, color: c.text }}>{cat.label}</Text>
+                <Text style={[{ flex: 1, fontSize: 14 }, tc.color_text]}>{cat.label}</Text>
                 <StarRating
                   size={24}
                   label={cat.label}
@@ -147,9 +153,13 @@ export function RatingForm({
                   onPress={() => setTags(prev => toggle(prev, tag.value))}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: selected }}
-                  style={[styles.chip, { backgroundColor: selected ? c.primaryLight : c.surface, borderColor: selected ? c.primary : c.border }]}
+                  style={[
+                    styles.chip,
+                    selected ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface,
+                    selected ? tc.borderColor_primary : tc.borderColor_border
+                  ]}
                 >
-                  <Text style={{ fontSize: 13, color: selected ? c.primary : c.text, fontWeight: selected ? '600' : '400' }}>{tag.label}</Text>
+                  <Text style={[{ fontSize: 13, fontWeight: selected ? '600' : '400' }, selected ? tc.color_primary : tc.color_text]}>{tag.label}</Text>
                 </Pressable>
               );
             })}
@@ -161,15 +171,20 @@ export function RatingForm({
             multiline
             maxLength={500}
             placeholder={t('ratingForm.writeAReviewOptional')}
-            placeholderTextColor={c.textSec}
+            placeholderTextColor={tk.textSec}
             accessibilityLabel={t('ratingForm.review')}
-            style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
+            style={[
+              styles.input,
+              tc.borderColor_border,
+              tc.color_text,
+              tc.backgroundColor_surface
+            ]}
           />
           {comment.trim() ? (
-            <Text style={{ fontSize: 12, color: c.textSec }}>{t('ratingForm.reviewsAppearOnTheDrivers')}</Text>
+            <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('ratingForm.reviewsAppearOnTheDrivers')}</Text>
           ) : null}
 
-          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginTop: 4 }}>{t('ratingForm.didYouFeelSafe')}</Text>
+          <Text style={[{ fontSize: 15, fontWeight: '700', marginTop: 4 }, tc.color_text]}>{t('ratingForm.didYouFeelSafe')}</Text>
           <View style={styles.tags} accessibilityRole="radiogroup">
             {SAFETY_ANSWERS.map(a => {
               const selected = safety === a.value;
@@ -183,16 +198,20 @@ export function RatingForm({
                   }}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: selected }}
-                  style={[styles.chip, { backgroundColor: selected ? c.primaryLight : c.surface, borderColor: selected ? c.primary : c.border }]}
+                  style={[
+                    styles.chip,
+                    selected ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface,
+                    selected ? tc.borderColor_primary : tc.borderColor_border
+                  ]}
                 >
-                  <Text style={{ fontSize: 13, color: selected ? c.primary : c.text, fontWeight: selected ? '600' : '400' }}>{a.label}</Text>
+                  <Text style={[{ fontSize: 13, fontWeight: selected ? '600' : '400' }, selected ? tc.color_primary : tc.color_text]}>{a.label}</Text>
                 </Pressable>
               );
             })}
           </View>
-          <Text style={{ fontSize: 12, color: c.textSec }}>{t('ratingForm.safePrivate', { name: rateeName })}</Text>
+          <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('ratingForm.safePrivate', { name: rateeName })}</Text>
 
-          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginTop: 4 }}>{t('ratingForm.anythingWrong')}</Text>
+          <Text style={[{ fontSize: 15, fontWeight: '700', marginTop: 4 }, tc.color_text]}>{t('ratingForm.anythingWrong')}</Text>
           {ISSUES.map(issue => {
             const checked = issues.includes(issue.key);
             return (
@@ -203,8 +222,8 @@ export function RatingForm({
                 accessibilityState={{ checked }}
                 style={styles.checkRow}
               >
-                <Icon name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={checked ? c.primary : c.textSec} />
-                <Text style={{ fontSize: 14, color: c.text }}>{issue.label}</Text>
+                <Icon name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={checked ? tk.primary : tk.textSec} />
+                <Text style={[{ fontSize: 14 }, tc.color_text]}>{issue.label}</Text>
               </Pressable>
             );
           })}
@@ -216,12 +235,17 @@ export function RatingForm({
                 multiline
                 maxLength={1000}
                 placeholder={t('ratingForm.whatHappenedOnlyOurTeam')}
-                placeholderTextColor={c.textSec}
+                placeholderTextColor={tk.textSec}
                 accessibilityLabel={t('ratingForm.whatHappened')}
-                style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
+                style={[
+                  styles.input,
+                  tc.borderColor_border,
+                  tc.color_text,
+                  tc.backgroundColor_surface
+                ]}
               />
               {issues.includes('safety') ? (
-                <Text style={{ fontSize: 13, color: c.error }}>
+                <Text style={[{ fontSize: 13 }, tc.color_error]}>
                   Our safety team is alerted as soon as you submit. If you are in danger now, call {REGION.emergency.general}.
                 </Text>
               ) : null}
@@ -230,21 +254,21 @@ export function RatingForm({
         </>
       )}
 
-      {error ? <Text style={{ color: c.error, textAlign: 'center' }} accessibilityLiveRegion="polite">{error}</Text> : null}
+      {error ? <Text style={[{ textAlign: 'center' }, tc.color_error]} accessibilityLiveRegion="polite">{error}</Text> : null}
       <Pressable
         onPress={submit}
         disabled={!score || sending}
         accessibilityRole="button"
         accessibilityState={{ disabled: !score || sending }}
-        style={[styles.cta, { backgroundColor: score ? c.primary : c.border }]}
+        style={[styles.cta, score ? tc.backgroundColor_primary : tc.backgroundColor_border]}
       >
-        {sending ? <ActivityIndicator color={c.textOnPrimary} /> : (
-          <Text style={{ fontSize: 16, fontWeight: '700', color: score ? c.textOnPrimary : c.textSec }}>{t('ratingForm.submitRating')}</Text>
+        {sending ? <ActivityIndicator color={tk.textOnPrimary} /> : (
+          <Text style={[{ fontSize: 16, fontWeight: '700' }, score ? tc.color_textOnPrimary : tc.color_textSec]}>{t('ratingForm.submitRating')}</Text>
         )}
       </Pressable>
       {onSkip ? (
         <Pressable onPress={onSkip} accessibilityRole="button" style={styles.textBtn}>
-          <Text style={{ fontSize: 14, color: c.textSec }}>{t('ratingForm.skipForNow')}</Text>
+          <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('ratingForm.skipForNow')}</Text>
         </Pressable>
       ) : null}
     </View>

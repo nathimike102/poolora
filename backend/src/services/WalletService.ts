@@ -17,6 +17,21 @@ import { logger } from '../utils/logger';
 import { RewardService } from './RewardService';
 import { money } from '../config/region';
 
+/**
+ * How a trip reads in wallet history: where it went, as riders know it
+ * ("trip to Borrowdale"), not the booking's database id.
+ */
+async function tripLabel(bookingId: string): Promise<string> {
+    try {
+        const { Booking } = await import('../models/Booking');
+        const booking = await Booking.findById(bookingId).select('dropoff.address').lean();
+        const place = booking?.dropoff?.address?.split(',')[0]?.trim();
+        return place ? `trip to ${place}` : 'a trip';
+    } catch {
+        return 'a trip';
+    }
+}
+
 const rewardService = new RewardService();
 
 export class WalletService {
@@ -201,7 +216,7 @@ export class WalletService {
             balanceAfter: wallet.balance - amount,
             status: WalletTransactionStatus.COMPLETED,
             bookingId,
-            description: `Ride payment for booking ${bookingId}`,
+            description: `Payment for ${await tripLabel(bookingId)}`,
             idempotencyKey: `debit_${bookingId}_${userId}`,
         });
     }
@@ -224,7 +239,7 @@ export class WalletService {
         const credited = await this.claimAndCredit(userId, amount, {
             type: WalletTransactionType.REFUND,
             bookingId,
-            description: `Refund for booking ${bookingId}: ${reason}`,
+            description: `Refund for ${await tripLabel(bookingId)}: ${reason}`,
             idempotencyKey,
         });
         if (!credited) return;

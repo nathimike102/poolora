@@ -7,7 +7,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
@@ -15,13 +14,14 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Text } from './Text';
+import Svg, { Path } from './ThemedSvg';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '../context/AppContext';
 import { Typography, Spacing, Radius } from '../theme';
 import { REGION } from '../utils/region';
 import { useTranslation } from 'react-i18next';
+import { tc, tk, useColors } from '../theme/themed';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -76,18 +76,15 @@ interface DayCellProps {
   isSunday: boolean;
   isSaturday: boolean;
   onPress: () => void;
-  primaryColor: string;
-  primaryLight: string;
-  errorColor: string;
-  borderColor: string;
-  textColor: string;
   testID?: string;
 }
 
 function DayCell({
   day, isToday, isSelected, isDisabled, isSunday, isSaturday,
-  onPress, primaryColor, primaryLight, errorColor, borderColor, textColor, testID,
+  onPress, testID,
 }: DayCellProps) {
+  // Small enough to re-render itself when the theme changes
+  const { primary: primaryColor, primaryLight, error: errorColor, border: borderColor, text: textColor } = useColors();
   const scale = useRef(new Animated.Value(1)).current;
   if (!day) return <View style={styles.dayCellEmpty} />;
 
@@ -150,17 +147,12 @@ interface ChipProps {
   label: string;
   isSelected: boolean;
   onPress: () => void;
-  primaryColor: string;
-  primaryLight: string;
-  borderColor: string;
-  bgColor: string;
-  textSecColor: string;
 }
 
 function QuickChip({
   label, isSelected, onPress,
-  primaryColor, primaryLight, borderColor, bgColor, textSecColor,
 }: ChipProps) {
+  const { primary: primaryColor, primaryLight, border: borderColor, surfaceVariant: bgColor, textSec: textSecColor } = useColors();
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
@@ -195,7 +187,6 @@ export function RideDatePicker({
   onClose,
   maxDaysAhead = 60,
 }: RideDatePickerProps) {
-  const { c } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const today = startOfDay(new Date());
@@ -308,31 +299,32 @@ export function RideDatePicker({
       <Animated.View
         style={[
           styles.sheet,
-          { backgroundColor: c.surface, paddingBottom: Spacing['2xl'] + insets.bottom },
-          { transform: [{ translateY: slideY }] },
+          { paddingBottom: Spacing['2xl'] + insets.bottom },
+          tc.backgroundColor_surface,
+          { transform: [{ translateY: slideY }] }
         ]}
       >
         {/* Handle */}
         <View style={styles.handleRow}>
-          <View style={[styles.handle, { backgroundColor: c.border }]} />
+          <View style={[styles.handle, tc.backgroundColor_border]} />
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Title row */}
           <View style={styles.titleRow}>
             <View>
-              <Text style={[styles.title, { color: c.text }]}>{t('rideDatePicker.selectDate')}</Text>
+              <Text style={[styles.title, tc.color_text]}>{t('rideDatePicker.selectDate')}</Text>
               {selectedDate && (
-                <Text style={[styles.selectedLabel, { color: c.primary }]}>
+                <Text style={[styles.selectedLabel, tc.color_primary]}>
                   {formatHeader(selectedDate)}
                 </Text>
               )}
             </View>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('rideDatePicker.closeDatePicker')}
               onPress={handleClose}
-              style={[styles.closeBtn, { backgroundColor: c.bg }]}
+              style={[styles.closeBtn, tc.backgroundColor_surfaceVariant]}
             >
-              <Svg width={16} height={16} viewBox="0 0 24 24" fill={c.textSec}>
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill={tk.textSec}>
                 <Path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
               </Svg>
             </TouchableOpacity>
@@ -346,27 +338,27 @@ export function RideDatePicker({
               disabled={!canGoPrev}
               style={[
                 styles.monthNavBtn,
-                { backgroundColor: canGoPrev ? c.primaryLight : c.surfaceVariant },
+                canGoPrev ? tc.backgroundColor_primaryLight : tc.backgroundColor_surfaceVariant,
                 !canGoPrev && styles.monthNavBtnDisabled,
               ]}
             >
               <Svg width={18} height={18} viewBox="0 0 24 24"
-                fill={canGoPrev ? c.primary : c.textSec}
+                fill={canGoPrev ? tk.primary : tk.textSec}
               >
                 <Path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z" />
               </Svg>
             </TouchableOpacity>
 
-            <Text style={[styles.monthLabel, { color: c.text }]}>
+            <Text style={[styles.monthLabel, tc.color_text]}>
               {MONTHS[viewMonth]} {viewYear}
             </Text>
 
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('rideDatePicker.nextMonth')}
               testID="next-month"
               onPress={nextMonth}
-              style={[styles.monthNavBtn, { backgroundColor: c.primaryLight }]}
+              style={[styles.monthNavBtn, tc.backgroundColor_primaryLight]}
             >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill={c.primary}>
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill={tk.primary}>
                 <Path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
               </Svg>
             </TouchableOpacity>
@@ -375,7 +367,7 @@ export function RideDatePicker({
           {/* Day headers */}
           <View style={styles.dayHeaderRow}>
             {DAYS.map(d => (
-              <Text key={d} style={[styles.dayHeader, { color: c.textSec }]}>
+              <Text key={d} style={[styles.dayHeader, tc.color_textSec]}>
                 {d}
               </Text>
             ))}
@@ -407,11 +399,6 @@ export function RideDatePicker({
                       isSaturday={isSaturday}
                       onPress={() => handleDay(day)}
                       testID={`day-${day}`}
-                      primaryColor={c.primary}
-                      primaryLight={c.primaryLight}
-                      errorColor={c.error}
-                      borderColor={c.border}
-                      textColor={c.text}
                     />
                   );
                 })}
@@ -427,11 +414,6 @@ export function RideDatePicker({
                 label={label}
                 isSelected={selectedDate ? isSameDay(date, selectedDate) : false}
                 onPress={() => { onSelect(date); handleClose(); }}
-                primaryColor={c.primary}
-                primaryLight={c.primaryLight}
-                borderColor={c.border}
-                bgColor={c.bg}
-                textSecColor={c.textSec}
               />
             ))}
           </View>

@@ -5,18 +5,11 @@
  */
 
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from "react-native";
+import { ActivityIndicator } from '../components/Themed';
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Path } from "../components/ThemedSvg";
 
 import { useApp } from "../context/AppContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,11 +20,15 @@ import { logger } from "../utils/logger";
 import type { RootStackParamList } from "../navigation/types";
 import { Trans, useTranslation } from 'react-i18next';
 
+import { tc, tk } from '../theme/themed';
+
 type NavProp = NativeStackNavigationProp<RootStackParamList, "Login">;
 
 export function LoginScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c, finishSignIn } = useApp();
+  const {
+    finishSignIn
+  } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
@@ -70,18 +67,18 @@ export function LoginScreen() {
 
   return (
     <ScrollView
-      style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}
+      style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <PooloraLogo size={64} backgroundColor={c.primary} />
-        <Text style={[styles.headline, { color: c.text }]}>
+        <PooloraLogo size={64} backgroundColor={tk.primary} />
+        <Text style={[styles.headline, tc.color_text]}>
           {t('login.welcome')}
         </Text>
-        <Text style={[styles.subheading, { color: c.textSec }]}>
+        <Text style={[styles.subheading, tc.color_textSec]}>
           {t('login.choose')}
         </Text>
       </View>
@@ -92,18 +89,16 @@ export function LoginScreen() {
         <TouchableOpacity accessibilityRole="button"
           style={[
             styles.googleButton,
-            {
-              backgroundColor: c.surface,
-              borderColor: c.border,
-            },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_border,
+            Shadow.sm
           ]}
           activeOpacity={0.7}
           onPress={handleGoogleSignIn}
           disabled={googleLoading}
         >
           {googleLoading ? (
-            <ActivityIndicator size="small" color={c.primary} />
+            <ActivityIndicator size="small" color={tk.primary} />
           ) : (
             <Svg width={22} height={22} viewBox="0 0 24 24">
               <Path
@@ -124,35 +119,33 @@ export function LoginScreen() {
               />
             </Svg>
           )}
-          <Text style={[styles.googleLabel, { color: c.text }]}>
+          <Text style={[styles.googleLabel, tc.color_text]}>
             {googleLoading ? t('login.signingIn') : t('login.google')}
           </Text>
         </TouchableOpacity>
 
         {/* Divider */}
         <View style={styles.dividerRow}>
-          <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
-          <Text style={[styles.dividerLabel, { color: c.textSec }]}>{t('login.or')}</Text>
-          <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
+          <View style={[styles.dividerLine, tc.backgroundColor_border]} />
+          <Text style={[styles.dividerLabel, tc.color_textSec]}>{t('login.or')}</Text>
+          <View style={[styles.dividerLine, tc.backgroundColor_border]} />
         </View>
 
         {/* Continue with Phone */}
         <TouchableOpacity accessibilityRole="button"
           style={[
             styles.optionButton,
-            {
-              borderColor: c.border,
-              backgroundColor: c.surface,
-            },
-            Shadow.sm,
+            tc.borderColor_border,
+            tc.backgroundColor_surfaceVariant,
+            Shadow.sm
           ]}
           activeOpacity={0.7}
           onPress={() => navigation.navigate("PhoneLogin")}
         >
-          <Svg width={22} height={22} viewBox="0 0 24 24" fill={c.primary}>
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill={tk.primary}>
             <Path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2a1.003 1.003 0 011.01-.24c1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.1.31.03.66-.25 1.02l-2.2 2.2z" />
           </Svg>
-          <Text style={[styles.optionLabel, { color: c.text }]}>
+          <Text style={[styles.optionLabel, tc.color_text]}>
             {t('login.phone')}
           </Text>
         </TouchableOpacity>
@@ -161,19 +154,17 @@ export function LoginScreen() {
         <TouchableOpacity accessibilityRole="button"
           style={[
             styles.optionButton,
-            {
-              borderColor: c.border,
-              backgroundColor: c.surface,
-            },
-            Shadow.sm,
+            tc.borderColor_border,
+            tc.backgroundColor_surfaceVariant,
+            Shadow.sm
           ]}
           activeOpacity={0.7}
           onPress={() => navigation.navigate("EmailLogin")}
         >
-          <Svg width={22} height={22} viewBox="0 0 24 24" fill={c.primary}>
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill={tk.primary}>
             <Path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
           </Svg>
-          <Text style={[styles.optionLabel, { color: c.text }]}>
+          <Text style={[styles.optionLabel, tc.color_text]}>
             {t('login.email')}
           </Text>
         </TouchableOpacity>
@@ -181,12 +172,12 @@ export function LoginScreen() {
 
       {/* ── Terms ─────────────────────────────────────────────────────── */}
       <View style={styles.footer}>
-        <Text style={[styles.terms, { color: c.textSec }]}>
+        <Text style={[styles.terms, tc.color_textSec]}>
           <Trans
             i18nKey="login.terms"
             components={{
-              terms: <Text style={[styles.termsLink, { color: c.primary }]} />,
-              privacy: <Text style={[styles.termsLink, { color: c.primary }]} />,
+              terms: <Text style={[styles.termsLink, tc.color_primary]} />,
+              privacy: <Text style={[styles.termsLink, tc.color_primary]} />,
             }}
           />
         </Text>

@@ -6,6 +6,7 @@
  * Verified Driver badge (UC-D10).
  */
 
+import { plainAverage } from '../utils/ratingScore';
 import { Booking } from '../models/Booking';
 import { Ride } from '../models/Ride';
 import { User, IUser } from '../models/User';
@@ -41,8 +42,9 @@ export function verifiedDriverStatus(user: Pick<IUser, 'kyc' | 'stats' | 'create
     { label: `${r.minTrips} or more trips`, met: (s.totalRidesAsDriver ?? 0) >= r.minTrips, progress: `${s.totalRidesAsDriver ?? 0} of ${r.minTrips}` },
     {
       label: `Rating ${r.minRating} or higher from at least ${r.minRatings} riders`,
-      met: (s.avgRatingAsDriver ?? 0) >= r.minRating && (s.totalRatingsAsDriver ?? 0) >= r.minRatings,
-      progress: `${(s.avgRatingAsDriver ?? 0).toFixed(1)} from ${s.totalRatingsAsDriver ?? 0} ratings`,
+      // The plain average: the shown score starts at 5 and would flatter a short record
+      met: plainAverage(s, 'Driver') >= r.minRating && (s.totalRatingsAsDriver ?? 0) >= r.minRatings,
+      progress: `${plainAverage(s, 'Driver').toFixed(1)} from ${s.totalRatingsAsDriver ?? 0} ratings`,
     },
     { label: `Cancels under ${r.maxCancellationRate * 100}% of rides`, met: (s.cancellationRate ?? 0) < r.maxCancellationRate, progress: `${Math.round((s.cancellationRate ?? 0) * 100)}%` },
     { label: `Driving with Poolora for ${r.minAccountDays} days`, met: days >= r.minAccountDays, progress: `${days} days` },

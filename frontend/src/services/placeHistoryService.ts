@@ -64,3 +64,8 @@ export async function toggleFavouritePlace(place: Pick<HistoryPlace, 'name' | 's
   await write(next);
   return getPlaceHistory();
 }
+
+/** The places belong to the account, so logging out removes them. */
+export async function clearPlaceHistory(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+}

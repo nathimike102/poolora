@@ -17,6 +17,13 @@ export interface IBooking extends Document {
     location: GeoPoint;
     address: string;
   };
+  /**
+   * Stops the rider added between their pickup and drop, in route order (as on
+   * Rapido and Uber). The driver accepts them with the request.
+   */
+  stops?: Array<{ location: GeoPoint; address: string }>;
+  /** What the stops added to the fare (extraStopFee each); included in estimatedFare */
+  stopsFee?: number;
   estimatedFare: number;
   finalFare?: number;
   matchScore: number;
@@ -111,6 +118,15 @@ const BookingSchema = new Schema<IBooking>(
       location: { type: GeoPointSchema, required: true },
       address: { type: String, required: true },
     },
+    stops: {
+      type: [{
+        _id: false,
+        location: { type: GeoPointSchema, required: true },
+        address: { type: String, required: true },
+      }],
+      default: undefined,
+    },
+    stopsFee: { type: Number, min: 0 },
     estimatedFare: { type: Number, required: true, min: 0 },
     finalFare: { type: Number, min: 0 },
     matchScore: { type: Number, default: 0, min: 0, max: 100 },

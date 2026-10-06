@@ -10,6 +10,7 @@ import {
   GeoPoint,
   FraudLevel,
 } from '../types';
+import { wasRecentlyClosed } from './ClosedPhone';
 
 // ─── Interface ───────────────────────────────────────────────────────────────
 
@@ -79,6 +80,12 @@ export interface IUser extends Document {
   isActive: boolean;
   /** Set when the user closed their own account; personal data is removed then */
   closedAt?: Date;
+  /**
+   * The new-user perks (a first-ride offer and the like) are spent. Set at
+   * sign-up when the number belonged to an account closed recently, so closing
+   * and joining again does not earn them twice; set by any perk that is used.
+   */
+  newUserPerksUsed?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -174,13 +181,20 @@ const UserStatsSchema = new Schema<IUserStats>(
     totalRidesAsRider: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
     totalSpent: { type: Number, default: 0 },
-    avgRatingAsDriver: { type: Number, default: 0 },
-    avgRatingAsRider: { type: Number, default: 0 },
+    // Scores that start at 5 (utils/ratingScore)
+    avgRatingAsDriver: { type: Number, default: 5 },
+    avgRatingAsRider: { type: Number, default: 5 },
     totalRatingsAsDriver: { type: Number, default: 0 },
     totalRatingsAsRider: { type: Number, default: 0 },
     /** From trip members after a group trip (UC-T02) */
-    avgRatingAsOrganizer: { type: Number, default: 0 },
+    avgRatingAsOrganizer: { type: Number, default: 5 },
     totalRatingsAsOrganizer: { type: Number, default: 0 },
+    // Sums of the ratings received. No default on purpose: Mongoose fills defaults
+    // when it loads a document, which would wipe the sum of an account rated before
+    // these existed (ratingSum() works it out from the average for those)
+    ratingSumAsDriver: { type: Number },
+    ratingSumAsRider: { type: Number },
+    ratingSumAsOrganizer: { type: Number },
     cancellationRate: { type: Number, default: 0 },
     acceptanceRate: { type: Number, default: 1 },
     co2SavedKg: { type: Number, default: 0 },
@@ -294,6 +308,7 @@ const UserSchema = new Schema<IUser>(
     },
     isActive: { type: Boolean, default: true },
     closedAt: Date,
+    newUserPerksUsed: Boolean,
   },
   {
     timestamps: true,
@@ -317,5 +332,12 @@ UserSchema.index({ 'vehicles.tracker.deviceId': 1 }, { unique: true, sparse: tru
 UserSchema.index({ 'work.email': 1 }, { unique: true, sparse: true });
 UserSchema.index({ 'work.organisation': 1 }, { sparse: true });
 UserSchema.index({ 'workPending.tokenHash': 1 }, { sparse: true });
+
+// Whoever signs up with the number of a recently closed account gets no new-user perks
+UserSchema.pre('save', async function () {
+  if (this.isNew && !this.newUserPerksUsed && (await wasRecentlyClosed(this.phone))) {
+    this.newUserPerksUsed = true;
+  }
+});
 
 export const User = mongoose.model<IUser>('User', UserSchema);

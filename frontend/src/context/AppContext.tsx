@@ -14,9 +14,8 @@ import React, {
   useEffect,
   type ReactNode,
 } from "react";
-import { useColorScheme } from "react-native";
+import { UnistylesRuntime } from "react-native-unistyles";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { type AppColors, LightColors, DarkColors } from "../theme";
 import {
   onAuthStateChanged,
   signOut as signOutFromFirebase,
@@ -28,8 +27,12 @@ import {
   firebaseLoginWithBackend,
 } from "../services/authService";
 import { env } from "../config/env";
+import { clearPlaceHistory } from "../services/placeHistoryService";
+import { clearSavedRoutes } from "../services/savedRouteService";
+import { clearProfileDraft } from "../utils/profileDraft";
 import { PolicyModal } from "../components/PolicyModal";
 import type { User as FirebaseUser } from "@react-native-firebase/auth";
+import { unregisterFromPush } from "../services/pushNotifications";
 import { logger } from "../utils/logger";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -47,7 +50,6 @@ export interface User {
 interface AppState {
   role: UserRole;
   user: User | null;
-  isDarkMode: boolean;
 }
 
 export type ActiveTab =
@@ -58,9 +60,10 @@ export type ActiveTab =
   | "earnings"
   | "profile";
 
+// The theme is not part of this context: Unistyles holds it, so a theme change
+// repaints natively instead of re-rendering every screen that reads the
+// context. Colours come from theme/themed (tc, tk, useColors, useIsDark).
 interface AppContextValue extends AppState {
-  /** Resolved colour tokens for current theme */
-  c: AppColors;
   activeTab: ActiveTab;
   /** The raw Firebase user (null if not signed in) */
   firebaseUser: FirebaseUser | null;
@@ -92,15 +95,9 @@ interface AppProviderProps {
 }
 
 export function AppProvider({ children }: AppProviderProps) {
-  const systemScheme = useColorScheme();
   const [role, setRoleState] = useState<UserRole>(null);
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
-  // null follows the phone's setting live; a boolean is the user's override
-  // from toggleDarkMode.
-  const [darkOverride, setDarkOverride] = useState<boolean | null>(null);
-  const systemDark = systemScheme === "dark";
-  const isDarkMode = darkOverride ?? systemDark;
 
   // Firebase auth state
   const [firebaseUser, setFirebaseUser] =
@@ -120,8 +117,10 @@ export function AppProvider({ children }: AppProviderProps) {
           setRoleState(savedRole[1]);
         }
 
+        // A saved choice pins the theme; without one it follows the phone
         if (savedTheme[1] === "true" || savedTheme[1] === "false") {
-          setDarkOverride(savedTheme[1] === "true");
+          UnistylesRuntime.setAdaptiveThemes(false);
+          UnistylesRuntime.setTheme(savedTheme[1] === "true" ? "dark" : "light");
         }
       } catch {
         // Ignore read errors — start with defaults
@@ -242,6 +241,8 @@ export function AppProvider({ children }: AppProviderProps) {
   }, []);
 
   const logout = useCallback(async () => {
+    // First, while the session can still tell the backend to stop pushing to this phone
+    await unregisterFromPush();
     try {
       await logoutAll();
     } catch (error) {
@@ -255,20 +256,27 @@ export function AppProvider({ children }: AppProviderProps) {
     AsyncStorage.removeItem("@poolora_role").catch(() => {});
     // The emergency contacts kept for texting them offline belong to this account
     AsyncStorage.removeItem("@poolora_sos_contacts").catch(() => {});
+    // So are the places, routes and half-filled profile, which would otherwise
+    // greet whoever signs in next on this phone
+    clearPlaceHistory().catch(() => {});
+    clearSavedRoutes().catch(() => {});
+    clearProfileDraft().catch(() => {});
   }, []);
 
   // Toggling back to the phone's own setting drops the override, so the app
   // follows the system again instead of staying pinned.
   const toggleDarkMode = useCallback(() => {
-    const next = !isDarkMode;
-    if (next === systemDark) {
-      setDarkOverride(null);
+    const next = UnistylesRuntime.themeName === "dark" ? "light" : "dark";
+    if (next === UnistylesRuntime.colorScheme) {
+      // Back to the phone's own setting: follow it again
+      UnistylesRuntime.setAdaptiveThemes(true);
       AsyncStorage.removeItem("@poolora_dark_mode").catch(() => {});
     } else {
-      setDarkOverride(next);
-      AsyncStorage.setItem("@poolora_dark_mode", String(next)).catch(() => {});
+      UnistylesRuntime.setAdaptiveThemes(false);
+      UnistylesRuntime.setTheme(next);
+      AsyncStorage.setItem("@poolora_dark_mode", String(next === "dark")).catch(() => {});
     }
-  }, [isDarkMode, systemDark]);
+  }, []);
 
   // The date of birth is the last field of profile setup, so it marks the
   // profile as done.
@@ -295,21 +303,13 @@ export function AppProvider({ children }: AppProviderProps) {
     setActiveTab("home");
   }, []);
 
-  // Memoised so components only re-render when theme actually changes
-  const c = useMemo<AppColors>(
-    () => (isDarkMode ? DarkColors : LightColors),
-    [isDarkMode],
-  );
-
   const value = useMemo<AppContextValue>(
     () => ({
       role,
       user,
-      isDarkMode,
       activeTab,
       firebaseUser,
       authLoading,
-      c,
       setRole,
       setUser,
       setActiveTab,
@@ -321,8 +321,6 @@ export function AppProvider({ children }: AppProviderProps) {
     [
       role,
       user,
-      isDarkMode,
-      c,
       activeTab,
       firebaseUser,
       authLoading,

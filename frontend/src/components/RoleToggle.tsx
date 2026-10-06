@@ -7,11 +7,11 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Animated,
 } from 'react-native';
+import { Text } from './Text';
 import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
 import { Typography, Radius, Shadow } from '../theme';

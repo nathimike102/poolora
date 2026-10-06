@@ -7,18 +7,19 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, Modal, TextInput, ActivityIndicator, Linking } from 'react-native';
+import { View, StyleSheet, Pressable, Alert, Modal, Linking } from 'react-native';
+import { ActivityIndicator } from './Themed';
+import { Text, TextInput } from './Text';
 
-import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
 import { parcelService, parcelStage, type Parcel } from '../services/parcelService';
 import { errorHandler } from '../utils/errorHandler';
 import { takeParcelPhoto } from '../utils/parcelPhoto';
 import { money } from '../utils/region';
 import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../theme/themed';
 
 export function RideParcels({ rideId }: { rideId: string }) {
-  const { c } = useApp();
   const { t } = useTranslation();
   const [parcels, setParcels] = useState<Parcel[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -84,60 +85,60 @@ export function RideParcels({ rideId }: { rideId: string }) {
   if (shown.length === 0) return null;
 
   return (
-    <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-      <Text style={[styles.title, { color: c.textSec }]}>{t('rideParcels.parcels')}</Text>
+    <View style={[styles.card, tc.backgroundColor_surface, tc.borderColor_border]}>
+      <Text style={[styles.title, tc.color_textSec]}>{t('rideParcels.parcels')}</Text>
       {shown.map((p, i) => {
         const stage = parcelStage(p);
         const pending = p.status === 'pending';
         const toPickUp = p.status === 'confirmed' && !p.actualPickupTime;
         const toDeliver = p.status === 'confirmed' && Boolean(p.actualPickupTime);
         return (
-          <View key={p._id} style={[styles.item, i > 0 && { borderTopWidth: 1, borderTopColor: c.border }]}>
+          <View key={p._id} style={[styles.item, i > 0 && [{ borderTopWidth: 1 }, tc.borderTopColor_border]]}>
             <View style={styles.itemHead}>
-              <Icon name="package-variant-closed" size={20} color={c.primary} />
+              <Icon name="package-variant-closed" size={20} color={tk.primary} />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
+                <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_text]}>
                   {t('rideParcels.summary', { weight: p.parcelWeight, type: t(`rideParcels.types.${p.parcelType}`, { defaultValue: p.parcelType }), amount: money(p.driverEarnings ?? Math.round(p.estimatedCost * 0.7)) })}
                 </Text>
-                <Text style={{ fontSize: 12, color: c.textSec }}>{stage.label}</Text>
+                <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{stage.label}</Text>
               </View>
             </View>
-            <Text style={{ fontSize: 13, color: c.text }}>
+            <Text style={[{ fontSize: 13 }, tc.color_text]}>
               From {p.pickupLocation.contactPerson}, {p.pickupLocation.address.split(',')[0]}
             </Text>
-            <Text style={{ fontSize: 13, color: c.text }}>
+            <Text style={[{ fontSize: 13 }, tc.color_text]}>
               To {p.deliveryLocation.contactPerson}, {p.deliveryLocation.address.split(',')[0]}
             </Text>
-            {p.specialInstructions ? <Text style={{ fontSize: 13, color: c.textSec, fontStyle: 'italic' }}>“{p.specialInstructions}”</Text> : null}
-            {busy === p._id ? <ActivityIndicator color={c.primary} /> : (
+            {p.specialInstructions ? <Text style={[{ fontSize: 13, fontStyle: 'italic' }, tc.color_textSec]}>“{p.specialInstructions}”</Text> : null}
+            {busy === p._id ? <ActivityIndicator color={tk.primary} /> : (
               <View style={styles.actions}>
                 {pending ? (
                   <>
-                    <Pressable onPress={() => act(p, () => parcelService.accept(p._id))} accessibilityRole="button" style={[styles.btn, { backgroundColor: c.primary }]}>
-                      <Text style={{ fontWeight: '700', color: c.textOnPrimary }}>{t('rideParcels.accept')}</Text>
+                    <Pressable onPress={() => act(p, () => parcelService.accept(p._id))} accessibilityRole="button" style={[styles.btn, tc.backgroundColor_primary]}>
+                      <Text style={[{ fontWeight: '700' }, tc.color_textOnPrimary]}>{t('rideParcels.accept')}</Text>
                     </Pressable>
-                    <Pressable onPress={() => decline(p)} accessibilityRole="button" style={[styles.btn, { borderWidth: 1, borderColor: c.border }]}>
-                      <Text style={{ fontWeight: '600', color: c.text }}>{t('rideParcels.decline')}</Text>
+                    <Pressable onPress={() => decline(p)} accessibilityRole="button" style={[styles.btn, { borderWidth: 1 }, tc.borderColor_border]}>
+                      <Text style={[{ fontWeight: '600' }, tc.color_text]}>{t('rideParcels.decline')}</Text>
                     </Pressable>
                   </>
                 ) : null}
                 {toPickUp ? (
                   <>
-                    <Pressable onPress={() => Linking.openURL(`tel:${p.pickupLocation.contactPhone}`)} accessibilityRole="button" accessibilityLabel={t('rideParcels.call', { name: p.pickupLocation.contactPerson })} style={[styles.btn, { borderWidth: 1, borderColor: c.border }]}>
-                      <Icon name="phone" size={16} color={c.text} />
+                    <Pressable onPress={() => Linking.openURL(`tel:${p.pickupLocation.contactPhone}`)} accessibilityRole="button" accessibilityLabel={t('rideParcels.call', { name: p.pickupLocation.contactPerson })} style={[styles.btn, { borderWidth: 1 }, tc.borderColor_border]}>
+                      <Icon name="phone" size={16} color={tk.text} />
                     </Pressable>
-                    <Pressable onPress={() => pickUp(p)} disabled={busy !== null} accessibilityRole="button" accessibilityHint={t('rideParcels.opensTheCameraToPhotograph')} style={[styles.btn, { backgroundColor: c.primary }]}>
-                      {busy === p._id ? <ActivityIndicator color={c.textOnPrimary} /> : <Text style={{ fontWeight: '700', color: c.textOnPrimary }}>{t('rideParcels.photoAndPickUp')}</Text>}
+                    <Pressable onPress={() => pickUp(p)} disabled={busy !== null} accessibilityRole="button" accessibilityHint={t('rideParcels.opensTheCameraToPhotograph')} style={[styles.btn, tc.backgroundColor_primary]}>
+                      {busy === p._id ? <ActivityIndicator color={tk.textOnPrimary} /> : <Text style={[{ fontWeight: '700' }, tc.color_textOnPrimary]}>{t('rideParcels.photoAndPickUp')}</Text>}
                     </Pressable>
                   </>
                 ) : null}
                 {toDeliver ? (
                   <>
-                    <Pressable onPress={() => Linking.openURL(`tel:${p.deliveryLocation.contactPhone}`)} accessibilityRole="button" accessibilityLabel={t('rideParcels.call', { name: p.deliveryLocation.contactPerson })} style={[styles.btn, { borderWidth: 1, borderColor: c.border }]}>
-                      <Icon name="phone" size={16} color={c.text} />
+                    <Pressable onPress={() => Linking.openURL(`tel:${p.deliveryLocation.contactPhone}`)} accessibilityRole="button" accessibilityLabel={t('rideParcels.call', { name: p.deliveryLocation.contactPerson })} style={[styles.btn, { borderWidth: 1 }, tc.borderColor_border]}>
+                      <Icon name="phone" size={16} color={tk.text} />
                     </Pressable>
-                    <Pressable onPress={() => { setReceivedBy(p.deliveryLocation.contactPerson); setDelivering(p); }} accessibilityRole="button" style={[styles.btn, { backgroundColor: c.primary }]}>
-                      <Text style={{ fontWeight: '700', color: c.textOnPrimary }}>{t('rideParcels.handOver')}</Text>
+                    <Pressable onPress={() => { setReceivedBy(p.deliveryLocation.contactPerson); setDelivering(p); }} accessibilityRole="button" style={[styles.btn, tc.backgroundColor_primary]}>
+                      <Text style={[{ fontWeight: '700' }, tc.color_textOnPrimary]}>{t('rideParcels.handOver')}</Text>
                     </Pressable>
                   </>
                 ) : null}
@@ -149,40 +150,55 @@ export function RideParcels({ rideId }: { rideId: string }) {
 
       <Modal visible={delivering !== null} transparent animationType="slide" onRequestClose={() => setDelivering(null)}>
         <View style={styles.backdrop}>
-          <View style={[styles.sheet, { backgroundColor: c.surface }]}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">{t('rideParcels.handOverTheParcel')}</Text>
-            <Text style={{ fontSize: 14, color: c.textSec }}>{t('rideParcels.photographTheParcelWithThe')}</Text>
-            <Pressable onPress={photographHandover} disabled={busy !== null} accessibilityRole="button" style={[styles.btn, { borderWidth: 1, borderColor: handoverPhoto ? c.success : c.primary }]}>
-              <Text style={{ fontWeight: '700', color: handoverPhoto ? c.success : c.primary }}>{handoverPhoto ? t('rideParcels.photoTaken') : t('rideParcels.takeTheHandoverPhoto')}</Text>
+          <View style={[styles.sheet, tc.backgroundColor_surface]}>
+            <Text style={[{ fontSize: 18, fontWeight: '700' }, tc.color_text]} accessibilityRole="header">{t('rideParcels.handOverTheParcel')}</Text>
+            <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('rideParcels.photographTheParcelWithThe')}</Text>
+            <Pressable onPress={photographHandover} disabled={busy !== null} accessibilityRole="button" style={[
+              styles.btn,
+              { borderWidth: 1 },
+              handoverPhoto ? tc.borderColor_success : tc.borderColor_primary
+            ]}>
+              <Text style={[{ fontWeight: '700' }, handoverPhoto ? tc.color_success : tc.color_primary]}>{handoverPhoto ? t('rideParcels.photoTaken') : t('rideParcels.takeTheHandoverPhoto')}</Text>
             </Pressable>
             <TextInput
               value={code}
               onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, 6))}
               keyboardType="number-pad"
               placeholder={t('rideParcels.deliveryCode')}
-              placeholderTextColor={c.textSec}
+              placeholderTextColor={tk.textSec}
               accessibilityLabel={t('rideParcels.deliveryCode')}
-              style={[styles.input, styles.codeInput, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+              style={[
+                styles.input,
+                styles.codeInput,
+                tc.borderColor_border,
+                tc.color_text,
+                tc.backgroundColor_surface
+              ]}
             />
             <TextInput
               value={receivedBy}
               onChangeText={setReceivedBy}
               placeholder={t('rideParcels.receivedBy')}
-              placeholderTextColor={c.textSec}
+              placeholderTextColor={tk.textSec}
               accessibilityLabel={t('rideParcels.nameOfThePersonReceiving')}
-              style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+              style={[
+                styles.input,
+                tc.borderColor_border,
+                tc.color_text,
+                tc.backgroundColor_surface
+              ]}
             />
             <View style={styles.actions}>
-              <Pressable onPress={() => { setDelivering(null); setHandoverPhoto(false); }} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1, borderColor: c.border }]}>
-                <Text style={{ color: c.text }}>{t('rideParcels.cancel')}</Text>
+              <Pressable onPress={() => { setDelivering(null); setHandoverPhoto(false); }} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1 }, tc.borderColor_border]}>
+                <Text style={tc.color_text}>{t('rideParcels.cancel')}</Text>
               </Pressable>
               <Pressable
                 onPress={deliver}
                 disabled={!handoverPhoto || code.length !== 6 || receivedBy.trim().length < 2 || busy !== null}
                 accessibilityRole="button"
-                style={[styles.btn, styles.grow, { backgroundColor: handoverPhoto && code.length === 6 && receivedBy.trim().length >= 2 ? c.primary : c.border }]}
+                style={[styles.btn, styles.grow, handoverPhoto && code.length === 6 && receivedBy.trim().length >= 2 ? tc.backgroundColor_primary : tc.backgroundColor_border]}
               >
-                {busy ? <ActivityIndicator color={c.textOnPrimary} /> : <Text style={{ fontWeight: '700', color: c.textOnPrimary }}>{t('rideParcels.confirmDelivery')}</Text>}
+                {busy ? <ActivityIndicator color={tk.textOnPrimary} /> : <Text style={[{ fontWeight: '700' }, tc.color_textOnPrimary]}>{t('rideParcels.confirmDelivery')}</Text>}
               </Pressable>
             </View>
           </View>

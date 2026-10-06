@@ -7,21 +7,21 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, TextInput } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { View, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import { userService } from '../../services/userService';
 import type { WorkStatus } from '../../types/api';
 import { errorHandler } from '../../utils/errorHandler';
 import { money, REGION } from '../../utils/region';
+import { tc, tk } from '../../theme/themed';
 
 export function WorkScreen() {
-  const navigation = useNavigation();
-  const { c } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<WorkStatus | null>(null);
@@ -78,30 +78,27 @@ export function WorkScreen() {
   const showForm = status && (!status.pending || changing) && !status.work;
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>{t('work.title')}</Text>
-      </View>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('work.title')} />
 
       <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
-        <Text style={{ fontSize: 14, color: c.textSec, lineHeight: 21 }}>{t('work.intro')}</Text>
-        {!status ? <ActivityIndicator color={c.primary} /> : null}
+        <Text style={[{ fontSize: 14, lineHeight: 21 }, tc.color_textSec]}>{t('work.intro')}</Text>
+        {!status ? <ActivityIndicator color={tk.primary} /> : null}
 
         {status?.work ? (
-          <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={[s.card, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]}>
             <View style={s.row}>
-              <Icon name="briefcase-check-outline" size={24} color={c.success} />
-              <Text style={[s.cardTitle, { color: c.text }]}>{t('work.memberTitle', { company: status.work.organisation.name })}</Text>
+              <Icon name="briefcase-check-outline" size={24} color={tk.success} />
+              <Text style={[s.cardTitle, tc.color_text]}>{t('work.memberTitle', { company: status.work.organisation.name })}</Text>
             </View>
-            <Text style={{ color: c.textSec }}>
+            <Text style={tc.color_textSec}>
               {t('work.memberBody', {
                 email: status.work.email,
                 date: new Date(status.work.since).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short', year: 'numeric' }),
               })}
             </Text>
             {status.work.contribution ? (
-              <Text style={{ color: c.text, lineHeight: 20 }}>
+              <Text style={[{ lineHeight: 20 }, tc.color_text]}>
                 {t('work.pays', {
                   company: status.work.organisation.name,
                   percent: status.work.contribution.sharePercent,
@@ -113,48 +110,48 @@ export function WorkScreen() {
                   : t('work.noCap')}
               </Text>
             ) : (
-              <Text style={{ color: c.textSec }}>{t('work.paysNothing', { company: status.work.organisation.name })}</Text>
+              <Text style={tc.color_textSec}>{t('work.paysNothing', { company: status.work.organisation.name })}</Text>
             )}
-            {status.work.organisation.contributionPaused ? <Text style={{ color: c.warning }}>{t('work.paused', { company: status.work.organisation.name })}</Text> : null}
-            {!status.work.organisation.active ? <Text style={{ color: c.warning }}>{t('work.suspended')}</Text> : null}
+            {status.work.organisation.contributionPaused ? <Text style={tc.color_warning}>{t('work.paused', { company: status.work.organisation.name })}</Text> : null}
+            {!status.work.organisation.active ? <Text style={tc.color_warning}>{t('work.suspended')}</Text> : null}
             <Pressable onPress={leave} disabled={busy} accessibilityRole="button" style={s.link}>
-              <Text style={{ color: c.error, fontWeight: '600' }}>{t('work.leave')}</Text>
+              <Text style={[{ fontWeight: '600' }, tc.color_error]}>{t('work.leave')}</Text>
             </Pressable>
           </View>
         ) : null}
 
         {status?.pending && !status.work && !changing ? (
-          <View style={[s.card, { backgroundColor: c.primaryLight, borderColor: c.primaryLight }]} accessibilityLiveRegion="polite">
+          <View style={[s.card, tc.backgroundColor_primaryLight, tc.borderColor_primaryLight]} accessibilityLiveRegion="polite">
             <View style={s.row}>
-              <Icon name="email-check-outline" size={24} color={c.primary} />
-              <Text style={[s.cardTitle, { color: c.text }]}>{t('work.sentTitle')}</Text>
+              <Icon name="email-check-outline" size={24} color={tk.primary} />
+              <Text style={[s.cardTitle, tc.color_text]}>{t('work.sentTitle')}</Text>
             </View>
-            <Text style={{ color: c.text, lineHeight: 20 }}>{t('work.sentBody', { email: status.pending.email })}</Text>
+            <Text style={[{ lineHeight: 20 }, tc.color_text]}>{t('work.sentBody', { email: status.pending.email })}</Text>
             <Pressable onPress={() => setChanging(true)} accessibilityRole="button" style={s.link}>
-              <Text style={{ color: c.primary, fontWeight: '600' }}>{t('work.sendAgain')}</Text>
+              <Text style={[{ fontWeight: '600' }, tc.color_primary]}>{t('work.sendAgain')}</Text>
             </Pressable>
           </View>
         ) : null}
 
         {showForm ? (
-          <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[s.cardTitle, { color: c.text }]}>{t('work.emailLabel')}</Text>
+          <View style={[s.card, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]}>
+            <Text style={[s.cardTitle, tc.color_text]}>{t('work.emailLabel')}</Text>
             <TextInput
               value={email}
               onChangeText={setEmail}
               placeholder={t('work.emailPlaceholder')}
-              placeholderTextColor={c.textSec}
+              placeholderTextColor={tk.textSec}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
               accessibilityLabel={t('work.emailLabel')}
-              style={[s.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+              style={[s.input, tc.borderColor_border, tc.color_text, tc.backgroundColor_surface]}
             />
             <Pressable
               onPress={send}
               disabled={!email.includes('@') || busy}
               accessibilityRole="button"
-              style={[s.submit, { backgroundColor: email.includes('@') ? c.primary : c.border }]}
+              style={[s.submit, email.includes('@') ? tc.backgroundColor_primary : tc.backgroundColor_border]}
             >
               {busy ? <ActivityIndicator color="white" /> : <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>{t('work.send')}</Text>}
             </Pressable>

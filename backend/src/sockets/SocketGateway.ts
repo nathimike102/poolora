@@ -15,7 +15,7 @@ import { logger } from '../utils/logger';
 import { EventBridge } from '../events';
 import { BookingStatus, RideStatus, UserCapability } from '../types';
 import { Ride, rideRoutePath } from '../models/Ride';
-import { nearestOnPath } from '../utils/routeGeometry';
+import { nearestOnPath, onPlannedDetour, type PlannedPoint } from '../utils/routeGeometry';
 import { phrase } from '../i18n';
 
 const minutes = (n: number) => `${n} min${n === 1 ? '' : 's'}`;
@@ -385,12 +385,14 @@ export class SocketGateway {
   }
 
   /** Planned routes by ride, so every position update does not reload the ride */
-  private routeCache = new Map<string, { path: Array<{ lat: number; lng: number }>; at: number }>();
+  private routeCache = new Map<string, { path: Array<{ lat: number; lng: number }>; points: PlannedPoint[]; at: number }>();
 
   /**
    * Alerts the rider, the driver and admins when the car is further than the
    * allowed distance from the planned route (UC-R05, default 500 m). At most
-   * one alert per booking every 5 minutes.
+   * one alert per booking every 5 minutes. Going to a point a confirmed rider
+   * chose off the route (their pickup, a stop they added, their drop) is part
+   * of the plan, not a deviation.
    */
   private async checkRouteDeviation(
     rideId: string,
@@ -407,13 +409,25 @@ export class SocketGateway {
       const path = ride.routeLine?.coordinates?.length
         ? ride.routeLine.coordinates.map(([lng, lat]) => ({ lat, lng }))
         : rideRoutePath(ride);
-      cached = { path, at: Date.now() };
+      // Riders board, stop and leave up to maxPickupDistanceFromRouteKm off the route
+      const bookings = await Booking.find({ ride: rideId, status: BookingStatus.CONFIRMED })
+        .select('pickup dropoff stops')
+        .lean();
+      const points: PlannedPoint[] = bookings
+        .flatMap((b) => [b.pickup, ...(b.stops ?? []), b.dropoff])
+        .filter((p) => p?.location?.coordinates?.length === 2)
+        .map((p) => {
+          const [lng, lat] = p.location.coordinates;
+          return { lat, lng, offRouteKm: path.length >= 2 ? nearestOnPath({ lat, lng }, path).distanceKm : 0 };
+        });
+      cached = { path, points, at: Date.now() };
       this.routeCache.set(rideId, cached);
     }
     if (cached.path.length < 2) return;
 
     const offMeters = nearestOnPath(position, cached.path).distanceKm * 1000;
     if (offMeters <= config.tracking.routeDeviationMeters) return;
+    if (onPlannedDetour(position, cached.points, config.tracking.routeDeviationMeters / 1000)) return;
 
     const key = `route:deviation:${bookingId}`;
     const redis = getRedisClient();

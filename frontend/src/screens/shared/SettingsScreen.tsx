@@ -1,29 +1,20 @@
 import React, { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Linking,
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  Modal,
-  Switch,
-  Alert,
-} from 'react-native';
+import { Linking, View, StyleSheet, ScrollView, Pressable, Modal, Alert } from 'react-native';
+import { ActivityIndicator, Switch } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path } from '../../components/ThemedSvg';
 
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import type { RootStackParamList } from '../../navigation/types';
 import { userService } from '../../services/userService';
 import { walletService } from '../../services/walletService';
 import { simulationService } from '../../services/simulationService';
 import * as Location from 'expo-location';
+import { quickFix } from '../../utils/position';
 import { errorHandler } from '../../utils/errorHandler';
 import { COMPANY } from '../../config/company';
 import type { User } from '../../types/api';
@@ -32,6 +23,8 @@ import { displayPhone } from '../../utils/phone';
 import { money } from '../../utils/region';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, offeredLanguages, type LanguageCode } from '../../i18n/languages';
+
+import { tc, tk, useIsDark } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -46,29 +39,28 @@ const IC_BELL = 'M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64
 const IC_HELP = 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z';
 const IC_CHECK_CIRCLE = 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z';
 const IC_LOGOUT = 'M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z';
+const IC_DELETE = 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z';
 const IC_CHEVRON = 'M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z';
 const IC_PLAY = 'M8 5v14l11-7z';
 const IC_CLOSE = 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z';
 
 /* ── Sub-components ──────────────────────────────────────── */
+const DANGER = '#B42318';
+
 function SettingsRow({
-  iconBg,
   iconPath,
   iconColor,
   label,
   value,
   onPress,
   rightEl,
-  c,
 }: {
-  iconBg: string;
   iconPath: string;
   iconColor: string;
   label: string;
   value?: string;
   onPress?: () => void;
   rightEl?: React.ReactNode;
-  c: ReturnType<typeof useApp>['c'];
 }) {
   return (
     <Pressable
@@ -77,44 +69,55 @@ function SettingsRow({
       accessibilityRole={onPress ? 'button' : undefined}
       style={st.row}
     >
-      <View style={[st.rowIcon, { backgroundColor: iconBg }]}>
-        <Svg width={18} height={18} viewBox="0 0 24 24">
-          <Path d={iconPath} fill={iconColor} />
+      {/* Plain line icons, as in Uber's settings; only red rows (log out,
+          delete, emergency) keep their colour */}
+      <View style={st.rowIcon}>
+        <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Path d={iconPath} fill={iconColor === DANGER ? tk.error : tk.text} />
         </Svg>
       </View>
-      <Text style={[st.rowLabel, { color: c.text }]}>{label}</Text>
-      {!!value && <Text style={{ fontSize: 14, fontWeight: '500', color: c.textSec, marginRight: 4 }}>{value}</Text>}
+      <Text style={[st.rowLabel, tc.color_text]}>{label}</Text>
+      {!!value && <Text style={[{ fontSize: 14, fontWeight: '500', marginRight: 4 }, tc.color_textSec]}>{value}</Text>}
       {rightEl ?? (onPress && (
         <Svg width={16} height={16} viewBox="0 0 24 24">
-          <Path d={IC_CHEVRON} fill={c.textSec} />
+          <Path d={IC_CHEVRON} fill={tk.textSec} />
         </Svg>
       ))}
     </Pressable>
   );
 }
 
-function Section({ title, children, c }: { title: string; children: React.ReactNode; c: ReturnType<typeof useApp>['c'] }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={st.section}>
-      <Text style={[st.sectionTitle, { color: c.textSec }]}>{title}</Text>
-      <View style={[st.sectionCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <Text style={[st.sectionTitle, tc.color_textSec]}>{title}</Text>
+      <View style={[
+        st.sectionCard,
+        tc.backgroundColor_surfaceVariant,
+        tc.borderColor_surfaceVariant
+      ]}>
         {children}
       </View>
     </View>
   );
 }
 
-function Divider({ c }: { c: ReturnType<typeof useApp>['c'] }) {
-  return <View style={[st.divider, { backgroundColor: c.border }]} />;
+/** Follows the theme by itself, so the screen around it doesn't re-render */
+function DarkModeSwitch({ onToggle }: { onToggle: () => void }) {
+  const isDark = useIsDark();
+  return <Switch value={isDark} onValueChange={onToggle} trackColor={{ false: '#D1D5DB', true: tk.primary }} thumbColor="white" />;
+}
+
+function Divider() {
+  return <View style={[st.divider, tc.backgroundColor_border]} />;
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
 export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
-  const { c, role, isDarkMode, toggleDarkMode, switchRole, logout } = useApp();
+  const { role, toggleDarkMode, switchRole, logout } = useApp();
   const insets = useSafeAreaInsets();
   const isDriver = role === 'driver';
-  const darkMode = isDarkMode;
   const { t, i18n } = useTranslation();
   // Hidden while English is the only reviewed language: nothing to choose
   const languages = offeredLanguages();
@@ -186,8 +189,7 @@ export function SettingsScreen() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
-          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          near = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          near = (await quickFix()) ?? undefined;
         }
       } catch {
         // The server starts the ride at the market's centre instead
@@ -239,39 +241,35 @@ export function SettingsScreen() {
   };
 
   return (
-    <View style={[st.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[st.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {/* ── Header ──────────────────────────────────────────── */}
-      <View style={[st.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={{ fontSize: 20, fontWeight: '800', color: c.text }}>{t('settings.settings')}</Text>
-      </View>
+      <ScreenHeader title={t('settings.settings')} />
 
       {/* ── Body ────────────────────────────────────────────── */}
       <ScrollView style={st.flex1} contentContainerStyle={st.scrollBody} showsVerticalScrollIndicator={false}>
         {/* ACCOUNT */}
-        <Section title={t('settings.account')} c={c}>
-          <SettingsRow c={c} iconBg="#E8EEF9" iconColor="#2B6CC4" iconPath={IC_EDIT} label={t('settings.editProfile')} onPress={openEditProfile} />
-          <Divider c={c} />
-          <SettingsRow c={c} iconBg="#E3F2F1" iconColor="#0B7A75" iconPath={IC_PEOPLE} label={isDriver ? t('settings.switchToRider') : t('settings.switchToDriver')} onPress={switchRole} />
+        <Section title={t('settings.account')}>
+          <SettingsRow iconColor="#2B6CC4" iconPath={IC_EDIT} label={t('settings.editProfile')} onPress={openEditProfile} />
+          <Divider />
+          <SettingsRow iconColor="#0B7A75" iconPath={IC_PEOPLE} label={isDriver ? t('settings.switchToRider') : t('settings.switchToDriver')} onPress={switchRole} />
         </Section>
 
         {profile?.capabilities?.includes('admin') && (
-          <Section title={t('settings.admin')} c={c}>
-            <SettingsRow c={c} iconBg="#E8EEF9" iconColor="#2B6CC4" iconPath={IC_SHIELD} label={t('settings.adminTools')} onPress={() => navigation.navigate('AdminDashboard')} />
+          <Section title={t('settings.admin')}>
+            <SettingsRow iconColor="#2B6CC4" iconPath={IC_SHIELD} label={t('settings.adminTools')} onPress={() => navigation.navigate('AdminDashboard')} />
           </Section>
         )}
 
         {/* WALLET */}
-        <Section title={t('settings.wallet')} c={c}>
+        <Section title={t('settings.wallet')}>
           <SettingsRow
-            c={c}
-            iconBg="#FFFBEB"
+           
             iconColor="#8A5A00"
             iconPath={IC_WALLET}
             label={t('settings.wallet2')}
             onPress={() => navigation.navigate('Wallet')}
             rightEl={
-              <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>
+              <Text style={[{ fontSize: 15, fontWeight: '600' }, tc.color_text]}>
                 {walletBalance === null ? t('common.unavailable') : `${money(walletBalance)}`}
               </Text>
             }
@@ -279,26 +277,24 @@ export function SettingsScreen() {
         </Section>
 
         {/* SAFETY */}
-        <Section title={t('settings.safety')} c={c}>
-          <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_SHIELD} label={t('settings.emergencyContacts')} onPress={() => navigation.navigate('EmergencyContacts')} />
+        <Section title={t('settings.safety')}>
+          <SettingsRow iconColor="#B42318" iconPath={IC_SHIELD} label={t('settings.emergencyContacts')} onPress={() => navigation.navigate('EmergencyContacts')} />
         </Section>
 
         {/* TESTING (development servers only) */}
         {simulationEnabled && (
-          <Section title={t('settings.testing')} c={c}>
+          <Section title={t('settings.testing')}>
             <SettingsRow
-              c={c}
-              iconBg="#E3F2F1"
+             
               iconColor="#0B7A75"
               iconPath={IC_PLAY}
               label={t('settings.simulateARideAsRider')}
               value={simulatingAs === 'rider' ? 'Starting…' : undefined}
               onPress={simulatingAs ? undefined : () => simulate('rider')}
             />
-            <Divider c={c} />
+            <Divider />
             <SettingsRow
-              c={c}
-              iconBg="#E8EEF9"
+             
               iconColor="#2B6CC4"
               iconPath={IC_PLAY}
               label={t('settings.simulateARideAsDriver')}
@@ -309,22 +305,19 @@ export function SettingsScreen() {
         )}
 
         {/* PREFERENCES */}
-        <Section title={t('settings.preferences')} c={c}>
+        <Section title={t('settings.preferences')}>
           <SettingsRow
-            c={c}
-            iconBg={darkMode ? '#10302E' : '#E3F2F1'}
-            iconColor={darkMode ? '#5CC5BE' : '#0B7A75'}
+            iconColor="#0B7A75"
             iconPath={IC_MOON}
             label={t('settings.darkMode')}
             onPress={toggleDarkMode}
-            rightEl={<Switch value={darkMode} onValueChange={toggleDarkMode} trackColor={{ false: '#D1D5DB', true: c.primary }} thumbColor="white" />}
+            rightEl={<DarkModeSwitch onToggle={toggleDarkMode} />}
           />
           {languages.length > 1 ? (
             <>
-              <Divider c={c} />
+              <Divider />
               <SettingsRow
-                c={c}
-                iconBg="#EEF2FF"
+               
                 iconColor="#3730A3"
                 iconPath={IC_GLOBE}
                 label={t('language.title')}
@@ -333,34 +326,32 @@ export function SettingsScreen() {
               />
             </>
           ) : null}
-          <Divider c={c} />
-          <SettingsRow c={c} iconBg="#FFFBEB" iconColor="#8A5A00" iconPath={IC_BELL} label={t('settings.notifications')} onPress={() => navigation.navigate('Notifications')} />
+          <Divider />
+          <SettingsRow iconColor="#8A5A00" iconPath={IC_BELL} label={t('settings.notifications')} onPress={() => navigation.navigate('Notifications')} />
         </Section>
 
         {/* ABOUT */}
-        <Section title={t('settings.about')} c={c}>
-          <SettingsRow c={c} iconBg="#F3F4F6" iconColor="#4B5563" iconPath={IC_HELP} label={t('settings.privacyPolicy')} onPress={() => Linking.openURL(COMPANY.privacyUrl)} />
-          <Divider c={c} />
-          <SettingsRow c={c} iconBg="#F3F4F6" iconColor="#4B5563" iconPath={IC_HELP} label={t('settings.termsOfService')} onPress={() => Linking.openURL(COMPANY.termsUrl)} />
-          <Divider c={c} />
+        <Section title={t('settings.about')}>
+          <SettingsRow iconColor="#4B5563" iconPath={IC_HELP} label={t('settings.privacyPolicy')} onPress={() => Linking.openURL(COMPANY.privacyUrl)} />
+          <Divider />
+          <SettingsRow iconColor="#4B5563" iconPath={IC_HELP} label={t('settings.termsOfService')} onPress={() => Linking.openURL(COMPANY.termsUrl)} />
+          <Divider />
           <SettingsRow
-            c={c}
-            iconBg="#F0FDF4"
+           
             iconColor="#1B7F3B"
             iconPath={IC_CHECK_CIRCLE}
             label={t('settings.appVersion')}
-            rightEl={<Text style={{ fontSize: 13, color: c.textSec }}>{Constants.expoConfig?.version ?? ''}</Text>}
+            rightEl={<Text style={[{ fontSize: 13 }, tc.color_textSec]}>{Constants.expoConfig?.version ?? ''}</Text>}
           />
-          <Divider c={c} />
-          <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_LOGOUT} label={t('settings.logOut')} onPress={() => logout()} />
-          <Divider c={c} />
+          <Divider />
+          <SettingsRow iconColor="#B42318" iconPath={IC_LOGOUT} label={t('settings.logOut')} onPress={() => logout()} />
+          <Divider />
           <SettingsRow
-            c={c}
-            iconBg="#FEF2F2"
+           
             iconColor="#B42318"
-            iconPath={IC_LOGOUT}
+            iconPath={IC_DELETE}
             label={t('settings.closeAccount')}
-            rightEl={closing ? <ActivityIndicator size="small" color={c.textSec} /> : undefined}
+            rightEl={closing ? <ActivityIndicator size="small" color={tk.textSec} /> : undefined}
             onPress={closeAccount}
           />
         </Section>
@@ -369,20 +360,20 @@ export function SettingsScreen() {
       {/* ── Edit Profile Modal ────────────────────────────────── */}
       <Modal visible={showEditProfile} transparent animationType="slide" onRequestClose={() => setShowEditProfile(false)}>
         <Pressable accessibilityRole="button" style={st.overlay} onPress={() => setShowEditProfile(false)} />
-        <View style={[st.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom }]}>
-          <View style={[st.sheetHandle, { backgroundColor: c.border }]} />
+        <View style={[st.sheet, { paddingBottom: insets.bottom }, tc.backgroundColor_surface]}>
+          <View style={[st.sheetHandle, tc.backgroundColor_border]} />
 
           {/* Title row */}
-          <View style={[st.sheetTitleRow, { borderBottomColor: c.border }]}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }} accessibilityRole="header">{t('settings.editProfile')}</Text>
+          <View style={[st.sheetTitleRow, tc.borderBottomColor_border]}>
+            <Text style={[{ fontSize: 18, fontWeight: '800' }, tc.color_text]} accessibilityRole="header">{t('settings.editProfile')}</Text>
             <Pressable
               onPress={() => setShowEditProfile(false)}
-              style={[st.closeBtn, { backgroundColor: c.bg }]}
+              style={[st.closeBtn, tc.backgroundColor_surfaceVariant]}
               accessibilityRole="button"
               accessibilityLabel={t('settings.close')}
             >
               <Svg width={14} height={14} viewBox="0 0 24 24">
-                <Path d={IC_CLOSE} fill={c.textSec} />
+                <Path d={IC_CLOSE} fill={tk.textSec} />
               </Svg>
             </Pressable>
           </View>
@@ -394,7 +385,7 @@ export function SettingsScreen() {
               { label: t('settings.emailOptional'), value: profileEmail, setter: setProfileEmail, kb: 'email-address' as const, ac: 'email' as const },
             ]).map(f => (
               <View key={f.label}>
-                <Text style={[st.fieldLabel, { color: c.textSec }]}>{f.label}</Text>
+                <Text style={[st.fieldLabel, tc.color_textSec]}>{f.label}</Text>
                 <TextInput
                   value={f.value}
                   onChangeText={f.setter}
@@ -402,33 +393,38 @@ export function SettingsScreen() {
                   autoComplete={f.ac}
                   autoCapitalize={f.kb === 'email-address' ? 'none' : 'words'}
                   accessibilityLabel={f.label}
-                  style={[st.fieldInput, { borderColor: c.border, backgroundColor: c.bg, color: c.text }]}
+                  style={[
+                    st.fieldInput,
+                    tc.borderColor_surfaceVariant,
+                    tc.backgroundColor_surfaceVariant,
+                    tc.color_text
+                  ]}
                 />
               </View>
             ))}
             <View>
-              <Text style={[st.fieldLabel, { color: c.textSec }]}>{t('settings.phoneNumber')}</Text>
-              <Text style={{ fontSize: 15, color: c.text }}>{displayPhone(profile?.phone) ?? t('settings.notAdded')}</Text>
-              <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
+              <Text style={[st.fieldLabel, tc.color_textSec]}>{t('settings.phoneNumber')}</Text>
+              <Text style={[{ fontSize: 15 }, tc.color_text]}>{displayPhone(profile?.phone) ?? t('settings.notAdded')}</Text>
+              <Text style={[{ fontSize: 12, marginTop: 2 }, tc.color_textSec]}>
                 {t('settings.yourPhoneNumberIsVerified')}
               </Text>
             </View>
             {saveError ? (
-              <Text style={{ fontSize: 13, color: c.error }} accessibilityLiveRegion="polite">{saveError}</Text>
+              <Text style={[{ fontSize: 13 }, tc.color_error]} accessibilityLiveRegion="polite">{saveError}</Text>
             ) : null}
 
             {/* Save */}
             <Pressable
               onPress={handleSaveProfile}
               disabled={saving}
-              style={[st.saveBtnWrap, st.saveBtn, { backgroundColor: c.primary }]}
+              style={[st.saveBtnWrap, st.saveBtn, tc.backgroundColor_primary]}
               accessibilityRole="button"
               accessibilityState={{ busy: saving }}
             >
               {saving ? (
-                <ActivityIndicator color={c.textOnPrimary} />
+                <ActivityIndicator color={tk.textOnPrimary} />
               ) : (
-                <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>{t('settings.saveChanges')}</Text>
+                <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_textOnPrimary]}>{t('settings.saveChanges')}</Text>
               )}
             </Pressable>
           </View>

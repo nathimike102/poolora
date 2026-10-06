@@ -27,7 +27,7 @@
  * │  │   │   ├── Requests → ManageRequestsScreen            │
  * │  │   │   ├── Earnings → EarningsScreen                  │
  * │  │   │   ├── Chat  → ChatListScreen                     │
- * │  │   │   └── Profile → DriverProfileScreen              │
+ * │  │   │   └── Profile → ProfileScreen (driver view)      │
  * │  │   │                                                  │
  * │  │   ├── Search, RideResults, Booking, ActiveRide ...   │
  * │  │   ├── CreateRide, KYC ...                            │
@@ -42,7 +42,9 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
+import { ActiveSosBanner } from "../components/ActiveSosBanner";
+import { registerForPush } from "../services/pushNotifications";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -84,11 +86,11 @@ import { CreateRideScreen } from "../screens/driver/CreateRideScreen";
 import { ManageRequestsScreen } from "../screens/driver/ManageRequestsScreen";
 import { EarningsScreen } from "../screens/driver/EarningsScreen";
 import { KYCScreen } from "../screens/driver/KYCScreen";
-import { DriverProfileScreen } from "../screens/driver/DriverProfileScreen";
 import { UpcomingRidesScreen } from "../screens/driver/UpcomingRidesScreen";
 import { DriverRideDetailsScreen } from "../screens/driver/DriverRideDetailsScreen";
 import { EditRideScreen } from "../screens/driver/EditRideScreen";
 import { ReceiptScreen } from "../screens/rider/ReceiptScreen";
+import { ReceiptsScreen } from "../screens/rider/ReceiptsScreen";
 import { RaiseDisputeScreen } from "../screens/shared/RaiseDisputeScreen";
 import { RateTripScreen } from "../screens/shared/RateTripScreen";
 import { HelpScreen } from "../screens/shared/HelpScreen";
@@ -128,6 +130,8 @@ import { AdminIncidentsScreen } from "../screens/admin/AdminIncidentsScreen";
 import { AdminMetricsScreen } from "../screens/admin/AdminMetricsScreen";
 import { AdminVerificationsScreen } from "../screens/admin/AdminVerificationsScreen";
 
+import { tc } from '../theme/themed';
+
 // ─── Navigator instances ──────────────────────────────────────────────────────
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -141,21 +145,26 @@ const DriverTab = createBottomTabNavigator<DriverTabParamList>();
  * FULL_BLEED.
  */
 function useStackContentStyle() {
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
-  return { backgroundColor: c.bg, paddingBottom: insets.bottom };
+  return [{ paddingBottom: insets.bottom }, tc.backgroundColor_surface];
 }
 
 const FULL_BLEED = { contentStyle: { paddingBottom: 0 } } as const;
 
 // ─── Bottom Tab Navigators ────────────────────────────────────────────────────
 
+// Tabs out of view don't re-render until they're opened again, so a change
+// that touches every screen (the theme, the language) only redraws the one in
+// view. Only tabs: none runs live safety work, which lives in stack screens
+// (ActiveRide, SOS) that must keep updating behind whatever is on top.
+const TAB_OPTIONS = { headerShown: false, freezeOnBlur: true } as const;
+
 function RiderTabs() {
   const { t } = useTranslation();
   return (
     <RiderTab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      screenOptions={TAB_OPTIONS}
     >
       <RiderTab.Screen
         name="RiderHome"
@@ -186,7 +195,7 @@ function DriverTabs() {
   return (
     <DriverTab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      screenOptions={TAB_OPTIONS}
     >
       <DriverTab.Screen
         name="DriverHome"
@@ -210,7 +219,7 @@ function DriverTabs() {
       />
       <DriverTab.Screen
         name="DriverProfile"
-        component={DriverProfileScreen}
+        component={ProfileScreen}
         options={{ title: t('tabs.profile') }}
       />
     </DriverTab.Navigator>
@@ -278,6 +287,7 @@ function AppNavigatorStack() {
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="Wallet" component={WalletScreen} />
       <Stack.Screen name="Receipt" component={ReceiptScreen} />
+      <Stack.Screen name="Receipts" component={ReceiptsScreen} />
       <Stack.Screen name="RaiseDispute" component={RaiseDisputeScreen} />
       <Stack.Screen name="RateTrip" component={RateTripScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
@@ -327,9 +337,9 @@ function AppNavigatorStack() {
       <Stack.Screen name="MapPicker" component={MapPickerScreen} options={FULL_BLEED} />
 
       {/* ── Admin (the backend enforces admin capability on every call) ── */}
-      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ headerShown: true, title: 'Admin' }} />
-      <Stack.Screen name="AdminIncidents" component={AdminIncidentsScreen} options={{ headerShown: true, title: 'Safety incidents' }} />
-      <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ headerShown: true, title: 'System metrics' }} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+      <Stack.Screen name="AdminIncidents" component={AdminIncidentsScreen} />
+      <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} />
       <Stack.Screen name="AdminVerifications" component={AdminVerificationsScreen} />
     </Stack.Navigator>
   );
@@ -342,8 +352,13 @@ function AppealRoute() {
   return <AppealScreen />;
 }
 
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
 export function AppNavigator() {
   const { role, logout } = useApp();
+  // For the SOS bar, which hides on the SOS screen itself
+  const [currentRoute, setCurrentRoute] = useState<string | undefined>();
+  const trackRoute = () => setCurrentRoute(navigationRef.getCurrentRoute()?.name);
   // Set when the server says this account is blocked or merged (UC-A05)
   const [restriction, setRestriction] = useState<AccountRestriction | null>(null);
 
@@ -353,16 +368,20 @@ export function AppNavigator() {
   }, []);
   useEffect(() => {
     if (role === null) setRestriction(null);
+    // Signed in: this phone gets the account's push notifications
+    else registerForPush();
   }, [role]);
 
   return (
-    <NavigationContainer key={role ?? "auth"}>
+    <NavigationContainer key={role ?? "auth"} ref={navigationRef} onReady={trackRoute} onStateChange={trackRoute}>
       {role === null ? (
         <AuthNavigator />
       ) : restriction ? (
         <AppealScreen restriction={restriction} onSignOut={() => { setRestriction(null); logout(); }} />
       ) : (
-        <AppNavigatorStack />
+        <ActiveSosBanner navigationRef={navigationRef} currentRoute={currentRoute}>
+          <AppNavigatorStack />
+        </ActiveSosBanner>
       )}
     </NavigationContainer>
   );

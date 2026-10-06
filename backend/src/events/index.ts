@@ -320,7 +320,7 @@ export class EventBridge {
       logger.info('Booking event', { type: event.eventType });
       const { NotificationService } = await import('../services/NotificationService');
       const notificationService = new NotificationService();
-      const data = event.data as { riderId?: string; driverId?: string; bookingId?: string; status?: string };
+      const data = event.data as { riderId?: string; driverId?: string; bookingId?: string; status?: string; stopCount?: number };
 
       if (event.eventType === 'booking.created' && data.driverId) {
         await notificationService.sendPushNotification(
@@ -332,7 +332,8 @@ export class EventBridge {
         await notificationService.createNotification(
           data.driverId,
           phrase('booking.requested.title'),
-          phrase('booking.requested.body'),
+          // Stops are part of what the driver accepts, so the request says so up front
+          data.stopCount ? phrase('booking.requested.bodyWithStops', { count: data.stopCount }) : phrase('booking.requested.body'),
           'ride',
           { bookingId: data.bookingId ?? '' },
         );

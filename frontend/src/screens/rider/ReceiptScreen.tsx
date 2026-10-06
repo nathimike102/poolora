@@ -7,13 +7,14 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Share } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert, Share } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text } from '../../components/Text';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import type { RootStackParamList } from '../../navigation/types';
 import { bookingService } from '../../services/bookingService';
@@ -22,13 +23,13 @@ import { errorHandler } from '../../utils/errorHandler';
 import { money, REGION } from '../../utils/region';
 import { formatKg } from '../../utils/carbon';
 import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
 
 
 export function ReceiptScreen() {
   const { bookingId } = useRoute<RouteProp<RootStackParamList, 'Receipt'>>().params;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { c } = useApp();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [data, setData] = useState<{ receipt: Receipt; text: string } | null>(null);
@@ -57,41 +58,45 @@ export function ReceiptScreen() {
   const r = data?.receipt;
   const row = (label: string, value: string, strong = false) => (
     <View style={styles.row} key={label}>
-      <Text style={{ fontSize: 14, color: c.textSec, flex: 1 }}>{label}</Text>
-      <Text style={{ fontSize: strong ? 17 : 14, fontWeight: strong ? '800' : '600', color: c.text }}>{value}</Text>
+      <Text style={[{ fontSize: 14, flex: 1 }, tc.color_textSec]}>{label}</Text>
+      <Text style={[{ fontSize: strong ? 17 : 14, fontWeight: strong ? '800' : '600' }, tc.color_text]}>{value}</Text>
     </View>
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('receipt.receipt')}</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('receipt.receipt')} />
       {!r ? (
         <View style={styles.center}>
-          {error ? <Text style={{ color: c.textSec, textAlign: 'center', padding: 24 }}>{error}</Text> : <ActivityIndicator color={c.primary} accessibilityLabel={t('receipt.loadingReceipt')} />}
+          {error ? <Text style={[{ textAlign: 'center', padding: 24 }, tc.color_textSec]}>{error}</Text> : <ActivityIndicator color={tk.primary} accessibilityLabel={t('receipt.loadingReceipt')} />}
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: c.textSec }}>{r.receiptNumber} · {t(`receipt.status.${r.status}`)}</Text>
-            <Text style={{ fontSize: 17, fontWeight: '700', color: c.text, marginTop: 6 }}>{r.trip.from}</Text>
-            <Text style={{ fontSize: 13, color: c.textSec, marginVertical: 2 }}>{t('receipt.to')}</Text>
-            <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{r.trip.to}</Text>
-            <Text style={{ fontSize: 13, color: c.textSec, marginTop: 8 }}>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[{ fontSize: 12, fontWeight: '600' }, tc.color_textSec]}>{r.receiptNumber} · {t(`receipt.status.${r.status}`)}</Text>
+            <Text style={[{ fontSize: 17, fontWeight: '700', marginTop: 6 }, tc.color_text]}>{r.trip.from}</Text>
+            <Text style={[{ fontSize: 13, marginVertical: 2 }, tc.color_textSec]}>{t('receipt.to')}</Text>
+            <Text style={[{ fontSize: 17, fontWeight: '700' }, tc.color_text]}>{r.trip.to}</Text>
+            <Text style={[{ fontSize: 13, marginTop: 8 }, tc.color_textSec]}>
               {new Date(r.trip.departure).toLocaleString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
               {' · '}{t('receipt.driver', { name: r.driver.name })}{r.driver.vehicle ? ` · ${r.driver.vehicle}` : ''}
             </Text>
           </View>
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
             {row(t('receipt.seats'), `${r.trip.seats} × ${money(r.pricePerSeat)}`)}
             {row(t('receipt.fare'), money(r.fare))}
             {r.serviceFee ? row(t('receipt.serviceFee'), money(r.serviceFee)) : null}
             {r.companyPaid ? row(t('receipt.companyPaid', { company: r.company ?? t('receipt.yourCompany') }), `− ${money(r.companyPaid)}`) : null}
             {r.refunded ? row(t('receipt.refunded'), `− ${money(r.refunded)}`) : null}
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
+            <View style={[styles.divider, tc.backgroundColor_border]} />
             {row(t('receipt.totalPaid'), money(r.paid), true)}
             {row(t('receipt.paidBy'), r.paymentMethod)}
           </View>
@@ -100,33 +105,38 @@ export function ReceiptScreen() {
               onPress={() => navigation.navigate('Impact')}
               accessibilityRole="button"
               accessibilityLabel={t('receipt.savedLabel', { amount: formatKg(r.co2SavedKg) })}
-              style={[styles.card, { backgroundColor: c.successLight, borderColor: c.successLight, flexDirection: 'row', alignItems: 'center', gap: 10 }]}
+              style={[
+                styles.card,
+                { flexDirection: 'row', alignItems: 'center', gap: 10 },
+                tc.backgroundColor_successLight,
+                tc.borderColor_successLight
+              ]}
             >
-              <Icon name="leaf" size={22} color={c.success} />
-              <Text style={{ flex: 1, color: c.text }}>{t('receipt.saved', { amount: formatKg(r.co2SavedKg) })}</Text>
-              <Icon name="chevron-right" size={20} color={c.textSec} />
+              <Icon name="leaf" size={22} color={tk.success} />
+              <Text style={[{ flex: 1 }, tc.color_text]}>{t('receipt.saved', { amount: formatKg(r.co2SavedKg) })}</Text>
+              <Icon name="chevron-right" size={20} color={tk.textSec} />
             </Pressable>
           ) : null}
           {r.status === 'no_show' ? (
-            <Text style={{ fontSize: 13, color: c.textSec }}>
+            <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
               {t('receipt.theDriverWaitedAtThe')}
             </Text>
           ) : null}
-          <Pressable onPress={email} disabled={emailing} accessibilityRole="button" style={[styles.action, { backgroundColor: c.primary }]}>
-            {emailing ? <ActivityIndicator color={c.textOnPrimary} /> : (
+          <Pressable onPress={email} disabled={emailing} accessibilityRole="button" style={[styles.action, tc.backgroundColor_primary]}>
+            {emailing ? <ActivityIndicator color={tk.textOnPrimary} /> : (
               <>
-                <Icon name="email-outline" size={18} color={c.textOnPrimary} />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>{t('receipt.emailMeACopy')}</Text>
+                <Icon name="email-outline" size={18} color={tk.textOnPrimary} />
+                <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_textOnPrimary]}>{t('receipt.emailMeACopy')}</Text>
               </>
             )}
           </Pressable>
           <Pressable
             onPress={() => data && Share.share({ message: data.text })}
             accessibilityRole="button"
-            style={[styles.action, { borderWidth: 1.5, borderColor: c.border }]}
+            style={[styles.action, { borderWidth: 1.5 }, tc.borderColor_border]}
           >
-            <Icon name="share-variant" size={18} color={c.text} />
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{t('receipt.share')}</Text>
+            <Icon name="share-variant" size={18} color={tk.text} />
+            <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_text]}>{t('receipt.share')}</Text>
           </Pressable>
         </ScrollView>
       )}

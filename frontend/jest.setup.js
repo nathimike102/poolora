@@ -1,3 +1,8 @@
+// Unistyles' own Jest mocks, then the app's themes (theme/tc.ts reads them
+// when its styles are created)
+require('react-native-unistyles/mocks');
+require('./src/theme/unistyles');
+
 // jest.setup.js
 
 // Mock reanimated
@@ -94,6 +99,7 @@ jest.mock('react-native-safe-area-context', () => {
     SafeAreaView: ({ children }) => children,
     useSafeAreaInsets: () => inset,
     SafeAreaContext: mockContext,
+    SafeAreaInsetsContext: mockContext,
     SafeAreaConsumer: mockContext.Consumer,
   };
 });
@@ -154,8 +160,7 @@ jest.mock('./src/context/AppContext', () => ({
     switchRole: jest.fn(),
     setRole: jest.fn(),
     finishSignIn: jest.fn().mockResolvedValue('profile'),
-    isDarkMode: false,
-    c: { surface: '#fff', primaryDark: '#000', text: '#000', textSec: '#666', border: '#eee', bg: '#f9f9f9', primaryLight: '#eee', primary: '#000', success: '#0f0' },
+    toggleDarkMode: jest.fn(),
   }),
   AppProvider: ({ children }) => children,
 }));
@@ -300,3 +305,13 @@ jest.mock('@sentry/react-native', () => ({
 
 // The real catalogue (English), so screens show the same words as in the app
 require('./src/i18n');
+
+// Mock Firebase Cloud Messaging: no pushes in tests
+jest.mock('@react-native-firebase/messaging', () => ({
+  AuthorizationStatus: { NOT_DETERMINED: -1, DENIED: 0, AUTHORIZED: 1, PROVISIONAL: 2, EPHEMERAL: 3 },
+  getMessaging: jest.fn(() => ({})),
+  getToken: jest.fn(() => Promise.resolve('test-push-token')),
+  deleteToken: jest.fn(() => Promise.resolve()),
+  onTokenRefresh: jest.fn(() => () => {}),
+  requestPermission: jest.fn(() => Promise.resolve(1)),
+}));

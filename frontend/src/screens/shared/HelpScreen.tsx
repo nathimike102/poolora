@@ -7,20 +7,25 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Linking, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import { COMPANY } from '../../config/company';
 import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type SupportTicket } from '../../services/supportService';
-import { REGION } from '../../utils/region';
+import { REGION, formatPhone } from '../../utils/region';
+
+const supportPhone = REGION.supportPhone;
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
+
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -40,7 +45,6 @@ const FAQ: Array<{ topic: string; items: Array<{ q: string; a: string }> }> = FA
 export function HelpScreen() {
   const navigation = useNavigation<Nav>();
   const { t } = useTranslation();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [openQ, setOpenQ] = useState<string | null>(null);
@@ -63,59 +67,79 @@ export function HelpScreen() {
   }, [query]);
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{t('help.help')}</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('help.help')} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Urgent line (UC-X02: phone support for safety and payment) */}
-        <View style={[styles.urgent, { backgroundColor: c.errorLight }]}>
-          <Icon name="phone-alert" size={22} color={c.error} />
+        {/* Urgent line (UC-X02: phone support for safety and payment). Only a local
+            number is shown; until the market has one, an urgent request instead. */}
+        <View style={[styles.urgent, tc.backgroundColor_errorLight]}>
+          <Icon name="phone-alert" size={22} color={tk.error} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{t('help.urgentSafetyOrPaymentProblem')}</Text>
-            <Text style={{ fontSize: 13, color: c.text }}>{t('help.callUs', { phone: COMPANY.supportPhoneDisplay, number: REGION.emergency.general })}</Text>
+            <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_text]}>{t('help.urgentSafetyOrPaymentProblem')}</Text>
+            <Text style={[{ fontSize: 13 }, tc.color_text]}>
+              {supportPhone
+                ? t('help.callUs', { phone: formatPhone(supportPhone), number: REGION.emergency.general })
+                : t('help.reportUrgent', { number: REGION.emergency.general })}
+            </Text>
           </View>
-          <Pressable
-            onPress={() => Linking.openURL(`tel:${COMPANY.supportPhone}`)}
-            accessibilityRole="button"
-            accessibilityLabel={t('help.callLabel', { phone: COMPANY.supportPhoneDisplay })}
-            style={[styles.callBtn, { backgroundColor: c.error }]}
-          >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{t('help.call')}</Text>
-          </Pressable>
+          {supportPhone ? (
+            <Pressable
+              onPress={() => Linking.openURL(`tel:${supportPhone}`)}
+              accessibilityRole="button"
+              accessibilityLabel={t('help.callLabel', { phone: formatPhone(supportPhone) })}
+              style={[styles.callBtn, tc.backgroundColor_error]}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{t('help.call')}</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => navigation.navigate('SupportTicket', {})}
+              accessibilityRole="button"
+              style={[styles.callBtn, tc.backgroundColor_error]}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{t('help.report')}</Text>
+            </Pressable>
+          )}
         </View>
 
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder={t('help.searchHelp')}
-          placeholderTextColor={c.textSec}
+          placeholderTextColor={tk.textSec}
           accessibilityLabel={t('help.searchHelp')}
-          style={[styles.search, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
+          style={[
+            styles.search,
+            tc.borderColor_surfaceVariant,
+            tc.color_text,
+            tc.backgroundColor_surfaceVariant
+          ]}
         />
 
         {faq.length === 0 ? (
-          <Text style={{ fontSize: 14, color: c.textSec }}>{t('help.noMatches', { query: query.trim() })}</Text>
+          <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('help.noMatches', { query: query.trim() })}</Text>
         ) : faq.map(topic => (
           <View key={topic.topic} style={{ gap: 6 }}>
-            <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">{topic.topic}</Text>
-            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={[styles.section, tc.color_text]} accessibilityRole="header">{topic.topic}</Text>
+            <View style={[
+              styles.card,
+              tc.backgroundColor_surfaceVariant,
+              tc.borderColor_surfaceVariant
+            ]}>
               {topic.items.map((item, i) => {
                 const open = openQ === item.q || Boolean(query.trim());
                 return (
-                  <View key={item.q} style={i > 0 ? { borderTopWidth: 1, borderTopColor: c.border } : null}>
+                  <View key={item.q} style={i > 0 ? [{ borderTopWidth: 1 }, tc.borderTopColor_border] : null}>
                     <Pressable
                       onPress={() => setOpenQ(openQ === item.q ? null : item.q)}
                       accessibilityRole="button"
                       accessibilityState={{ expanded: open }}
                       style={styles.qRow}
                     >
-                      <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: c.text }}>{item.q}</Text>
-                      <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} color={c.textSec} />
+                      <Text style={[{ flex: 1, fontSize: 15, fontWeight: '600' }, tc.color_text]}>{item.q}</Text>
+                      <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} color={tk.textSec} />
                     </Pressable>
-                    {open ? <Text style={[styles.answer, { color: c.textSec }]}>{item.a}</Text> : null}
+                    {open ? <Text style={[styles.answer, tc.color_textSec]}>{item.a}</Text> : null}
                   </View>
                 );
               })}
@@ -123,50 +147,57 @@ export function HelpScreen() {
           </View>
         ))}
 
-        <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">{t('help.stillNeedHelp')}</Text>
+        <Text style={[styles.section, tc.color_text]} accessibilityRole="header">{t('help.stillNeedHelp')}</Text>
         {assistantOn ? (
           <Pressable
             onPress={() => navigation.navigate('SupportAssistant')}
             accessibilityRole="button"
-            style={[styles.primary, styles.outline, { borderColor: c.primary }]}
+            style={[styles.primary, styles.outline, tc.borderColor_primary]}
           >
-            <Icon name="robot-happy-outline" size={20} color={c.primary} />
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.primary }}>{t('help.askTheAssistant')}</Text>
+            <Icon name="robot-happy-outline" size={20} color={tk.primary} />
+            <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_primary]}>{t('help.askTheAssistant')}</Text>
           </Pressable>
         ) : null}
         <Pressable
           onPress={() => navigation.navigate('SupportTicket', {})}
           accessibilityRole="button"
-          style={[styles.primary, { backgroundColor: c.primary }]}
+          style={[styles.primary, tc.backgroundColor_primary]}
         >
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>{t('help.contactUs')}</Text>
+          <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_textOnPrimary]}>{t('help.contactUs')}</Text>
         </Pressable>
         <Pressable onPress={() => Linking.openURL(`mailto:${COMPANY.supportEmail}`)} accessibilityRole="link" style={styles.link}>
-          <Text style={{ fontSize: 14, color: c.primary }}>{t('help.orEmail', { email: COMPANY.supportEmail })}</Text>
+          <Text style={[{ fontSize: 14 }, tc.color_primary]}>{t('help.orEmail', { email: COMPANY.supportEmail })}</Text>
         </Pressable>
         <Pressable onPress={() => navigation.navigate('Appeal')} accessibilityRole="button" style={styles.link}>
-          <Text style={{ fontSize: 14, color: c.primary }}>{t('help.appealASuspensionOrBlock')}</Text>
+          <Text style={[{ fontSize: 14 }, tc.color_primary]}>{t('help.appealASuspensionOrBlock')}</Text>
         </Pressable>
 
-        <Text style={[styles.section, { color: c.text }]} accessibilityRole="header">{t('help.yourRequests')}</Text>
-        {tickets === null ? <ActivityIndicator color={c.primary} /> : tickets.length === 0 ? (
-          <Text style={{ fontSize: 14, color: c.textSec }}>{t('help.requestsYouSendAppearHere')}</Text>
+        <Text style={[styles.section, tc.color_text]} accessibilityRole="header">{t('help.yourRequests')}</Text>
+        {tickets === null ? <ActivityIndicator color={tk.primary} /> : tickets.length === 0 ? (
+          <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('help.requestsYouSendAppearHere')}</Text>
         ) : (
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
             {tickets.map((ticket, i) => (
               <Pressable
                 key={ticket._id}
                 onPress={() => navigation.navigate('SupportTicket', { ticketId: ticket._id })}
                 accessibilityRole="button"
-                style={[styles.qRow, i > 0 && { borderTopWidth: 1, borderTopColor: c.border }]}
+                style={[styles.qRow, i > 0 && [{ borderTopWidth: 1 }, tc.borderTopColor_border]]}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }} numberOfLines={1}>{ticket.subject}</Text>
-                  <Text style={{ fontSize: 13, color: ticket.status === 'answered' ? c.primary : c.textSec }}>
+                  <Text style={[{ fontSize: 15, fontWeight: '600' }, tc.color_text]} numberOfLines={1}>{ticket.subject}</Text>
+                  <Text style={[
+                    { fontSize: 13 },
+                    ticket.status === 'answered' ? tc.color_primary : tc.color_textSec
+                  ]}>
                     {t(`help.status.${ticket.status}`)} · {new Date(ticket.updatedAt).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' })}
                   </Text>
                 </View>
-                <Icon name="chevron-right" size={20} color={c.textSec} />
+                <Icon name="chevron-right" size={20} color={tk.textSec} />
               </Pressable>
             ))}
           </View>

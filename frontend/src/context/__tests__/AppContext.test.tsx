@@ -22,26 +22,19 @@ jest.mock('../../services/authService', () => ({
   firebaseLoginWithBackend: jest.fn(),
 }));
 
-// The phone's light/dark setting, changed by the tests below.
-let mockScheme: 'light' | 'dark' = 'light';
-jest.mock('react-native', () => {
-  const actual = jest.requireActual('react-native');
-  return new Proxy(actual, {
-    get: (target, key) => (key === 'useColorScheme' ? () => mockScheme : target[key]),
-  });
-});
-
 // jest.setup.js mocks AppContext for screen tests; this file tests the real one.
 jest.unmock('../AppContext');
 
 import { act } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UnistylesRuntime } from 'react-native-unistyles';
 import { AppProvider, useApp } from '../AppContext';
 import { firebaseLoginWithBackend } from '../../services/authService';
 
 function Consumer() {
   const ctx = useApp();
   return (
-    <Text testID="vals">{String(ctx.role)}|{String(ctx.isDarkMode)}</Text>
+    <Text testID="vals">{String(ctx.role)}</Text>
   );
 }
 
@@ -52,27 +45,56 @@ test('AppProvider provides defaults', async () => {
     </AppProvider>,
   );
   const el = await findByTestId('vals');
-  // Expect rendered value to include a role and a boolean dark-mode token
-  const asString = String(el.props.children);
-  expect(asString).toEqual(expect.stringContaining('|'));
+  // No role is chosen until one is restored or picked
+  expect(String(el.props.children)).toBe('null');
 });
 
-test('dark mode follows the system setting while running', async () => {
-  mockScheme = 'light';
-  const { findByTestId, rerender } = render(
-    <AppProvider>
-      <Consumer />
-    </AppProvider>,
-  );
-  expect(String((await findByTestId('vals')).props.children)).toMatch(/false$/);
+// The theme lives in Unistyles (theme/unistyles); AppContext only pins it to
+// the user's choice or hands it back to the phone's setting.
+describe('dark mode', () => {
+  const rt = UnistylesRuntime as unknown as { themeName: string; colorScheme: string };
+  let setTheme: jest.SpyInstance;
+  let setAdaptive: jest.SpyInstance;
+  beforeEach(() => {
+    setTheme = jest.spyOn(UnistylesRuntime, 'setTheme').mockImplementation(() => {});
+    setAdaptive = jest.spyOn(UnistylesRuntime, 'setAdaptiveThemes').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
 
-  mockScheme = 'dark';
-  rerender(
-    <AppProvider>
-      <Consumer />
-    </AppProvider>,
-  );
-  expect(String((await findByTestId('vals')).props.children)).toMatch(/true$/);
+  function Capture({ onCtx }: { onCtx: (c: ReturnType<typeof useApp>) => void }) {
+    onCtx(useApp());
+    return <Text testID="vals">x</Text>;
+  }
+
+  test('a saved choice pins the theme at start', async () => {
+    (AsyncStorage.multiGet as jest.Mock).mockResolvedValueOnce([['@poolora_role', null], ['@poolora_dark_mode', 'true']]);
+    const { findByTestId } = render(<AppProvider><Capture onCtx={() => {}} /></AppProvider>);
+    await findByTestId('vals');
+    await act(async () => {});
+    expect(setAdaptive).toHaveBeenCalledWith(false);
+    expect(setTheme).toHaveBeenCalledWith('dark');
+  });
+
+  test('turning dark mode on in a light phone pins dark and saves it', async () => {
+    Object.assign(rt, { themeName: 'light', colorScheme: 'light' });
+    let ctx!: ReturnType<typeof useApp>;
+    const { findByTestId } = render(<AppProvider><Capture onCtx={c => { ctx = c; }} /></AppProvider>);
+    await findByTestId('vals');
+    act(() => ctx.toggleDarkMode());
+    expect(setAdaptive).toHaveBeenLastCalledWith(false);
+    expect(setTheme).toHaveBeenLastCalledWith('dark');
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith('@poolora_dark_mode', 'true');
+  });
+
+  test('switching back to the phone\'s own setting follows the phone again', async () => {
+    Object.assign(rt, { themeName: 'dark', colorScheme: 'light' });
+    let ctx!: ReturnType<typeof useApp>;
+    const { findByTestId } = render(<AppProvider><Capture onCtx={c => { ctx = c; }} /></AppProvider>);
+    await findByTestId('vals');
+    act(() => ctx.toggleDarkMode());
+    expect(setAdaptive).toHaveBeenLastCalledWith(true);
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@poolora_dark_mode');
+  });
 });
 
 describe('finishSignIn', () => {
@@ -111,4 +133,24 @@ describe('finishSignIn', () => {
     expect(next).toBe('profile');
     expect(String((await findByTestId('role')).props.children)).toBe('null');
   });
+});
+
+test("logout removes the account's places and routes from the phone", async () => {
+  const AsyncStorage = jest.requireMock('@react-native-async-storage/async-storage');
+  let ctx!: ReturnType<typeof useApp>;
+  function Capture() {
+    ctx = useApp();
+    return <Text testID="role">{String(ctx.role)}</Text>;
+  }
+  const { findByTestId } = render(<AppProvider><Capture /></AppProvider>);
+  await findByTestId('role');
+
+  await act(async () => { await ctx.logout(); });
+
+  const removed = (AsyncStorage.removeItem as jest.Mock).mock.calls.map(([key]) => key);
+  expect(removed).toEqual(expect.arrayContaining([
+    '@poolora_place_history',
+    '@poolora_saved_routes',
+    '@poolora_sos_contacts',
+  ]));
 });
