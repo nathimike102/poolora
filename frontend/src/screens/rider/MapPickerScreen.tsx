@@ -1,12 +1,16 @@
 /**
  * screens/rider/MapPickerScreen.tsx
  *
- * Lets the rider move a real map under a fixed centre pin to choose a pickup
- * or destination. The address shown is looked up for the pinned point.
+ * Lets the rider or driver move a real map under a fixed centre pin to choose
+ * a place. The address shown is looked up for the pinned point, and the exact
+ * point goes back with it, so the trip uses where the pin was, not wherever a
+ * later lookup of the address lands.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text } from '../../components/Text';
 import {
   Map as MapLibreMap,
   Camera,
@@ -15,19 +19,23 @@ import {
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
+import { quickFix } from '../../utils/position';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
 import { Icon } from '../../components/Icon';
 import { BackButton } from '../../components/BackButton';
+import { resolveMapPick } from '../../utils/mapPick';
 import { MapPlaceholder } from '../../components/MapPlaceholder';
 import { MAPS_ENABLED, MAP_STYLE } from '../../config/maps';
 import { reverseGeocodePlace } from '../../services/placesService';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+
+import { tc, tk, useIsDark } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'MapPicker'>;
 type Route = RouteProp<RootStackParamList, 'MapPicker'>;
@@ -47,11 +55,12 @@ export function MapPickerScreen() {
 function MapPickerUnavailable() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   return (
     <View style={styles.root}>
-      <MapPlaceholder caption="The map isn't available right now. Go back and type the address instead." />
+      <MapPlaceholder caption={t('mapPicker.unavailable')} />
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <BackButton onPress={() => navigation.goBack()} />
+        <BackButton floating onPress={() => navigation.goBack()} />
       </View>
     </View>
   );
@@ -59,8 +68,9 @@ function MapPickerUnavailable() {
 
 function MapPickerView() {
   const navigation = useNavigation<Nav>();
+  const { t } = useTranslation();
   const route = useRoute<Route>();
-  const { c, isDarkMode } = useApp();
+  const isDarkMode = useIsDark();
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraRef>(null);
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,8 +81,13 @@ function MapPickerView() {
   const [looking, setLooking] = useState(false);
   const [lookupFailed, setLookupFailed] = useState(false);
   const [locationGranted, setLocationGranted] = useState(false);
+  // The pin lifts while the map moves and drops when it settles
+  const [moving, setMoving] = useState(false);
+  const picked = useRef<Point>(INITIAL_POINT);
+  const here = useRef<Point | null>(null);
 
   const lookup = useCallback((region: Point) => {
+    picked.current = region;
     if (lookupTimer.current) clearTimeout(lookupTimer.current);
     lookupTimer.current = setTimeout(async () => {
       const requestId = ++lookupRequest.current;
@@ -101,10 +116,14 @@ function MapPickerView() {
           return;
         }
         setLocationGranted(true);
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        cameraRef.current?.easeTo({ center: [here.longitude, here.latitude], zoom: PICKER_ZOOM, duration: 400 });
-        lookup(here);
+        const fix = await quickFix();
+        if (!fix) {
+          lookup(INITIAL_POINT);
+          return;
+        }
+        here.current = { latitude: fix.lat, longitude: fix.lng };
+        cameraRef.current?.easeTo({ center: [here.current.longitude, here.current.latitude], zoom: PICKER_ZOOM, duration: 400 });
+        lookup(here.current);
       } catch {
         lookup(INITIAL_POINT);
       }
@@ -114,10 +133,31 @@ function MapPickerView() {
     };
   }, [lookup]);
 
+  const backToMe = () => {
+    if (!here.current) return;
+    cameraRef.current?.easeTo({ center: [here.current.longitude, here.current.latitude], zoom: PICKER_ZOOM, duration: 400 });
+  };
+
   const confirm = () => {
     if (!address) return;
-    // Back to the search screen underneath, keeping what the rider already entered
-    navigation.popTo('Search', { pickedLocation: address, pickedField: route.params.field }, { merge: true });
+    const result = {
+      pickedLocation: address,
+      pickedField: route.params.field,
+      pickedLat: picked.current.latitude,
+      pickedLng: picked.current.longitude,
+    };
+    // A form waiting on pickOnMap gets the point and is shown again as it was
+    if (route.params.requestId) {
+      resolveMapPick(route.params.requestId, { address, lat: picked.current.latitude, lng: picked.current.longitude });
+      navigation.goBack();
+      return;
+    }
+    // Back to the screen underneath, keeping what was already entered there
+    if (route.params.returnTo === 'CreateRide') {
+      navigation.popTo('DriverTabs', { screen: 'CreateRide', params: result, merge: true });
+    } else {
+      navigation.popTo('Search', result, { merge: true });
+    }
   };
 
   return (
@@ -128,11 +168,13 @@ function MapPickerView() {
         logo={false}
         compass={false}
         attributionPosition={{ top: insets.top + 80, right: 8 }}
+        onRegionWillChange={() => setMoving(true)}
         onRegionDidChange={(event: { nativeEvent: ViewStateChangeEvent }) => {
+          setMoving(false);
           const [longitude, latitude] = event.nativeEvent.center;
           lookup({ latitude, longitude });
         }}
-        accessibilityLabel="Map. Move the map to place the pin."
+        accessibilityLabel={t('mapPicker.mapMoveTheMapTo')}
       >
         <Camera
           ref={cameraRef}
@@ -142,28 +184,43 @@ function MapPickerView() {
       </MapLibreMap>
 
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <View style={[styles.headerCard, { backgroundColor: c.surface }, Shadow.md]}>
-          <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">
-            {isDestination ? 'Choose destination' : 'Choose pickup point'}
+        <BackButton floating onPress={() => navigation.goBack()} />
+        <View style={[styles.headerCard, tc.backgroundColor_surface, Shadow.md]}>
+          <Text style={[styles.headerTitle, tc.color_text]} accessibilityRole="header">
+            {isDestination ? t('mapPicker.chooseDestination') : t('mapPicker.choosePickupPoint')}
           </Text>
-          <Text style={[styles.headerSub, { color: c.textSec }]}>Move the map to place the pin</Text>
+          <Text style={[styles.headerSub, tc.color_textSec]}>{t('mapPicker.moveTheMapToPlace')}</Text>
         </View>
       </View>
 
       {/* Centre pin: the tip marks the map centre */}
       <View style={styles.pinWrap} pointerEvents="none">
-        <Icon name="map-marker" size={48} color={c.primary} />
+        <View style={{ transform: [{ translateY: moving ? -10 : 0 }] }}>
+          <Icon name="map-marker" size={48} color={tk.primary} />
+        </View>
+        {/* Marks the exact point under the pin's tip */}
+        <View style={[styles.pinDot, { opacity: moving ? 0.5 : 1 }, tc.backgroundColor_primary]} />
       </View>
 
-      <View style={[styles.bottomSheet, Shadow.lg, { backgroundColor: c.surface, paddingBottom: insets.bottom + 16 }]}>
-        <View style={[styles.selectedRow, { backgroundColor: c.primaryLight }]} accessibilityLiveRegion="polite">
-          <Icon name="map-marker" size={18} color={c.primary} />
+      {locationGranted && (
+        <Pressable
+          onPress={backToMe}
+          accessibilityRole="button"
+          accessibilityLabel={t('mapPicker.backToMyLocation')}
+          style={[styles.locateBtn, Shadow.md, { bottom: insets.bottom + 170 }, tc.backgroundColor_surface]}
+        >
+          <Icon name="crosshairs-gps" size={22} color={tk.primary} />
+        </Pressable>
+      )}
+
+      <View style={[styles.bottomSheet, Shadow.lg, { paddingBottom: insets.bottom + 16 }, tc.backgroundColor_surface]}>
+        <View style={[styles.selectedRow, tc.backgroundColor_primaryLight]} accessibilityLiveRegion="polite">
+          <Icon name="map-marker" size={18} color={tk.primary} />
           {looking ? (
-            <ActivityIndicator size="small" color={c.primary} />
+            <ActivityIndicator size="small" color={tk.primary} />
           ) : (
-            <Text style={[styles.selectedText, { color: c.text }]} numberOfLines={2}>
-              {address || (lookupFailed ? "We couldn't find an address here. Move the pin slightly." : 'Finding address')}
+            <Text style={[styles.selectedText, tc.color_text]} numberOfLines={2}>
+              {address || (lookupFailed ? t('mapPicker.notFound') : t('mapPicker.finding'))}
             </Text>
           )}
         </View>
@@ -173,10 +230,10 @@ function MapPickerView() {
           disabled={!address || looking}
           accessibilityRole="button"
           accessibilityState={{ disabled: !address || looking }}
-          style={[styles.confirmBtn, { backgroundColor: address && !looking ? c.primary : c.border }]}
+          style={[styles.confirmBtn, address && !looking ? tc.backgroundColor_primary : tc.backgroundColor_border]}
         >
-          <Text style={[styles.confirmText, { color: address && !looking ? c.textOnPrimary : c.textSec }]}>
-            Use this location
+          <Text style={[styles.confirmText, address && !looking ? tc.color_textOnPrimary : tc.color_textSec]}>
+            {t('mapPicker.useThisLocation')}
           </Text>
         </Pressable>
       </View>
@@ -203,7 +260,18 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 48,
+    // Pin (48) + dot (8, pulled up 4): this puts the dot's centre on the map's centre
+    paddingBottom: 44,
+  },
+  pinDot: { width: 8, height: 8, borderRadius: 4, marginTop: -4 },
+  locateBtn: {
+    position: 'absolute',
+    right: Spacing.xl,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomSheet: {
     position: 'absolute',

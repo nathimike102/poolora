@@ -25,6 +25,7 @@ import { NotificationService } from './NotificationService';
 import { emailUser } from './Mailer';
 import { AdminUserService } from './AdminUserService';
 import { money } from '../config/region';
+import { riderPays } from '../utils/fares';
 
 /** Disputes can be raised up to this long after the booking was made or the ride ended. */
 const RAISE_WINDOW_DAYS = 30;
@@ -144,7 +145,8 @@ export class DisputeService {
       Dispute.find({ _id: { $ne: dispute._id }, $or: [{ raisedBy: booking.driver }, { against: booking.driver }] }).select('category status decision.outcome createdAt').lean(),
       AdminAuditLog.find({ targetType: 'dispute', targetId: disputeId }).sort({ createdAt: 1 }).populate('actor', 'name email').lean(),
     ]);
-    const paid = booking.finalFare ?? booking.estimatedFare;
+    // What the rider paid; a company's part is settled on its bill
+    const paid = riderPays(booking);
     return {
       dispute,
       booking,
@@ -186,7 +188,7 @@ export class DisputeService {
     const booking = await Booking.findById(dispute.booking);
     if (!booking) throw new NotFoundError('Booking');
 
-    const paid = booking.finalFare ?? booking.estimatedFare;
+    const paid = riderPays(booking);
     const refundable = round2(Math.max(0, paid - (booking.refundAmount ?? 0)));
     const refundAmount = round2(Number(input.refundAmount ?? 0));
     const driverCompensation = round2(Number(input.driverCompensation ?? 0));

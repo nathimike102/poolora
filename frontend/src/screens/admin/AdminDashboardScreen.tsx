@@ -1,11 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { Text } from '../../components/Text';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { useApp } from '../../context/AppContext';
 import { Icon, type IconName } from '../../components/Icon';
 import type { RootStackParamList } from '../../navigation/types';
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -23,32 +26,39 @@ const MENU: AdminMenuItem[] = [
 ];
 
 export const AdminDashboardScreen: React.FC = () => {
-  const { c } = useApp();
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
 
   return (
-    <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={styles.container}>
-      <Text style={[styles.subtitle, { color: c.textSec }]}>
-        Admin tools. Every action here is recorded against your account.
-      </Text>
-      {MENU.map(item => (
-        <Pressable
-          key={item.route}
-          onPress={() => navigation.navigate(item.route)}
-          accessibilityRole="button"
-          style={[styles.menuItem, { backgroundColor: c.surface, borderColor: c.border }]}
-        >
-          <View style={[styles.iconContainer, { backgroundColor: c.primaryLight }]}>
-            <Icon name={item.icon} size={24} color={c.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.itemTitle, { color: c.text }]}>{item.title}</Text>
-            <Text style={[styles.itemDescription, { color: c.textSec }]}>{item.description}</Text>
-          </View>
-          <Icon name="chevron-right" size={22} color={c.textSec} />
-        </Pressable>
-      ))}
-    </ScrollView>
+    <View style={[{ flex: 1, paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title="Admin" />
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={[styles.subtitle, tc.color_textSec]}>
+          Admin tools. Every action here is recorded against your account.
+        </Text>
+        {MENU.map(item => (
+          <Pressable
+            key={item.route}
+            onPress={() => navigation.navigate(item.route)}
+            accessibilityRole="button"
+            style={[
+              styles.menuItem,
+              tc.backgroundColor_surfaceVariant,
+              tc.borderColor_surfaceVariant
+            ]}
+          >
+            <View style={[styles.iconContainer, tc.backgroundColor_primaryLight]}>
+              <Icon name={item.icon} size={24} color={tk.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.itemTitle, tc.color_text]}>{item.title}</Text>
+              <Text style={[styles.itemDescription, tc.color_textSec]}>{item.description}</Text>
+            </View>
+            <Icon name="chevron-right" size={22} color={tk.textSec} />
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
   );
 };
 

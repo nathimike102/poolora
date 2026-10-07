@@ -14,12 +14,14 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
 } from 'react-native';
+import { Text } from './Text';
 import { reportError } from '../config/errorTracking';
 import { COMPANY } from '../config/company';
+import i18n from '../i18n';
+import { Palette } from '../theme';
 
 interface Props {
   children: ReactNode;
@@ -53,12 +55,12 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <View testID="error-boundary-fallback" style={styles.container}>
-          <Text style={styles.title} accessibilityRole="header">Something went wrong</Text>
+          <Text style={styles.title} accessibilityRole="header">{i18n.t('errorBoundary.somethingWentWrong')}</Text>
           <Text style={styles.message}>
             The app hit an unexpected problem. Try again, and if it keeps happening contact {COMPANY.supportEmail}.
           </Text>
           <Pressable style={styles.button} onPress={this.handleRestart} accessibilityRole="button">
-            <Text style={styles.buttonText}>Try again</Text>
+            <Text style={styles.buttonText}>{i18n.t('errorBoundary.tryAgain')}</Text>
           </Pressable>
         </View>
       );
@@ -95,7 +97,7 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   button: {
-    backgroundColor: '#0B7A75',
+    backgroundColor: Palette.primary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,

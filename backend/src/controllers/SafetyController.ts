@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { SafetyService } from '../services/SafetyService';
+import { SosVideoService } from '../services/SosVideoService';
 import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import { SOSCheckInStatus } from '../types';
 import { queryInt } from '../utils/request';
 
 const safetyService = new SafetyService();
+const sosVideo = new SosVideoService();
 
 export class SafetyController {
   /**
@@ -103,6 +105,45 @@ export class SafetyController {
       const user = (req as AuthenticatedRequest).user;
       const upload = await safetyService.audioUploadFor(String(req.params.id), user.userId, String(req.body?.contentType ?? ''));
       sendSuccess(res, upload, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/safety/sos/:id/video
+   * Turns on the camera for the safety team: where to send it, and whether it is recorded.
+   */
+  static async startVideo(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      sendSuccess(res, await sosVideo.start(String(req.params.id), user.userId, req.body?.toldRecorded === true), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/safety/sos/:id/video/sending
+   * The phone's camera is reaching the room; starts the recording if it is recorded.
+   */
+  static async videoSending(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      sendSuccess(res, await sosVideo.sending(String(req.params.id), user.userId), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/safety/sos/:id/video/stop
+   * Turns the camera off.
+   */
+  static async stopVideo(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      sendSuccess(res, await sosVideo.stop(String(req.params.id), user.userId), 200, req.requestId);
     } catch (error) {
       next(error);
     }

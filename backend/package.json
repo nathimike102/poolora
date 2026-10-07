@@ -14,7 +14,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --forceExit",
     "seed": "ts-node scripts/seed.ts",
-    "migrate:paynow": "ts-node scripts/migrate-to-paynow.ts"
+    "migrate:paynow": "ts-node scripts/migrate-to-paynow.ts",
+    "backfill:carbon": "ts-node scripts/backfill-carbon.ts",
+    "backfill:ratings": "ts-node scripts/backfill-ratings.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -38,6 +40,7 @@
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "kafkajs": "^2.2.4",
+    "livekit-server-sdk": "^2.19.1",
     "mongoose": "^8.14.1",
     "nodemailer": "^10.0.13",
     "pdfkit": "^0.17.2",

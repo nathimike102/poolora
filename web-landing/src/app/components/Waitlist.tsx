@@ -62,7 +62,7 @@ export function Waitlist() {
   };
 
   return (
-    <section id="waitlist" className="py-16 bg-[#0A1A1D]">
+    <section id="waitlist" className="py-16 bg-navy">
       <Container>
         <div className="grid lg:grid-cols-2 gap-16 xl:gap-24 items-center">
           <div>
@@ -125,7 +125,7 @@ export function Waitlist() {
                   </div>
 
                   <div className="relative">
-                    <label htmlFor="wl-role" className="sr-only">How you would use Poolora</label>
+                    <label htmlFor="wl-role" className="sr-only">How you would use Siham</label>
                     <Car className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none z-10" aria-hidden="true" />
                     <select id="wl-role" name="role" value={form.role} onChange={handleChange} required
                       className={`${fieldClass} appearance-none cursor-pointer`} style={{ colorScheme: 'dark' }}>

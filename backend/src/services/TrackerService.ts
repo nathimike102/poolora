@@ -3,7 +3,7 @@
  *
  * Car GPS trackers (decided 1 October 2026). A driver links the tracker in
  * their car by its device id (usually the IMEI). Trackers report to a
- * Traccar gateway run by Poolora, which understands almost every tracker
+ * Traccar gateway run by Siham, which understands almost every tracker
  * protocol, stores nothing, and posts each position here (forward.type=json).
  * A tracking company that agrees to share can forward to the same gateway.
  *
@@ -15,7 +15,7 @@
  * - The tracker's panic button, pressed during a ride, raises an SOS like
  *   the app's (decided: raise an SOS).
  * - A cut or removed tracker during a ride alerts the safety team.
- * - Poolora never cuts an engine (decided: never).
+ * - Siham never cuts an engine (decided: never).
  */
 
 import { Types } from 'mongoose';

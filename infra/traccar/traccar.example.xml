@@ -1,9 +1,9 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
 <!--
-  Poolora's car tracker gateway: Traccar in forwarder-only mode
+  Siham's car tracker gateway: Traccar in forwarder-only mode
   (https://www.traccar.org/forwarder-only/). It decodes what trackers send,
-  stores nothing, and posts each position to Poolora, which keeps positions
+  stores nothing, and posts each position to Siham, which keeps positions
   only while the car is on a ride (TrackerService).
 
   Copy to traccar.xml (not committed: it holds the key), then fill in:
@@ -17,7 +17,7 @@
 
   <entry key='forward.type'>json</entry>
   <entry key='forward.url'>https://api.example.com/api/v1/trackers/traccar</entry>
-  <entry key='forward.header'>X-Poolora-Tracker-Key: CHANGE_ME</entry>
+  <entry key='forward.header'>X-Siham-Tracker-Key: CHANGE_ME</entry>
   <entry key='forward.retry.enable'>true</entry>
 
   <entry key='filter.enable'>false</entry>

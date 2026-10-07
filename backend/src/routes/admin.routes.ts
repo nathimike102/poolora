@@ -51,6 +51,7 @@ router.get('/kyc/:userId/documents', validate(kycReviewParamsSchema), getKycDocu
 
 // ─── Web admin (admin-web/) ─────────────────────────────────────────────────
 router.get('/overview', W.overview);
+router.get('/analytics', W.analytics);
 
 router.get('/applications', W.applications);
 router.post('/applications/:userId/request-changes', W.requestKycChanges);
@@ -77,6 +78,26 @@ router.post('/alert-rules', W.createAlertRule);
 router.patch('/alert-rules/:id', W.updateAlertRule);
 router.delete('/alert-rules/:id', W.deleteAlertRule);
 router.post('/alert-rules/:id/test', W.testAlertRule);
+// Company programmes (UC-C01)
+router.get('/organisations', W.organisations);
+router.post('/organisations', W.createOrganisation);
+router.get('/organisations/:id', W.organisation);
+router.patch('/organisations/:id', W.updateOrganisation);
+router.delete('/organisations/:id/members/:userId', W.removeOrganisationMember);
+router.post('/organisations/:id/admins', W.addCompanyAdmin);
+router.delete('/organisations/:id/admins/:userId', W.removeCompanyAdmin);
+// Ranks and termini (UC-R12)
+router.get('/hubs', W.hubs);
+router.post('/hubs', W.createHub);
+router.patch('/hubs/:id', W.updateHub);
+router.delete('/hubs/:id', W.removeHub);
+// Company bills (UC-C03)
+router.get('/organisations/:id/invoices', W.invoices);
+router.post('/organisations/:id/invoices', W.billNow);
+router.get('/invoices/:id', W.invoice);
+router.get('/invoices/:id/file', W.invoiceFile);
+router.post('/invoices/:id/paid', W.invoicePaid);
+router.post('/invoices/:id/adjust', W.adjustInvoice);
 router.get('/withdrawals', W.withdrawals);
 router.post('/withdrawals/:id/paid', W.withdrawalPaid);
 router.post('/withdrawals/:id/reject', W.withdrawalReject);
@@ -114,6 +135,8 @@ router.post('/sos/:id/log', W.sosLog);
 router.post('/sos/:id/acknowledge', W.sosAcknowledge);
 router.post('/sos/:id/resolve', W.sosResolve);
 router.post('/sos/:id/police', W.sosPolice);
+router.post('/sos/:id/video/ask', W.sosVideoAsk);
+router.post('/sos/:id/video/watch', W.sosVideoWatch);
 
 router.get('/report-schedules', W.reportSchedules);
 router.post('/report-schedules', W.createReportSchedule);

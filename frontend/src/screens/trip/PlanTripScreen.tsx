@@ -6,27 +6,36 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Switch, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { Switch, ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
+import { PlaceField } from '../../components/PlaceField';
 import { Icon } from '../../components/Icon';
 import { RideDatePicker } from '../../components/RideDatePicker';
 import { tripService, TRIP_INTERESTS, type TripType } from '../../services/tripService';
 import { errorHandler } from '../../utils/errorHandler';
 import type { RootStackParamList } from '../../navigation/types';
 import { moneyInput, REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const TYPES: Array<{ value: TripType; label: string }> = [
-  { value: 'weekend', label: 'Weekend' },
-  { value: 'vacation', label: 'Vacation' },
-  { value: 'business', label: 'Business' },
-];
+/** Labels are in the catalogue under planTrip.types */
+const TYPES: TripType[] = ['weekend', 'vacation', 'business'];
 const MAX_DAYS = 90;
 const DAY_MS = 86_400_000;
 
@@ -35,7 +44,7 @@ const fmt = (d: Date) => d.toLocaleDateString(REGION.dateLocale, { weekday: 'sho
 
 export function PlanTripScreen() {
   const navigation = useNavigation<Nav>();
-  const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [title, setTitle] = useState('');
@@ -56,10 +65,10 @@ export function PlanTripScreen() {
   const dayList = useMemo(() => Array.from({ length: Math.min(Math.max(days, 0), 14) }, (_, i) => i + 1), [days]);
   const places = destinations.map(d => d.trim()).filter(d => d.length >= 2);
   const problem =
-    title.trim().length < 3 ? 'Give the trip a title.'
-      : places.length === 0 ? 'Add at least one destination.'
-        : days < 1 ? 'The trip must end on or after the day it starts.'
-          : days > MAX_DAYS ? `A trip can last up to ${MAX_DAYS} days.`
+    title.trim().length < 3 ? t('planTrip.problems.title')
+      : places.length === 0 ? t('planTrip.problems.destination')
+        : days < 1 ? t('planTrip.problems.endBefore')
+          : days > MAX_DAYS ? t('planTrip.problems.tooLong', { max: MAX_DAYS })
             : '';
 
   const create = async () => {
@@ -81,96 +90,135 @@ export function PlanTripScreen() {
       });
       navigation.replace('TripDetail', { tripId: trip._id });
     } catch (e) {
-      Alert.alert('Not created', errorHandler.process(e).message);
+      Alert.alert(t('planTrip.notCreated'), errorHandler.process(e).message);
     } finally {
       setSaving(false);
     }
   };
 
-  const input = (value: string, set: (t: string) => void, label: string, extra: object = {}) => (
+  const input = (value: string, set: (value: string) => void, label: string, extra: object = {}) => (
     <TextInput
       value={value}
       onChangeText={set}
-      placeholderTextColor={c.textSec}
+      placeholderTextColor={tk.textSec}
       accessibilityLabel={label}
-      style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+      style={[
+        styles.input,
+        tc.borderColor_border,
+        tc.color_text,
+        tc.backgroundColor_surface
+      ]}
       {...extra}
     />
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Plan a trip</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('planTrip.planATrip')} />
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.label, { color: c.textSec }]}>Title</Text>
-            {input(title, setTitle, 'Title', { placeholder: 'Goa long weekend', maxLength: 100 })}
-            <Text style={[styles.label, { color: c.textSec }]}>About the trip (optional)</Text>
-            {input(description, setDescription, 'About the trip', { placeholder: 'Beaches by day, seafood by night', multiline: true, maxLength: 2000, style: [styles.input, styles.multi, { borderColor: c.border, color: c.text, backgroundColor: c.bg }] })}
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[styles.label, tc.color_textSec]}>{t('planTrip.title')}</Text>
+            {input(title, setTitle, t('planTrip.titleLabel'), { placeholder: t('planTrip.titlePlaceholder'), maxLength: 100 })}
+            <Text style={[styles.label, tc.color_textSec]}>{t('planTrip.aboutTheTripOptional')}</Text>
+            {input(description, setDescription, t('planTrip.aboutLabel'), { placeholder: t('planTrip.aboutPlaceholder'), multiline: true, maxLength: 2000, style: [
+              styles.input,
+              styles.multi,
+              tc.borderColor_border,
+              tc.color_text,
+              tc.backgroundColor_surface
+            ] })}
             <View style={styles.chips}>
-              {TYPES.map(t => {
-                const on = t.value === tripType;
+              {TYPES.map(value => ({ value, label: t(`planTrip.types.${value}`) })).map(type => {
+                const on = type.value === tripType;
                 return (
-                  <Pressable key={t.value} onPress={() => setTripType(t.value)} accessibilityRole="radio" accessibilityState={{ checked: on }} style={[styles.chip, { borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryLight : c.bg }]}>
-                    <Text style={{ color: on ? c.primary : c.text }}>{t.label}</Text>
+                  <Pressable key={type.value} onPress={() => setTripType(type.value)} accessibilityRole="radio" accessibilityState={{ checked: on }} style={[
+                    styles.chip,
+                    on ? tc.borderColor_primary : tc.borderColor_border,
+                    on ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface
+                  ]}>
+                    <Text style={on ? tc.color_primary : tc.color_text}>{type.label}</Text>
                   </Pressable>
                 );
               })}
             </View>
           </View>
 
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.cardTitle, { color: c.text }]}>When</Text>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[styles.cardTitle, tc.color_text]}>{t('planTrip.when')}</Text>
             <View style={styles.row}>
               {(['start', 'end'] as const).map(which => (
-                <Pressable key={which} onPress={() => setPicking(which)} accessibilityRole="button" accessibilityLabel={`${which === 'start' ? 'From' : 'To'} ${fmt(which === 'start' ? start : end)}`} style={[styles.picker, { borderColor: c.border, backgroundColor: c.bg }]}>
-                  <Icon name="calendar" size={18} color={c.primary} />
-                  <Text style={{ color: c.text }}>{fmt(which === 'start' ? start : end)}</Text>
+                <Pressable key={which} onPress={() => setPicking(which)} accessibilityRole="button" accessibilityLabel={`${which === 'start' ? t('planTrip.from') : t('planTrip.to')} ${fmt(which === 'start' ? start : end)}`} style={[styles.picker, tc.borderColor_border, tc.backgroundColor_surface]}>
+                  <Icon name="calendar" size={18} color={tk.primary} />
+                  <Text style={tc.color_text}>{fmt(which === 'start' ? start : end)}</Text>
                 </Pressable>
               ))}
             </View>
-            <Text style={{ fontSize: 13, color: days >= 1 && days <= MAX_DAYS ? c.textSec : c.error }}>
-              {days >= 1 ? `${days} ${days === 1 ? 'day' : 'days'}` : 'Choose an end date after the start'}
+            <Text style={[
+              { fontSize: 13 },
+              days >= 1 && days <= MAX_DAYS ? tc.color_textSec : tc.color_error
+            ]}>
+              {days >= 1 ? (days === 1 ? t('planTrip.dayOne') : t('planTrip.dayMany', { count: days })) : t('planTrip.endAfterStart')}
             </Text>
           </View>
 
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.cardTitle, { color: c.text }]}>Destinations and stops</Text>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[styles.cardTitle, tc.color_text]}>{t('planTrip.destinationsAndStops')}</Text>
             {destinations.map((d, i) => (
               <View key={i} style={styles.row}>
                 <View style={{ flex: 1 }}>
-                  {input(d, t => setDestinations(list => list.map((x, j) => (j === i ? t : x))), `Destination ${i + 1}`, { placeholder: i === 0 ? 'Goa' : 'A stop on the way' })}
+                  <PlaceField
+                    label={t('planTrip.destination', { n: i + 1 })}
+                    value={d}
+                    onChange={value => setDestinations(list => list.map((x, j) => (j === i ? value : x)))}
+                    placeholder={i === 0 ? t('planTrip.firstPlaceholder') : t('planTrip.aStopOnTheWay')}
+                  />
                 </View>
                 {destinations.length > 1 ? (
-                  <Pressable onPress={() => setDestinations(list => list.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Remove destination ${i + 1}`} style={styles.iconBtn}>
-                    <Icon name="close" size={20} color={c.textSec} />
+                  <Pressable onPress={() => setDestinations(list => list.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={t('planTrip.removeDestination', { n: i + 1 })} style={styles.iconBtn}>
+                    <Icon name="close" size={20} color={tk.textSec} />
                   </Pressable>
                 ) : null}
               </View>
             ))}
             {destinations.length < 10 ? (
               <Pressable onPress={() => setDestinations(list => [...list, ''])} accessibilityRole="button" style={styles.addRow}>
-                <Icon name="plus" size={18} color={c.primary} />
-                <Text style={{ color: c.primary, fontWeight: '600' }}>Add a stop</Text>
+                <Icon name="plus" size={18} color={tk.primary} />
+                <Text style={[{ fontWeight: '600' }, tc.color_primary]}>{t('planTrip.addAStop')}</Text>
               </Pressable>
             ) : null}
           </View>
 
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.label, { color: c.textSec }]}>Budget per person (US$, optional)</Text>
-            {input(budget, t => setBudget(moneyInput(t)), 'Budget per person', { placeholder: '150', keyboardType: 'decimal-pad', maxLength: 8 })}
-            <Text style={[styles.cardTitle, { color: c.text }]}>Interests</Text>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[styles.label, tc.color_textSec]}>{t('planTrip.budgetPerPersonUsOptional')}</Text>
+            {input(budget, value => setBudget(moneyInput(value)), t('planTrip.budget'), { placeholder: '150', keyboardType: 'decimal-pad', maxLength: 8 })}
+            <Text style={[styles.cardTitle, tc.color_text]}>{t('planTrip.interests')}</Text>
             <View style={styles.chips}>
               {TRIP_INTERESTS.map(i => {
                 const on = interests.includes(i);
                 return (
-                  <Pressable key={i} onPress={() => setInterests(list => (on ? list.filter(x => x !== i) : [...list, i]))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} style={[styles.chip, { borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryLight : c.bg }]}>
-                    <Text style={{ color: on ? c.primary : c.text }}>{cap(i)}</Text>
+                  <Pressable key={i} onPress={() => setInterests(list => (on ? list.filter(x => x !== i) : [...list, i]))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} style={[
+                    styles.chip,
+                    on ? tc.borderColor_primary : tc.borderColor_border,
+                    on ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface
+                  ]}>
+                    <Text style={on ? tc.color_primary : tc.color_text}>{cap(i)}</Text>
                   </Pressable>
                 );
               })}
@@ -178,43 +226,51 @@ export function PlanTripScreen() {
           </View>
 
           {days >= 1 && days <= MAX_DAYS ? (
-            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Text style={[styles.cardTitle, { color: c.text }]}>Day by day (optional)</Text>
+            <View style={[
+              styles.card,
+              tc.backgroundColor_surfaceVariant,
+              tc.borderColor_surfaceVariant
+            ]}>
+              <Text style={[styles.cardTitle, tc.color_text]}>{t('planTrip.dayByDayOptional')}</Text>
               {dayList.map(d => (
                 <View key={d} style={styles.row}>
-                  <Text style={{ width: 52, color: c.textSec }}>Day {d}</Text>
+                  <Text style={[{ width: 52 }, tc.color_textSec]}>{t('planTrip.day', { n: d })}</Text>
                   <View style={{ flex: 1 }}>
-                    {input(plan[d] ?? '', t => setPlan(p => ({ ...p, [d]: t })), `Day ${d} plan`, { placeholder: d === 1 ? 'Arrive, check in, beach' : '', maxLength: 120 })}
+                    {input(plan[d] ?? '', value => setPlan(p => ({ ...p, [d]: value })), t('planTrip.dayPlan', { n: d }), { placeholder: d === 1 ? t('planTrip.dayOnePlaceholder') : '', maxLength: 120 })}
                   </View>
                 </View>
               ))}
-              {days > dayList.length ? <Text style={{ fontSize: 12, color: c.textSec }}>Add the later days once the trip is created.</Text> : null}
+              {days > dayList.length ? <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('planTrip.addTheLaterDaysOnce')}</Text> : null}
             </View>
           ) : null}
 
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
             <View style={styles.row}>
-              <Text style={{ flex: 1, fontSize: 15, color: c.text }}>Group size, including you</Text>
-              <Pressable onPress={() => setGroupSize(n => Math.max(2, n - 1))} accessibilityRole="button" accessibilityLabel="Fewer people" style={[styles.step, { borderColor: c.border }]}>
-                <Icon name="minus" size={18} color={c.text} />
+              <Text style={[{ flex: 1, fontSize: 15 }, tc.color_text]}>{t('planTrip.groupSizeIncludingYou')}</Text>
+              <Pressable onPress={() => setGroupSize(n => Math.max(2, n - 1))} accessibilityRole="button" accessibilityLabel={t('planTrip.fewerPeople')} style={[styles.step, tc.borderColor_border]}>
+                <Icon name="minus" size={18} color={tk.text} />
               </Pressable>
-              <Text style={{ width: 28, textAlign: 'center', fontSize: 17, fontWeight: '700', color: c.text }} accessibilityLiveRegion="polite">{groupSize}</Text>
-              <Pressable onPress={() => setGroupSize(n => Math.min(8, n + 1))} accessibilityRole="button" accessibilityLabel="More people" style={[styles.step, { borderColor: c.border }]}>
-                <Icon name="plus" size={18} color={c.text} />
+              <Text style={[{ width: 28, textAlign: 'center', fontSize: 17, fontWeight: '700' }, tc.color_text]} accessibilityLiveRegion="polite">{groupSize}</Text>
+              <Pressable onPress={() => setGroupSize(n => Math.min(8, n + 1))} accessibilityRole="button" accessibilityLabel={t('planTrip.morePeople')} style={[styles.step, tc.borderColor_border]}>
+                <Icon name="plus" size={18} color={tk.text} />
               </Pressable>
             </View>
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, color: c.text }}>Others can find it</Text>
-                <Text style={{ fontSize: 12, color: c.textSec }}>{isPublic ? 'Listed in Find travel partners' : 'Only people you share the invite code with'}</Text>
+                <Text style={[{ fontSize: 15 }, tc.color_text]}>{t('planTrip.othersCanFindIt')}</Text>
+                <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{isPublic ? t('planTrip.listedInFindTravelPartners') : t('planTrip.onlyPeopleYouShareThe')}</Text>
               </View>
-              <Switch value={isPublic} onValueChange={setIsPublic} accessibilityLabel="Others can find it" trackColor={{ false: c.border, true: c.primary }} />
+              <Switch value={isPublic} onValueChange={setIsPublic} accessibilityLabel={t('planTrip.othersCanFindIt')} trackColor={{ false: tk.border, true: tk.primary }} />
             </View>
           </View>
 
-          {problem ? <Text style={{ color: c.textSec, fontSize: 13 }}>{problem}</Text> : null}
-          <Pressable onPress={create} disabled={Boolean(problem) || saving} accessibilityRole="button" style={[styles.primary, { backgroundColor: problem ? c.border : c.primary }]}>
-            {saving ? <ActivityIndicator color={c.textOnPrimary} /> : <Text style={{ fontSize: 16, fontWeight: '700', color: problem ? c.textSec : c.textOnPrimary }}>Create trip</Text>}
+          {problem ? <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{problem}</Text> : null}
+          <Pressable onPress={create} disabled={Boolean(problem) || saving} accessibilityRole="button" style={[styles.primary, problem ? tc.backgroundColor_border : tc.backgroundColor_primary]}>
+            {saving ? <ActivityIndicator color={tk.textOnPrimary} /> : <Text style={[{ fontSize: 16, fontWeight: '700' }, problem ? tc.color_textSec : tc.color_textOnPrimary]}>{t('planTrip.createTrip')}</Text>}
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

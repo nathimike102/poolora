@@ -198,8 +198,15 @@ export interface IUserStats {
   totalRatingsAsRider: number;
   avgRatingAsOrganizer?: number;
   totalRatingsAsOrganizer?: number;
+  /** Sums of the ratings received; the averages above are scores (utils/ratingScore) */
+  ratingSumAsDriver?: number;
+  ratingSumAsRider?: number;
+  ratingSumAsOrganizer?: number;
   cancellationRate: number;
   acceptanceRate: number;
+  /** CO₂ saved by this user's shared trips, as rider and driver (UC-R11) */
+  co2SavedKg?: number;
+  kmShared?: number;
 }
 
 // ─── JWT Payload ─────────────────────────────────────────────────────────────
@@ -300,7 +307,11 @@ export interface LocationUpdate {
 export interface DistanceMilestone {
   distanceKm: number;
   estimatedMins: number;
+  /** English, for app versions that do not translate it */
   message: string;
+  /** The app's catalogue key and values, so it shows the message in the rider's language (UC-X03) */
+  messageKey: string;
+  messageVars?: Record<string, number>;
 }
 
 // ─── Chat ────────────────────────────────────────────────────────────────────

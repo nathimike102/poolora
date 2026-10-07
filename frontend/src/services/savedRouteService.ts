@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { IconName } from '../components/Icon';
 
-const STORAGE_KEY = '@poolora_saved_routes';
+const STORAGE_KEY = '@siham_saved_routes';
 
 /** Routes saved on this device for quick searching. */
 export interface SavedRoute {
@@ -51,4 +51,9 @@ export async function addSavedRoute(route: Omit<SavedRoute, 'id' | 'createdAt'>)
 export async function deleteSavedRoute(id: string): Promise<void> {
   const routes = await getSavedRoutes();
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(routes.filter(r => r.id !== id)));
+}
+
+/** The saved routes belong to the account, so logging out removes them. */
+export async function clearSavedRoutes(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
 }

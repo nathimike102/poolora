@@ -8,6 +8,7 @@ import axios, { AxiosInstance } from 'axios';
 import { reportAccountRestricted } from '../utils/accountRestriction';
 import { API_CONFIG } from './constants';
 import { logger } from '../utils/logger';
+import i18n from '../i18n';
 
 // ─── Axios Instance ────────────────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ apiClient.interceptors.response.use(
     // A blocked or merged account: show the account status screen (UC-A05)
     const serverError = error.response?.data?.error;
     if (error.response?.status === 403 && (serverError?.id === 'ACCOUNT_BLOCKED' || serverError?.id === 'ACCOUNT_MERGED')) {
-      reportAccountRestricted({ id: serverError.id, message: serverError.message ?? 'This account is not available.' });
+      reportAccountRestricted({ id: serverError.id, message: serverError.message ?? i18n.t('errors.accountUnavailable') });
     }
     if (API_CONFIG.debugApiCalls) {
       logger.debug('API Error Response', {

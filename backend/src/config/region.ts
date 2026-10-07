@@ -1,7 +1,7 @@
 /**
  * region.ts
  *
- * The markets Poolora runs in, and the one this deployment serves. Time
+ * The markets Siham runs in, and the one this deployment serves. Time
  * zone, phone numbers, money, map bounds and emergency numbers all come
  * from here, so nothing else hard-codes a country. Zimbabwe is the first
  * market; a new country is a new entry in MARKETS (and its payment
@@ -38,8 +38,15 @@ export interface Market {
   bbox: readonly [number, number, number, number];
   center: { lat: number; lng: number };
   emergency: { general: string; police: string; ambulance: string; fire: string };
+  /** Languages people here can choose, English first (UC-X03) */
+  languages: string[];
   /** Public holidays, for the demand forecast */
   holidays: HolidayCalendar;
+  /**
+   * Kombi ranks and bus termini worth offering (UC-R12): names only. An
+   * admin places each on the map in the web admin before riders see it.
+   */
+  transitHubs: Array<{ name: string; kind: 'kombi_rank' | 'bus_terminus'; city: string }>;
 }
 
 export const MARKETS: Record<string, Market> = {
@@ -61,6 +68,19 @@ export const MARKETS: Record<string, Market> = {
     // Harare
     center: { lat: -17.8292, lng: 31.0522 },
     emergency: { general: '999', police: '995', ambulance: '994', fire: '993' },
+    languages: ['en', 'sn', 'nd'],
+    transitHubs: [
+      { name: 'Mbare Musika', kind: 'bus_terminus', city: 'Harare' },
+      { name: 'Roadport', kind: 'bus_terminus', city: 'Harare' },
+      { name: 'Market Square', kind: 'bus_terminus', city: 'Harare' },
+      { name: 'Copacabana', kind: 'kombi_rank', city: 'Harare' },
+      { name: 'Fourth Street', kind: 'kombi_rank', city: 'Harare' },
+      { name: 'Charge Office', kind: 'kombi_rank', city: 'Harare' },
+      { name: 'Renkini', kind: 'bus_terminus', city: 'Bulawayo' },
+      { name: 'Egodini', kind: 'kombi_rank', city: 'Bulawayo' },
+      { name: 'Sakubva', kind: 'bus_terminus', city: 'Mutare' },
+      { name: 'Kudzanai', kind: 'bus_terminus', city: 'Gweru' },
+    ],
     // Public Holidays and Prohibition of Business Act [Chapter 10:21]
     holidays: {
       rules: [

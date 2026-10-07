@@ -6,6 +6,7 @@ import { paginate } from '../utils/helpers';
 import { EventBridge } from '../events';
 import Filter from 'bad-words';
 import { NotificationService } from './NotificationService';
+import { phrase } from '../i18n';
 
 const profanityFilter = new Filter();
 
@@ -63,7 +64,7 @@ export class ChatService {
     });
     await this.notificationService.createNotification(
     receiverId,
-    "New Message",
+    phrase('chat.newMessage'),
     sanitizedContent,
     "chat",
   {

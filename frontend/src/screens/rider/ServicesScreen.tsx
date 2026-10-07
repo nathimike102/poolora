@@ -1,23 +1,29 @@
 /**
  * screens/rider/ServicesScreen.tsx
  *
- * Everything a rider can do, as a grid: each kind of ride, scheduling,
- * saved routes, safety, and driving with Poolora. Services that aren't built
- * yet are listed separately as coming soon rather than as working buttons.
+ * Everything a rider can do, as grids of 3D tiles in the style of Uber's
+ * Services tab: each kind of ride and ways to travel, sending a parcel, and
+ * the rider's own Siham (work, wallet, impact, receipts, safety).
  */
 
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import { Text } from '../../components/Text';
 import { useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '../../context/AppContext';
-import { Icon, type IconName } from '../../components/Icon';
-import { Typography, Spacing, Radius } from '../../theme';
+import { ServiceTile, TileGrid } from '../../components/ServiceTile';
+import type { Icon3DName } from '../../components/Icon3D';
+import { ScreenGlow } from '../../components/ScreenGlow';
+import { Typography, Spacing } from '../../theme';
 import type { RootStackParamList, RiderTabParamList } from '../../navigation/types';
 import { VEHICLE_CATEGORIES, type VehicleCategory } from '../../utils/vehicles';
+import { useTranslation } from 'react-i18next';
+
+import { tc } from '../../theme/themed';
 
 type NavProp = CompositeNavigationProp<
   BottomTabNavigationProp<RiderTabParamList, 'Services'>,
@@ -27,85 +33,77 @@ type NavProp = CompositeNavigationProp<
 interface Service {
   key: string;
   label: string;
-  icon: IconName;
+  icon: Icon3DName;
   onPress: () => void;
 }
 
 export function ServicesScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c, switchRole } = useApp();
+  const { t } = useTranslation();
+  const {
+    switchRole
+  } = useApp();
   const insets = useSafeAreaInsets();
 
-  const rides: Service[] = (Object.keys(VEHICLE_CATEGORIES) as VehicleCategory[]).map(key => ({
-    key,
-    label: VEHICLE_CATEGORIES[key].label,
-    icon: VEHICLE_CATEGORIES[key].icon,
-    onPress: () => navigation.navigate('Search', { category: key }),
-  }));
-
-  const more: Service[] = [
-    { key: 'later', label: 'Schedule', icon: 'calendar-clock', onPress: () => navigation.navigate('Search', { schedule: true }) },
-    { key: 'routes', label: 'Saved routes', icon: 'map-marker-path', onPress: () => navigation.navigate('AddSavedRoute') },
-    { key: 'sos', label: 'Safety', icon: 'shield-check-outline', onPress: () => navigation.navigate('SOS') },
-    { key: 'contacts', label: 'SOS contacts', icon: 'account-heart-outline', onPress: () => navigation.navigate('EmergencyContacts') },
-    { key: 'messages', label: 'Messages', icon: 'message-text-outline', onPress: () => navigation.navigate('Messages') },
-    { key: 'parcels', label: 'Parcels', icon: 'package-variant-closed', onPress: () => navigation.navigate('ShipParcel') },
-    { key: 'trips', label: 'Trips', icon: 'bag-suitcase-outline', onPress: () => navigation.navigate('TripPartners') },
-    { key: 'drive', label: 'Drive & earn', icon: 'steering', onPress: switchRole },
+  const rides: Service[] = [
+    ...(Object.keys(VEHICLE_CATEGORIES) as VehicleCategory[]).map(key => ({
+      key,
+      label: VEHICLE_CATEGORIES[key].label,
+      icon: VEHICLE_CATEGORIES[key].icon3d,
+      onPress: () => navigation.navigate('Search', { category: key }),
+    })),
+    { key: 'later', label: t('services.later'), icon: 'spiralCalendar', onPress: () => navigation.navigate('Search', { schedule: true }) },
+    { key: 'trips', label: t('services.trips'), icon: 'handshake', onPress: () => navigation.navigate('TripPartners') },
+    { key: 'routes', label: t('services.routes'), icon: 'worldMap', onPress: () => navigation.navigate('AddSavedRoute') },
   ];
 
+  const send: Service[] = [
+    { key: 'parcels', label: t('services.parcels'), icon: 'package', onPress: () => navigation.navigate('ShipParcel') },
+  ];
+
+  const yours: Service[] = [
+    { key: 'work', label: t('services.work'), icon: 'briefcase', onPress: () => navigation.navigate('Work') },
+    { key: 'wallet', label: t('services.wallet'), icon: 'purse', onPress: () => navigation.navigate('Wallet') },
+    { key: 'impact', label: t('services.impact'), icon: 'herb', onPress: () => navigation.navigate('Impact') },
+    { key: 'receipts', label: t('services.receipts'), icon: 'receipt', onPress: () => navigation.navigate('Receipts') },
+    { key: 'sos', label: t('services.sos'), icon: 'shield', onPress: () => navigation.navigate('SOS') },
+    { key: 'contacts', label: t('services.contacts'), icon: 'telephoneReceiver', onPress: () => navigation.navigate('EmergencyContacts') },
+    { key: 'messages', label: t('services.messages'), icon: 'speechBalloon', onPress: () => navigation.navigate('Messages') },
+    { key: 'drive', label: t('services.drive'), icon: 'moneyBag', onPress: switchRole },
+  ];
 
   return (
-    <View style={[styles.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenGlow />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">All services</Text>
+        <Text style={[styles.title, tc.color_text]} accessibilityRole="header">{t('services.allServices')}</Text>
 
-        <Text style={[styles.section, { color: c.textSec }]}>Rides</Text>
+        <Text style={[styles.section, tc.color_text]}>{t('services.goAnywhere')}</Text>
         <Grid items={rides} />
 
-        <Text style={[styles.section, { color: c.textSec }]}>More</Text>
-        <Grid items={more} />
+        <Text style={[styles.section, tc.color_text]}>{t('services.sendSomething')}</Text>
+        <Grid items={send} />
+
+        <Text style={[styles.section, tc.color_text]}>{t('services.yourSiham')}</Text>
+        <Grid items={yours} />
       </ScrollView>
     </View>
   );
 }
 
 function Grid({ items }: { items: Service[] }) {
-  const { c } = useApp();
   return (
-    <View style={styles.grid}>
+    <TileGrid>
       {items.map(s => (
-        <Pressable
-          key={s.key}
-          onPress={s.onPress}
-          accessibilityRole="button"
-          accessibilityLabel={s.label}
-          style={({ pressed }) => [styles.cell, { opacity: pressed ? 0.7 : 1 }]}
-        >
-          <View style={[styles.tile, { backgroundColor: c.surfaceVariant }]}>
-            <Icon name={s.icon} size={34} color={c.primary} />
-          </View>
-          <Text style={[styles.label, { color: c.text }]} numberOfLines={1}>{s.label}</Text>
-        </Pressable>
+        <ServiceTile key={s.key} icon={s.icon} label={s.label} onPress={s.onPress} />
       ))}
-    </View>
+    </TileGrid>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing['3xl'] },
-  title: { fontSize: Typography['6xl'], fontWeight: Typography.extrabold, marginTop: Spacing.lg, marginBottom: Spacing.sm },
-  section: {
-    fontSize: Typography.md,
-    fontWeight: Typography.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginTop: Spacing['2xl'],
-    marginBottom: Spacing.md,
-  },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: Spacing.xl, marginHorizontal: -Spacing.xs - 2 },
-  cell: { width: '33.333%', paddingHorizontal: Spacing.xs + 2, alignItems: 'center', gap: Spacing.sm },
-  tile: { width: '100%', aspectRatio: 1.25, borderRadius: Radius['2xl'], alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: Typography.lg, fontWeight: Typography.semibold },
+  title: { fontSize: Typography['6xl'], fontWeight: Typography.extrabold, marginTop: Spacing.lg },
+  section: { fontSize: Typography['2xl'], fontWeight: Typography.bold, marginTop: Spacing['2xl'], marginBottom: Spacing.sm },
 });

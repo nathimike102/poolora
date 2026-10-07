@@ -314,7 +314,7 @@ export function DisputeDetailPage() {
         <Field label="Justification (both parties see this)">
           <textarea className="input" value={form.justification} onChange={(e) => up('justification', e.target.value)} placeholder="The chat shows the driver asked the rider to cancel, so the late-cancellation fee is returned." />
         </Field>
-        <p className="faint">Money moves as soon as you confirm: every refund goes to the rider's Poolora wallet at once, including online payments (Paynow cannot refund), and they can withdraw it to mobile money.</p>
+        <p className="faint">Money moves as soon as you confirm: every refund goes to the rider's Siham wallet at once, including online payments (Paynow cannot refund), and they can withdraw it to mobile money.</p>
       </ActionDialog>
     </div>
   );

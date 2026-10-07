@@ -46,9 +46,13 @@ export interface IRide extends Document {
   pricePerSeat: number;
   availableSeats: number;
   totalSeats: number;
+  /** The driver's company, for a colleagues-only ride */
+  organisation?: Types.ObjectId;
   recurring: RecurringPattern;
   preferences: {
     womenOnly: boolean;
+    /** Only staff of the driver's company see and book it (UC-C02) */
+    colleaguesOnly?: boolean;
     smokingAllowed: boolean;
     petsAllowed: boolean;
     luggageSize: 'none' | 'small' | 'medium' | 'large';
@@ -131,6 +135,7 @@ const RideSchema = new Schema<IRide>(
     },
     pricePerSeat: { type: Number, required: true, min: 0 },
     availableSeats: { type: Number, required: true, min: 0 },
+    organisation: { type: Schema.Types.ObjectId, ref: 'Organisation' },
     totalSeats: { type: Number, required: true, min: 1 },
     recurring: {
       type: String,
@@ -139,6 +144,7 @@ const RideSchema = new Schema<IRide>(
     },
     preferences: {
       womenOnly: { type: Boolean, default: false },
+      colleaguesOnly: { type: Boolean, default: false },
       smokingAllowed: { type: Boolean, default: false },
       petsAllowed: { type: Boolean, default: false },
       luggageSize: {

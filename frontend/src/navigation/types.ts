@@ -30,7 +30,8 @@ export type RiderTabParamList = {
 
 export type DriverTabParamList = {
   DriverHome: undefined;
-  CreateRide: undefined;
+  /** Set when coming back from the map picker */
+  CreateRide: { pickedLocation?: string; pickedField?: 'from' | 'to'; pickedLat?: number; pickedLng?: number } | undefined;
   ManageRequests: undefined;
   ChatList: undefined;
   DriverProfile: undefined;
@@ -45,8 +46,14 @@ export type RootStackParamList = {
   // Auth flow
   Splash: undefined;
   Onboarding: undefined;
+  LocationIntro: { next: 'Login' | 'Onboarding' };
+  /** Add or change the account's phone number, proved with a code */
+  PhoneNumber: undefined;
+  /** How to use the app, step by step */
+  Guide: undefined;
   Login: undefined;
   PhoneLogin: undefined;
+  /** The number in E.164 */
   OTP: { phone: string };
   EmailLogin: undefined;
   EmailSignup: undefined;
@@ -69,6 +76,8 @@ export type RootStackParamList = {
         /** Address chosen on the map picker */
         pickedLocation?: string;
         pickedField?: 'from' | 'to';
+        pickedLat?: number;
+        pickedLng?: number;
         /** Open the date picker first */
         schedule?: boolean;
         /** Show only this kind of vehicle in the results */
@@ -100,6 +109,7 @@ export type RootStackParamList = {
   ActiveRide: { rideId: string; bookingId?: string };
   RideDetail: { rideId: string; pickup?: BookingStop; dropoff?: BookingStop };
   Receipt: { bookingId: string };
+  Receipts: undefined;
   /** Raise a dispute about a booking; `summary` names the trip on the form */
   RaiseDispute: { bookingId: string; summary?: string };
   RateTrip: { bookingId: string; rateeName: string; summary?: string };
@@ -154,6 +164,9 @@ export type RootStackParamList = {
   FakeCall: undefined;
   /** The identity check behind women-only rides */
   IdentityCheck: undefined;
+  Impact: undefined;
+  Language: undefined;
+  Work: undefined;
   /** A GPS tracker in the driver's car */
   CarTracker: undefined;
   EmergencyContacts: undefined;
@@ -165,7 +178,9 @@ export type RootStackParamList = {
   AdminVerifications: undefined;
 
   // Map picker
-  MapPicker: { field: 'from' | 'to' };
+  /** Returns the address and the exact pinned point to the screen it came from */
+  /** requestId: a form waiting on utils/mapPick for the point instead of a screen to return to */
+  MapPicker: { field: 'from' | 'to'; returnTo?: 'Search' | 'CreateRide'; requestId?: string };
 };
 
 // Convenience re-exports so screens don't need two imports

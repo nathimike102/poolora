@@ -56,6 +56,8 @@ describe('BookingService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // The rider's hold on making one booking at a time is free
+    (User.updateOne as jest.Mock).mockResolvedValue({ modifiedCount: 1 });
     bookingService = new BookingService();
   });
 
@@ -581,6 +583,7 @@ describe('BookingService', () => {
         status: BookingStatus.CONFIRMED,
         estimatedFare: 300,
         seatsBooked: 2,
+        actualPickupTime: new Date(),
         save: jest.fn().mockResolvedValue(true),
       };
       (Booking.findById as jest.Mock).mockResolvedValue(mockBooking);
@@ -602,6 +605,7 @@ describe('BookingService', () => {
         ride: 'ride789',
         status: BookingStatus.CONFIRMED,
         estimatedFare: 200,
+        actualPickupTime: new Date(),
         save: jest.fn().mockResolvedValue(true),
       };
       (Booking.findById as jest.Mock).mockResolvedValue(mockBooking);
@@ -619,6 +623,21 @@ describe('BookingService', () => {
           }),
         }),
       );
+    });
+
+    it('will not complete, pay the driver or bill a company for a rider never picked up', async () => {
+      const save = jest.fn();
+      (Booking.findById as jest.Mock).mockResolvedValue({
+        _id: 'booking123',
+        driver: { toString: () => 'driver456' },
+        rider: { toString: () => 'rider123' },
+        status: BookingStatus.CONFIRMED,
+        estimatedFare: 200,
+        save,
+      });
+
+      await expect(bookingService.completeBooking('booking123', 'driver456')).rejects.toThrow('Mark the rider as picked up first');
+      expect(save).not.toHaveBeenCalled();
     });
   });
 

@@ -9,16 +9,27 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Linking, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Alert,
+  Linking,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 
-import { useApp } from '../../context/AppContext';
 import { callOnBooking } from '../../services/callService';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import { RideParcels } from '../../components/RideParcels';
 import { LiveMap } from '../../components/LiveMap';
@@ -33,6 +44,9 @@ import { decodePolyline } from '../../utils/polyline';
 import { initSocket } from '../../utils/socket';
 import { money, REGION } from '../../utils/region';
 import { startTripTracking, stopTripTracking } from '../../services/tripTracking';
+import { useTranslation } from 'react-i18next';
+
+import { tc, tk } from '../../theme/themed';
 
 type Coordinate = { latitude: number; longitude: number };
 
@@ -46,15 +60,22 @@ type LatLng = { lat: number; lng: number };
 const pointOf = (place?: { location?: { coordinates: [number, number] } }): LatLng | null =>
   place?.location?.coordinates ? { lng: place.location.coordinates[0], lat: place.location.coordinates[1] } : null;
 
+/** A rider's own stop, by booking and position, for marking it made */
+const stopKey = (bookingId: string, i: number) => `${bookingId}:${i}`;
+
 /**
  * Google Maps turn-by-turn directions through the stops still to come:
- * pickups of riders not yet in the car, then drops of those who are, then
- * the end of the ride (UC-D05).
+ * pickups of riders not yet in the car, then for those who are, the stops
+ * they added and not yet made, then their drops, then the end of the ride
+ * (UC-D05).
  */
-function directionsUrl(riders: Booking[], end: LatLng): string {
+function directionsUrl(riders: Booking[], end: LatLng, madeStops: Set<string>): string {
   const stops = [
     ...riders.filter(b => !b.actualPickupTime).map(b => pointOf(b.pickup)),
-    ...riders.filter(b => b.actualPickupTime).map(b => pointOf(b.dropoff)),
+    ...riders.filter(b => b.actualPickupTime).flatMap(b => [
+      ...(b.stops ?? []).filter((_, i) => !madeStops.has(stopKey(b._id, i))).map(s => pointOf(s)),
+      pointOf(b.dropoff),
+    ]),
   ].filter((p): p is LatLng => Boolean(p));
   const params = new URLSearchParams({ api: '1', destination: `${end.lat},${end.lng}`, travelmode: 'driving' });
   if (stops.length) params.set('waypoints', stops.map(p => `${p.lat},${p.lng}`).join('|'));
@@ -92,11 +113,13 @@ type Route = RouteProp<RootStackParamList, 'DriverRideDetails'>;
 export function DriverRideDetailsScreen() {
   const { rideId } = useRoute<Route>().params;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [ride, setRide] = useState<Ride | null>(null);
   const [riders, setRiders] = useState<Booking[]>([]);
+  // Riders' own stops the driver has made, so directions don't go back to them
+  const [madeStops, setMadeStops] = useState<Set<string>>(new Set());
   const [loadError, setLoadError] = useState(false);
   const [acting, setActing] = useState(false);
   const [carLocation, setCarLocation] = useState<Coordinate | undefined>();
@@ -168,7 +191,7 @@ export function DriverRideDetailsScreen() {
     (async () => {
       const { status: permission } = await Location.requestForegroundPermissionsAsync();
       if (permission !== 'granted') {
-        setGpsNote('Allow location access so riders can follow your car.');
+        setGpsNote(t('driverRide.gpsAllow'));
         return;
       }
       setGpsNote('');
@@ -188,12 +211,12 @@ export function DriverRideDetailsScreen() {
         },
       );
       if (cancelled) subscription.remove();
-    })().catch(() => setGpsNote('Your location could not be shared. Check that location is on.'));
+    })().catch(() => setGpsNote(t('driverRide.gpsFailed')));
     return () => {
       cancelled = true;
       subscription?.remove();
     };
-  }, [inProgress, simulating, rideId]);
+  }, [inProgress, simulating, rideId, t]);
 
   // The trip has ended (or is being simulated): stop sending
   useEffect(() => {
@@ -214,7 +237,7 @@ export function DriverRideDetailsScreen() {
       setSimulationProgress(data.progress);
       if (data.phase === 'done') {
         setSimulating(false);
-        Alert.alert('You have reached the drop', 'Complete the ride so your riders can pay and rate the trip.');
+        Alert.alert(t('driverRide.simDoneTitle'), t('driverRide.simDoneBody'));
       } else {
         setSimulating(true);
       }
@@ -223,7 +246,7 @@ export function DriverRideDetailsScreen() {
     return () => {
       socket.off('ride:simulation', onSimulation);
     };
-  }, [rideId]);
+  }, [rideId, t]);
 
   const runNow = async (action: () => Promise<unknown>) => {
     setActing(true);
@@ -231,7 +254,7 @@ export function DriverRideDetailsScreen() {
       await action();
       await load();
     } catch (error) {
-      Alert.alert('Something went wrong', errorHandler.process(error).message);
+      Alert.alert(t('driverRide.wentWrong'), errorHandler.process(error).message);
     } finally {
       setActing(false);
     }
@@ -253,9 +276,9 @@ export function DriverRideDetailsScreen() {
   const requestTestRider = () =>
     runNow(async () => {
       await simulationService.asDriver(undefined, rideId);
-      Alert.alert('A test rider asked for a seat', 'Sim Rider has paid from their wallet. Accept the request, then start the ride.', [
-        { text: 'Later', style: 'cancel' },
-        { text: 'Review request', onPress: () => navigation.navigate('DriverTabs', { screen: 'ManageRequests' }) },
+      Alert.alert(t('driverRide.testRiderTitle'), t('driverRide.testRiderBody'), [
+        { text: t('driverRide.later'), style: 'cancel' },
+        { text: t('driverRide.reviewRequest'), onPress: () => navigation.navigate('DriverTabs', { screen: 'ManageRequests' }) },
       ]);
     });
 
@@ -297,9 +320,9 @@ export function DriverRideDetailsScreen() {
       const { sent } = await rideService.messageAllRiders(rideId, text);
       setComposing(false);
       setBroadcast('');
-      Alert.alert('Message sent', `Sent to ${sent} ${sent === 1 ? 'rider' : 'riders'}. Replies arrive in your chats.`);
+      Alert.alert(t('driverRide.messageSent'), sent === 1 ? t('driverRide.sentToOne') : t('driverRide.sentToMany', { count: sent }));
     } catch (error) {
-      Alert.alert('Not sent', errorHandler.process(error).message);
+      Alert.alert(t('common.notSent'), errorHandler.process(error).message);
     } finally {
       setSendingBroadcast(false);
     }
@@ -307,14 +330,14 @@ export function DriverRideDetailsScreen() {
 
   const openInMaps = () => {
     if (!ride) return;
-    Linking.openURL(directionsUrl(riders, { lat: ride.dropoffLocation.lat, lng: ride.dropoffLocation.lng })).catch(() =>
-      Alert.alert('Maps did not open', 'Install Google Maps, or open the route in your maps app by hand.'),
+    Linking.openURL(directionsUrl(riders, { lat: ride.dropoffLocation.lat, lng: ride.dropoffLocation.lng }, madeStops)).catch(() =>
+      Alert.alert(t('driverRide.mapsFailedTitle'), t('driverRide.mapsFailedBody')),
     );
   };
 
   const runAction = (title: string, message: string, confirmLabel: string, action: () => Promise<unknown>) => {
     Alert.alert(title, message, [
-      { text: 'Not now', style: 'cancel' },
+      { text: t('driverRide.notNow'), style: 'cancel' },
       {
         text: confirmLabel,
         style: 'destructive',
@@ -324,7 +347,7 @@ export function DriverRideDetailsScreen() {
             await action();
             await load();
           } catch (error) {
-            Alert.alert('Something went wrong', errorHandler.process(error).message);
+            Alert.alert(t('driverRide.wentWrong'), errorHandler.process(error).message);
           } finally {
             setActing(false);
           }
@@ -334,22 +357,18 @@ export function DriverRideDetailsScreen() {
   };
 
   const header = (
-    <View style={[styles.header, { borderBottomColor: c.border }]}>
-      <BackButton onPress={() => navigation.goBack()} />
-      <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Ride details</Text>
-      <View style={styles.headerSpacer} />
-    </View>
+    <ScreenHeader title={t('driverRide.title')} />
   );
 
   if (!ride) {
     return (
-      <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
         {header}
         <View style={styles.center}>
           {loadError ? (
-            <Text style={{ color: c.textSec, fontSize: 15 }}>This ride could not be loaded.</Text>
+            <Text style={[{ fontSize: 15 }, tc.color_textSec]}>{t('driverRide.loadFailed')}</Text>
           ) : (
-            <ActivityIndicator color={c.primary} accessibilityLabel="Loading ride" />
+            <ActivityIndicator color={tk.primary} accessibilityLabel={t('ride.loading')} />
           )}
         </View>
       </View>
@@ -363,11 +382,11 @@ export function DriverRideDetailsScreen() {
   const destination = { latitude: ride.dropoffLocation.lat, longitude: ride.dropoffLocation.lng };
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {header}
 
       <ScrollView style={styles.flex1} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.mapCard, { borderColor: c.border }]}>
+        <View style={[styles.mapCard, tc.borderColor_border]}>
           <LiveMap
             showRoute
             showDriver={Boolean(carLocation)}
@@ -379,102 +398,146 @@ export function DriverRideDetailsScreen() {
         </View>
 
         {inProgress && (
-          <View style={[styles.liveBanner, { backgroundColor: c.primaryLight }]} accessibilityLiveRegion="polite">
-            <Icon name={simulating ? 'robot' : 'crosshairs-gps'} size={18} color={c.primary} />
-            <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: c.text }}>
+          <View style={[styles.liveBanner, tc.backgroundColor_primaryLight]} accessibilityLiveRegion="polite">
+            <Icon name={simulating ? 'robot' : 'crosshairs-gps'} size={18} color={tk.primary} />
+            <Text style={[{ flex: 1, fontSize: 14, fontWeight: '600' }, tc.color_text]}>
               {gpsNote ||
                 (simulating
-                  ? `Simulated drive: ${Math.round(simulationProgress * 100)}% of the route`
-                  : 'Riders can follow your car live.')}
+                  ? t('driverRide.simulatedDrive', { percent: Math.round(simulationProgress * 100) })
+                  : t('driverRide.ridersFollow'))}
             </Text>
           </View>
         )}
 
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.sectionLabel, { color: c.textSec }]}>Route</Text>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{ride.pickupLocation.address}</Text>
-          <Text style={{ fontSize: 14, color: c.textSec, marginVertical: 4 }}>to</Text>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{ride.dropoffLocation.address}</Text>
+        <View style={[
+          styles.card,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
+          <Text style={[styles.sectionLabel, tc.color_textSec]}>{t('driverRide.route')}</Text>
+          <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_text]}>{ride.pickupLocation.address}</Text>
+          <Text style={[{ fontSize: 14, marginVertical: 4 }, tc.color_textSec]}>{t('driverRide.to')}</Text>
+          <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_text]}>{ride.dropoffLocation.address}</Text>
           <View style={styles.infoRow}>
-            <Icon name="calendar" size={16} color={c.textSec} />
-            <Text style={{ fontSize: 14, color: c.text, marginLeft: 8 }}>
-              {departure.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })} at{' '}
-              {departure.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' })}
+            <Icon name="calendar" size={16} color={tk.textSec} />
+            <Text style={[{ fontSize: 14, marginLeft: 8 }, tc.color_text]}>
+              {t('driverRide.dateAt', {
+                date: departure.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' }),
+                time: departure.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }),
+              })}
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Icon name="information-outline" size={16} color={c.textSec} />
-            <Text style={{ fontSize: 14, color: c.text, marginLeft: 8, textTransform: 'capitalize' }}>
-              {(status ?? '').replace('_', ' ')}
+            <Icon name="information-outline" size={16} color={tk.textSec} />
+            <Text style={[{ fontSize: 14, marginLeft: 8 }, tc.color_text]}>
+              {status ? t(`driverRide.status.${status}`, { defaultValue: status.replace('_', ' ') }) : ''}
             </Text>
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <View style={[
+          styles.card,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={[styles.sectionLabel, { color: c.textSec }]}>Seats booked</Text>
-              <Text style={{ fontSize: 22, fontWeight: '800', color: c.text }}>
-                {booked} of {ride.seats}
+              <Text style={[styles.sectionLabel, tc.color_textSec]}>{t('driverRide.seatsBooked')}</Text>
+              <Text style={[{ fontSize: 22, fontWeight: '800' }, tc.color_text]}>
+                {t('driverRide.bookedOf', { booked, seats: ride.seats })}
               </Text>
             </View>
-            <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+            <View style={[styles.statDivider, tc.backgroundColor_border]} />
             <View style={styles.statItem}>
-              <Text style={[styles.sectionLabel, { color: c.textSec }]}>Booked fares</Text>
-              <Text style={{ fontSize: 22, fontWeight: '800', color: c.successDark }}>
+              <Text style={[styles.sectionLabel, tc.color_textSec]}>{t('driverRide.bookedFares')}</Text>
+              <Text style={[{ fontSize: 22, fontWeight: '800' }, tc.color_successDark]}>
                 {money((booked * ride.pricePerSeat))}
               </Text>
-              <Text style={{ fontSize: 12, color: c.textSec }}>before platform fee</Text>
+              <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('driverRide.beforeFee')}</Text>
             </View>
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <View style={[
+          styles.card,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
           <View style={styles.statsRow}>
-            <Text style={[styles.sectionLabel, styles.flex1, { color: c.textSec }]}>Confirmed riders</Text>
+            <Text style={[styles.sectionLabel, styles.flex1, tc.color_textSec]}>{t('driverRide.confirmedRiders')}</Text>
             {riders.length > 0 && (notStarted || inProgress) ? (
               <Pressable
                 onPress={() => setComposing(true)}
                 accessibilityRole="button"
-                accessibilityLabel="Message all riders"
+                accessibilityLabel={t('driverRide.messageAllLabel')}
                 style={styles.msgAllBtn}
               >
-                <Icon name="message-text-outline" size={16} color={c.primary} />
-                <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>Message all</Text>
+                <Icon name="message-text-outline" size={16} color={tk.primary} />
+                <Text style={[{ fontSize: 13, fontWeight: '700' }, tc.color_primary]}>{t('driverRide.messageAll')}</Text>
               </Pressable>
             ) : null}
           </View>
           {riders.length === 0 ? (
-            <Text style={{ fontSize: 14, color: c.textSec }}>No confirmed riders yet.</Text>
+            <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('driverRide.noRiders')}</Text>
           ) : (
             riders.map((b, i) => (
               <View
                 key={b._id}
-                style={[styles.riderRow, i < riders.length - 1 && { borderBottomWidth: 1, borderBottomColor: c.border }]}
+                style={[styles.riderRow, i < riders.length - 1 && [{ borderBottomWidth: 1 }, tc.borderBottomColor_border]]}
               >
-                <View style={[styles.riderAvatar, { backgroundColor: c.primaryLight }]}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: c.primary }}>
+                <View style={[styles.riderAvatar, tc.backgroundColor_primaryLight]}>
+                  <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_primary]}>
                     {(b.rider?.name ?? 'R').charAt(0).toUpperCase()}
                   </Text>
                 </View>
                 <View style={styles.flex1}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{b.rider?.name ?? 'Rider'}</Text>
-                  <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
-                    {b.seatsBooked} {b.seatsBooked === 1 ? 'seat' : 'seats'}
-                    {b.pickup?.address ? ` · Pickup: ${b.pickup.address}` : ''}
-                    {b.dropoff?.address ? ` · Drop: ${b.dropoff.address}` : ''}
+                  <Text style={[{ fontSize: 14, fontWeight: '600' }, tc.color_text]}>{b.rider?.name ?? t('driverRide.rider')}</Text>
+                  <Text style={[{ fontSize: 12, marginTop: 2 }, tc.color_textSec]}>
+                    {b.seatsBooked === 1 ? t('driverRide.seatOne') : t('driverRide.seatMany', { count: b.seatsBooked })}
+                    {b.pickup?.address ? t('driverRide.pickupAt', { address: b.pickup.address }) : ''}
+                    {b.dropoff?.address ? t('driverRide.dropAt', { address: b.dropoff.address }) : ''}
                   </Text>
+                  {/* Stops the rider added; once in the car, the driver marks each one made */}
+                  {(b.stops ?? []).map((stop, i) => {
+                    const made = madeStops.has(stopKey(b._id, i));
+                    return (
+                      <View key={stopKey(b._id, i)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                        <Icon name={made ? 'check-circle' : 'map-marker-plus-outline'} size={16} color={made ? tk.success : tk.primary} />
+                        <Text style={[{ fontSize: 13, flex: 1 }, made ? tc.color_textSec : tc.color_text]} numberOfLines={2}>
+                          {t('driverRide.stopAt', { n: i + 1, address: stop.address })}
+                        </Text>
+                        {b.actualPickupTime && !made ? (
+                          <Pressable
+                            onPress={() => setMadeStops(prev => new Set(prev).add(stopKey(b._id, i)))}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('driverRide.stopMadeLabel', { address: stop.address })}
+                            hitSlop={8}
+                          >
+                            <Text style={[{ fontSize: 13, fontWeight: '700' }, tc.color_primary]}>{t('driverRide.stopMade')}</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    );
+                  })}
                   {b.note ? (
-                    <Text style={{ fontSize: 13, color: c.text, marginTop: 4, fontStyle: 'italic' }}>“{b.note}”</Text>
+                    <Text style={[{ fontSize: 13, marginTop: 4, fontStyle: 'italic' }, tc.color_text]}>“{b.note}”</Text>
+                  ) : null}
+                  {b.connection ? (
+                    <Text style={[{ fontSize: 13, fontWeight: '700', marginTop: 4 }, tc.color_warning]}>
+                      {(() => {
+                        const time = new Date(b.connection.departsAt).toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' });
+                        return b.connection.hubName ? t('driverRide.busFrom', { time, hub: b.connection.hubName }) : t('driverRide.bus', { time });
+                      })()}
+                    </Text>
                   ) : null}
                   {notStarted || inProgress ? (
                     <Pressable
-                      onPress={() => callOnBooking(b._id, b.rider?.name ?? 'your rider')}
+                      onPress={() => callOnBooking(b._id, b.rider?.name ?? t('driverRide.yourRider'))}
                       accessibilityRole="button"
-                      accessibilityLabel={`Call ${b.rider?.name ?? 'rider'}`}
+                      accessibilityLabel={t('driverRide.callName', { name: b.rider?.name ?? t('driverRide.riderLower') })}
                       style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: c.primary }}>Call</Text>
+                      <Text style={[{ fontSize: 13, fontWeight: '700' }, tc.color_primary]}>{t('driverRide.call')}</Text>
                     </Pressable>
                   ) : null}
                   {inProgress ? (
@@ -482,13 +545,12 @@ export function DriverRideDetailsScreen() {
                       booking={b}
                       now={now}
                       busy={acting}
-                      colors={c}
                       onStep={which => {
                         if (which === 'noShow') {
                           runAction(
-                            'Report a no-show?',
-                            `${b.rider?.name ?? 'The rider'} did not come. Their booking is cancelled and you keep the fare, less the platform fee.`,
-                            'Report no-show',
+                            t('driverRide.noShowTitle'),
+                            t('driverRide.noShowBody', { name: b.rider?.name ?? t('driverRide.theRider') }),
+                            t('driverRide.noShowConfirm'),
                             () => bookingService.driverStep(b._id, 'noShow'),
                           );
                         } else {
@@ -511,22 +573,25 @@ export function DriverRideDetailsScreen() {
               <>
                 <Pressable
                   onPress={() =>
-                    runAction('Start this ride?', 'Your riders are told you are on the way and can follow your car.', 'Start ride', () =>
+                    runAction(t('driverRide.startTitle'), t('driverRide.startBody'), t('driverRide.start'), () =>
                       rideService.startRide(rideId),
                     )
                   }
                   disabled={acting || riders.length === 0}
                   accessibilityRole="button"
                   accessibilityState={{ disabled: acting || riders.length === 0 }}
-                  style={[styles.actionBtn, { backgroundColor: riders.length === 0 ? c.border : c.primary }]}
+                  style={[styles.actionBtn, riders.length === 0 ? tc.backgroundColor_border : tc.backgroundColor_primary]}
                 >
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: riders.length === 0 ? c.textSec : c.textOnPrimary }}>
-                    Start ride
+                  <Text style={[
+                    { fontSize: 16, fontWeight: '700' },
+                    riders.length === 0 ? tc.color_textSec : tc.color_textOnPrimary
+                  ]}>
+                    {t('driverRide.start')}
                   </Text>
                 </Pressable>
                 {riders.length === 0 && (
-                  <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center' }}>
-                    Accept a rider's request to start this ride.
+                  <Text style={[{ fontSize: 13, textAlign: 'center' }, tc.color_textSec]}>
+                    {t('driverRide.acceptFirst')}
                   </Text>
                 )}
               </>
@@ -535,39 +600,39 @@ export function DriverRideDetailsScreen() {
               <Pressable
                 onPress={openInMaps}
                 accessibilityRole="button"
-                style={[styles.devBtn, { borderColor: c.primary }]}
+                style={[styles.devBtn, tc.borderColor_primary]}
               >
-                <Icon name="navigation-variant-outline" size={18} color={c.primary} />
-                <Text style={{ fontSize: 15, fontWeight: '700', color: c.primary }}>Open route in Maps</Text>
+                <Icon name="navigation-variant-outline" size={18} color={tk.primary} />
+                <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_primary]}>{t('driverRide.openMaps')}</Text>
               </Pressable>
             )}
             {inProgress && (
               <Pressable
                 onPress={() =>
-                  runAction('Complete this ride?', 'Riders will be asked to rate the trip.', 'Complete ride', () =>
+                  runAction(t('driverRide.completeTitle'), t('driverRide.completeBody'), t('driverRide.complete'), () =>
                     rideService.completeRide(rideId),
                   )
                 }
                 disabled={acting}
                 accessibilityRole="button"
-                style={[styles.actionBtn, { backgroundColor: c.primary }]}
+                style={[styles.actionBtn, tc.backgroundColor_primary]}
               >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>Complete ride</Text>
+                <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_textOnPrimary]}>{t('driverRide.complete')}</Text>
               </Pressable>
             )}
 
             {simulationEnabled && (
-              <View style={[styles.devCard, { borderColor: c.border }]}>
-                <Text style={[styles.sectionLabel, { color: c.textSec }]}>Testing tools</Text>
+              <View style={[styles.devCard, tc.borderColor_border]}>
+                <Text style={[styles.sectionLabel, tc.color_textSec]}>{t('driverRide.testingTools')}</Text>
                 {notStarted && (
                   <Pressable
                     onPress={requestTestRider}
                     disabled={acting || (ride.availableSeats ?? 0) < 1}
                     accessibilityRole="button"
-                    style={[styles.devBtn, { borderColor: c.primary }]}
+                    style={[styles.devBtn, tc.borderColor_primary]}
                   >
-                    <Icon name="account-plus-outline" size={18} color={c.primary} />
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: c.primary }}>Get a test rider request</Text>
+                    <Icon name="account-plus-outline" size={18} color={tk.primary} />
+                    <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_primary]}>{t('driverRide.testRider')}</Text>
                   </Pressable>
                 )}
                 {inProgress && (
@@ -575,11 +640,11 @@ export function DriverRideDetailsScreen() {
                     onPress={simulating ? stopSimulatedDrive : startSimulatedDrive}
                     disabled={acting}
                     accessibilityRole="button"
-                    style={[styles.devBtn, { borderColor: c.primary }]}
+                    style={[styles.devBtn, tc.borderColor_primary]}
                   >
-                    <Icon name={simulating ? 'stop-circle-outline' : 'play-circle-outline'} size={18} color={c.primary} />
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: c.primary }}>
-                      {simulating ? 'Stop simulated drive' : 'Simulate the drive'}
+                    <Icon name={simulating ? 'stop-circle-outline' : 'play-circle-outline'} size={18} color={tk.primary} />
+                    <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_primary]}>
+                      {simulating ? t('driverRide.stopSim') : t('driverRide.startSim')}
                     </Text>
                   </Pressable>
                 )}
@@ -591,27 +656,27 @@ export function DriverRideDetailsScreen() {
                 onPress={() => navigation.navigate('EditRide', { rideId })}
                 disabled={acting}
                 accessibilityRole="button"
-                style={[styles.devBtn, { borderColor: c.border }]}
+                style={[styles.devBtn, tc.borderColor_border]}
               >
-                <Icon name="pencil-outline" size={18} color={c.text} />
-                <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Change time, seats or price</Text>
+                <Icon name="pencil-outline" size={18} color={tk.text} />
+                <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_text]}>{t('driverRide.change')}</Text>
               </Pressable>
             )}
             {notStarted && (
               <Pressable
                 onPress={() =>
                   runAction(
-                    'Cancel this ride?',
-                    'All booked riders are notified and fully refunded.',
-                    'Cancel ride',
+                    t('driverRide.cancelTitle'),
+                    t('driverRide.cancelBody'),
+                    t('driverRide.cancelRide'),
                     () => rideService.cancelRide(rideId),
                   )
                 }
                 disabled={acting}
                 accessibilityRole="button"
-                style={[styles.actionBtn, { backgroundColor: c.errorLight }]}
+                style={[styles.actionBtn, tc.backgroundColor_errorLight]}
               >
-                <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>Cancel ride</Text>
+                <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_error]}>{t('driverRide.cancelRide')}</Text>
               </Pressable>
             )}
           </View>
@@ -620,35 +685,41 @@ export function DriverRideDetailsScreen() {
 
       <Modal visible={Boolean(pinFor)} transparent animationType="slide" onRequestClose={() => setPinFor(null)}>
         <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + 16 }]}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">
-              {`${pinFor?.rider?.name?.split(' ')[0] ?? 'The rider'}'s pickup code`}
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, tc.backgroundColor_surface]}>
+            <Text style={[{ fontSize: 18, fontWeight: '700' }, tc.color_text]} accessibilityRole="header">
+              {t('driverRide.pinTitle', { name: pinFor?.rider?.name?.split(' ')[0] ?? t('driverRide.theRider') })}
             </Text>
-            <Text style={{ fontSize: 13, color: c.textSec }}>
-              Ask the rider for the 4-digit code on their screen. It shows them they are getting into the right car.
+            <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
+              {t('driverRide.pinHelp')}
             </Text>
             <TextInput
               value={pin}
-              onChangeText={t => setPin(t.replace(/\D/g, '').slice(0, 4))}
+              onChangeText={text => setPin(text.replace(/\D/g, '').slice(0, 4))}
               keyboardType="number-pad"
               maxLength={4}
               autoFocus
-              accessibilityLabel="Pickup code"
-              style={[styles.sheetInput, { borderColor: pinError ? c.error : c.border, color: c.text, backgroundColor: c.bg, fontSize: 28, letterSpacing: 12, textAlign: 'center', minHeight: 64 }]}
+              accessibilityLabel={t('driverRide.pinLabel')}
+              style={[
+                styles.sheetInput,
+                { fontSize: 28, letterSpacing: 12, textAlign: 'center', minHeight: 64 },
+                pinError ? tc.borderColor_error : tc.borderColor_border,
+                tc.color_text,
+                tc.backgroundColor_surfaceVariant
+              ]}
             />
-            {pinError ? <Text style={{ fontSize: 13, color: c.error }} accessibilityLiveRegion="assertive">{pinError}</Text> : null}
+            {pinError ? <Text style={[{ fontSize: 13 }, tc.color_error]} accessibilityLiveRegion="assertive">{pinError}</Text> : null}
             <View style={styles.statsRow}>
               <Pressable onPress={() => setPinFor(null)} accessibilityRole="button" style={[styles.actionBtn, styles.flex1]}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: c.textSec }}>Cancel</Text>
+                <Text style={[{ fontSize: 16, fontWeight: '600' }, tc.color_textSec]}>{t('driverRide.cancel')}</Text>
               </Pressable>
               <Pressable
                 onPress={submitPin}
                 disabled={pin.length !== 4 || acting}
                 accessibilityRole="button"
-                style={[styles.actionBtn, styles.flex1, { backgroundColor: pin.length === 4 ? c.primary : c.border }]}
+                style={[styles.actionBtn, styles.flex1, pin.length === 4 ? tc.backgroundColor_primary : tc.backgroundColor_border]}
               >
-                {acting ? <ActivityIndicator color={c.textOnPrimary} /> : (
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: pin.length === 4 ? c.textOnPrimary : c.textSec }}>Confirm pickup</Text>
+                {acting ? <ActivityIndicator color={tk.textOnPrimary} /> : (
+                  <Text style={[{ fontSize: 16, fontWeight: '700' }, pin.length === 4 ? tc.color_textOnPrimary : tc.color_textSec]}>{t('driverRide.confirmPickup')}</Text>
                 )}
               </Pressable>
             </View>
@@ -658,20 +729,24 @@ export function DriverRideDetailsScreen() {
 
       <Modal visible={composing} transparent animationType="slide" onRequestClose={() => setComposing(false)}>
         <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom + 16 }]}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">Message all riders</Text>
-            <Text style={{ fontSize: 13, color: c.textSec }}>
-              Goes to each of your {riders.length} {riders.length === 1 ? 'rider' : 'riders'} in their chat with you.
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, tc.backgroundColor_surface]}>
+            <Text style={[{ fontSize: 18, fontWeight: '700' }, tc.color_text]} accessibilityRole="header">{t('driverRide.messageAllLabel')}</Text>
+            <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
+              {riders.length === 1 ? t('driverRide.broadcastHelpOne') : t('driverRide.broadcastHelpMany', { count: riders.length })}
             </Text>
             <View style={styles.templateRow}>
-              {BROADCAST_TEMPLATES.map(t => (
+              {BROADCAST_TEMPLATES.map(key => t(`driverRide.templates.${key}`)).map(template => (
                 <Pressable
-                  key={t}
-                  onPress={() => setBroadcast(t)}
+                  key={template}
+                  onPress={() => setBroadcast(template)}
                   accessibilityRole="button"
-                  style={[styles.template, { borderColor: c.border, backgroundColor: c.bg }]}
+                  style={[
+                    styles.template,
+                    tc.borderColor_surfaceVariant,
+                    tc.backgroundColor_surfaceVariant
+                  ]}
                 >
-                  <Text style={{ fontSize: 13, color: c.text }}>{t}</Text>
+                  <Text style={[{ fontSize: 13 }, tc.color_text]}>{template}</Text>
                 </Pressable>
               ))}
             </View>
@@ -681,23 +756,28 @@ export function DriverRideDetailsScreen() {
               multiline
               maxLength={2000}
               autoFocus
-              placeholder="Running 10 minutes late, sorry!"
-              placeholderTextColor={c.textSec}
-              accessibilityLabel="Message"
-              style={[styles.sheetInput, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+              placeholder={t('driverRide.broadcastPlaceholder')}
+              placeholderTextColor={tk.textSec}
+              accessibilityLabel={t('driverRide.messageLabel')}
+              style={[
+                styles.sheetInput,
+                tc.borderColor_surfaceVariant,
+                tc.color_text,
+                tc.backgroundColor_surfaceVariant
+              ]}
             />
             <View style={styles.statsRow}>
               <Pressable onPress={() => setComposing(false)} accessibilityRole="button" style={[styles.actionBtn, styles.flex1]}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: c.textSec }}>Cancel</Text>
+                <Text style={[{ fontSize: 16, fontWeight: '600' }, tc.color_textSec]}>{t('driverRide.cancel')}</Text>
               </Pressable>
               <Pressable
                 onPress={sendBroadcast}
                 disabled={!broadcast.trim() || sendingBroadcast}
                 accessibilityRole="button"
-                style={[styles.actionBtn, styles.flex1, { backgroundColor: broadcast.trim() ? c.primary : c.border }]}
+                style={[styles.actionBtn, styles.flex1, broadcast.trim() ? tc.backgroundColor_primary : tc.backgroundColor_border]}
               >
-                {sendingBroadcast ? <ActivityIndicator color={c.textOnPrimary} /> : (
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: broadcast.trim() ? c.textOnPrimary : c.textSec }}>Send</Text>
+                {sendingBroadcast ? <ActivityIndicator color={tk.textOnPrimary} /> : (
+                  <Text style={[{ fontSize: 16, fontWeight: '700' }, broadcast.trim() ? tc.color_textOnPrimary : tc.color_textSec]}>{t('driverRide.send')}</Text>
                 )}
               </Pressable>
             </View>
@@ -710,21 +790,18 @@ export function DriverRideDetailsScreen() {
         <Pressable
           onPress={() => navigation.navigate('SOS', { bookingId: (riders.find(b => b.actualPickupTime && !b.actualDropoffTime) ?? riders[0])._id })}
           accessibilityRole="button"
-          accessibilityLabel="SOS emergency"
-          style={[styles.sosFab, { backgroundColor: c.error }]}
+          accessibilityLabel={t('ride.sosLabel')}
+          style={[styles.sosFab, tc.backgroundColor_error]}
         >
-          <Text style={{ color: 'white', fontWeight: '800', fontSize: 14 }}>SOS</Text>
+          <Text style={{ color: 'white', fontWeight: '800', fontSize: 14 }}>{t('sos.sosLabel')}</Text>
         </Pressable>
       )}
     </View>
   );
 }
 
-const BROADCAST_TEMPLATES = [
-  'Running about 10 minutes late, sorry!',
-  'Leaving on time, see you soon.',
-  'Please be at your pickup point 5 minutes early.',
-];
+/** Quick messages to all riders; the words are in the catalogue under driverRide.templates */
+const BROADCAST_TEMPLATES = ['late', 'onTime', 'early'] as const;
 
 /**
  * The next step for one rider during the ride (UC-D04): at the pickup, in
@@ -735,15 +812,14 @@ function RiderSteps({
   booking,
   now,
   busy,
-  colors: c,
   onStep,
 }: {
   booking: Booking;
   now: number;
   busy: boolean;
-  colors: ReturnType<typeof useApp>['c'];
   onStep: (which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow') => void;
 }) {
+  const { t } = useTranslation();
   const button = (label: string, which: 'arrived' | 'pickedUp' | 'droppedOff' | 'noShow', primary: boolean, disabled = false) => (
     <Pressable
       key={which}
@@ -753,28 +829,31 @@ function RiderSteps({
       accessibilityState={{ disabled: busy || disabled }}
       style={[
         styles.stepBtn,
-        primary ? { backgroundColor: c.primary } : { borderWidth: 1.5, borderColor: disabled ? c.border : c.error },
+        primary ? tc.backgroundColor_primary : [{ borderWidth: 1.5 }, disabled ? tc.borderColor_border : tc.borderColor_error],
       ]}
     >
-      <Text style={{ fontSize: 13, fontWeight: '700', color: primary ? c.textOnPrimary : disabled ? c.textSec : c.error }}>{label}</Text>
+      <Text style={[
+        { fontSize: 13, fontWeight: '700' },
+        primary ? tc.color_textOnPrimary : disabled ? tc.color_textSec : tc.color_error
+      ]}>{label}</Text>
     </Pressable>
   );
 
   if (booking.actualPickupTime) {
-    return <View style={styles.stepRow}>{button('Dropped off', 'droppedOff', true)}</View>;
+    return <View style={styles.stepRow}>{button(t('driverRide.steps.droppedOff'), 'droppedOff', true)}</View>;
   }
   if (!booking.driverArrivedAt) {
-    return <View style={styles.stepRow}>{button("I'm at the pickup", 'arrived', true)}</View>;
+    return <View style={styles.stepRow}>{button(t('driverRide.steps.atPickup'), 'arrived', true)}</View>;
   }
   const left = new Date(booking.driverArrivedAt).getTime() + NO_SHOW_WAIT_MS - now;
   return (
     <View style={{ marginTop: 8, gap: 6 }}>
-      <Text style={{ fontSize: 12, color: c.textSec }} accessibilityLiveRegion="polite">
-        {left > 0 ? `Waiting for the rider · no-show can be reported in ${waitLabel(left)}` : 'You have waited long enough to report a no-show.'}
+      <Text style={[{ fontSize: 12 }, tc.color_textSec]} accessibilityLiveRegion="polite">
+        {left > 0 ? t('driverRide.steps.waiting', { time: waitLabel(left) }) : t('driverRide.steps.waitedEnough')}
       </Text>
       <View style={styles.stepRow}>
-        {button('Picked up', 'pickedUp', true)}
-        {button('No-show', 'noShow', false, left > 0)}
+        {button(t('driverRide.steps.pickedUp'), 'pickedUp', true)}
+        {button(t('driverRide.steps.noShow'), 'noShow', false, left > 0)}
       </View>
     </View>
   );

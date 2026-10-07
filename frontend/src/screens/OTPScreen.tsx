@@ -5,9 +5,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   Animated,
   Keyboard,
   Alert,
@@ -15,9 +13,10 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import { Text, TextInput } from '../components/Text';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path } from '../components/ThemedSvg';
 
 import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,7 +26,10 @@ import { Typography, Spacing, Radius } from '../theme';
 import { sendOtpToBackend, verifyOtpWithBackend } from '../services/authService';
 import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
-import { formatPhone, REGION } from '../utils/region';
+import { formatPhone } from '../utils/region';
+import { useTranslation } from 'react-i18next';
+
+import { tc, tk } from '../theme/themed';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'OTP'>;
 type RouteType = RouteProp<RootStackParamList, 'OTP'>;
@@ -38,7 +40,11 @@ const RESEND_SECONDS = 30;
 export function OTPScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteType>();
-  const { c, setUser, setRole } = useApp();
+  const {
+    setUser,
+    setRole
+  } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const phone = route.params?.phone ?? '';
@@ -137,11 +143,11 @@ export function OTPScreen() {
     async (code: string) => {
       setVerifying(true);
       try {
-        const result = await verifyOtpWithBackend(`${REGION.dialCode}${phone}`, code);
+        const result = await verifyOtpWithBackend(phone, code);
 
         // New phone: collect a name, then profile setup verifies with this code
         if ('needsProfile' in result) {
-          navigation.navigate('ProfileSetup', { phone: `${REGION.dialCode}${phone}`, otp: code });
+          navigation.navigate('ProfileSetup', { phone, otp: code });
           return;
         }
 
@@ -165,30 +171,30 @@ export function OTPScreen() {
         triggerShakeAnimation();
         setOtp(Array(OTP_LENGTH).fill(''));
         inputs.current[0]?.focus();
-        Alert.alert('Verification Failed', errorHandler.process(error).message);
+        Alert.alert(t('login.verifyFailed'), errorHandler.process(error).message);
       } finally {
         setVerifying(false);
       }
     },
-    [navigation, triggerShakeAnimation, phone, setUser, setRole],
+    [navigation, triggerShakeAnimation, phone, setUser, setRole, t],
   );
 
   const handleResend = useCallback(async () => {
     if (!canResend) return;
     try {
-      await sendOtpToBackend(`${REGION.dialCode}${phone}`);
+      await sendOtpToBackend(phone);
       setError(false);
       setOtp(Array(OTP_LENGTH).fill(''));
       inputs.current[0]?.focus();
       setResendCount(n => n + 1);
     } catch (error) {
-      Alert.alert('Could not resend code', errorHandler.process(error).message);
+      Alert.alert(t('login.resendFailed'), errorHandler.process(error).message);
     }
-  }, [canResend, phone]);
+  }, [canResend, phone, t]);
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}
+      style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
@@ -205,13 +211,13 @@ export function OTPScreen() {
           <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
             <Path
               d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.25 14.5h-2.5v-2.5h2.5v2.5zm0-4.5h-2.5V7.5h2.5v4.5z"
-              fill={c.primary}
+              fill={tk.primary}
             />
           </Svg>
         </View>
 
-        <Text style={[styles.title, { color: c.text }]}>Enter verification code</Text>
-        <Text style={[styles.subtitle, { color: c.textSec }]}>We sent a 6-digit code to {formatPhone(`${REGION.dialCode}${phone}`)}</Text>
+        <Text style={[styles.title, tc.color_text]}>{t('login.enterCode')}</Text>
+        <Text style={[styles.subtitle, tc.color_textSec]}>{t('login.codeSent', { phone: formatPhone(phone) })}</Text>
 
         <View style={styles.otpRow}>
           {otp.map((value, idx) => (
@@ -227,8 +233,12 @@ export function OTPScreen() {
                 keyboardType="number-pad"
                 maxLength={1}
                 placeholder="•"
-                placeholderTextColor={c.textSec}
-                style={[styles.otpBox, { borderColor: error ? c.error : c.border, color: c.text }]}
+                placeholderTextColor={tk.textSec}
+                style={[
+                  styles.otpBox,
+                  error ? tc.borderColor_error : tc.borderColor_border,
+                  tc.color_text
+                ]}
                 textAlign="center"
                 autoFocus={idx === 0}
               />
@@ -237,29 +247,29 @@ export function OTPScreen() {
         </View>
 
         <Animated.View style={[styles.errorRow, { opacity: errorOpacity }]}>  
-          <Text style={[styles.errorText, { color: c.error }]}>Invalid code, please try again.</Text>
+          <Text style={[styles.errorText, tc.color_error]}>{t('login.invalidCode')}</Text>
         </Animated.View>
 
         <View style={styles.resendRow}>
-          <Text style={[styles.resendPrompt, { color: c.textSec }]}>Didn’t receive a code?</Text>
+          <Text style={[styles.resendPrompt, tc.color_textSec]}>{t('login.noCode')}</Text>
           <Text
             accessibilityRole="button"
             accessibilityState={{ disabled: !canResend }}
             onPress={handleResend}
-            style={[styles.resendLink, { color: canResend ? c.primary : c.textSec }]}
+            style={[styles.resendLink, canResend ? tc.color_primary : tc.color_textSec]}
           >
-            {' '}Resend{canResend ? '' : ` in ${timer}s`}
+            {' '}{canResend ? t('login.resend') : t('login.resendIn', { seconds: timer })}
           </Text>
         </View>
 
         <GradientButton
-          label="Verify OTP"
+          label={t('login.verifyOtp')}
           onPress={() => handleVerifyOtp(otp.join(''))}
           disabled={otp.some(val => !val) || verifying}
           loading={verifying}
-          colorStart={c.primary}
-          colorEnd={c.primaryDark}
-          disabledColor={c.border}
+          colorStart={tk.primary}
+          colorEnd={tk.primaryDark}
+          disabledColor={tk.border}
         />
       </ScrollView>
     </KeyboardAvoidingView>

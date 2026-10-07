@@ -14,6 +14,7 @@ import { config } from '../config';
 import { IEmergencyContact } from '../types';
 import { AppError, NotFoundError } from '../utils/AppError';
 import { NotificationService } from './NotificationService';
+import { phrase, withEnglish } from '../i18n';
 
 export const MAX_EMERGENCY_CONTACTS = 3;
 /** How long a verification link works */
@@ -92,7 +93,7 @@ export class EmergencyContactService {
 
   /** Texts the contact a link to confirm they agree to be called in an emergency */
   async sendVerification(userId: string, contactId: string): Promise<{ sentTo: string }> {
-    const user = await User.findById(userId).select('name emergencyContacts');
+    const user = await User.findById(userId).select('name emergencyContacts language');
     if (!user) throw new NotFoundError('User');
     const contact = user.emergencyContacts.find((c) => c._id?.toString() === contactId);
     if (!contact) throw new NotFoundError('Emergency contact');
@@ -106,10 +107,11 @@ export class EmergencyContactService {
     }
 
     const token = crypto.randomBytes(24).toString('base64url');
-    const firstName = (user.name || 'A Poolora user').split(' ')[0];
+    const firstName = user.name ? user.name.split(' ')[0] : phrase('contacts.someone');
+    // In the user's language, with the English beneath for a contact who reads only English
     await sms.sendSMS(
       contact.phone,
-      `${firstName} added you as an emergency contact on Poolora. If they raise an SOS on a ride, you'll get a text with their live location. Please confirm: ${config.app.baseUrl}/track/contact/${token}`,
+      withEnglish(user.language, phrase('contacts.verifyText', { name: firstName, url: `${config.app.baseUrl}/track/contact/${token}` })),
     );
     await User.updateOne(
       { _id: userId, 'emergencyContacts._id': contact._id },
@@ -134,9 +136,9 @@ export class EmergencyContactService {
       { $set: { 'emergencyContacts.$.verifiedAt': new Date() } },
     );
     const notifications = new NotificationService();
-    const message = `${found.contact.name} confirmed they are your emergency contact.`;
-    await notifications.createNotification(found.userId, 'Emergency contact confirmed', message, 'system').catch(() => undefined);
-    await notifications.sendPushNotification(found.userId, 'Emergency contact confirmed', message, { type: 'emergency_contact' }).catch(() => undefined);
+    const message = phrase('contacts.confirmedBody', { name: found.contact.name });
+    await notifications.createNotification(found.userId, phrase('contacts.confirmedTitle'), message, 'system').catch(() => undefined);
+    await notifications.sendPushNotification(found.userId, phrase('contacts.confirmedTitle'), message, { type: 'emergency_contact' }).catch(() => undefined);
     return { userFirstName: found.userFirstName, contactName: found.contact.name };
   }
 

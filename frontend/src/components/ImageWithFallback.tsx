@@ -5,17 +5,11 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Image,
-  View,
-  StyleSheet,
-  ActivityIndicator,
-  type ImageStyle,
-  type ViewStyle,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image, View, StyleSheet, type ImageStyle, type ViewStyle } from 'react-native';
+import { ActivityIndicator } from './Themed';
+import { Icon } from './Icon';
 
-import { useApp } from '../context/AppContext';
+import { tc, tk } from '../theme/themed';
 
 interface ImageWithFallbackProps {
   src: string;
@@ -42,7 +36,6 @@ export function ImageWithFallback({
   borderRadius = 0,
   showLoader = true,
 }: ImageWithFallbackProps) {
-  const { c } = useApp();
   const [source, setSource] = useState(src);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -70,15 +63,12 @@ export function ImageWithFallback({
         // Error placeholder
         <View
           testID="error-placeholder"
-          style={[
-            styles.placeholder,
-            { backgroundColor: c.surfaceVariant, borderRadius },
-          ]}
+          style={[styles.placeholder, { borderRadius }, tc.backgroundColor_surfaceVariant]}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="image-broken-variant"
             size={28}
-            color={c.textDisabled}
+            color={tk.textDisabled}
           />
         </View>
       ) : (
@@ -104,12 +94,9 @@ export function ImageWithFallback({
           {loading && showLoader && (
             <View
               testID="image-loader"
-              style={[
-                styles.loadingOverlay,
-                { backgroundColor: c.surfaceVariant, borderRadius },
-              ]}
+              style={[styles.loadingOverlay, { borderRadius }, tc.backgroundColor_surfaceVariant]}
             >
-              <ActivityIndicator color={c.primary} size="small" />
+              <ActivityIndicator color={tk.primary} size="small" />
             </View>
           )}
         </>

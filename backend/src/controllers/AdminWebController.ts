@@ -11,8 +11,10 @@ import { AuthenticatedRequest } from '../types';
 import { sendSuccess } from '../utils/helpers';
 import { queryInt, queryString } from '../utils/request';
 import { AdminOverviewService } from '../services/AdminOverviewService';
+import { ProductAnalyticsService } from '../services/ProductAnalyticsService';
 import { AdminUserService } from '../services/AdminUserService';
 import { AdminSosService } from '../services/AdminSosService';
+import { SosVideoService } from '../services/SosVideoService';
 import { IdentityService } from '../services/IdentityService';
 import { DisputeService } from '../services/DisputeService';
 import { ReportService, REPORT_TYPES, ReportType, parseReportParams } from '../services/ReportService';
@@ -29,10 +31,16 @@ import { RatingService } from '../services/RatingService';
 import { SupportService } from '../services/SupportService';
 import { WithdrawalService } from '../services/WithdrawalService';
 import { AppError } from '../utils/AppError';
+import { OrganisationService } from '../services/OrganisationService';
+import { InvoiceService } from '../services/InvoiceService';
+import { CompanyPortalService } from '../services/CompanyPortalService';
+import { TransitHubService } from '../services/TransitHubService';
 
 const overview = new AdminOverviewService();
+const analytics = new ProductAnalyticsService();
 const users = new AdminUserService();
 const sos = new AdminSosService();
+const sosVideo = new SosVideoService();
 const identity = new IdentityService();
 const disputes = new DisputeService();
 const reports = new ReportService();
@@ -46,6 +54,10 @@ const documentChecks = new DocumentCheckService();
 const ratings = new RatingService();
 const support = new SupportService();
 const withdrawals = new WithdrawalService();
+const organisations = new OrganisationService();
+const invoices = new InvoiceService();
+const portal = new CompanyPortalService();
+const hubs = new TransitHubService();
 
 type Handler = (req: Request, adminId: string) => Promise<unknown>;
 
@@ -67,6 +79,8 @@ const id = (req: Request, name = 'id') => String(req.params[name]);
 
 export const AdminWebController = {
   overview: handle(() => overview.overview()),
+  /** Growth KPIs: actives, activation, retention, funnel, top errors (docs/ANALYTICS_PLAN.md) */
+  analytics: handle(() => analytics.kpis()),
 
   // ── Driver applications (UC-A01) ─────────────────────────────────────────
   applications: handle(async (req) => ({ applications: await users.applications(queryString(req, 'status')) })),
@@ -150,6 +164,8 @@ export const AdminWebController = {
   sosAcknowledge: handle((req, admin) => sos.acknowledge(id(req), admin)),
   sosResolve: handle((req, admin) => sos.resolve(id(req), admin, req.body?.notes, req.body?.isFalseAlarm)),
   sosPolice: handle((req, admin) => sos.notifyPolice(id(req), admin, req.body?.notes)),
+  sosVideoAsk: handle((req, admin) => sosVideo.ask(id(req), admin)),
+  sosVideoWatch: handle((req, admin) => sosVideo.watch(id(req), admin)),
 
   // ── Duplicate accounts and appeals (UC-A05) ─────────────────────────────
   duplicates: handle((req) => merges.duplicates(id(req))),
@@ -179,6 +195,36 @@ export const AdminWebController = {
   updateAlertRule: handle((req, admin) => alerts.update(id(req), req.body ?? {}, admin)),
   deleteAlertRule: handle((req, admin) => alerts.remove(id(req), admin)),
   testAlertRule: handle((req, admin) => alerts.test(id(req), admin)),
+
+  // ── Company programmes (UC-C01) ────────────────────────────────────────
+  organisations: handle(() => organisations.list()),
+  organisation: handle((req) => organisations.get(id(req))),
+  createOrganisation: handle((req, admin) => organisations.create(req.body ?? {}, admin)),
+  updateOrganisation: handle((req, admin) => organisations.update(id(req), req.body ?? {}, admin)),
+  // ── Ranks and termini (UC-R12) ─────────────────────────────────────────
+  hubs: handle(() => hubs.list()),
+  createHub: handle((req, admin) => hubs.create(req.body ?? {}, admin)),
+  updateHub: handle((req, admin) => hubs.update(id(req), req.body ?? {}, admin)),
+  removeHub: handle((req, admin) => hubs.remove(id(req), admin)),
+  addCompanyAdmin: handle((req, admin) => portal.addAdmin(id(req), req.body ?? {}, admin)),
+  removeCompanyAdmin: handle((req, admin) => portal.removeAdmin(id(req), id(req, 'userId'), admin)),
+  invoices: handle((req) => invoices.list(id(req))),
+  billNow: handle((req, admin) => invoices.billNow(id(req), admin)),
+  invoice: handle((req) => invoices.get(id(req))),
+  invoicePaid: handle((req, admin) => invoices.markPaid(id(req), admin, req.body?.reference)),
+  adjustInvoice: handle((req, admin) => invoices.adjust(id(req), admin, req.body?.amount, req.body?.reason)),
+  /** The bill as a PDF or spreadsheet: ?format=pdf (default) or xlsx */
+  invoiceFile: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const file = await invoices.file(id(req), queryString(req, 'format') === 'xlsx' ? 'xlsx' : 'pdf');
+      res.setHeader('Content-Type', file.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+      res.status(200).send(file.body);
+    } catch (error) {
+      next(error);
+    }
+  },
+  removeOrganisationMember: handle((req, admin) => organisations.removeMember(id(req), id(req, 'userId'), admin, req.body?.reason ?? queryString(req, 'reason'))),
 
   // ── Parcel claims (UC-P05) ─────────────────────────────────────────────
   withdrawals: handle(async (req) => ({ withdrawals: await withdrawals.adminList(queryString(req, 'status') ?? 'pending') })),

@@ -1,7 +1,7 @@
 /**
  * services/sosTracking.ts
  *
- * Keeps sending the phone's position during an SOS when Poolora is in the
+ * Keeps sending the phone's position during an SOS when Siham is in the
  * background or the screen is locked: a phone in a pocket is the common
  * case in a real emergency (UC-R07 step 7).
  *
@@ -24,9 +24,10 @@ import { API_ENDPOINTS } from '../api/constants';
 import type { ApiResponse } from '../types/api';
 import { logger } from '../utils/logger';
 import { batteryLevel } from '../utils/battery';
+import i18n from '../i18n';
 
-export const SOS_LOCATION_TASK = 'poolora-sos-location';
-const ACTIVE_SOS_KEY = '@poolora_active_sos';
+export const SOS_LOCATION_TASK = 'siham-sos-location';
+const ACTIVE_SOS_KEY = '@siham_active_sos';
 
 TaskManager.defineTask<{ locations: Location.LocationObject[] }>(SOS_LOCATION_TASK, async ({ data, error }) => {
   if (error || !data?.locations?.length) return;
@@ -68,8 +69,8 @@ export async function startSosTracking(emergencyId: string): Promise<boolean> {
       showsBackgroundLocationIndicator: true,
       activityType: Location.ActivityType.AutomotiveNavigation,
       foregroundService: {
-        notificationTitle: 'SOS active',
-        notificationBody: 'Sharing your location with the Poolora safety team.',
+        notificationTitle: i18n.t('tracking.sosTitle'),
+        notificationBody: i18n.t('tracking.sosBody'),
         notificationColor: '#B71C1C',
         killServiceOnDestroy: false,
       },

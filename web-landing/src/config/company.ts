@@ -1,16 +1,20 @@
 /**
- * The three official public-facing email addresses. These are the only email
+ * The official public-facing role addresses. These are the only email
  * addresses that should appear anywhere on the site. Import them from here
  * rather than hard-coding an address.
  *
- *  - support:   customer support, help, assistance
- *  - contact:   general / partnership / business / privacy / legal enquiries
- *  - investors: investment and fundraising enquiries
+ *  - support:   customer support, help, assistance (support@)
+ *  - contact:   general, partnership, business and legal enquiries (hello@)
+ *  - investors: investment and fundraising enquiries (hello@)
+ *  - privacy:   data protection and data subject requests (privacy@)
+ *  - security:  vulnerability reports, published in security.txt (security@)
  */
 export interface CompanyEmails {
   support: string;
   contact: string;
   investors: string;
+  privacy: string;
+  security: string;
 }
 
 export interface CompanyFounder {
@@ -57,25 +61,34 @@ export interface CompanyConfig {
  * Public site origin. Vercel serves the project at <project>.vercel.app, so
  * this tracks the Vercel project name. Change it here only.
  */
-const SITE_ORIGIN = "https://poolora.vercel.app";
+const SITE_ORIGIN = "https://siham.vercel.app";
 
 /**
- * Single public inbox for the whole site and app.
- *
- * The support / contact / investors fields below are kept separate so the
- * legal pages can keep addressing them by purpose, and so they can be split
- * onto different inboxes later without touching any page.
+ * The inbox that works today. Every address falls back to it until
+ * MAIL_DOMAIN is set.
  */
 const PUBLIC_EMAIL = "nathimike102@icloud.com";
 
+/**
+ * The company domain the role addresses live on, e.g. "siham.co.zw". Set it
+ * only once its mailboxes receive mail (docs/GO_LIVE_GUIDE.md, Email): then
+ * support@, hello@, privacy@ and security@ replace PUBLIC_EMAIL across the
+ * site, security.txt and (through its mirror) the app.
+ */
+const MAIL_DOMAIN = "";
+
+const role = (mailbox: string) => (MAIL_DOMAIN ? `${mailbox}@${MAIL_DOMAIN}` : PUBLIC_EMAIL);
+
 export const COMPANY: CompanyConfig = {
-  name: "Poolora",
+  name: "Siham",
   tagline: "Share the ride, split the cost",
   website: SITE_ORIGIN,
   emails: {
-    support: PUBLIC_EMAIL,
-    contact: PUBLIC_EMAIL,
-    investors: PUBLIC_EMAIL,
+    support: role("support"),
+    contact: role("hello"),
+    investors: role("hello"),
+    privacy: role("privacy"),
+    security: role("security"),
   },
   // The founder's current number; swap in a +263 line when there is one
   phone: "+91 90322 32881",
@@ -84,7 +97,7 @@ export const COMPANY: CompanyConfig = {
     name: "N. M. Sibanda",
     title: "Founder",
   },
-  // The founder's own profiles until Poolora has company accounts
+  // The founder's own profiles until Siham has company accounts
   social: {
     linkedin: "https://www.linkedin.com/in/nkosinathi-sibanda-294155131/",
     x: "",
@@ -98,6 +111,6 @@ export const COMPANY: CompanyConfig = {
   },
   appStore: "#",
   playStore: "#",
-  description: "Poolora is a carpooling app in development, launching first in Zimbabwe. Drivers offer empty seats on journeys they are already making, riders book a seat at the price the driver sets, and safety tools are part of every ride.",
-  copyright: `© ${new Date().getFullYear()} Poolora. All rights reserved.`,
+  description: "Siham is a carpooling app in development, launching first in Zimbabwe. Drivers offer empty seats on journeys they are already making, riders book a seat at the price the driver sets, and safety tools are part of every ride.",
+  copyright: `© ${new Date().getFullYear()} Siham. All rights reserved.`,
 };

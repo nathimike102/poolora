@@ -1,7 +1,7 @@
 /**
  * utils/region.ts
  *
- * The markets Poolora runs in, and the one this build serves (set with
+ * The markets Siham runs in, and the one this build serves (set with
  * EXPO_PUBLIC_MARKET, default ZW). Money, phone numbers, dates, the default
  * map position and emergency numbers all come from here, so nothing else
  * hard-codes a country. Zimbabwe is the first market. Mirrors
@@ -25,6 +25,14 @@ export interface Market {
   currency: CurrencyCode;
   center: { latitude: number; longitude: number };
   emergency: { general: string; police: string; ambulance: string; fire: string };
+  /** Languages the app can be shown in here, English first (UC-X03); see i18n/languages.ts */
+  languages: string[];
+  /**
+   * Siham's urgent support line in this market, E.164. Left out until there
+   * is a local number: the app then offers an urgent support request instead,
+   * never another country's line, which would be an international call.
+   */
+  supportPhone?: string;
 }
 
 export const MARKETS: Record<string, Market> = {
@@ -42,6 +50,9 @@ export const MARKETS: Record<string, Market> = {
     // Harare
     center: { latitude: -17.8292, longitude: 31.0522 },
     emergency: { general: '999', police: '995', ambulance: '994', fire: '993' },
+    // English, Shona and Ndebele: the most widely used of Zimbabwe's 16 official languages
+    languages: ['en', 'sn', 'nd'],
+    // supportPhone: set once Siham has a Zimbabwean support number
   },
 };
 

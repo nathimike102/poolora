@@ -7,6 +7,7 @@ import {
   type AdminUser,
 } from "../lib/auth";
 import { ApiError } from "../lib/api";
+import { Brand } from '../components/Brand';
 
 export function SignInPage({
   onSignedIn,
@@ -69,10 +70,7 @@ export function SignInPage({
           run(() => signInWithEmail(email, password));
         }}
       >
-        <div className="brand" style={{ padding: 0 }}>
-          <img src="/mark.png" alt="" />
-          Poolora Admin
-        </div>
+        <Brand label="Admin" />
         <p className="muted">Sign in with an admin account.</p>
         {!firebaseConfigured ? (
           <div className="banner warn">

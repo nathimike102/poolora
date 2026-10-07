@@ -19,6 +19,7 @@ import { AppError, NotFoundError } from '../utils/AppError';
 import { audit } from './AuditService';
 import { SafetyService } from './SafetyService';
 import { REGION } from '../config/region';
+import { recordingAvailable, videoAvailable } from './LiveVideo';
 
 const PERSON = 'name phone email gender profilePhotoUrl emergencyContacts stats warnings isSuspended isBlocked identity.status kyc.licenseNumber kyc.status createdAt';
 
@@ -66,9 +67,12 @@ export class AdminSosService {
     const evidence = [
       ...(await Promise.all((record.audioRecordingUrls ?? []).map(async (u) => ({ type: 'audio' as const, url: await sign(u) })))),
       ...(await Promise.all((record.screenshotUrls ?? []).map(async (u) => ({ type: 'screenshot' as const, url: await sign(u) })))),
+      // A video file is written when its recording stops
+      ...(await Promise.all((record.videoRecordingUrls ?? []).map(async (u) => ({ type: 'video' as const, url: await sign(u) })))),
     ];
     const identify = booking ? await this.identification(record, booking) : null;
-    return { record, booking, rider, driver, triggeredByRole, history: { days: 90, earlier, falseAlarms }, emergencyNumbers: REGION.emergency, evidence, ...identify };
+    const video = { available: videoAvailable(), recordingOn: recordingAvailable() };
+    return { record, booking, rider, driver, triggeredByRole, history: { days: 90, earlier, falseAlarms }, emergencyNumbers: REGION.emergency, evidence, video, ...identify };
   }
 
   /**

@@ -9,9 +9,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   Image,
@@ -19,12 +17,17 @@ import {
   Platform,
   ActionSheetIOS,
   KeyboardAvoidingView,
+  Pressable,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Text, TextInput } from '../components/Text';
+import Svg, { Path } from '../components/ThemedSvg';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Icon } from '../components/Icon';
+import { realPhone } from '../utils/phone';
 import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientButton } from '../components/GradientButton';
@@ -36,16 +39,29 @@ import type { User as ApiUser } from '../types/api';
 import type { RootStackParamList } from '../navigation/types';
 import { logger } from '../utils/logger';
 import { formatPhone } from '../utils/region';
+import { clearProfileDraft, loadProfileDraft, saveProfileDraft } from '../utils/profileDraft';
+import { pickProfilePhoto } from '../utils/profilePhoto';
+import { useTranslation } from 'react-i18next';
+
+import { tc, tk } from '../theme/themed';
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 
 export function ProfileSetupScreen() {
-  const { c, setRole, setUser, firebaseUser } = useApp();
+  const {
+    setRole,
+    setUser,
+    firebaseUser
+  } = useApp();
+  const { t } = useTranslation();
   // Set when a new phone number was just verified and has no account yet
   const pendingSignup = useRoute<RouteProp<RootStackParamList, 'ProfileSetup'>>().params;
   const insets = useSafeAreaInsets();
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  // The chosen picture's bytes, uploaded once the account exists. A Google
+  // picture has none: the backend already took it from the sign-in.
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -53,9 +69,59 @@ export function ProfileSetupScreen() {
   const [dob, setDob] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Google and email sign-ins already own an email; a new phone account does not
+  const emailLocked = !pendingSignup && !!firebaseUser?.email;
+
+  // Back from a restart: Android killed the app while the camera or gallery was
+  // open. Put the form back, then the photo the person picked before it died.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const draft = await loadProfileDraft();
+      if (cancelled || !draft) return;
+      setFirstName(draft.firstName);
+      setLastName(draft.lastName);
+      setEmail(draft.email);
+      if (draft.dob) setDob(new Date(draft.dob));
+      if (draft.photoUri) setPhotoUri(draft.photoUri);
+      if (Platform.OS !== 'android') return;
+      try {
+        const pending = await ImagePicker.getPendingResultAsync();
+        if (!cancelled && pending && 'assets' in pending && !pending.canceled && pending.assets[0]) {
+          setPhotoUri(pending.assets[0].uri);
+          setPhotoBase64(pending.assets[0].base64 ?? null);
+        }
+      } catch (error) {
+        logger.warn('Could not recover the picked photo', { error });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Saved just before leaving the app for the camera or gallery
+  const saveDraft = useCallback(
+    () =>
+      saveProfileDraft({
+        pendingSignup: pendingSignup ? { phone: pendingSignup.phone, otp: pendingSignup.otp } : undefined,
+        firstName,
+        lastName,
+        email,
+        dob: dob?.toISOString() ?? null,
+        photoUri,
+      }),
+    [pendingSignup, firstName, lastName, email, dob, photoUri],
+  );
 
   // Pre-fill from Firebase user
   useEffect(() => {
+    // A newly verified phone is a new account: nothing from another sign-in
+    // left on this phone belongs in it.
+    if (pendingSignup?.phone) {
+      setPhone(pendingSignup.phone);
+      return;
+    }
     if (firebaseUser) {
       if (firebaseUser.displayName) {
         const parts = firebaseUser.displayName.split(' ');
@@ -73,62 +139,52 @@ export function ProfileSetupScreen() {
       }
       return;
     }
-    if (pendingSignup?.phone) {
-      setPhone(pendingSignup.phone);
-      return;
-    }
     // Phone sign-in goes through the backend, so prefill from its user.
     const backendUser = getCurrentUserFromState();
     if (backendUser?.phone) setPhone(backendUser.phone);
     if (backendUser?.email) setEmail(backendUser.email);
   }, [firebaseUser, pendingSignup?.phone]);
 
+  // Google and email sign-ups add their number on its own screen; read it back on return
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingSignup) return;
+      userService.getMyProfile()
+        .then(p => {
+          const number = realPhone(p.phone);
+          if (number) setPhone(number);
+        })
+        .catch(() => undefined);
+    }, [pendingSignup]),
+  );
+
+  // A phone number is required: people are called on it, by riders, drivers and the safety team
   const isValid =
     firstName.trim().length > 0 &&
     lastName.trim().length > 0 &&
-    dob !== null;
+    dob !== null &&
+    !!realPhone(phone);
 
   // ── Photo picker (WhatsApp-style: camera or gallery) ──────────────────────
 
-  const openCamera = useCallback(async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Camera access is required to take a photo.');
-      return;
+  const choose = useCallback(async (source: 'camera' | 'library') => {
+    // Android may stop the app while the camera or gallery is open
+    await saveDraft();
+    const picked = await pickProfilePhoto(source);
+    if (picked) {
+      setPhotoUri(picked.uri);
+      setPhotoBase64(picked.base64);
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
-    }
-  }, []);
-
-  const openGallery = useCallback(async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Gallery access is required to choose a photo.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
-    }
-  }, []);
+  }, [saveDraft]);
+  const openCamera = useCallback(() => choose('camera'), [choose]);
+  const openGallery = useCallback(() => choose('library'), [choose]);
 
   const handlePickPhoto = useCallback(() => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancel', 'Take Photo', 'Choose from Gallery'],
+          options: [t('setup.cancel'), t('setup.takePhoto'), t('setup.fromGallery')],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -138,13 +194,13 @@ export function ProfileSetupScreen() {
       );
     } else {
       // Android — use Alert as action sheet
-      Alert.alert('Profile Photo', 'Choose an option', [
-        { text: 'Take Photo', onPress: openCamera },
-        { text: 'Choose from Gallery', onPress: openGallery },
-        { text: 'Cancel', style: 'cancel' },
+      Alert.alert(t('setup.photoTitle'), t('setup.chooseOption'), [
+        { text: t('setup.takePhoto'), onPress: openCamera },
+        { text: t('setup.fromGallery'), onPress: openGallery },
+        { text: t('setup.cancel'), style: 'cancel' },
       ]);
     }
-  }, [openCamera, openGallery]);
+  }, [openCamera, openGallery, t]);
 
   // ── Date picker ───────────────────────────────────────────────────────────
 
@@ -186,7 +242,7 @@ export function ProfileSetupScreen() {
           email || undefined,
           dob?.toISOString(),
         );
-        if ('needsProfile' in result) throw new Error('Your account could not be created. Please try again.');
+        if ('needsProfile' in result) throw new Error(t('setup.notCreated'));
         saved = result.user;
       } else {
         // Already signed in (Google or email) but the account has no name yet
@@ -198,6 +254,17 @@ export function ProfileSetupScreen() {
       }
 
       logger.info('Profile setup completed');
+      await clearProfileDraft();
+
+      // The account exists now; a failed upload must not undo the sign-up
+      if (photoBase64) {
+        try {
+          await userService.setPhoto(photoBase64);
+        } catch (error) {
+          logger.warn('Profile photo upload failed', { error });
+          Alert.alert(t('setup.photoTitle'), t('setup.photoFailed'));
+        }
+      }
 
       // Save profile info to context
       setUser({
@@ -212,19 +279,19 @@ export function ProfileSetupScreen() {
       setRole('rider');
     } catch (error) {
       logger.error('Failed to submit profile', { error });
-      Alert.alert("Couldn't save your profile", errorHandler.process(error).message);
+      Alert.alert(t('setup.saveFailed'), errorHandler.process(error).message);
     } finally {
       setSubmitting(false);
     }
-  }, [isValid, submitting, firstName, lastName, phone, email, dob, photoUri, firebaseUser, setUser, setRole, pendingSignup]);
+  }, [isValid, submitting, firstName, lastName, phone, email, dob, photoUri, photoBase64, firebaseUser, setUser, setRole, pendingSignup, t]);
 
-  // Poolora is for adults: the picker stops at 18 years ago (the API checks too)
+  // Siham is for adults: the picker stops at 18 years ago (the API checks too)
   const maxDate = new Date();
   maxDate.setFullYear(maxDate.getFullYear() - 18);
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}
+      style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -234,28 +301,26 @@ export function ProfileSetupScreen() {
         bounces={false}
       >
         {/* Title */}
-        <Text style={[styles.title, { color: c.text }]}>
-          Complete your profile
+        <Text style={[styles.title, tc.color_text]}>
+          {t('setup.title')}
         </Text>
 
         {/* ── Profile Photo ──────────────────────────────────────────── */}
         <View style={styles.avatarSection}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add profile photo"
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('setup.addPhoto')}
             onPress={handlePickPhoto}
             activeOpacity={0.7}
             style={[
               styles.avatarContainer,
-              {
-                backgroundColor: c.primaryLight,
-                borderColor: c.border,
-              },
-              Shadow.sm,
+              tc.backgroundColor_primaryLight,
+              tc.borderColor_border,
+              Shadow.sm
             ]}
           >
             {photoUri ? (
               <Image source={{ uri: photoUri }} style={styles.avatarImage} />
             ) : (
-              <Svg width={40} height={40} viewBox="0 0 24 24" fill={c.primary}>
+              <Svg width={40} height={40} viewBox="0 0 24 24" fill={tk.primary}>
                 <Path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
               </Svg>
             )}
@@ -263,7 +328,7 @@ export function ProfileSetupScreen() {
             <View
               style={[
                 styles.cameraBadge,
-                { backgroundColor: c.primary },
+                tc.backgroundColor_primary,
               ]}
             >
               <Svg width={14} height={14} viewBox="0 0 24 24" fill="white">
@@ -272,8 +337,8 @@ export function ProfileSetupScreen() {
               </Svg>
             </View>
           </TouchableOpacity>
-          <Text style={[styles.avatarHint, { color: c.textSec }]}>
-            Tap to add a photo
+          <Text style={[styles.avatarHint, tc.color_textSec]}>
+            {t('setup.tapPhoto')}
           </Text>
         </View>
 
@@ -281,18 +346,19 @@ export function ProfileSetupScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>FIRST NAME</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.firstNameLabel')}</Text>
           <TextInput
             value={firstName}
             onChangeText={setFirstName}
-            placeholder="First name"
-            placeholderTextColor={c.textSec}
+            placeholder={t('login.firstName')}
+            placeholderTextColor={tk.textSec}
             autoCapitalize="words"
-            style={[styles.input, { color: c.text }]}
+            style={[styles.input, tc.color_text]}
           />
         </View>
 
@@ -300,18 +366,19 @@ export function ProfileSetupScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>LAST NAME</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.lastNameLabel')}</Text>
           <TextInput
             value={lastName}
             onChangeText={setLastName}
-            placeholder="Last name"
-            placeholderTextColor={c.textSec}
+            placeholder={t('login.lastName')}
+            placeholderTextColor={tk.textSec}
             autoCapitalize="words"
-            style={[styles.input, { color: c.text }]}
+            style={[styles.input, tc.color_text]}
           />
         </View>
 
@@ -319,41 +386,56 @@ export function ProfileSetupScreen() {
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surfaceVariant, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_border,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>PHONE NUMBER</Text>
-          <TextInput
-            value={phone ? formatPhone(phone) : ''}
-            editable={false}
-            placeholder="Not available"
-            placeholderTextColor={c.textDisabled}
-            style={[styles.input, { color: c.textSec }]}
-          />
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('setup.phoneLabel')}</Text>
+          {pendingSignup ? (
+            // Just verified at sign-in
+            <TextInput
+              value={phone ? formatPhone(phone) : ''}
+              editable={false}
+              style={[styles.input, tc.color_textSec]}
+            />
+          ) : (
+            <Pressable
+              onPress={() => navigation.navigate('PhoneNumber')}
+              accessibilityRole="button"
+              accessibilityLabel={realPhone(phone) ? t('setup.changePhone', { phone: formatPhone(phone) }) : t('setup.addPhone')}
+              style={styles.phoneButton}
+            >
+              <Text style={[styles.input, styles.phoneButtonText, realPhone(phone) ? tc.color_text : tc.color_primary]}>
+                {realPhone(phone) ? formatPhone(phone) : t('setup.addPhone')}
+              </Text>
+              <Icon name="chevron-right" size={22} color={tk.textSec} />
+            </Pressable>
+          )}
         </View>
 
         {/* ── Email ──────────────────────────────────────────────────── */}
         <View
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>EMAIL</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('login.emailLabel')}</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={c.textSec}
+            placeholder={t('login.emailPlaceholder')}
+            placeholderTextColor={tk.textSec}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
-            editable={!firebaseUser?.email}
+            editable={!emailLocked}
             style={[
               styles.input,
-              { color: firebaseUser?.email ? c.textSec : c.text },
+              emailLocked ? tc.color_textSec : tc.color_text,
             ]}
           />
         </View>
@@ -364,21 +446,22 @@ export function ProfileSetupScreen() {
           activeOpacity={0.7}
           style={[
             styles.inputContainer,
-            { backgroundColor: c.surface, borderColor: c.border },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.inputLabel, { color: c.textSec }]}>DATE OF BIRTH</Text>
+          <Text style={[styles.inputLabel, tc.color_textSec]}>{t('setup.dobLabel')}</Text>
           <View style={styles.dateRow}>
             <Text
               style={[
                 styles.dateText,
-                { color: dob ? c.text : c.textSec },
+                dob ? tc.color_text : tc.color_textSec,
               ]}
             >
-              {dob ? formatDate(dob) : 'Select your date of birth'}
+              {dob ? formatDate(dob) : t('setup.dobPlaceholder')}
             </Text>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill={c.textSec}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill={tk.textSec}>
               <Path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7v-5z" />
             </Svg>
           </View>
@@ -397,12 +480,12 @@ export function ProfileSetupScreen() {
         {/* ── Continue CTA ────────────────────────────────────────────── */}
         <View style={styles.cta}>
           <GradientButton
-            label={submitting ? 'Saving Profile...' : 'Continue'}
+            label={submitting ? t('setup.saving') : t('setup.continue')}
             onPress={handleContinue}
             disabled={!isValid || submitting}
-            colorStart={c.primary}
-            colorEnd={c.primaryDark}
-            disabledColor={c.border}
+            colorStart={tk.primary}
+            colorEnd={tk.primaryDark}
+            disabledColor={tk.border}
             height={54}
           />
         </View>
@@ -484,6 +567,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 0,
   },
+  phoneButton: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+  phoneButtonText: { flex: 1, height: undefined },
 
   // Date row
   dateRow: {

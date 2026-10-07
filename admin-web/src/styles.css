@@ -1,16 +1,24 @@
-/* Tokens: light by default, dark from the OS setting or the in-app toggle */
+/* Tokens: light by default, dark from the OS setting or the in-app toggle.
+   Siham brand (branding/README.md): teal accent, navy structure, ivory warmth. */
 :root {
   color-scheme: light;
-  --bg: #f6f6f4;
-  --surface: #fcfcfb;
-  --surface-2: #f0efec;
-  --border: #e2e1dc;
-  --text: #0b0b0b;
-  --text-2: #52514e;
-  --text-3: #75746f;
-  --accent: #0b7a75;
+  --bg: #f7f5ef;
+  --surface: #fdfcf9;
+  --surface-2: #f1eee6;
+  --border: #e3dfd4;
+  --text: #0b2530;
+  --text-2: #4a5a60;
+  --text-3: #6d7b80;
+  --accent: #087f8c;
   --accent-ink: #ffffff;
-  --accent-soft: #e0f1ef;
+  --accent-soft: #e0f2f3;
+  /* The sidebar is navy in both themes */
+  --nav-bg: #0b2530;
+  --nav-text: #b9c9cf;
+  --nav-text-strong: #f5f1e7;
+  --nav-hover: #13313d;
+  --nav-active: #0e3e48;
+  --nav-border: #1f404d;
   --good: #16794c;
   --good-soft: #e3f3ea;
   --warn: #9a5b00;
@@ -30,16 +38,20 @@
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
-    --bg: #121211;
-    --surface: #1a1a19;
-    --surface-2: #232321;
-    --border: #33332f;
-    --text: #ffffff;
-    --text-2: #c3c2b7;
-    --text-3: #9a998f;
-    --accent: #2bb3aa;
-    --accent-ink: #062b29;
-    --accent-soft: #123331;
+    --bg: #061a22;
+    --surface: #0d2631;
+    --surface-2: #13313d;
+    --border: #1f404d;
+    --text: #f5f7f8;
+    --text-2: #b9c9cf;
+    --text-3: #8ea4ac;
+    --accent: #0aa2a8;
+    --accent-ink: #061a22;
+    --accent-soft: #0e3640;
+    --nav-bg: #04141a;
+    --nav-hover: #0d2631;
+    --nav-active: #0e3640;
+    --nav-border: #13313d;
     --good: #4cc38a;
     --good-soft: #13301f;
     --warn: #e8b04a;
@@ -51,22 +63,26 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
-    --grid: #2b2b28;
+    --grid: #183641;
     --shadow: none;
   }
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #121211;
-  --surface: #1a1a19;
-  --surface-2: #232321;
-  --border: #33332f;
-  --text: #ffffff;
-  --text-2: #c3c2b7;
-  --text-3: #9a998f;
-  --accent: #2bb3aa;
-  --accent-ink: #062b29;
-  --accent-soft: #123331;
+  --bg: #061a22;
+  --surface: #0d2631;
+  --surface-2: #13313d;
+  --border: #1f404d;
+  --text: #f5f7f8;
+  --text-2: #b9c9cf;
+  --text-3: #8ea4ac;
+  --accent: #0aa2a8;
+  --accent-ink: #061a22;
+  --accent-soft: #0e3640;
+  --nav-bg: #04141a;
+  --nav-hover: #0d2631;
+  --nav-active: #0e3640;
+  --nav-border: #13313d;
   --good: #4cc38a;
   --good-soft: #13301f;
   --warn: #e8b04a;
@@ -78,7 +94,7 @@
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
-  --grid: #2b2b28;
+  --grid: #183641;
   --shadow: none;
 }
 
@@ -96,14 +112,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* Layout */
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
-.sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+.sidebar { background: var(--nav-bg); color: var(--nav-text-strong); border-right: 1px solid var(--nav-border); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; font-weight: 650; }
-.brand img { width: 28px; height: 28px; border-radius: 7px; }
-.nav a { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; color: var(--text-2); font-weight: 520; }
-.nav a:hover { background: var(--surface-2); text-decoration: none; color: var(--text); }
-.nav a.active { background: var(--accent-soft); color: var(--text); }
+.sidebar .brand { color: var(--nav-text-strong); }
+.brand-name { display: grid; gap: 3px; line-height: 1.2; }
+.brand-name small { font-size: 12px; font-weight: 520; color: var(--nav-text); }
+.card .brand-name small { color: var(--text-3); }
+.nav a { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; color: var(--nav-text); font-weight: 520; }
+.nav a:hover { background: var(--nav-hover); text-decoration: none; color: var(--nav-text-strong); }
+.nav a.active { background: var(--nav-active); color: var(--nav-text-strong); box-shadow: inset 3px 0 0 #35d0ba; }
 .nav .count { font-size: 12px; min-width: 20px; text-align: center; padding: 0 6px; border-radius: 10px; background: var(--danger); color: #fff; font-weight: 600; }
-.sidebar-foot { margin-top: auto; padding: 8px; color: var(--text-3); font-size: 13px; display: grid; gap: 8px; }
+.sidebar-foot { margin-top: auto; padding: 8px; color: var(--nav-text); font-size: 13px; display: grid; gap: 8px; }
+.sidebar .input, .sidebar .btn { background: var(--nav-hover); border-color: var(--nav-border); color: var(--nav-text-strong); }
 .main { padding: 24px 32px 48px; min-width: 0; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 .page-head .sub { color: var(--text-2); margin-top: 4px; }
@@ -221,7 +241,7 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 @media (max-width: 1100px) { .cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 800px) {
   .shell { grid-template-columns: 1fr; }
-  .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); }
+  .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--nav-border); }
   .nav { display: flex; flex-wrap: wrap; gap: 2px; }
   .sidebar-foot { margin: 0; }
   .main { padding: 16px; }

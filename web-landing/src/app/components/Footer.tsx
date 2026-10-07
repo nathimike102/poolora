@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router';
 import { Twitter, Linkedin, Instagram, Facebook, Youtube, Github, Mail, MapPin, ArrowUpRight } from 'lucide-react';
-import logoDark from '../../assets/poolora-logo.webp';
-import { ImageWithFallback } from './common/ImageWithFallback';
+import { SihamLogo } from './brand/SihamLogo';
+import { colors } from '../../theme/colors';
 import { COMPANY } from '../../config/company';
 import { NAVIGATION } from '../../config/navigation';
 import { Container } from './layout/Container';
@@ -38,7 +38,7 @@ export function Footer() {
   const socialLinks = SOCIALS.filter((s) => COMPANY.social[s.key]);
 
   return (
-    <footer id="contact" className="relative overflow-hidden" style={{ backgroundColor: '#080810' }}>
+    <footer id="contact" className="relative overflow-hidden" style={{ backgroundColor: colors.ink }}>
 
       {/* Visual break from Waitlist */}
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
@@ -61,8 +61,7 @@ export function Footer() {
           {/* Brand column */}
           <div className="flex flex-col gap-5">
             <Link to="/" className="inline-flex items-center gap-2 w-fit">
-              <ImageWithFallback src={logoDark} alt="" width={40} height={40} loading="lazy" className="h-10 w-10 object-contain" />
-              <span className="font-black text-base text-white tracking-[-0.02em]">{COMPANY.name}</span>
+              <SihamLogo size={40} tone="onDark" />
             </Link>
 
             <div>

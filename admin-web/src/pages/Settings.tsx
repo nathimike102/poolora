@@ -5,7 +5,7 @@ import { when } from '../lib/format';
 import { Badge, ErrorBox, Loading, PageHead } from '../components/ui';
 import { ReasonDialog } from '../components/Dialog';
 
-type Unit = 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers' | 'boolean' | 'zwgPerUsd';
+type Unit = 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers' | 'boolean' | 'zwgPerUsd' | 'currency';
 type Tier = { minHours: number; refundRate: number };
 interface Setting {
   key: string;
@@ -54,6 +54,8 @@ function describe(s: Setting, v: unknown): string {
   if (s.unit === 'weights') return Object.entries(v as Record<string, number>).map(([k, w]) => `${WEIGHT_LABELS[k] ?? k} ${Math.round(w * 100)}%`).join(', ');
   if (s.unit === 'boolean') return v ? 'On' : 'Off';
   if (s.unit === 'zwgPerUsd') return Number(v) > 0 ? `${v} ZiG per US$` : 'Off (US dollars only)';
+  // Amounts are kept in the market's currency (US dollars in Zimbabwe)
+  if (s.unit === 'currency') return Number(v).toFixed(2);
   if (s.unit === 'tiers') return (v as Tier[]).map((t) => `${t.minHours}h+: ${Math.round(t.refundRate * 100)}%`).join(', ');
   return `${v} ${UNIT_LABEL[s.unit] ?? ''}`.trim();
 }
@@ -67,7 +69,7 @@ function NumberEditor({ s, value, onChange }: { s: Setting; value: number; onCha
         className="input"
         type="number"
         style={{ width: 120 }}
-        step={percent ? 0.5 : s.unit === 'km' ? 0.5 : s.unit === 'zwgPerUsd' ? 0.01 : 1}
+        step={percent ? 0.5 : s.unit === 'km' ? 0.5 : s.unit === 'zwgPerUsd' || s.unit === 'currency' ? 0.01 : 1}
         min={percent ? (s.min ?? 0) * 100 : s.min}
         max={percent ? (s.max ?? 1) * 100 : s.max}
         value={Number.isFinite(shown) ? shown : ''}

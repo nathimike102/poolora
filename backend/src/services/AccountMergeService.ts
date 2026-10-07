@@ -16,6 +16,7 @@
  * a merge interrupted part-way is finished by approving it again.
  */
 
+import { ratingScore, ratingSum, type RatingRole } from '../utils/ratingScore';
 import { Types } from 'mongoose';
 import { AccountMerge, IAccountMerge } from '../models/AccountMerge';
 import { User, IUser } from '../models/User';
@@ -49,6 +50,7 @@ import { AppError, NotFoundError } from '../utils/AppError';
 import { audit } from './AuditService';
 import { NotificationService } from './NotificationService';
 import { money } from '../config/region';
+import { phrase } from '../i18n';
 
 const MAX_WALLET = 100_000;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -155,10 +157,10 @@ export class AccountMergeService {
     await AccountMerge.updateOne({ _id: merge._id }, { $set: { status: 'completed', moved } });
     await audit(adminId, 'user.merge.approve', 'user', source._id.toString(), merge.reason, { mergeId, targetId: target._id.toString(), moved });
     const n = new NotificationService();
-    const message = `Your other Poolora account (phone ending ${lastFour(source.phone)}) has been merged into this one. Its trips, ratings and wallet balance are now here.`;
+    const message = phrase('account.mergedBody', { lastFour: lastFour(source.phone) });
     await Promise.allSettled([
-      n.createNotification(target._id.toString(), 'Accounts merged', message, 'system'),
-      n.sendPushNotification(target._id.toString(), 'Accounts merged', message, { type: 'account' }),
+      n.createNotification(target._id.toString(), phrase('account.mergedTitle'), message, 'system'),
+      n.sendPushNotification(target._id.toString(), phrase('account.mergedTitle'), message, { type: 'account' }),
     ]);
     return { merge: await AccountMerge.findById(merge._id).lean() };
   }
@@ -238,18 +240,21 @@ export class AccountMergeService {
     const a = source.stats ?? ({} as IUser['stats']);
     const b = target.stats ?? ({} as IUser['stats']);
     const weighted = (x = 0, nx = 0, y = 0, ny = 0) => (nx + ny ? round2((x * nx + y * ny) / (nx + ny)) : 0);
+    // Ratings: the sums and counts add up, and the score is worked out again from them
+    const mergedRating = (role: RatingRole) => {
+      const sum = ratingSum(a, role) + ratingSum(b, role);
+      const count = (a[`totalRatingsAs${role}`] ?? 0) + (b[`totalRatingsAs${role}`] ?? 0);
+      return { [`avgRatingAs${role}`]: ratingScore(sum, count), [`totalRatingsAs${role}`]: count, [`ratingSumAs${role}`]: sum };
+    };
     const rides = (u: IUser['stats']) => (u.totalRidesAsDriver ?? 0) + (u.totalRidesAsRider ?? 0);
     const stats = {
       totalRidesAsDriver: (a.totalRidesAsDriver ?? 0) + (b.totalRidesAsDriver ?? 0),
       totalRidesAsRider: (a.totalRidesAsRider ?? 0) + (b.totalRidesAsRider ?? 0),
       totalEarnings: round2((a.totalEarnings ?? 0) + (b.totalEarnings ?? 0)),
       totalSpent: round2((a.totalSpent ?? 0) + (b.totalSpent ?? 0)),
-      avgRatingAsDriver: weighted(a.avgRatingAsDriver, a.totalRatingsAsDriver, b.avgRatingAsDriver, b.totalRatingsAsDriver),
-      avgRatingAsRider: weighted(a.avgRatingAsRider, a.totalRatingsAsRider, b.avgRatingAsRider, b.totalRatingsAsRider),
-      totalRatingsAsDriver: (a.totalRatingsAsDriver ?? 0) + (b.totalRatingsAsDriver ?? 0),
-      totalRatingsAsRider: (a.totalRatingsAsRider ?? 0) + (b.totalRatingsAsRider ?? 0),
-      avgRatingAsOrganizer: weighted(a.avgRatingAsOrganizer, a.totalRatingsAsOrganizer, b.avgRatingAsOrganizer, b.totalRatingsAsOrganizer),
-      totalRatingsAsOrganizer: (a.totalRatingsAsOrganizer ?? 0) + (b.totalRatingsAsOrganizer ?? 0),
+      ...mergedRating('Driver'),
+      ...mergedRating('Rider'),
+      ...mergedRating('Organizer'),
       cancellationRate: weighted(a.cancellationRate, rides(a), b.cancellationRate, rides(b)),
       acceptanceRate: weighted(a.acceptanceRate ?? 1, a.totalRidesAsDriver, b.acceptanceRate ?? 1, b.totalRidesAsDriver) || (b.acceptanceRate ?? 1),
     };
@@ -261,14 +266,17 @@ export class AccountMergeService {
     if (target.kyc?.status === 'none' && source.kyc?.status && source.kyc.status !== 'none') set.kyc = source.kyc;
     if (!target.vehicles?.length && source.vehicles?.length) set.vehicles = source.vehicles;
     if (!target.emergencyContacts?.length && source.emergencyContacts?.length) set.emergencyContacts = source.emergencyContacts;
-    if (!target.email && source.email) set.email = source.email;
+    if (!target.email && source.email) {
+      set.email = source.email;
+      if (source.emailVerifiedAt) set.emailVerifiedAt = source.emailVerifiedAt;
+    }
 
     // Close the duplicate first so its email is free for the kept account
     await User.updateOne(
       { _id: from },
       {
         $set: { isBlocked: true, blockReason: `Merged into another account (phone ending ${lastFour(target.phone)})`, mergedInto: to, fcmTokens: [] },
-        $unset: { email: 1, pendingBlock: 1 },
+        $unset: { email: 1, emailVerifiedAt: 1, pendingBlock: 1 },
       },
     );
     await User.updateOne(

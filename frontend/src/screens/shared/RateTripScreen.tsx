@@ -6,37 +6,35 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Text } from '../../components/Text';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { RatingForm } from '../../components/RatingForm';
 import type { RootStackParamList } from '../../navigation/types';
 import { ratingService } from '../../services/ratingService';
+import { useTranslation } from 'react-i18next';
+import { tc } from '../../theme/themed';
 
 export function RateTripScreen() {
   const { bookingId, rateeName, summary } = useRoute<RouteProp<RootStackParamList, 'RateTrip'>>().params;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Rate your trip</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('rateTrip.rateYourTrip')} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {summary ? <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center' }}>{summary}</Text> : null}
+        {summary ? <Text style={[{ fontSize: 14, textAlign: 'center' }, tc.color_textSec]}>{summary}</Text> : null}
         <RatingForm
           rateeName={rateeName}
           onSubmit={async input => {
             await ratingService.submitRating(bookingId, input);
-            Alert.alert('Thanks for your rating', 'It helps keep Poolora safe and friendly.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+            Alert.alert(t('rateTrip.thanksForYourRating'), t('rateTrip.itHelpsKeepSihamSafe'), [{ text: t('rateTrip.ok'), onPress: () => navigation.goBack() }]);
           }}
         />
       </ScrollView>

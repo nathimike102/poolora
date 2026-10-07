@@ -40,7 +40,7 @@ const dialable = (phone?: string) => Boolean(phone && /^\+\d{8,15}$/.test(phone)
 export class CallService {
   /** Rings the caller, then connects them to the other person on the booking */
   async start(bookingId: string, callerId: string): Promise<{ callId: string; masked: true }> {
-    if (!maskedCallsEnabled()) throw new AppError('Calls through Poolora are not set up; call directly instead', 503, 'CALLS_UNAVAILABLE');
+    if (!maskedCallsEnabled()) throw new AppError('Calls through Siham are not set up; call directly instead', 503, 'CALLS_UNAVAILABLE');
     if (!Types.ObjectId.isValid(bookingId)) throw new NotFoundError('Booking');
     const booking = await Booking.findById(bookingId).select('rider driver status actualDropoffTime updatedAt');
     if (!booking) throw new NotFoundError('Booking');
@@ -68,7 +68,7 @@ export class CallService {
     const base = config.app.baseUrl.replace(/\/$/, '');
     const hook = (kind: string) => `${base}/calls/twilio/${kind}?callId=${log._id}`;
     const from = config.twilio.voiceNumber;
-    const twiml = `<Response><Say voice="alice" language="en-GB">Connecting your Poolora call.${record ? ' This call is recorded for safety.' : ''}</Say>`
+    const twiml = `<Response><Say voice="alice" language="en-GB">Connecting your Siham call.${record ? ' This call is recorded for safety.' : ''}</Say>`
       + `<Dial callerId="${xml(from)}" timeLimit="${MAX_CALL_SECONDS}"${record ? ` record="record-from-answer-dual" recordingStatusCallback="${xml(hook('recording'))}" recordingStatusCallbackMethod="POST"` : ''}>`
       + `<Number>${xml(callee!.phone)}</Number></Dial></Response>`;
 

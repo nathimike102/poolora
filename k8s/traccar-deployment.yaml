@@ -3,23 +3,23 @@
 # stores nothing, so one replica is enough and a restart loses nothing.
 #
 # Create the config from infra/traccar/traccar.example.xml first:
-#   kubectl -n poolora create secret generic traccar-config --from-file=traccar.xml=infra/traccar/traccar.xml
+#   kubectl -n siham create secret generic traccar-config --from-file=traccar.xml=infra/traccar/traccar.xml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: poolora-traccar
-  namespace: poolora
+  name: siham-traccar
+  namespace: siham
   labels:
-    app: poolora-traccar
+    app: siham-traccar
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: poolora-traccar
+      app: siham-traccar
   template:
     metadata:
       labels:
-        app: poolora-traccar
+        app: siham-traccar
     spec:
       containers:
       - name: traccar
@@ -47,12 +47,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: poolora-traccar
-  namespace: poolora
+  name: siham-traccar
+  namespace: siham
 spec:
   type: LoadBalancer
   selector:
-    app: poolora-traccar
+    app: siham-traccar
   ports:
   - { name: gt06, port: 5023, targetPort: 5023, protocol: TCP }
   - { name: teltonika, port: 5027, targetPort: 5027, protocol: TCP }

@@ -8,7 +8,7 @@ export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number];
 export const URGENT_CATEGORIES: readonly SupportCategory[] = ['safety', 'payment'];
 
 /**
- * A support request from a user (UC-X02), answered by the Poolora team in
+ * A support request from a user (UC-X02), answered by the Siham team in
  * a thread of messages.
  */
 export interface ISupportTicket extends Document {

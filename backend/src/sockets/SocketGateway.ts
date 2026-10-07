@@ -15,7 +15,8 @@ import { logger } from '../utils/logger';
 import { EventBridge } from '../events';
 import { BookingStatus, RideStatus, UserCapability } from '../types';
 import { Ride, rideRoutePath } from '../models/Ride';
-import { nearestOnPath } from '../utils/routeGeometry';
+import { nearestOnPath, onPlannedDetour, type PlannedPoint } from '../utils/routeGeometry';
+import { phrase } from '../i18n';
 
 const minutes = (n: number) => `${n} min${n === 1 ? '' : 's'}`;
 
@@ -377,19 +378,21 @@ export class SocketGateway {
     const { NotificationService } = await import('../services/NotificationService');
     await new NotificationService().sendPushNotification(
       riderId,
-      kind === 'arrived' ? 'Your driver is here' : 'Your driver is about 5 minutes away',
-      kind === 'arrived' ? 'Head to the pickup point.' : 'Get ready at the pickup point.',
+      phrase(kind === 'arrived' ? 'approach.hereTitle' : 'approach.nearTitle'),
+      phrase(kind === 'arrived' ? 'approach.hereBody' : 'approach.nearBody'),
       { bookingId, type: 'ride' },
     ).catch(() => undefined);
   }
 
   /** Planned routes by ride, so every position update does not reload the ride */
-  private routeCache = new Map<string, { path: Array<{ lat: number; lng: number }>; at: number }>();
+  private routeCache = new Map<string, { path: Array<{ lat: number; lng: number }>; points: PlannedPoint[]; at: number }>();
 
   /**
    * Alerts the rider, the driver and admins when the car is further than the
    * allowed distance from the planned route (UC-R05, default 500 m). At most
-   * one alert per booking every 5 minutes.
+   * one alert per booking every 5 minutes. Going to a point a confirmed rider
+   * chose off the route (their pickup, a stop they added, their drop) is part
+   * of the plan, not a deviation.
    */
   private async checkRouteDeviation(
     rideId: string,
@@ -406,13 +409,25 @@ export class SocketGateway {
       const path = ride.routeLine?.coordinates?.length
         ? ride.routeLine.coordinates.map(([lng, lat]) => ({ lat, lng }))
         : rideRoutePath(ride);
-      cached = { path, at: Date.now() };
+      // Riders board, stop and leave up to maxPickupDistanceFromRouteKm off the route
+      const bookings = await Booking.find({ ride: rideId, status: BookingStatus.CONFIRMED })
+        .select('pickup dropoff stops')
+        .lean();
+      const points: PlannedPoint[] = bookings
+        .flatMap((b) => [b.pickup, ...(b.stops ?? []), b.dropoff])
+        .filter((p) => p?.location?.coordinates?.length === 2)
+        .map((p) => {
+          const [lng, lat] = p.location.coordinates;
+          return { lat, lng, offRouteKm: path.length >= 2 ? nearestOnPath({ lat, lng }, path).distanceKm : 0 };
+        });
+      cached = { path, points, at: Date.now() };
       this.routeCache.set(rideId, cached);
     }
     if (cached.path.length < 2) return;
 
     const offMeters = nearestOnPath(position, cached.path).distanceKm * 1000;
     if (offMeters <= config.tracking.routeDeviationMeters) return;
+    if (onPlannedDetour(position, cached.points, config.tracking.routeDeviationMeters / 1000)) return;
 
     const key = `route:deviation:${bookingId}`;
     const redis = getRedisClient();
@@ -428,6 +443,9 @@ export class SocketGateway {
       bookingId,
       offRouteMeters: Math.round(offMeters),
       message: `The car is about ${Math.round(offMeters / 100) * 100} m off the planned route`,
+      // The app shows it in the rider's language from these
+      messageKey: 'ride.alerts.offRoute',
+      messageVars: { meters: Math.round(offMeters / 100) * 100 },
       currentLocation: position,
       timestamp,
     };
@@ -439,8 +457,8 @@ export class SocketGateway {
     const { NotificationService } = await import('../services/NotificationService');
     await new NotificationService().sendPushNotification(
       riderId,
-      'Your car has left the planned route',
-      `${payload.message}. Open Poolora to follow it, or use SOS if you feel unsafe.`,
+      phrase('deviation.title'),
+      phrase('deviation.body', { meters: payload.messageVars.meters }),
       { bookingId, type: 'safety' },
     ).catch(() => undefined);
   }
@@ -458,6 +476,7 @@ export class SocketGateway {
         distanceKm,
         estimatedMins: 0,
         message: 'Driver has arrived',
+        messageKey: 'ride.alerts.arrived',
       };
     }
 
@@ -468,6 +487,8 @@ export class SocketGateway {
         distanceKm: Math.round(distanceKm * 10) / 10,
         estimatedMins: Math.min(eta, 5),
         message: `Driver is ${Math.round(distanceKm * 1000)} m away, about ${minutes(Math.max(1, Math.min(Math.round(eta), 5)))}`,
+        messageKey: 'ride.alerts.metersAway',
+        messageVars: { meters: Math.round(distanceKm * 1000), minutes: Math.max(1, Math.min(Math.round(eta), 5)) },
       };
     }
 
@@ -479,6 +500,8 @@ export class SocketGateway {
         distanceKm: Math.round(distanceKm * 10) / 10,
         estimatedMins: eta,
         message: `Driver is ${Math.round(distanceKm)} km away, about ${minutes(Math.max(1, eta))}`,
+        messageKey: 'ride.alerts.kmAway',
+        messageVars: { km: Math.round(distanceKm), minutes: Math.max(1, eta) },
       };
     }
 
@@ -569,13 +592,13 @@ export class SocketGateway {
           const notificationService = new NotificationService();
           await notificationService.sendPushNotification(
             receiverId,
-            'New message',
+            phrase('chat.newMessage'),
             content.length > 100 ? content.substring(0, 97) + '...' : content,
             { bookingId, type: 'chat', senderId: socket.userId },
           );
           await notificationService.createNotification(
             receiverId,
-            'New message',
+            phrase('chat.newMessage'),
             content.length > 100 ? content.substring(0, 97) + '...' : content,
             'chat',
             { bookingId, senderId: socket.userId },

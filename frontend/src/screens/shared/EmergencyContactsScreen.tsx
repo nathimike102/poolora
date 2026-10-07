@@ -1,36 +1,24 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Switch,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { View, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { ActivityIndicator, Switch } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 
-import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackButton } from '../../components/BackButton';
-import type { RootStackParamList } from '../../navigation/types';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon } from '../../components/Icon';
 import { safetyService, type EmergencyContact } from '../../services/safetyService';
 import { errorHandler } from '../../utils/errorHandler';
-import { toE164 } from '../../utils/region';
+import { REGION, toE164 } from '../../utils/region';
 import { displayPhone } from '../../utils/phone';
+import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const MAX_CONTACTS = 3;
 
 
 export function EmergencyContactsScreen() {
-  const navigation = useNavigation<Nav>();
-  const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [contacts, setContacts] = useState<EmergencyContact[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -59,7 +47,7 @@ export function EmergencyContactsScreen() {
       setContacts(await safetyService.updateEmergencyContacts(next));
       return true;
     } catch {
-      Alert.alert('Not saved', 'Your emergency contacts could not be saved. Check your connection and try again.');
+      Alert.alert(t('emergencyContacts.notSaved'), t('emergencyContacts.yourEmergencyContactsCouldNot'));
       return false;
     } finally {
       setSaving(false);
@@ -69,16 +57,16 @@ export function EmergencyContactsScreen() {
   const addContact = async () => {
     const phone = toE164(newPhone);
     if (!phone) {
-      setFormError('Enter a 10-digit mobile number.');
+      setFormError(t('emergencyContacts.badNumber', { example: REGION.phonePlaceholder }));
       return;
     }
     if (contacts?.some(ct => ct.phone === phone)) {
-      setFormError('This number is already one of your contacts.');
+      setFormError(t('emergencyContacts.duplicate'));
       return;
     }
     const email = newEmail.trim();
     if (email && !/^\S+@\S+\.\S+$/.test(email)) {
-      setFormError('Check the email address, or leave it empty.');
+      setFormError(t('emergencyContacts.badEmail'));
       return;
     }
     setFormError('');
@@ -103,20 +91,20 @@ export function EmergencyContactsScreen() {
     setVerifying(contact._id);
     try {
       await safetyService.verifyEmergencyContact(contact._id);
-      Alert.alert('Text sent', `${contact.name} will get a text with a link to confirm. We'll let you know when they do.`);
+      Alert.alert(t('emergencyContacts.textSent'), `${contact.name} will get a text with a link to confirm. We'll let you know when they do.`);
       load();
     } catch (error) {
-      Alert.alert('Not sent', errorHandler.process(error).message);
+      Alert.alert(t('emergencyContacts.notSent'), errorHandler.process(error).message);
     } finally {
       setVerifying(null);
     }
   };
 
   const remove = (contact: EmergencyContact) => {
-    Alert.alert('Remove contact', `${contact.name} will no longer be alerted if you raise an SOS.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('emergencyContacts.removeContact'), `${contact.name} will no longer be alerted if you raise an SOS.`, [
+      { text: t('emergencyContacts.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('emergencyContacts.remove'),
         style: 'destructive',
         onPress: () => save((contacts ?? []).filter(ct => ct.phone !== contact.phone)),
       },
@@ -127,29 +115,22 @@ export function EmergencyContactsScreen() {
   const canSave = Boolean(newName.trim() && newPhone.trim() && newRelation.trim()) && !saving;
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {/* ── Header ──────────────────────────────────────────── */}
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <View style={s.flex1}>
-          <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>
-            Emergency contacts
-          </Text>
-          <Text style={{ fontSize: 12, color: c.textSec }}>
-            {count} of {MAX_CONTACTS} added
-          </Text>
-        </View>
-        {contacts && count < MAX_CONTACTS && !showAdd && (
+      <ScreenHeader
+        title={t('emergencyContacts.emergencyContacts')}
+        subtitle={t('emergencyContacts.countAdded', { count, max: MAX_CONTACTS })}
+        right={contacts && count < MAX_CONTACTS && !showAdd ? (
           <Pressable
             onPress={() => setShowAdd(true)}
             accessibilityRole="button"
-            accessibilityLabel="Add emergency contact"
-            style={[s.addBtn, { backgroundColor: c.primaryLight }]}
+            accessibilityLabel={t('emergencyContacts.addEmergencyContact')}
+            style={[s.addBtn, tc.backgroundColor_primaryLight]}
           >
-            <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Add</Text>
+            <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_primary]}>{t('emergencyContacts.add')}</Text>
           </Pressable>
-        )}
-      </View>
+        ) : null}
+      />
 
       {/* ── Body ────────────────────────────────────────────── */}
       <ScrollView
@@ -158,47 +139,50 @@ export function EmergencyContactsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[s.infoBanner, { backgroundColor: c.errorLight }]}>
-          <Icon name="shield-alert" size={16} color={c.error} />
-          <Text style={{ fontSize: 13, color: c.text, lineHeight: 18, flex: 1 }}>
-            When you raise an SOS during a ride, these people get a text message with a link to your
-            live location. Add up to {MAX_CONTACTS} people you trust, and ask each to confirm so you know
-            the number is right.
+        <View style={[s.infoBanner, tc.backgroundColor_errorLight]}>
+          <Icon name="shield-alert" size={16} color={tk.error} />
+          <Text style={[{ fontSize: 13, lineHeight: 18, flex: 1 }, tc.color_text]}>
+            {t('emergencyContacts.intro', { max: MAX_CONTACTS })}
           </Text>
         </View>
 
         {loadError && (
-          <Pressable onPress={load} accessibilityRole="button" style={[s.card, s.cardBody, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={{ flex: 1, fontSize: 14, color: c.text }}>
-              Your contacts could not be loaded. Tap to try again.
+          <Pressable onPress={load} accessibilityRole="button" style={[
+            s.card,
+            s.cardBody,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
+            <Text style={[{ flex: 1, fontSize: 14 }, tc.color_text]}>
+              {t('emergencyContacts.yourContactsCouldNotBe')}
             </Text>
           </Pressable>
         )}
 
-        {contacts === null && !loadError && <ActivityIndicator color={c.primary} style={{ padding: 20 }} />}
+        {contacts === null && !loadError && <ActivityIndicator color={tk.primary} style={{ padding: 20 }} />}
 
         {contacts?.map(contact => (
-          <View key={contact.phone} style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View key={contact.phone} style={[s.card, tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]}>
             <View style={s.cardBody}>
-              <View style={[s.iconBox, { backgroundColor: c.primaryLight }]}>
-                <Icon name="account" size={26} color={c.primary} />
+              <View style={[s.iconBox, tc.backgroundColor_primaryLight]}>
+                <Icon name="account" size={26} color={tk.primary} />
               </View>
               <View style={s.flex1}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>{contact.name}</Text>
-                <Text style={{ fontSize: 13, color: c.textSec }}>{contact.relation}</Text>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: c.text, marginTop: 2 }}>
+                <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_text]}>{contact.name}</Text>
+                <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{contact.relation}</Text>
+                <Text style={[{ fontSize: 14, fontWeight: '600', marginTop: 2 }, tc.color_text]}>
                   {displayPhone(contact.phone) ?? contact.phone}
                 </Text>
-                {contact.email ? <Text style={{ fontSize: 13, color: c.textSec }}>{contact.email}</Text> : null}
+                {contact.email ? <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{contact.email}</Text> : null}
                 <View style={s.tags}>
                   {contact.primary ? (
-                    <View style={[s.tag, { backgroundColor: c.primaryLight }]}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: c.primary }}>Primary</Text>
+                    <View style={[s.tag, tc.backgroundColor_primaryLight]}>
+                      <Text style={[{ fontSize: 12, fontWeight: '700' }, tc.color_primary]}>{t('emergencyContacts.primary')}</Text>
                     </View>
                   ) : null}
-                  <View style={[s.tag, { backgroundColor: contact.verified ? c.successLight : c.surfaceVariant }]}>
-                    <Icon name={contact.verified ? 'check-decagram' : 'help-circle-outline'} size={14} color={contact.verified ? c.success : c.textSec} />
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.text }}>{contact.verified ? 'Confirmed' : 'Not confirmed'}</Text>
+                  <View style={[s.tag, contact.verified ? tc.backgroundColor_successLight : tc.backgroundColor_surfaceVariant]}>
+                    <Icon name={contact.verified ? 'check-decagram' : 'help-circle-outline'} size={14} color={contact.verified ? tk.success : tk.textSec} />
+                    <Text style={[{ fontSize: 12, fontWeight: '600' }, tc.color_text]}>{contact.verified ? t('emergencyContacts.confirmed') : t('emergencyContacts.notConfirmed')}</Text>
                   </View>
                 </View>
               </View>
@@ -206,27 +190,27 @@ export function EmergencyContactsScreen() {
                 onPress={() => remove(contact)}
                 disabled={saving}
                 accessibilityRole="button"
-                accessibilityLabel={`Remove ${contact.name}`}
-                style={[s.actionBtn, { backgroundColor: c.errorLight }]}
+                accessibilityLabel={t('emergencyContacts.removeName', { name: contact.name })}
+                style={[s.actionBtn, tc.backgroundColor_errorLight]}
               >
-                <Text style={{ fontSize: 13, fontWeight: '600', color: c.error }}>Remove</Text>
+                <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_error]}>{t('emergencyContacts.remove')}</Text>
               </Pressable>
             </View>
-            <View style={[s.cardFoot, { borderTopColor: c.border }]}>
+            <View style={[s.cardFoot, tc.borderTopColor_border]}>
               <View style={s.switchRow}>
-                <Text style={{ flex: 1, fontSize: 14, color: c.text }}>Gets my SOS text</Text>
+                <Text style={[{ flex: 1, fontSize: 14 }, tc.color_text]}>{t('emergencyContacts.getsMySosText')}</Text>
                 <Switch
                   value={contact.notifyOnSos !== false}
                   onValueChange={on => { void update(contact, { notifyOnSos: on }); }}
                   disabled={saving}
                   accessibilityLabel={`${contact.name} gets my SOS text`}
-                  trackColor={{ false: c.border, true: c.primary }}
+                  trackColor={{ false: tk.border, true: tk.primary }}
                 />
               </View>
               <View style={s.footBtns}>
                 {!contact.primary && (
                   <Pressable onPress={() => update(contact, { primary: true })} disabled={saving} accessibilityRole="button" style={s.linkBtn}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Make primary</Text>
+                    <Text style={[{ fontSize: 14, fontWeight: '600' }, tc.color_primary]}>{t('emergencyContacts.makePrimary')}</Text>
                   </Pressable>
                 )}
                 {!contact.verified && contact._id && (
@@ -234,12 +218,12 @@ export function EmergencyContactsScreen() {
                     onPress={() => verify(contact)}
                     disabled={verifying !== null}
                     accessibilityRole="button"
-                    accessibilityLabel={`Ask ${contact.name} to confirm by text`}
+                    accessibilityLabel={t('emergencyContacts.askConfirm', { name: contact.name })}
                     style={s.linkBtn}
                   >
-                    {verifying === contact._id ? <ActivityIndicator color={c.primary} /> : (
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>
-                        {contact.verificationSentAt ? 'Send the text again' : 'Ask them to confirm'}
+                    {verifying === contact._id ? <ActivityIndicator color={tk.primary} /> : (
+                      <Text style={[{ fontSize: 14, fontWeight: '600' }, tc.color_primary]}>
+                        {contact.verificationSentAt ? t('emergencyContacts.sendTheTextAgain') : t('emergencyContacts.askThemToConfirm')}
                       </Text>
                     )}
                   </Pressable>
@@ -250,8 +234,8 @@ export function EmergencyContactsScreen() {
         ))}
 
         {contacts && count > 0 && contacts.every(ct => ct.notifyOnSos === false) && (
-          <Text style={{ fontSize: 13, color: c.error }} accessibilityLiveRegion="polite">
-            Nobody will get a text if you raise an SOS. Turn on "Gets my SOS text" for at least one contact.
+          <Text style={[{ fontSize: 13 }, tc.color_error]} accessibilityLiveRegion="polite">
+            {t('emergencyContacts.nobodyWillGetAText')}
           </Text>
         )}
 
@@ -259,44 +243,49 @@ export function EmergencyContactsScreen() {
           <Pressable
             onPress={() => setShowAdd(true)}
             accessibilityRole="button"
-            style={[s.emptySlot, { borderColor: c.border }]}
+            style={[s.emptySlot, tc.borderColor_border]}
           >
-            <Icon name="plus" size={24} color={c.textSec} />
-            <Text style={{ fontSize: 14, color: c.textSec }}>Add your first emergency contact</Text>
+            <Icon name="plus" size={24} color={tk.textSec} />
+            <Text style={[{ fontSize: 14 }, tc.color_textSec]}>{t('emergencyContacts.addYourFirstEmergencyContact')}</Text>
           </Pressable>
         )}
 
         {showAdd && (
-          <View style={[s.formCard, { backgroundColor: c.surface, borderColor: c.primary }]}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text, marginBottom: 14 }}>
-              New emergency contact
+          <View style={[s.formCard, tc.backgroundColor_surfaceVariant, tc.borderColor_primary]}>
+            <Text style={[{ fontSize: 15, fontWeight: '700', marginBottom: 14 }, tc.color_text]}>
+              {t('emergencyContacts.newEmergencyContact')}
             </Text>
 
             {[
-              { label: 'Name', value: newName, setter: setNewName, placeholder: 'Their name', kb: 'default' as const, ac: 'name' as const },
-              { label: 'Mobile number', value: newPhone, setter: setNewPhone, placeholder: '10-digit mobile number', kb: 'phone-pad' as const, ac: 'tel' as const },
-              { label: 'Relationship', value: newRelation, setter: setNewRelation, placeholder: 'For example, sister', kb: 'default' as const, ac: 'off' as const },
-              { label: 'Email (optional)', value: newEmail, setter: setNewEmail, placeholder: 'name@example.com', kb: 'email-address' as const, ac: 'email' as const },
+              { label: t('emergencyContacts.fields.name'), value: newName, setter: setNewName, placeholder: t('emergencyContacts.fields.namePlaceholder'), kb: 'default' as const, ac: 'name' as const },
+              { label: t('emergencyContacts.fields.phone'), value: newPhone, setter: setNewPhone, placeholder: REGION.phonePlaceholder, kb: 'phone-pad' as const, ac: 'tel' as const },
+              { label: t('emergencyContacts.fields.relation'), value: newRelation, setter: setNewRelation, placeholder: t('emergencyContacts.fields.relationPlaceholder'), kb: 'default' as const, ac: 'off' as const },
+              { label: t('emergencyContacts.fields.email'), value: newEmail, setter: setNewEmail, placeholder: t('emergencyContacts.fields.emailPlaceholder'), kb: 'email-address' as const, ac: 'email' as const },
             ].map(f => (
               <View key={f.label} style={{ marginBottom: 12 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: c.textSec, marginBottom: 6 }}>
+                <Text style={[{ fontSize: 13, fontWeight: '600', marginBottom: 6 }, tc.color_textSec]}>
                   {f.label}
                 </Text>
                 <TextInput
                   value={f.value}
                   onChangeText={f.setter}
                   placeholder={f.placeholder}
-                  placeholderTextColor={c.textSec}
+                  placeholderTextColor={tk.textSec}
                   keyboardType={f.kb}
                   autoComplete={f.ac}
                   accessibilityLabel={f.label}
-                  style={[s.formInput, { backgroundColor: c.bg, borderColor: c.border, color: c.text }]}
+                  style={[
+                    s.formInput,
+                    tc.backgroundColor_surface,
+                    tc.borderColor_border,
+                    tc.color_text
+                  ]}
                 />
               </View>
             ))}
 
             {formError ? (
-              <Text style={{ fontSize: 13, color: c.error, marginBottom: 12 }} accessibilityLiveRegion="polite">
+              <Text style={[{ fontSize: 13, marginBottom: 12 }, tc.color_error]} accessibilityLiveRegion="polite">
                 {formError}
               </Text>
             ) : null}
@@ -305,22 +294,22 @@ export function EmergencyContactsScreen() {
               <Pressable
                 onPress={() => { setShowAdd(false); setFormError(''); }}
                 accessibilityRole="button"
-                style={[s.formBtn, { backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }]}
+                style={[s.formBtn, { borderWidth: 1 }, tc.backgroundColor_surface, tc.borderColor_border]}
               >
-                <Text style={{ fontSize: 14, color: c.text }}>Cancel</Text>
+                <Text style={[{ fontSize: 14 }, tc.color_text]}>{t('emergencyContacts.cancel')}</Text>
               </Pressable>
               <Pressable
                 onPress={addContact}
                 disabled={!canSave}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !canSave }}
-                style={[s.formBtn, { backgroundColor: canSave ? c.primary : c.border }]}
+                style={[s.formBtn, canSave ? tc.backgroundColor_primary : tc.backgroundColor_border]}
               >
                 {saving ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: canSave ? c.textOnPrimary : c.textSec }}>
-                    Save contact
+                  <Text style={[{ fontSize: 14, fontWeight: '700' }, canSave ? tc.color_textOnPrimary : tc.color_textSec]}>
+                    {t('emergencyContacts.saveContact')}
                   </Text>
                 )}
               </Pressable>

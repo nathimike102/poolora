@@ -11,7 +11,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: mongodb-backup
-  namespace: poolora
+  namespace: siham
 spec:
   schedule: "0 2 * * *"
   timeZone: "Africa/Harare"
@@ -37,13 +37,13 @@ spec:
             - |
               set -euo pipefail
               mongodump --uri "$MONGO_URI" --readPreference=secondaryPreferred \
-                --gzip --archive="/work/poolora-$(date -u +%Y%m%dT%H%M%SZ).archive.gz"
+                --gzip --archive="/work/siham-$(date -u +%Y%m%dT%H%M%SZ).archive.gz"
               ls -l /work
             env:
             - name: MONGO_URI
               valueFrom:
                 secretKeyRef:
-                  name: poolora-secrets
+                  name: siham-secrets
                   key: MONGO_URI
             volumeMounts:
             - name: work
@@ -72,22 +72,22 @@ spec:
             - name: BACKUP_S3_BUCKET
               valueFrom:
                 secretKeyRef:
-                  name: poolora-secrets
+                  name: siham-secrets
                   key: BACKUP_S3_BUCKET
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
-                  name: poolora-secrets
+                  name: siham-secrets
                   key: BACKUP_AWS_ACCESS_KEY_ID
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: poolora-secrets
+                  name: siham-secrets
                   key: BACKUP_AWS_SECRET_ACCESS_KEY
             - name: AWS_DEFAULT_REGION
               valueFrom:
                 secretKeyRef:
-                  name: poolora-secrets
+                  name: siham-secrets
                   key: BACKUP_AWS_REGION
             volumeMounts:
             - name: work

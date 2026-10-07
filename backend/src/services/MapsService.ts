@@ -119,6 +119,10 @@ export interface AutocompleteResult {
   placeId: string;
   mainText: string;
   secondaryText: string;
+  /** Set for a kombi rank or bus terminus (UC-R12), with its position */
+  hub?: 'kombi_rank' | 'bus_terminus';
+  lat?: number;
+  lng?: number;
 }
 
 export interface DistanceResult {

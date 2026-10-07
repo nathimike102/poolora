@@ -17,12 +17,8 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  ActivityIndicator,
-  type ViewStyle,
-} from 'react-native';
+import { View, StyleSheet, type ViewStyle } from 'react-native';
+import { ActivityIndicator } from './Themed';
 import {
   Map as MapLibreMap,
   Camera,
@@ -34,12 +30,16 @@ import {
   type LngLat,
 } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
+import { quickFix } from '../utils/position';
 
-import { useApp } from '../context/AppContext';
 import { MAPS_ENABLED, MAP_STYLE } from '../config/maps';
 import { Icon } from './Icon';
 import { MapPlaceholder } from './MapPlaceholder';
 import { REGION } from '../utils/region';
+import { useTranslation } from 'react-i18next';
+
+import { tk, useColors, useIsDark } from '../theme/themed';
+import { Palette } from '../theme';
 
 type Coordinate = { latitude: number; longitude: number };
 
@@ -85,7 +85,10 @@ function OpenLiveMap({
   route,
   driverLocation,
 }: LiveMapProps) {
-  const { isDarkMode, c } = useApp();
+  // The map redraws for a theme change anyway (its style is a different file)
+  const isDarkMode = useIsDark();
+  const colors = useColors();
+  const { t } = useTranslation();
   const cameraRef = useRef<CameraRef>(null);
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
   const [locationGranted, setLocationGranted] = useState(false);
@@ -102,14 +105,9 @@ function OpenLiveMap({
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           if (mounted) setLocationGranted(true);
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          if (mounted) {
-            setUserLocation({
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            });
+          const fix = await quickFix();
+          if (mounted && fix) {
+            setUserLocation({ latitude: fix.lat, longitude: fix.lng });
           }
         }
       } catch {
@@ -169,7 +167,7 @@ function OpenLiveMap({
     <View testID="live-map" style={[styles.container, style]}>
       {loading ? (
         <View style={[styles.loader, { backgroundColor: isDarkMode ? '#1A1E2E' : '#EEF2F8' }]}>
-          <ActivityIndicator testID="map-loader" size="large" color={c.primary} />
+          <ActivityIndicator testID="map-loader" size="large" color={tk.primary} />
         </View>
       ) : (
         <MapLibreMap
@@ -195,7 +193,7 @@ function OpenLiveMap({
                 type="line"
                 layout={{ 'line-cap': 'round', 'line-join': 'round' }}
                 paint={{
-                  'line-color': c.primary,
+                  'line-color': colors.primary,
                   'line-width': routeLine.roadRoute ? 5 : 3,
                   // Dashed when it only shows the direction, not the road route
                   ...(routeLine.roadRoute ? {} : { 'line-dasharray': [2, 1.5] }),
@@ -224,7 +222,7 @@ function OpenLiveMap({
           {/* ── Driver marker ─────────────────────────────────── */}
           {canShowDriver && driverLocation && (
             <Marker id="driver" lngLat={toLngLat(driverLocation)} anchor="center">
-              <View style={styles.driverMarkerOuter} accessibilityLabel="Driver">
+              <View style={styles.driverMarkerOuter} accessibilityLabel={t('liveMap.driver')}>
                 <View style={styles.driverMarkerInner}>
                   <Icon name="car" size={20} color="#FFFFFF" />
                 </View>
@@ -254,7 +252,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#0B7A75',
+    backgroundColor: Palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -299,7 +297,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#0B7A75',
+    backgroundColor: Palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

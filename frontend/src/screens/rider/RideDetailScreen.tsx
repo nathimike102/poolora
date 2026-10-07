@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
@@ -11,24 +10,27 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text } from '../../components/Text';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
+import { LinearGradient } from '../../components/Themed';
+import Svg, { Path } from '../../components/ThemedSvg';
 
-import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LiveMap } from '../../components/LiveMap';
 import { Icon, type IconName } from '../../components/Icon';
 import { VerifiedBadge } from '../../components/VerifiedBadge';
 import type { RootStackParamList } from '../../navigation/types';
-import { Radius, Shadow } from '../../theme';
+import { Radius, Shadow, Palette } from '../../theme';
 import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
-import { ActivityIndicator } from 'react-native';
+import 'react-native';
 import { realPhone } from '../../utils/phone';
 import { money, REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -84,16 +86,10 @@ function formatTime(iso?: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' });
 }
 
-const LUGGAGE_LABEL: Record<string, string> = {
-  none: 'No luggage',
-  small: 'Small bags',
-  medium: 'Medium bags',
-  large: 'Large bags',
-};
 
 export function RideDetailScreen() {
   const navigation = useNavigation<Nav>();
-  const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [mapExpanded, setMapExpanded] = useState(false);
 
@@ -126,28 +122,28 @@ export function RideDetailScreen() {
 
   if (!loading && (loadError || !rideData)) {
     return (
-      <View style={[styles.root, styles.centered, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-        <Icon name="car-off" size={40} color={c.textSec} />
-        <Text style={{ fontSize: 17, fontWeight: '700', color: c.text, marginTop: 12 }}>
-          We couldn't load this ride
+      <View style={[styles.root, styles.centered, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+        <Icon name="car-off" size={40} color={tk.textSec} />
+        <Text style={[{ fontSize: 17, fontWeight: '700', marginTop: 12 }, tc.color_text]}>
+          {t('detail.loadFailed')}
         </Text>
-        <Text style={{ fontSize: 14, color: c.textSec, marginTop: 6, textAlign: 'center' }}>
-          Check your connection and try again.
+        <Text style={[{ fontSize: 14, marginTop: 6, textAlign: 'center' }, tc.color_textSec]}>
+          {t('detail.checkConnection')}
         </Text>
         <View style={styles.errorActions}>
           <Pressable
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
-            style={[styles.secondaryBtn, { borderColor: c.border }]}
+            style={[styles.secondaryBtn, tc.borderColor_border]}
           >
-            <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>Go back</Text>
+            <Text style={[{ fontSize: 15, fontWeight: '600' }, tc.color_text]}>{t('detail.goBack')}</Text>
           </Pressable>
           <Pressable
             onPress={fetchRide}
             accessibilityRole="button"
-            style={[styles.secondaryBtn, { backgroundColor: c.primary, borderColor: c.primary }]}
+            style={[styles.secondaryBtn, tc.backgroundColor_primary, tc.borderColor_primary]}
           >
-            <Text style={{ fontSize: 15, fontWeight: '600', color: c.textOnPrimary }}>Try again</Text>
+            <Text style={[{ fontSize: 15, fontWeight: '600' }, tc.color_textOnPrimary]}>{t('detail.tryAgain')}</Text>
           </Pressable>
         </View>
       </View>
@@ -158,7 +154,7 @@ export function RideDetailScreen() {
   const stats = ride?.driver?.stats;
   const ratingCount = stats?.totalRatingsAsDriver ?? 0;
   const tripCount = stats?.totalRidesAsDriver ?? 0;
-  const driverName = ride?.driver?.name || 'Driver';
+  const driverName = ride?.driver?.name || t('detail.driver');
   const joinedYear = ride?.driver?.createdAt ? new Date(ride.driver.createdAt).getFullYear() : null;
   const departure = formatTime(ride?.scheduledDeparture);
   const arrival = formatTime(ride?.estimatedArrival);
@@ -175,33 +171,34 @@ export function RideDetailScreen() {
 
   const prefs: { icon: IconName; label: string }[] = [];
   if (ride) {
-    if (ride.hasAC) prefs.push({ icon: 'snowflake', label: 'AC' });
-    if (ride.womenOnly) prefs.push({ icon: 'human-female', label: 'Women only' });
+    if (ride.hasAC) prefs.push({ icon: 'snowflake', label: t('detail.ac') });
+    if (ride.womenOnly) prefs.push({ icon: 'human-female', label: t('detail.womenOnly') });
+    if (ride.colleaguesOnly) prefs.push({ icon: 'briefcase-outline', label: t('detail.colleaguesOnly') });
     if (ride.preferences) {
       prefs.push(
         ride.preferences.smokingAllowed
-          ? { icon: 'smoking', label: 'Smoking allowed' }
-          : { icon: 'smoking-off', label: 'No smoking' },
+          ? { icon: 'smoking', label: t('detail.smoking') }
+          : { icon: 'smoking-off', label: t('detail.noSmoking') },
         ride.preferences.petsAllowed
-          ? { icon: 'paw', label: 'Pets allowed' }
-          : { icon: 'paw-off', label: 'No pets' },
-        { icon: 'bag-suitcase', label: LUGGAGE_LABEL[ride.preferences.luggageSize] ?? 'Luggage' },
+          ? { icon: 'paw', label: t('detail.pets') }
+          : { icon: 'paw-off', label: t('detail.noPets') },
+        { icon: 'bag-suitcase', label: t(`detail.luggage.${ride.preferences.luggageSize}`, { defaultValue: t('detail.luggage.any') }) },
       );
     }
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {/* ── Map ─────────────────────────────────────────────────── */}
       <View style={[styles.mapWrap, { height: mapExpanded ? 250 : 180 }]}>
         <LiveMap showRoute origin={origin} destination={destination} style={StyleSheet.absoluteFill} />
 
         {/* Header overlay */}
         <View style={styles.mapOverlay}>
-          <AnimatedPressable onPress={() => navigation.goBack()} accessibilityLabel="Go back">
+          <AnimatedPressable onPress={() => navigation.goBack()} accessibilityLabel={t('detail.goBack')}>
             <View style={styles.mapBtn}>
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="M19 12H5M12 5l-7 7 7 7" stroke={c.text} strokeWidth={2.5} strokeLinecap="round" />
+                <Path d="M19 12H5M12 5l-7 7 7 7" stroke={tk.text} strokeWidth={2.5} strokeLinecap="round" />
               </Svg>
             </View>
           </AnimatedPressable>
@@ -213,8 +210,8 @@ export function RideDetailScreen() {
           accessibilityRole="button"
           style={styles.expandBtn}
         >
-          <Text style={{ fontSize: 12, fontWeight: '600', color: c.primary }}>
-            {mapExpanded ? 'Collapse map' : 'Expand map'}
+          <Text style={[{ fontSize: 12, fontWeight: '600' }, tc.color_primary]}>
+            {mapExpanded ? t('detail.collapseMap') : t('detail.expandMap')}
           </Text>
         </Pressable>
       </View>
@@ -227,27 +224,31 @@ export function RideDetailScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Route info */}
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={[
+            styles.card,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
             <View style={styles.routeDots}>
-              <View style={[styles.dot, { backgroundColor: c.primary }]} />
-              <View style={[styles.routeLine, { backgroundColor: c.border }]} />
-              <View style={[styles.dotSquare, { backgroundColor: c.error }]} />
+              <View style={[styles.dot, tc.backgroundColor_primary]} />
+              <View style={[styles.routeLine, tc.backgroundColor_border]} />
+              <View style={[styles.dotSquare, tc.backgroundColor_error]} />
             </View>
 
             <View style={styles.flex1}>
               <View style={styles.routeRow}>
                 <View style={styles.flex1}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
-                    {ride.pickupLocation?.address || 'Pickup point'}
+                  <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_text]}>
+                    {ride.pickupLocation?.address || t('detail.pickupPoint')}
                   </Text>
                   {departure && (
-                    <Text style={{ fontSize: 12, color: c.textSec }}>Pickup · {departure}</Text>
+                    <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('detail.pickupAt', { time: departure })}</Text>
                   )}
                 </View>
                 {ride.estimatedDurationMins ? (
-                  <View style={[styles.durationBadge, { backgroundColor: c.successLight }]}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.success }}>
-                      {ride.estimatedDurationMins} min
+                  <View style={[styles.durationBadge, tc.backgroundColor_successLight]}>
+                    <Text style={[{ fontSize: 12, fontWeight: '600' }, tc.color_success]}>
+                      {t('detail.minutes', { count: ride.estimatedDurationMins })}
                     </Text>
                   </View>
                 ) : null}
@@ -255,15 +256,15 @@ export function RideDetailScreen() {
 
               <View style={[styles.routeRow, { marginTop: 12 }]}>
                 <View style={styles.flex1}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
-                    {ride.dropoffLocation?.address || 'Drop point'}
+                  <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_text]}>
+                    {ride.dropoffLocation?.address || t('detail.dropPoint')}
                   </Text>
                   {arrival && (
-                    <Text style={{ fontSize: 12, color: c.textSec }}>Estimated drop · {arrival}</Text>
+                    <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('detail.dropAt', { time: arrival })}</Text>
                   )}
                 </View>
                 {ride.estimatedDistanceKm ? (
-                  <Text style={{ fontSize: 12, color: c.textSec }}>
+                  <Text style={[{ fontSize: 12 }, tc.color_textSec]}>
                     {ride.estimatedDistanceKm.toFixed(1)} km
                   </Text>
                 ) : null}
@@ -272,56 +273,66 @@ export function RideDetailScreen() {
           </View>
 
           {/* ── Driver card ───────────────────────────────────────── */}
-          <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={[
+            styles.section,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
             <View style={styles.driverHeader}>
               {ride.driver?.profilePhotoUrl ? (
                 <Image
                   source={{ uri: ride.driver.profilePhotoUrl }}
                   style={styles.driverAvatar}
-                  accessibilityLabel={`Photo of ${driverName}`}
+                  accessibilityLabel={t('detail.photoOf', { name: driverName })}
                 />
               ) : (
-                <View style={[styles.driverAvatar, styles.centered, { backgroundColor: c.primaryLight }]}>
-                  <Text style={{ fontSize: 22, fontWeight: '700', color: c.primary }}>
+                <View style={[styles.driverAvatar, styles.centered, tc.backgroundColor_primaryLight]}>
+                  <Text style={[{ fontSize: 22, fontWeight: '700' }, tc.color_primary]}>
                     {driverName.charAt(0).toUpperCase()}
                   </Text>
                 </View>
               )}
 
               <View style={styles.flex1}>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{driverName}</Text>
+                <Text style={[{ fontSize: 17, fontWeight: '700' }, tc.color_text]}>{driverName}</Text>
                 {ride.driverVerified ? <VerifiedBadge /> : null}
+                {ride.colleagueAt ? (
+                  <View style={styles.idChecked}>
+                    <Icon name="briefcase-outline" size={14} color={tk.primary} />
+                    <Text style={[{ fontSize: 12, fontWeight: '600' }, tc.color_primary]}>{t('detail.worksAt', { company: ride.colleagueAt })}</Text>
+                  </View>
+                ) : null}
                 {ride.trackedCar ? (
-                  <View style={styles.idChecked} accessibilityLabel="Tracked car: a GPS tracker in this car keeps reporting even if every phone is off">
-                    <Icon name="crosshairs-gps" size={14} color={c.success} />
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.success }}>Tracked car</Text>
+                  <View style={styles.idChecked} accessibilityLabel={t('detail.trackedLabel')}>
+                    <Icon name="crosshairs-gps" size={14} color={tk.success} />
+                    <Text style={[{ fontSize: 12, fontWeight: '600' }, tc.color_success]}>{t('results.tracked')}</Text>
                   </View>
                 ) : null}
                 {ride.driver?.identity?.status === 'verified' ? (
-                  <View style={styles.idChecked} accessibilityLabel={ride.womenOnly ? 'Verified woman driver: her ID was checked by Poolora' : 'ID checked by Poolora'}>
-                    <Icon name="card-account-details-star-outline" size={14} color={c.success} />
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.success }}>
-                      {ride.womenOnly ? 'Verified woman driver' : 'ID checked by Poolora'}
+                  <View style={styles.idChecked} accessibilityLabel={ride.womenOnly ? t('detail.womanDriverLabel') : t('detail.idChecked')}>
+                    <Icon name="card-account-details-star-outline" size={14} color={tk.success} />
+                    <Text style={[{ fontSize: 12, fontWeight: '600' }, tc.color_success]}>
+                      {ride.womenOnly ? t('detail.womanDriver') : t('detail.idChecked')}
                     </Text>
                   </View>
                 ) : null}
                 <View style={styles.driverMeta}>
                   {ratingCount > 0 ? (
-                    <View style={styles.ratingRow} accessibilityLabel={`Rated ${stats?.avgRatingAsDriver?.toFixed(1)} from ${ratingCount} ratings`}>
+                    <View style={styles.ratingRow} accessibilityLabel={t('detail.ratedLabel', { rating: stats?.avgRatingAsDriver?.toFixed(1), count: ratingCount })}>
                       <StarIcon size={14} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: c.text, marginLeft: 2 }}>
+                      <Text style={[{ fontSize: 14, fontWeight: '700', marginLeft: 2 }, tc.color_text]}>
                         {stats?.avgRatingAsDriver?.toFixed(1)}
                       </Text>
-                      <Text style={{ fontSize: 13, color: c.textSec, marginLeft: 2 }}>({ratingCount})</Text>
+                      <Text style={[{ fontSize: 13, marginLeft: 2 }, tc.color_textSec]}>({ratingCount})</Text>
                     </View>
                   ) : (
-                    <Text style={{ fontSize: 13, color: c.textSec }}>No ratings yet</Text>
+                    <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{t('detail.noRatings')}</Text>
                   )}
-                  <Text style={{ fontSize: 13, color: c.textSec }}>
-                    {tripCount === 1 ? '1 trip' : `${tripCount} trips`}
+                  <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
+                    {tripCount === 1 ? t('detail.tripOne') : t('detail.tripMany', { count: tripCount })}
                   </Text>
                   {joinedYear && (
-                    <Text style={{ fontSize: 13, color: c.textSec }}>Since {joinedYear}</Text>
+                    <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{t('detail.since', { year: joinedYear })}</Text>
                   )}
                 </View>
               </View>
@@ -329,25 +340,25 @@ export function RideDetailScreen() {
 
             {/* Vehicle */}
             {(plate || vehicleType) && (
-              <View style={[styles.vehicleCard, { backgroundColor: c.bg }]}>
-                <Icon name="car-side" size={28} color={c.textSec} />
+              <View style={[styles.vehicleCard, tc.backgroundColor_surface]}>
+                <Icon name="car-side" size={28} color={tk.textSec} />
                 <View style={styles.flex1}>
                   {vehicleType && (
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.text, textTransform: 'capitalize' }}>
-                      {vehicleType}
+                    <Text style={[{ fontSize: 14, fontWeight: '600' }, tc.color_text]}>
+                      {t(`vehicles.types.${vehicleType}`, { defaultValue: vehicleType })}
                     </Text>
                   )}
-                  {plate && <Text style={{ fontSize: 12, color: c.textSec }}>{plate}</Text>}
+                  {plate && <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{plate}</Text>}
                 </View>
                 {/* The backend only includes the phone number once your booking is confirmed */}
                 {phone && (
                   <Pressable
                     onPress={() => Linking.openURL(`tel:${phone}`)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Call ${driverName}`}
-                    style={[styles.phoneBtn, { backgroundColor: c.primaryLight }]}
+                    accessibilityLabel={t('detail.call', { name: driverName })}
+                    style={[styles.phoneBtn, tc.backgroundColor_primaryLight]}
                   >
-                    <Icon name="phone" size={18} color={c.primary} />
+                    <Icon name="phone" size={18} color={tk.primary} />
                   </Pressable>
                 )}
               </View>
@@ -357,17 +368,21 @@ export function RideDetailScreen() {
           {/* ── Preferences ───────────────────────────────────────── */}
           {prefs.length > 0 && (
             <View style={styles.mx4}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: c.text, marginBottom: 10 }}>
-                Ride preferences
+              <Text style={[{ fontSize: 14, fontWeight: '700', marginBottom: 10 }, tc.color_text]}>
+                {t('detail.preferences')}
               </Text>
               <View style={styles.prefsWrap}>
                 {prefs.map(p => (
                   <View
                     key={p.label}
-                    style={[styles.prefChip, { backgroundColor: c.surface, borderColor: c.border }]}
+                    style={[
+                      styles.prefChip,
+                      tc.backgroundColor_surfaceVariant,
+                      tc.borderColor_surfaceVariant
+                    ]}
                   >
-                    <Icon name={p.icon} size={16} color={c.textSec} />
-                    <Text style={{ fontSize: 13, color: c.textSec, marginLeft: 6 }}>{p.label}</Text>
+                    <Icon name={p.icon} size={16} color={tk.textSec} />
+                    <Text style={[{ fontSize: 13, marginLeft: 6 }, tc.color_textSec]}>{p.label}</Text>
                   </View>
                 ))}
               </View>
@@ -378,11 +393,11 @@ export function RideDetailScreen() {
 
       {/* ── Sticky bottom bar ───────────────────────────────────── */}
       {ride && (
-        <View style={[styles.bottomBar, { backgroundColor: c.surface, borderTopColor: c.border }]}>
+        <View style={[styles.bottomBar, tc.backgroundColor_surface, tc.borderTopColor_border]}>
           <View>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: c.text }}>{money(ride.pricePerSeat)}</Text>
-            <Text style={{ fontSize: 12, color: c.textSec }}>
-              per seat · {ride.availableSeats} {ride.availableSeats === 1 ? 'seat' : 'seats'} left
+            <Text style={[{ fontSize: 22, fontWeight: '800' }, tc.color_text]}>{money(ride.pricePerSeat)}</Text>
+            <Text style={[{ fontSize: 12 }, tc.color_textSec]}>
+              {t('detail.perSeatLeft', { left: ride.availableSeats === 1 ? t('results.seatsLeftOne') : t('results.seatsLeftMany', { count: ride.availableSeats }) })}
             </Text>
           </View>
           <AnimatedPressable
@@ -391,13 +406,13 @@ export function RideDetailScreen() {
             disabled={!rideId || ride.availableSeats < 1}
           >
             <LinearGradient
-              colors={[c.primary, c.primaryDark]}
+              colors={[tk.primary, tk.primaryDark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={[styles.requestBtn, ride.availableSeats < 1 && { opacity: 0.5 }]}
             >
               <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>
-                {ride.availableSeats < 1 ? 'Ride full' : 'Request ride'}
+                {ride.availableSeats < 1 ? t('detail.full') : t('detail.request')}
               </Text>
             </LinearGradient>
           </AnimatedPressable>
@@ -405,10 +420,10 @@ export function RideDetailScreen() {
       )}
       {loading && (
         <View
-          style={[StyleSheet.absoluteFill, styles.centered, { backgroundColor: c.bg }]}
-          accessibilityLabel="Loading ride"
+          style={[StyleSheet.absoluteFill, styles.centered, tc.backgroundColor_surface]}
+          accessibilityLabel={t('detail.loading')}
         >
-          <ActivityIndicator size="large" color={c.primary} />
+          <ActivityIndicator size="large" color={tk.primary} />
         </View>
       )}
     </View>
@@ -552,7 +567,7 @@ const styles = StyleSheet.create({
   requestBtn: {
   height: 56,
   borderRadius: 12,
-  backgroundColor: "#0B7A75",
+  backgroundColor: Palette.primary,
   alignItems: "center",
   justifyContent: "center",
   paddingHorizontal: 10,

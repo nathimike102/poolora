@@ -96,6 +96,8 @@ export interface User {
   identityVerified?: boolean;
   /** On a driver in search results: a GPS tracker in this car reported in the last day */
   trackedCar?: boolean;
+  /** The company this person works at, shown only to their colleagues (UC-C02) */
+  colleagueAt?: string;
   /** The identity check behind women-only rides */
   identity?: { status: 'pending' | 'verified' | 'rejected' };
   capabilities: UserCapability[];
@@ -120,6 +122,8 @@ export interface UserStats {
   totalRatingsAsRider: number;
   cancellationRate: number;
   acceptanceRate: number;
+  co2SavedKg?: number;
+  kmShared?: number;
 }
 
 export interface KYCData {
@@ -195,6 +199,8 @@ export interface Ride {
   description?: string;
   amenities?: string[];
   womenOnly: boolean;
+  /** Only staff of the driver's company see and book it (UC-C02) */
+  colleaguesOnly?: boolean;
   hasAC: boolean;
   allowLuggage: boolean;
   passengers?: User[];
@@ -211,11 +217,28 @@ export interface Ride {
   driverVerified?: boolean;
   /** A GPS tracker in this car reported in the last day */
   trackedCar?: boolean;
+  /** The driver's company, when the viewer works there too (UC-C02) */
+  colleagueAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 /** A rider's booked ride as returned by /rides/upcoming */
+/** POST /bookings/quote (UC-C01): the fare, what the rider's company pays and the rest */
+export interface BookingQuote {
+  fare: number;
+  companyShare: number;
+  youPay: number;
+  company?: string;
+  /** The company pays less than its share because the month's cap is nearly used */
+  limitedBy?: 'cap';
+  /** The drop is at a kombi rank or bus terminus (UC-R12) */
+  dropoffHub?: { name: string; kind: 'kombi_rank' | 'bus_terminus' };
+  /** What the rider's own stops add to the fare (already in fare), when they added any */
+  stopsFee?: number;
+  stopCount?: number;
+}
+
 /** GET /bookings/:id/cancellation-quote */
 export interface CancellationQuote {
   fare: number;
@@ -244,6 +267,7 @@ export interface UpcomingBooking {
 
 export interface RidePreferences {
   womenOnly: boolean;
+  colleaguesOnly?: boolean;
   smokingAllowed: boolean;
   petsAllowed: boolean;
   luggageSize: 'none' | 'small' | 'medium' | 'large';
@@ -261,6 +285,7 @@ export interface CreateRideRequest {
   pricePerSeat: number;
   preferences: {
     womenOnly: boolean;
+    colleaguesOnly?: boolean;
     smokingAllowed: boolean;
     petsAllowed: boolean;
     luggageSize: 'none' | 'small' | 'medium' | 'large';
@@ -295,6 +320,34 @@ export interface CreateRideResult {
 export interface VerifiedStatus {
   verified: boolean;
   checks: Array<{ label: string; met: boolean; progress: string }>;
+}
+
+/** GET /users/me/impact (UC-R11): CO₂ saved by shared trips, an estimate */
+export interface ImpactTotals {
+  co2SavedKg: number;
+  kmShared: number;
+  trips: number;
+}
+
+export interface Impact {
+  allTime: ImpactTotals;
+  thisMonth: ImpactTotals & { month: string };
+  /** The last six months, oldest first; month is YYYY-MM */
+  months: Array<ImpactTotals & { month: string }>;
+  method: { baselineKgPerKm: number; kgPerKm: Record<string, number> };
+}
+
+/** GET /users/me/work (UC-C02): the user's company programme, or a work email waiting to be confirmed */
+export interface WorkStatus {
+  work: {
+    /** contributionPaused: a bill is more than 30 days unpaid, so the company pays nothing for now (UC-C03) */
+    organisation: { _id: string; name: string; active: boolean; contributionPaused?: boolean };
+    email: string;
+    since: string;
+    /** What the company pays towards fares (UC-C01), or null when it pays nothing */
+    contribution?: { sharePercent: number; monthlyCapUsd: number; weekdaysOnly: boolean; sites: string[]; usedThisMonth: number } | null;
+  } | null;
+  pending: { email: string; sentAt: string } | null;
 }
 
 /** GET /users/me/statement (UC-D09) */
@@ -341,13 +394,21 @@ export interface Booking {
   /** 0-100 route and schedule match computed when the booking was made */
   matchScore?: number;
   estimatedFare?: number;
+  /** What the rider's company pays of the fare (UC-C01); the rider pays the rest */
+  companyShare?: number;
   cancellationReason?: string;
   /** Set by the backend when the booking is completed */
   driverEarnings?: number;
   finalFare?: number;
   pickup?: { address?: string; location?: { coordinates: [number, number] } };
   dropoff?: { address?: string; location?: { coordinates: [number, number] } };
+  /** Stops the rider added between pickup and drop, in the order the car meets them */
+  stops?: Array<{ address: string; location: { coordinates: [number, number] } }>;
+  /** What those stops added to the fare */
+  stopsFee?: number;
   /** Message from the rider to the driver with the request */
+  /** The rider is catching a bus from the drop (UC-R12) */
+  connection?: { departsAt: string; hubName?: string };
   note?: string;
   /** The driver is at this rider's pickup; the no-show wait counts from here */
   driverArrivedAt?: string;
@@ -378,6 +439,11 @@ export interface Receipt {
   refunded: number;
   paid: number;
   paymentMethod: string;
+  /** Estimated kg of CO₂ the shared seat saved; completed trips only (UC-R11) */
+  co2SavedKg?: number;
+  /** What the rider's company paid, and its name (UC-C01) */
+  companyPaid?: number;
+  company?: string;
 }
 
 export interface CreateBookingRequest {
@@ -389,6 +455,12 @@ export interface CreateBookingRequest {
   useWallet?: boolean;
   /** Optional message to the driver */
   note?: string;
+  /** Catching a bus from the drop (UC-R12) */
+  connection?: { departsAt: string };
+  /** What the screen showed the rider they pay; the server refuses to charge more (409 PRICE_CHANGED) */
+  expectedYouPay?: number;
+  /** Stops the rider adds between pickup and drop; the server puts them in route order */
+  stops?: Array<{ lat: number; lng: number; address: string }>;
 }
 
 export interface CreateBookingResult {
@@ -424,6 +496,9 @@ export interface Charge {
   authorizationCode?: string;
   authorizationExpires?: string;
   instructions: string;
+  /** Present when the instructions are Siham's own: the catalogue key and values, to show them in the app's language */
+  instructionsKey?: string;
+  instructionsVars?: Record<string, string>;
   failureReason?: string;
   /** Paid, but no longer needed, so it went to the wallet */
   creditedToWallet: boolean;

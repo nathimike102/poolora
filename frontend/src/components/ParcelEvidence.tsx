@@ -7,25 +7,22 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Image, Modal, TextInput, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, StyleSheet, Pressable, Image, Modal, Alert, ScrollView } from 'react-native';
+import { ActivityIndicator } from './Themed';
+import { Text, TextInput } from './Text';
 
-import { useApp } from '../context/AppContext';
 import { apiClient, getAuthorizationHeader } from '../api/axios';
 import { parcelService, type Parcel, type ParcelClaim, type ParcelPhoto } from '../services/parcelService';
 import { takeParcelPhoto } from '../utils/parcelPhoto';
 import { errorHandler } from '../utils/errorHandler';
 import { money, REGION } from '../utils/region';
+import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../theme/themed';
 
 const DAY = 86_400_000;
-const STATUS: Record<ParcelClaim['status'], string> = {
-  submitted: 'Being reviewed',
-  with_insurer: 'With the insurer',
-  approved: 'Approved',
-  rejected: 'Not approved',
-};
 
 export function ParcelEvidence({ parcel }: { parcel: Parcel }) {
-  const { c } = useApp();
+  const { t } = useTranslation();
   const [photos, setPhotos] = useState<ParcelPhoto[]>([]);
   const [claims, setClaims] = useState<ParcelClaim[]>([]);
   const [open, setOpen] = useState(false);
@@ -65,9 +62,9 @@ export function ParcelEvidence({ parcel }: { parcel: Parcel }) {
       setForm({ description: '', amount: '' });
       setClaimPhotos([]);
       load();
-      Alert.alert('Claim sent', 'We will tell you when it is decided.');
+      Alert.alert(t('parcelEvidence.claimSent'), t('parcelEvidence.weWillTellYouWhen'));
     } catch (e) {
-      Alert.alert('Claim not sent', errorHandler.process(e).message);
+      Alert.alert(t('parcelEvidence.claimNotSent'), errorHandler.process(e).message);
     } finally {
       setBusy(false);
     }
@@ -80,16 +77,16 @@ export function ParcelEvidence({ parcel }: { parcel: Parcel }) {
   if (!proof.length && !claims.length && !kind) return null;
 
   return (
-    <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+    <View style={[styles.card, tc.backgroundColor_surface, tc.borderColor_border]}>
       {proof.length ? (
         <>
-          <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">Photo proof</Text>
+          <Text style={[styles.title, tc.color_text]} accessibilityRole="header">{t('parcelEvidence.photoProof')}</Text>
           <ScrollView horizontal contentContainerStyle={{ gap: 8 }}>
             {proof.map(p => (
               <View key={p.id} style={{ gap: 4 }}>
-                <Image source={image(p)} style={styles.thumb} accessibilityLabel={`${p.stage === 'pickup' ? 'Pickup' : 'Delivery'} photo`} />
-                <Text style={{ fontSize: 12, color: c.textSec }}>
-                  {p.stage === 'pickup' ? 'Picked up' : 'Delivered'} {new Date(p.takenAt).toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' })}
+                <Image source={image(p)} style={styles.thumb} accessibilityLabel={`${p.stage === 'pickup' ? t('parcelEvidence.pickup') : t('parcelEvidence.delivery')} photo`} />
+                <Text style={[{ fontSize: 12 }, tc.color_textSec]}>
+                  {p.stage === 'pickup' ? t('parcelEvidence.pickedUp') : t('parcelEvidence.delivered')} {new Date(p.takenAt).toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' })}
                 </Text>
               </View>
             ))}
@@ -99,65 +96,76 @@ export function ParcelEvidence({ parcel }: { parcel: Parcel }) {
 
       {claims.map(cl => (
         <View key={cl._id} style={{ gap: 2 }}>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: cl.status === 'approved' ? c.success : c.text }}>
-            {cl.kind === 'damaged' ? 'Damage' : 'Lost parcel'} claim, {money(cl.amountClaimed)}: {STATUS[cl.status]}
+          <Text style={[{ fontSize: 14, fontWeight: '700' }, cl.status === 'approved' ? tc.color_success : tc.color_text]}>
+            {t('parcelEvidence.claimLine', { kind: cl.kind === 'damaged' ? t('parcelEvidence.damage') : t('parcelEvidence.lostParcel'), amount: money(cl.amountClaimed), status: t(`parcelEvidence.status.${cl.status}`) })}
           </Text>
-          {cl.status === 'approved' && cl.payout ? <Text style={{ fontSize: 13, color: c.text }}>{money(cl.payout)} was added to your wallet.</Text> : null}
-          {cl.decisionNote ? <Text style={{ fontSize: 13, color: c.textSec }}>{cl.decisionNote}</Text> : null}
+          {cl.status === 'approved' && cl.payout ? <Text style={[{ fontSize: 13 }, tc.color_text]}>{t('parcelEvidence.payoutAdded', { amount: money(cl.payout) })}</Text> : null}
+          {cl.decisionNote ? <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{cl.decisionNote}</Text> : null}
         </View>
       ))}
 
       {kind && !openClaim ? (
-        <Pressable onPress={() => setOpen(true)} accessibilityRole="button" style={[styles.btn, { borderWidth: 1, borderColor: c.primary }]}>
-          <Text style={{ fontWeight: '700', color: c.primary }}>{kind === 'damaged' ? 'Report damage' : 'Report the parcel lost'}</Text>
+        <Pressable onPress={() => setOpen(true)} accessibilityRole="button" style={[styles.btn, { borderWidth: 1 }, tc.borderColor_primary]}>
+          <Text style={[{ fontWeight: '700' }, tc.color_primary]}>{kind === 'damaged' ? t('parcelEvidence.reportDamage') : t('parcelEvidence.reportTheParcelLost')}</Text>
         </Pressable>
       ) : null}
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <View style={styles.backdrop}>
-          <ScrollView style={[styles.sheet, { backgroundColor: c.surface }]} contentContainerStyle={{ gap: 10, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
-            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text }} accessibilityRole="header">{kind === 'damaged' ? 'Report damage' : 'Report a lost parcel'}</Text>
-            <Text style={{ fontSize: 13, color: c.textSec }}>
-              {parcel.insuranceValue ? `Insured: covered up to ${money(cover)}.` : `Not insured: covered up to the delivery charge, ${money(cover)}.`}
+          <ScrollView style={[styles.sheet, tc.backgroundColor_surface]} contentContainerStyle={{ gap: 10, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
+            <Text style={[{ fontSize: 18, fontWeight: '700' }, tc.color_text]} accessibilityRole="header">{kind === 'damaged' ? t('parcelEvidence.reportDamage') : t('parcelEvidence.reportALostParcel')}</Text>
+            <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
+              {parcel.insuranceValue ? t('parcelEvidence.insured', { amount: money(cover) }) : t('parcelEvidence.notInsured', { amount: money(cover) })}
             </Text>
             <TextInput
               value={form.description}
               onChangeText={description => setForm(f => ({ ...f, description }))}
               multiline
               maxLength={2000}
-              placeholder={kind === 'damaged' ? 'What was damaged and how' : 'When you last saw it, and what the recipient says'}
-              placeholderTextColor={c.textSec}
-              accessibilityLabel="What happened"
-              style={[styles.input, styles.multi, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+              placeholder={kind === 'damaged' ? t('parcelEvidence.whatWasDamagedAndHow') : t('parcelEvidence.whenYouLastSawIt')}
+              placeholderTextColor={tk.textSec}
+              accessibilityLabel={t('parcelEvidence.whatHappened')}
+              style={[
+                styles.input,
+                styles.multi,
+                tc.borderColor_border,
+                tc.color_text,
+                tc.backgroundColor_surface
+              ]}
             />
             <TextInput
               value={form.amount}
               onChangeText={t => setForm(f => ({ ...f, amount: t.replace(/[^0-9.]/g, '') }))}
               keyboardType="decimal-pad"
-              placeholder={`Amount, up to ${money(cover)}`}
-              placeholderTextColor={c.textSec}
-              accessibilityLabel="Amount you are claiming"
-              style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.bg }]}
+              placeholder={t('parcelEvidence.amountUpTo', { amount: money(cover) })}
+              placeholderTextColor={tk.textSec}
+              accessibilityLabel={t('parcelEvidence.amountYouAreClaiming')}
+              style={[
+                styles.input,
+                tc.borderColor_border,
+                tc.color_text,
+                tc.backgroundColor_surface
+              ]}
             />
             {kind === 'damaged' ? (
               <>
-                <Text style={{ fontSize: 13, color: c.textSec }}>Add photos of the damage and of the parcel as it arrived ({claimPhotos.length} added).</Text>
+                <Text style={[{ fontSize: 13 }, tc.color_textSec]}>{t('parcelEvidence.addPhotos', { count: claimPhotos.length })}</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable onPress={() => addClaimPhoto('camera')} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1, borderColor: c.border }]}>
-                    <Text style={{ color: c.text }}>Take a photo</Text>
+                  <Pressable onPress={() => addClaimPhoto('camera')} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1 }, tc.borderColor_border]}>
+                    <Text style={tc.color_text}>{t('parcelEvidence.takeAPhoto')}</Text>
                   </Pressable>
-                  <Pressable onPress={() => addClaimPhoto('library')} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1, borderColor: c.border }]}>
-                    <Text style={{ color: c.text }}>From gallery</Text>
+                  <Pressable onPress={() => addClaimPhoto('library')} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1 }, tc.borderColor_border]}>
+                    <Text style={tc.color_text}>{t('parcelEvidence.fromGallery')}</Text>
                   </Pressable>
                 </View>
               </>
             ) : null}
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Pressable onPress={() => setOpen(false)} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1, borderColor: c.border }]}>
-                <Text style={{ color: c.text }}>Cancel</Text>
+              <Pressable onPress={() => setOpen(false)} accessibilityRole="button" style={[styles.btn, styles.grow, { borderWidth: 1 }, tc.borderColor_border]}>
+                <Text style={tc.color_text}>{t('parcelEvidence.cancel')}</Text>
               </Pressable>
-              <Pressable onPress={send} disabled={!canSend || busy} accessibilityRole="button" style={[styles.btn, styles.grow, { backgroundColor: canSend ? c.primary : c.border }]}>
-                {busy ? <ActivityIndicator color={c.textOnPrimary} /> : <Text style={{ fontWeight: '700', color: c.textOnPrimary }}>Send claim</Text>}
+              <Pressable onPress={send} disabled={!canSend || busy} accessibilityRole="button" style={[styles.btn, styles.grow, canSend ? tc.backgroundColor_primary : tc.backgroundColor_border]}>
+                {busy ? <ActivityIndicator color={tk.textOnPrimary} /> : <Text style={[{ fontWeight: '700' }, tc.color_textOnPrimary]}>{t('parcelEvidence.sendClaim')}</Text>}
               </Pressable>
             </View>
           </ScrollView>

@@ -5,33 +5,29 @@
  */
 
 import React, { useCallback } from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-  type ViewStyle,
-  type TextStyle,
-} from 'react-native';
+import { TouchableOpacity, StyleSheet, type ViewStyle, type TextStyle } from 'react-native';
+import { ActivityIndicator } from './Themed';
+import { Text } from './Text';
 import ReAnimated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Radius, Typography, Shadow } from '../theme';
+import { Radius, Typography, Shadow, Palette } from '../theme';
+import { useThemeColor, type AnyColor } from '../theme/themed';
 
 interface GradientButtonProps {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
-  /** Button colour */
-  colorStart?: string;
+  /** Button colour; a theme colour (tk) follows the theme */
+  colorStart?: AnyColor;
   /** Accepted for older callers; the button is drawn in one flat colour */
-  colorEnd?: string;
+  colorEnd?: AnyColor;
   /** Flat colour used when disabled */
-  disabledColor?: string;
+  disabledColor?: AnyColor;
   height?: number;
   style?: ViewStyle;
   labelStyle?: TextStyle;
@@ -43,13 +39,16 @@ export function GradientButton({
   onPress,
   disabled = false,
   loading = false,
-  colorStart = '#0B7A75',
-  disabledColor = '#E5E7EB',
+  colorStart: colorStartProp = Palette.primary,
+  disabledColor: disabledColorProp = '#E5E7EB',
   height = 56,
   style,
   labelStyle,
   testID = 'gradient-button',
 }: GradientButtonProps) {
+  // Only the button re-renders when a theme colour changes
+  const colorStart = useThemeColor(colorStartProp);
+  const disabledColor = useThemeColor(disabledColorProp);
   // Press scale animation via reanimated
   const scale = useSharedValue(1);
 
@@ -88,7 +87,7 @@ export function GradientButton({
             backgroundColor: isDisabled ? disabledColor : colorStart,
           },
           // Apply primary shadow only when active
-          !isDisabled && Shadow.primary(colorStart),
+          !isDisabled && Shadow.primary(String(colorStart)),
           style,
         ]}
       >

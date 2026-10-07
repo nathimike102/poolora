@@ -14,13 +14,13 @@ export const sendOtpSchema = {
   }),
 };
 
-/** Poolora is for adults (Terms of Service; privacy policy on children's data) */
+/** Siham is for adults (Terms of Service; privacy policy on children's data) */
 export const MIN_USER_AGE = 18;
 const adultDateOfBirth = Joi.date().iso().max('now').custom((value: Date, helpers) => {
   const limit = new Date();
   limit.setFullYear(limit.getFullYear() - MIN_USER_AGE);
   return value.getTime() > limit.getTime() ? helpers.error('date.underAge') : value;
-}).messages({ 'date.underAge': `You must be at least ${MIN_USER_AGE} to use Poolora` });
+}).messages({ 'date.underAge': `You must be at least ${MIN_USER_AGE} to use Siham` });
 
 export const verifyOtpSchema = {
   body: Joi.object({
@@ -111,6 +111,7 @@ export const createRideSchema = {
     recurring: Joi.string().valid(...Object.values(RecurringPattern)).default(RecurringPattern.NONE),
     preferences: Joi.object({
       womenOnly: Joi.boolean().default(false),
+      colleaguesOnly: Joi.boolean().default(false),
       smokingAllowed: Joi.boolean().default(false),
       petsAllowed: Joi.boolean().default(false),
       luggageSize: Joi.string().valid('none', 'small', 'medium', 'large').default('medium'),
@@ -196,7 +197,11 @@ export const createBookingSchema = {
     rideId: Joi.string().hex().length(24).required(),
     seatsBooked: Joi.number().integer().min(1).max(8).default(1),
     useWallet: Joi.boolean().default(false),
+    /** What the screen told the rider they pay: the booking is refused if it would cost them more */
+    expectedYouPay: Joi.number().min(0).optional(),
     note: Joi.string().trim().max(300).allow('').optional(),
+    /** Catching a bus from the drop (UC-R12) */
+    connection: Joi.object({ departsAt: Joi.date().iso().required() }).optional(),
     pickup: Joi.object({
       lng: Joi.number().min(-180).max(180).required(),
       lat: Joi.number().min(-90).max(90).required(),
@@ -207,6 +212,12 @@ export const createBookingSchema = {
       lat: Joi.number().min(-90).max(90).required(),
       address: Joi.string().required(),
     }).required(),
+    /** Stops the rider adds between pickup and drop; the limit is an admin setting, checked by the service */
+    stops: Joi.array().items(Joi.object({
+      lng: Joi.number().min(-180).max(180).required(),
+      lat: Joi.number().min(-90).max(90).required(),
+      address: Joi.string().trim().max(300).required(),
+    })).max(3).optional(),
   }),
 };
 
@@ -372,11 +383,36 @@ export const updateMeSchema = {
     dateOfBirth: adultDateOfBirth,
     // Locked once an identity check has confirmed it (IdentityService)
     gender: Joi.string().valid('male', 'female', 'other'),
+    // The languages this market offers (UC-X03)
+    language: Joi.string().valid(...REGION.languages),
   }).min(1),
 };
 
 export const vehicleParamSchema = {
   params: Joi.object({ vehicleId: Joi.string().hex().length(24).required() }),
+};
+
+/** PUT and DELETE /users/me/push-token: a Firebase Cloud Messaging token */
+export const pushTokenSchema = {
+  body: Joi.object({ token: Joi.string().trim().min(20).max(4096).required() }),
+};
+
+/** PUT /users/me/photo: base64 of a JPEG or PNG (the service checks the bytes and size) */
+/** POST /users/me/phone/code */
+export const phoneCodeSchema = {
+  body: Joi.object({ phone: Joi.string().pattern(/^\+[1-9]\d{7,14}$/).required() }),
+};
+
+/** PUT /users/me/phone */
+export const confirmPhoneSchema = {
+  body: Joi.object({
+    phone: Joi.string().pattern(/^\+[1-9]\d{7,14}$/).required(),
+    otp: Joi.string().length(6).required(),
+  }),
+};
+
+export const profilePhotoSchema = {
+  body: Joi.object({ data: Joi.string().max(5_000_000).required() }),
 };
 
 /** PUT /users/me/vehicles/:vehicleId/tracker */

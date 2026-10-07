@@ -3,7 +3,7 @@
 > **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
-## Poolora
+## Siham
 
 ---
 
@@ -2798,7 +2798,7 @@ const location = await geocodeAddress(address); // OpenStreetMap by default, Goo
 - Card payments on Paynow's page
 - US dollar and ZiG integrations (ZiG at an admin-set rate)
 - Hash-verified status updates and polling
-- No refund API: refunds go to the Poolora wallet; users withdraw to mobile money
+- No refund API: refunds go to the Siham wallet; users withdraw to mobile money
 - Settlement reports
 
 #### 3.5.3 Firebase Cloud Messaging (FCM)
@@ -3691,7 +3691,7 @@ Scenarios triggering automatic refunds:
 5. ETA exceeded by >50%
    → Partial refund based on time difference
 
-As built: every refund goes to the Poolora wallet at once (Paynow has no
+As built: every refund goes to the Siham wallet at once (Paynow has no
 refund API); the user can withdraw it to mobile money
 ```
 

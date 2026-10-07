@@ -1,9 +1,9 @@
-# Poolora ML Engine — README
+# Siham ML Engine — README
 # ═══════════════════════════════════════════════════
 
 ## Overview
 
-The **Poolora ML Engine** is a Python/FastAPI microservice that powers the AI features of the Poolora mobility platform:
+The **Siham ML Engine** is a Python/FastAPI microservice that powers the AI features of the Siham mobility platform:
 
 | Endpoint | Purpose |
 |---|---|
@@ -25,8 +25,8 @@ uvicorn app.main:app --reload --port 8000
 ## Docker
 
 ```bash
-docker build -t poolora-ml .
-docker run -p 8000:8000 poolora-ml
+docker build -t siham-ml .
+docker run -p 8000:8000 siham-ml
 ```
 
 ## Architecture

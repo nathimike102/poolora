@@ -1,35 +1,32 @@
 import React, { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Linking,
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  Modal,
-  Switch,
-  Alert,
-} from 'react-native';
+import { Linking, View, StyleSheet, ScrollView, Pressable, Modal, Alert } from 'react-native';
+import { ActivityIndicator, Switch } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path } from '../../components/ThemedSvg';
 
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import type { RootStackParamList } from '../../navigation/types';
 import { userService } from '../../services/userService';
+import { forgetGoogleAccount } from '../../services/authService';
 import { walletService } from '../../services/walletService';
 import { simulationService } from '../../services/simulationService';
 import * as Location from 'expo-location';
+import { quickFix } from '../../utils/position';
 import { errorHandler } from '../../utils/errorHandler';
 import { COMPANY } from '../../config/company';
 import type { User } from '../../types/api';
 import Constants from 'expo-constants';
 import { displayPhone } from '../../utils/phone';
 import { money } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import { LANGUAGES, offeredLanguages, type LanguageCode } from '../../i18n/languages';
+
+import { tc, tk, useIsDark } from '../../theme/themed';
+import { Palette } from '../../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,33 +36,33 @@ const IC_PEOPLE = 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 
 const IC_WALLET = 'M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z';
 const IC_SHIELD = 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l5 2.18V11c0 3.5-2.33 6.79-5 7.93-2.67-1.14-5-4.43-5-7.93V7.18L12 5zm-1 3v4h2V8h-2zm0 6v2h2v-2h-2z';
 const IC_MOON = 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z';
+const IC_GLOBE = 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95a15.65 15.65 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.92 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56A7.99 7.99 0 0 1 5.08 16zm2.95-8H5.08a7.99 7.99 0 0 1 4.33-3.56A15.65 15.65 0 0 0 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2s.07-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z';
 const IC_BELL = 'M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z';
 const IC_HELP = 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z';
 const IC_CHECK_CIRCLE = 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z';
 const IC_LOGOUT = 'M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z';
+const IC_DELETE = 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z';
 const IC_CHEVRON = 'M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z';
 const IC_PLAY = 'M8 5v14l11-7z';
 const IC_CLOSE = 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z';
 
 /* ── Sub-components ──────────────────────────────────────── */
+const DANGER = '#B42318';
+
 function SettingsRow({
-  iconBg,
   iconPath,
   iconColor,
   label,
   value,
   onPress,
   rightEl,
-  c,
 }: {
-  iconBg: string;
   iconPath: string;
   iconColor: string;
   label: string;
   value?: string;
   onPress?: () => void;
   rightEl?: React.ReactNode;
-  c: ReturnType<typeof useApp>['c'];
 }) {
   return (
     <Pressable
@@ -74,44 +71,58 @@ function SettingsRow({
       accessibilityRole={onPress ? 'button' : undefined}
       style={st.row}
     >
-      <View style={[st.rowIcon, { backgroundColor: iconBg }]}>
-        <Svg width={18} height={18} viewBox="0 0 24 24">
-          <Path d={iconPath} fill={iconColor} />
+      {/* Plain line icons, as in Uber's settings; only red rows (log out,
+          delete, emergency) keep their colour */}
+      <View style={st.rowIcon}>
+        <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Path d={iconPath} fill={iconColor === DANGER ? tk.error : tk.text} />
         </Svg>
       </View>
-      <Text style={[st.rowLabel, { color: c.text }]}>{label}</Text>
-      {!!value && <Text style={{ fontSize: 14, fontWeight: '500', color: c.textSec, marginRight: 4 }}>{value}</Text>}
+      <Text style={[st.rowLabel, tc.color_text]}>{label}</Text>
+      {!!value && <Text style={[{ fontSize: 14, fontWeight: '500', marginRight: 4 }, tc.color_textSec]}>{value}</Text>}
       {rightEl ?? (onPress && (
         <Svg width={16} height={16} viewBox="0 0 24 24">
-          <Path d={IC_CHEVRON} fill={c.textSec} />
+          <Path d={IC_CHEVRON} fill={tk.textSec} />
         </Svg>
       ))}
     </Pressable>
   );
 }
 
-function Section({ title, children, c }: { title: string; children: React.ReactNode; c: ReturnType<typeof useApp>['c'] }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={st.section}>
-      <Text style={[st.sectionTitle, { color: c.textSec }]}>{title}</Text>
-      <View style={[st.sectionCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <Text style={[st.sectionTitle, tc.color_textSec]}>{title}</Text>
+      <View style={[
+        st.sectionCard,
+        tc.backgroundColor_surfaceVariant,
+        tc.borderColor_surfaceVariant
+      ]}>
         {children}
       </View>
     </View>
   );
 }
 
-function Divider({ c }: { c: ReturnType<typeof useApp>['c'] }) {
-  return <View style={[st.divider, { backgroundColor: c.border }]} />;
+/** Follows the theme by itself, so the screen around it doesn't re-render */
+function DarkModeSwitch({ onToggle }: { onToggle: () => void }) {
+  const isDark = useIsDark();
+  return <Switch value={isDark} onValueChange={onToggle} trackColor={{ false: '#D1D5DB', true: tk.primary }} thumbColor="white" />;
+}
+
+function Divider() {
+  return <View style={[st.divider, tc.backgroundColor_border]} />;
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
 export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
-  const { c, role, isDarkMode, toggleDarkMode, switchRole, logout } = useApp();
+  const { role, toggleDarkMode, switchRole, logout } = useApp();
   const insets = useSafeAreaInsets();
   const isDriver = role === 'driver';
-  const darkMode = isDarkMode;
+  const { t, i18n } = useTranslation();
+  // Hidden while English is the only reviewed language: nothing to choose
+  const languages = offeredLanguages();
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [profile, setProfile] = useState<User | null>(null);
@@ -123,6 +134,8 @@ export function SettingsScreen() {
   const [simulationEnabled, setSimulationEnabled] = useState(false);
   const [simulatingAs, setSimulatingAs] = useState<'rider' | 'driver' | null>(null);
   const [closing, setClosing] = useState(false);
+  // While the account is being closed: blocks the screen so it is not tapped twice
+  const [closingNow, setClosingNow] = useState(false);
 
   // Closing the account (data protection: the right to erasure)
   const closeAccount = async () => {
@@ -131,34 +144,39 @@ export function SettingsScreen() {
     try {
       const check = await userService.getClosureCheck();
       if (!check.canClose) {
-        Alert.alert('You cannot close your account yet', check.blockers.join('\n\n'));
+        Alert.alert(t('settings.youCannotCloseYourAccount'), check.blockers.join('\n\n'));
         return;
       }
       const coins = check.coinsValue > 0
-        ? ` Your ${check.coins} coins, worth ${money(check.coinsValue)}, will be lost. To keep their value, convert them in Wallet and withdraw the money first.`
-        : check.coins > 0 ? ` Your ${check.coins} coins will be lost.` : '';
+        ? t('settings.closing.coinsValue', { coins: check.coins, value: money(check.coinsValue) })
+        : check.coins > 0 ? t('settings.closing.coins', { coins: check.coins }) : '';
       Alert.alert(
-        'Close your account?',
-        `This removes your name, email, photo, driver documents, vehicles and emergency contacts, and signs you out on every phone. Trip and payment records are kept, without your name, as the law requires.${coins} This cannot be undone.`,
+        t('settings.closeYourAccount'),
+        t('settings.closing.body', { coins }),
         [
-          { text: 'Keep my account', style: 'cancel' },
+          { text: t('settings.keepMyAccount'), style: 'cancel' },
           {
-            text: 'Close account',
+            text: t('settings.closeAccount'),
             style: 'destructive',
             onPress: async () => {
+              setClosingNow(true);
               try {
                 await userService.closeAccount();
-                Alert.alert('Account closed', 'Your account has been closed. You can sign up again with the same number at any time.');
+                // The Google account of a closed account is not offered again
+                await forgetGoogleAccount({ revoke: true });
+                setClosingNow(false);
+                Alert.alert(t('settings.accountClosed'), t('settings.yourAccountHasBeenClosed'));
                 await logout();
               } catch (error) {
-                Alert.alert('Could not close your account', errorHandler.process(error).message);
+                setClosingNow(false);
+                Alert.alert(t('settings.couldNotCloseYourAccount'), errorHandler.process(error).message);
               }
             },
           },
         ],
       );
     } catch (error) {
-      Alert.alert('Could not check your account', errorHandler.process(error).message);
+      Alert.alert(t('settings.couldNotCheckYourAccount'), errorHandler.process(error).message);
     } finally {
       setClosing(false);
     }
@@ -180,8 +198,7 @@ export function SettingsScreen() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
-          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          near = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          near = (await quickFix()) ?? undefined;
         }
       } catch {
         // The server starts the ride at the market's centre instead
@@ -193,12 +210,12 @@ export function SettingsScreen() {
         const { rideId } = await simulationService.asDriver(near);
         navigation.navigate('DriverRideDetails', { rideId });
         Alert.alert(
-          'A test rider wants a seat',
-          'Sim Rider asked to join this ride. Accept the request in Requests, start the ride, then tap "Simulate the drive".',
+          t('settings.aTestRiderWantsA'),
+          t('settings.simRiderAskedToJoin'),
         );
       }
     } catch (error) {
-      Alert.alert('Could not start the simulation', errorHandler.process(error).message);
+      Alert.alert(t('settings.couldNotStartTheSimulation'), errorHandler.process(error).message);
     } finally {
       setSimulatingAs(null);
     }
@@ -213,7 +230,7 @@ export function SettingsScreen() {
 
   const handleSaveProfile = async () => {
     if (profileName.trim().length < 2) {
-      setSaveError('Enter your full name.');
+      setSaveError(t('settings.enterName'));
       return;
     }
     setSaving(true);
@@ -233,69 +250,63 @@ export function SettingsScreen() {
   };
 
   return (
-    <View style={[st.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[st.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {/* ── Header ──────────────────────────────────────────── */}
-      <View style={[st.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={{ fontSize: 20, fontWeight: '800', color: c.text }}>Settings</Text>
-      </View>
+      <ScreenHeader title={t('settings.settings')} />
 
       {/* ── Body ────────────────────────────────────────────── */}
       <ScrollView style={st.flex1} contentContainerStyle={st.scrollBody} showsVerticalScrollIndicator={false}>
         {/* ACCOUNT */}
-        <Section title="ACCOUNT" c={c}>
-          <SettingsRow c={c} iconBg="#E8EEF9" iconColor="#2B6CC4" iconPath={IC_EDIT} label="Edit profile" onPress={openEditProfile} />
-          <Divider c={c} />
-          <SettingsRow c={c} iconBg="#E3F2F1" iconColor="#0B7A75" iconPath={IC_PEOPLE} label={isDriver ? 'Switch to Rider' : 'Switch to Driver'} onPress={switchRole} />
+        <Section title={t('settings.account')}>
+          <SettingsRow iconColor="#2B6CC4" iconPath={IC_EDIT} label={t('settings.editProfile')} onPress={openEditProfile} />
+          <Divider />
+          <SettingsRow iconColor={Palette.primary} iconPath={IC_PEOPLE} label={isDriver ? t('settings.switchToRider') : t('settings.switchToDriver')} onPress={switchRole} />
         </Section>
 
         {profile?.capabilities?.includes('admin') && (
-          <Section title="ADMIN" c={c}>
-            <SettingsRow c={c} iconBg="#E8EEF9" iconColor="#2B6CC4" iconPath={IC_SHIELD} label="Admin tools" onPress={() => navigation.navigate('AdminDashboard')} />
+          <Section title={t('settings.admin')}>
+            <SettingsRow iconColor="#2B6CC4" iconPath={IC_SHIELD} label={t('settings.adminTools')} onPress={() => navigation.navigate('AdminDashboard')} />
           </Section>
         )}
 
         {/* WALLET */}
-        <Section title="WALLET" c={c}>
+        <Section title={t('settings.wallet')}>
           <SettingsRow
-            c={c}
-            iconBg="#FFFBEB"
+           
             iconColor="#8A5A00"
             iconPath={IC_WALLET}
-            label="Wallet"
+            label={t('settings.wallet2')}
             onPress={() => navigation.navigate('Wallet')}
             rightEl={
-              <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>
-                {walletBalance === null ? 'Unavailable' : `${money(walletBalance)}`}
+              <Text style={[{ fontSize: 15, fontWeight: '600' }, tc.color_text]}>
+                {walletBalance === null ? t('common.unavailable') : `${money(walletBalance)}`}
               </Text>
             }
           />
         </Section>
 
         {/* SAFETY */}
-        <Section title="SAFETY" c={c}>
-          <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_SHIELD} label="Emergency contacts" onPress={() => navigation.navigate('EmergencyContacts')} />
+        <Section title={t('settings.safety')}>
+          <SettingsRow iconColor="#B42318" iconPath={IC_SHIELD} label={t('settings.emergencyContacts')} onPress={() => navigation.navigate('EmergencyContacts')} />
         </Section>
 
         {/* TESTING (development servers only) */}
         {simulationEnabled && (
-          <Section title="TESTING" c={c}>
+          <Section title={t('settings.testing')}>
             <SettingsRow
-              c={c}
-              iconBg="#E3F2F1"
-              iconColor="#0B7A75"
+             
+              iconColor={Palette.primary}
               iconPath={IC_PLAY}
-              label="Simulate a ride as rider"
+              label={t('settings.simulateARideAsRider')}
               value={simulatingAs === 'rider' ? 'Starting…' : undefined}
               onPress={simulatingAs ? undefined : () => simulate('rider')}
             />
-            <Divider c={c} />
+            <Divider />
             <SettingsRow
-              c={c}
-              iconBg="#E8EEF9"
+             
               iconColor="#2B6CC4"
               iconPath={IC_PLAY}
-              label="Simulate a ride as driver"
+              label={t('settings.simulateARideAsDriver')}
               value={simulatingAs === 'driver' ? 'Starting…' : undefined}
               onPress={simulatingAs ? undefined : () => simulate('driver')}
             />
@@ -303,66 +314,85 @@ export function SettingsScreen() {
         )}
 
         {/* PREFERENCES */}
-        <Section title="PREFERENCES" c={c}>
+        <Section title={t('settings.preferences')}>
           <SettingsRow
-            c={c}
-            iconBg={darkMode ? '#10302E' : '#E3F2F1'}
-            iconColor={darkMode ? '#5CC5BE' : '#0B7A75'}
+            iconColor={Palette.primary}
             iconPath={IC_MOON}
-            label="Dark mode"
+            label={t('settings.darkMode')}
             onPress={toggleDarkMode}
-            rightEl={<Switch value={darkMode} onValueChange={toggleDarkMode} trackColor={{ false: '#D1D5DB', true: c.primary }} thumbColor="white" />}
+            rightEl={<DarkModeSwitch onToggle={toggleDarkMode} />}
           />
-          <Divider c={c} />
-          <SettingsRow c={c} iconBg="#FFFBEB" iconColor="#8A5A00" iconPath={IC_BELL} label="Notifications" onPress={() => navigation.navigate('Notifications')} />
+          {languages.length > 1 ? (
+            <>
+              <Divider />
+              <SettingsRow
+               
+                iconColor="#3730A3"
+                iconPath={IC_GLOBE}
+                label={t('language.title')}
+                value={LANGUAGES[i18n.language as LanguageCode]?.nativeName}
+                onPress={() => navigation.navigate('Language')}
+              />
+            </>
+          ) : null}
+          <Divider />
+          <SettingsRow iconColor="#8A5A00" iconPath={IC_BELL} label={t('settings.notifications')} onPress={() => navigation.navigate('Notifications')} />
         </Section>
 
         {/* ABOUT */}
-        <Section title="ABOUT" c={c}>
-          <SettingsRow c={c} iconBg="#F3F4F6" iconColor="#4B5563" iconPath={IC_HELP} label="Privacy policy" onPress={() => Linking.openURL(COMPANY.privacyUrl)} />
-          <Divider c={c} />
-          <SettingsRow c={c} iconBg="#F3F4F6" iconColor="#4B5563" iconPath={IC_HELP} label="Terms of service" onPress={() => Linking.openURL(COMPANY.termsUrl)} />
-          <Divider c={c} />
+        <Section title={t('settings.about')}>
+          <SettingsRow iconColor="#4B5563" iconPath={IC_HELP} label={t('settings.privacyPolicy')} onPress={() => Linking.openURL(COMPANY.privacyUrl)} />
+          <Divider />
+          <SettingsRow iconColor="#4B5563" iconPath={IC_HELP} label={t('settings.termsOfService')} onPress={() => Linking.openURL(COMPANY.termsUrl)} />
+          <Divider />
           <SettingsRow
-            c={c}
-            iconBg="#F0FDF4"
+           
             iconColor="#1B7F3B"
             iconPath={IC_CHECK_CIRCLE}
-            label="App version"
-            rightEl={<Text style={{ fontSize: 13, color: c.textSec }}>{Constants.expoConfig?.version ?? ''}</Text>}
+            label={t('settings.appVersion')}
+            rightEl={<Text style={[{ fontSize: 13 }, tc.color_textSec]}>{Constants.expoConfig?.version ?? ''}</Text>}
           />
-          <Divider c={c} />
-          <SettingsRow c={c} iconBg="#FEF2F2" iconColor="#B42318" iconPath={IC_LOGOUT} label="Log out" onPress={() => logout()} />
-          <Divider c={c} />
+          <Divider />
+          <SettingsRow iconColor="#B42318" iconPath={IC_LOGOUT} label={t('settings.logOut')} onPress={() => logout()} />
+          <Divider />
           <SettingsRow
-            c={c}
-            iconBg="#FEF2F2"
+           
             iconColor="#B42318"
-            iconPath={IC_LOGOUT}
-            label="Close account"
-            rightEl={closing ? <ActivityIndicator size="small" color={c.textSec} /> : undefined}
+            iconPath={IC_DELETE}
+            label={t('settings.closeAccount')}
+            rightEl={closing ? <ActivityIndicator size="small" color={tk.textSec} /> : undefined}
             onPress={closeAccount}
           />
         </Section>
       </ScrollView>
 
+      {/* ── Closing the account: nothing can be tapped until it is done ── */}
+      <Modal visible={closingNow} transparent animationType="fade" onRequestClose={() => undefined}>
+        <View style={st.busyOverlay} accessibilityViewIsModal accessibilityLiveRegion="polite">
+          <View style={[st.busyCard, tc.backgroundColor_surface]}>
+            <ActivityIndicator size="large" color={tk.primary} />
+            <Text style={[st.busyText, tc.color_text]}>{t('settings.closingYourAccount')}</Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Edit Profile Modal ────────────────────────────────── */}
       <Modal visible={showEditProfile} transparent animationType="slide" onRequestClose={() => setShowEditProfile(false)}>
         <Pressable accessibilityRole="button" style={st.overlay} onPress={() => setShowEditProfile(false)} />
-        <View style={[st.sheet, { backgroundColor: c.surface, paddingBottom: insets.bottom }]}>
-          <View style={[st.sheetHandle, { backgroundColor: c.border }]} />
+        <View style={[st.sheet, { paddingBottom: insets.bottom }, tc.backgroundColor_surface]}>
+          <View style={[st.sheetHandle, tc.backgroundColor_border]} />
 
           {/* Title row */}
-          <View style={[st.sheetTitleRow, { borderBottomColor: c.border }]}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: c.text }} accessibilityRole="header">Edit profile</Text>
+          <View style={[st.sheetTitleRow, tc.borderBottomColor_border]}>
+            <Text style={[{ fontSize: 18, fontWeight: '800' }, tc.color_text]} accessibilityRole="header">{t('settings.editProfile')}</Text>
             <Pressable
               onPress={() => setShowEditProfile(false)}
-              style={[st.closeBtn, { backgroundColor: c.bg }]}
+              style={[st.closeBtn, tc.backgroundColor_surfaceVariant]}
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t('settings.close')}
             >
               <Svg width={14} height={14} viewBox="0 0 24 24">
-                <Path d={IC_CLOSE} fill={c.textSec} />
+                <Path d={IC_CLOSE} fill={tk.textSec} />
               </Svg>
             </Pressable>
           </View>
@@ -370,11 +400,11 @@ export function SettingsScreen() {
           <View style={st.sheetBody}>
             {/* Inputs */}
             {([
-              { label: 'Full name', value: profileName, setter: setProfileName, kb: 'default' as const, ac: 'name' as const },
-              { label: 'Email address (optional)', value: profileEmail, setter: setProfileEmail, kb: 'email-address' as const, ac: 'email' as const },
+              { label: t('settings.fullName'), value: profileName, setter: setProfileName, kb: 'default' as const, ac: 'name' as const },
+              { label: t('settings.emailOptional'), value: profileEmail, setter: setProfileEmail, kb: 'email-address' as const, ac: 'email' as const },
             ]).map(f => (
               <View key={f.label}>
-                <Text style={[st.fieldLabel, { color: c.textSec }]}>{f.label}</Text>
+                <Text style={[st.fieldLabel, tc.color_textSec]}>{f.label}</Text>
                 <TextInput
                   value={f.value}
                   onChangeText={f.setter}
@@ -382,33 +412,55 @@ export function SettingsScreen() {
                   autoComplete={f.ac}
                   autoCapitalize={f.kb === 'email-address' ? 'none' : 'words'}
                   accessibilityLabel={f.label}
-                  style={[st.fieldInput, { borderColor: c.border, backgroundColor: c.bg, color: c.text }]}
+                  style={[
+                    st.fieldInput,
+                    tc.borderColor_surfaceVariant,
+                    tc.backgroundColor_surfaceVariant,
+                    tc.color_text
+                  ]}
                 />
               </View>
             ))}
             <View>
-              <Text style={[st.fieldLabel, { color: c.textSec }]}>Phone number</Text>
-              <Text style={{ fontSize: 15, color: c.text }}>{displayPhone(profile?.phone) ?? 'Not added'}</Text>
-              <Text style={{ fontSize: 12, color: c.textSec, marginTop: 2 }}>
-                Your phone number is verified at sign-in and can't be changed here.
+              <Text style={[st.fieldLabel, tc.color_textSec]}>{t('settings.phoneNumber')}</Text>
+              <View style={st.phoneRow}>
+                <Text style={[st.flex1, { fontSize: 15 }, displayPhone(profile?.phone) ? tc.color_text : tc.color_error]}>
+                  {displayPhone(profile?.phone) ?? t('settings.notAdded')}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setShowEditProfile(false);
+                    navigation.navigate('PhoneNumber');
+                  }}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  style={[st.phoneAction, tc.backgroundColor_primaryLight]}
+                >
+                  <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_primary]}>
+                    {displayPhone(profile?.phone) ? t('settings.changePhone') : t('settings.addPhone')}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={[{ fontSize: 12, marginTop: 2 }, tc.color_textSec]}>
+                {displayPhone(profile?.phone) ? t('settings.yourPhoneNumberIsVerified') : t('settings.phoneNeeded')}
               </Text>
             </View>
             {saveError ? (
-              <Text style={{ fontSize: 13, color: c.error }} accessibilityLiveRegion="polite">{saveError}</Text>
+              <Text style={[{ fontSize: 13 }, tc.color_error]} accessibilityLiveRegion="polite">{saveError}</Text>
             ) : null}
 
             {/* Save */}
             <Pressable
               onPress={handleSaveProfile}
               disabled={saving}
-              style={[st.saveBtnWrap, st.saveBtn, { backgroundColor: c.primary }]}
+              style={[st.saveBtnWrap, st.saveBtn, tc.backgroundColor_primary]}
               accessibilityRole="button"
               accessibilityState={{ busy: saving }}
             >
               {saving ? (
-                <ActivityIndicator color={c.textOnPrimary} />
+                <ActivityIndicator color={tk.textOnPrimary} />
               ) : (
-                <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>Save changes</Text>
+                <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_textOnPrimary]}>{t('settings.saveChanges')}</Text>
               )}
             </Pressable>
           </View>
@@ -442,6 +494,11 @@ const st = StyleSheet.create({
 
   /* Modal */
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  phoneAction: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
+  busyOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+  busyCard: { alignItems: 'center', gap: 16, paddingVertical: 28, paddingHorizontal: 32, borderRadius: 20, minWidth: 220 },
+  busyText: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
   sheet: {
     position: 'absolute',
     left: 0,

@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""Build branding/poolora-icon.png from branding/source/poolora-icon.svg.
+"""Build the Siham master images and shared logo code from the vector sources.
 
 Usage (from the repo root):
     pip install cairosvg pillow
     python3 scripts/render_brand_master.py
     python3 scripts/generate_brand_assets.py
 
-SVG renderers do blur filters poorly, so the neon glow is done here: the
-`glow` group is rendered alone, blurred at two radii and screened over the
-background, then the sharp `art` group goes on top.
+Sources (traced from the founder's Canva design, page 4):
+    branding/source/siham-symbol.svg    three people joined in a circle
+    branding/source/siham-wordmark.svg  SIHAM letters
+
+Writes:
+    branding/siham-icon.png          1024 full-bleed app icon: symbol on navy
+    branding/siham-symbol.png        1024 symbol on transparency, for dark backgrounds
+    branding/siham-symbol-light.png  same with the ivory figure in navy, for light backgrounds
+    branding/siham-wordmark.png      navy wordmark on transparency
+    sihamArt.ts in the app, landing site and admin: path data for their logo components
+    favicon.svg in the landing site and admin
 """
 
 import io
@@ -16,48 +24,143 @@ import re
 from pathlib import Path
 
 import cairosvg
-from PIL import Image, ImageChops, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
-SVG = (ROOT / "branding" / "source" / "poolora-icon.svg").read_text()
+SRC = ROOT / "branding" / "source"
+SYMBOL = (SRC / "siham-symbol.svg").read_text()
+WORDMARK = (SRC / "siham-wordmark.svg").read_text()
+
+# Brand palette (see branding/README.md)
+NAVY = "#0B2530"
+NAVY_DEEP = "#061A22"
+NAVY_LIFT = "#123A47"
+IVORY = "#F5F1E7"
+BRIGHT_TEAL = "#0AA2A8"
+DEEP_TEAL = "#056981"
+
 SIZE = 1024
-SCALE = 2  # render at 2x, then downsample for clean edges
+# Share of the icon's width taken by the symbol. Stores mask the corners,
+# so this leaves the three heads clear of any rounding.
+ICON_SYMBOL_SCALE = 0.66
 
 
-def only(group: str) -> str:
-    """The SVG with every top-level layer except `group` removed."""
-    svg = SVG
-    for other in ("background", "glow", "art"):
-        if other != group:
-            svg = re.sub(rf'<g id="{other}">.*?\n  </g>', "", svg, flags=re.S)
-    return svg
+def light_variant(svg: str) -> str:
+    """Symbol for light backgrounds: the ivory figure becomes navy."""
+    return svg.replace(f'fill="{IVORY}"', f'fill="{NAVY}"')
 
 
-def render(svg: str) -> Image.Image:
-    px = SIZE * SCALE
-    png = cairosvg.svg2png(bytestring=svg.encode(), output_width=px, output_height=px)
+def render(svg: str, width: int, height: int | None = None) -> Image.Image:
+    png = cairosvg.svg2png(bytestring=svg.encode(), output_width=width, output_height=height)
     return Image.open(io.BytesIO(png)).convert("RGBA")
 
 
-def main() -> None:
-    background = render(only("background"))
-    glow = render(only("glow"))
-    art = render(only("art"))
+def icon() -> Image.Image:
+    """Navy tile with a soft lift towards the top left, symbol centred."""
+    big = SIZE * 2
+    bg = Image.new("RGBA", (big, big), NAVY_DEEP)
+    glow = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(glow).ellipse((-big * 0.3, -big * 0.35, big * 0.95, big * 0.9), fill=255)
+    glow = glow.filter(ImageFilter.GaussianBlur(big * 0.18))
+    bg.paste(Image.new("RGBA", (big, big), NAVY_LIFT), mask=glow)
+    mark = render(SYMBOL, int(big * ICON_SYMBOL_SCALE))
+    off = (big - mark.width) // 2
+    bg.alpha_composite(mark, (off, off))
+    return bg.resize((SIZE, SIZE), Image.LANCZOS).convert("RGB")
 
-    wide = glow.filter(ImageFilter.GaussianBlur(28 * SCALE))
-    tight = glow.filter(ImageFilter.GaussianBlur(9 * SCALE))
-    out = background.convert("RGB")
-    for layer, strength in ((wide, 1.0), (wide, 0.7), (tight, 1.0)):
-        rgb = Image.new("RGB", layer.size, (0, 0, 0))
-        rgb.paste(layer.convert("RGB"), mask=layer.getchannel("A"))
-        if strength < 1:
-            rgb = Image.eval(rgb, lambda v: int(v * strength))
-        out = ImageChops.screen(out, rgb)
-    out = out.convert("RGBA")
-    out.alpha_composite(art)
-    out = out.resize((SIZE, SIZE), Image.LANCZOS).convert("RGB")
-    out.save(ROOT / "branding" / "poolora-icon.png", optimize=True)
-    print("wrote branding/poolora-icon.png")
+
+def path_data(svg: str) -> dict:
+    """Pull the figures and wordmark out of the SVG sources for code use."""
+    tf = re.search(r'transform="scale\(([\d.]+)\) translate\(([-\d.]+) ([-\d.]+)\)"', svg)
+    figures = []
+    for name, fill, d, cx, cy, r in re.findall(
+        r'<g id="([\w-]+)" fill="(#\w+)">\s*<path d="([^"]+)"/>\s*'
+        r'<circle cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/>',
+        svg,
+    ):
+        figures.append({"name": name, "fill": fill, "d": d, "circle": (cx, cy, r)})
+    return {"scale": tf.group(1), "tx": tf.group(2), "ty": tf.group(3), "figures": figures}
+
+
+CODE_TARGETS = (
+    "frontend/src/components/brand/sihamArt.ts",
+    "web-landing/src/app/components/brand/sihamArt.ts",
+    "admin-web/src/components/brand/sihamArt.ts",
+)
+
+
+def favicon_svg() -> str:
+    """Rounded navy tile with the symbol, as a scalable favicon."""
+    inner = re.search(r"(<g transform=.*</g>)\s*</svg>", SYMBOL, flags=re.S).group(1)
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <rect width="1000" height="1000" rx="225" fill="{NAVY}"/>
+  <g transform="translate(150 150) scale(0.7)">
+  {inner}
+  </g>
+</svg>
+"""
+
+
+def write_code() -> None:
+    sym = path_data(SYMBOL)
+    vb = re.search(r'viewBox="([^"]+)"', WORDMARK).group(1)
+    word_d = re.search(r' d="([^"]+)"', WORDMARK).group(1)
+    figs = ",\n".join(
+        f"""  {{
+    name: '{f["name"]}',
+    fill: '{f["fill"]}',
+    d: '{f["d"]}',
+    head: {{ cx: {f["circle"][0]}, cy: {f["circle"][1]}, r: {f["circle"][2]} }},
+  }}"""
+        for f in sym["figures"]
+    )
+    code = (
+        f"""/**
+ * Siham logo artwork as path data.
+ *
+ * Generated by scripts/render_brand_master.py from branding/source; edit the
+ * SVGs there and re-run the script rather than changing this file.
+ */
+
+/** Symbol figures, drawn inside a 1000x1000 box with SYMBOL_TRANSFORM. */
+export const SYMBOL_TRANSFORM = 'scale({sym["scale"]}) translate({sym["tx"]} {sym["ty"]})';
+
+export const SYMBOL_FIGURES = [
+{figs},
+] as const;
+
+export const WORDMARK_VIEWBOX = '{vb}';
+export const WORDMARK_PATH = '{word_d}';
+"""
+    )
+    for rel in CODE_TARGETS:
+        out = ROOT / rel
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(code)
+        print(f"  {rel}")
+
+
+def save(img: Image.Image, rel: str) -> None:
+    img.save(ROOT / rel, optimize=True)
+    print(f"  {rel} ({img.width}x{img.height})")
+
+
+def copy_svg(svg: str, rel: str) -> None:
+    path = ROOT / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(svg)
+    print(f"  {rel}")
+
+
+def main() -> None:
+    print("Rendering from branding/source")
+    save(icon(), "branding/siham-icon.png")
+    save(render(SYMBOL, SIZE), "branding/siham-symbol.png")
+    save(render(light_variant(SYMBOL), SIZE), "branding/siham-symbol-light.png")
+    save(render(WORDMARK, 1600), "branding/siham-wordmark.png")
+    write_code()
+    for app in ("web-landing/public", "admin-web/public"):
+        copy_svg(favicon_svg(), f"{app}/favicon.svg")
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ export class UserController {
     try {
       const { userId } = (req as AuthenticatedRequest).user;
       const user = await User.findById(userId).select(
-        'name phone email profilePhotoUrl capabilities gender identity.status stats kyc.status kyc.rejectionReason vehicles createdAt',
+        'name phone email profilePhotoUrl capabilities gender language identity.status stats kyc.status kyc.rejectionReason vehicles createdAt',
       );
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, req.requestId);
@@ -59,7 +59,7 @@ export class UserController {
   static async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = (req as AuthenticatedRequest).user;
-      const { name, email, dateOfBirth, gender } = req.body as { name?: string; email?: string | null; dateOfBirth?: Date; gender?: string };
+      const { name, email, dateOfBirth, gender, language } = req.body as { name?: string; email?: string | null; dateOfBirth?: Date; gender?: string; language?: string };
       if (gender !== undefined) {
         const { IdentityService } = await import('../services/IdentityService');
         await new IdentityService().setDeclaredGender(userId, gender);
@@ -68,14 +68,24 @@ export class UserController {
       const unset: Record<string, ''> = {};
       if (name !== undefined) update.name = name;
       if (dateOfBirth !== undefined) update.dateOfBirth = dateOfBirth;
-      if (email) update.email = email;
-      else if (email === null || email === '') unset.email = '';
+      if (language !== undefined) update.language = language;
+      // A different address is only typed in, so it is not verified until its owner signs in with it
+      if (email) {
+        const current = await User.findById(userId).select('email').lean();
+        if (current?.email !== String(email).trim().toLowerCase()) {
+          update.email = email;
+          unset.emailVerifiedAt = '';
+        }
+      } else if (email === null || email === '') {
+        unset.email = '';
+        unset.emailVerifiedAt = '';
+      }
 
       const user = await User.findByIdAndUpdate(
         userId,
         { ...(Object.keys(update).length ? { $set: update } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
         { new: true, runValidators: true },
-      ).select('name phone email dateOfBirth profilePhotoUrl capabilities gender identity.status stats kyc.status kyc.rejectionReason createdAt');
+      ).select('name phone email dateOfBirth profilePhotoUrl capabilities gender language identity.status stats kyc.status kyc.rejectionReason createdAt');
       if (!user) throw new NotFoundError('User');
       sendSuccess(res, { user }, 200, req.requestId);
     } catch (error) {
@@ -100,6 +110,121 @@ export class UserController {
       const { userId } = (req as AuthenticatedRequest).user;
       const { IdentityService } = await import('../services/IdentityService');
       sendSuccess(res, { identity: await new IdentityService().submit(userId, req.body) }, 201, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** GET /users/me/work: the caller's company programme, or the address waiting to be confirmed (UC-C02) */
+  static async work(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { OrganisationService } = await import('../services/OrganisationService');
+      sendSuccess(res, await new OrganisationService().status(userId), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /users/me/work: send a confirmation link to a work email. Body: email */
+  static async joinWork(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { OrganisationService } = await import('../services/OrganisationService');
+      sendSuccess(res, await new OrganisationService().requestJoin(userId, req.body?.email), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** DELETE /users/me/work: leave the company programme */
+  static async leaveWork(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { OrganisationService } = await import('../services/OrganisationService');
+      sendSuccess(res, await new OrganisationService().leave(userId), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** PUT /users/me/push-token: this phone gets the caller's push notifications */
+  static async savePushToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { registerPushToken } = await import('../services/PushTokens');
+      await registerPushToken(userId, String(req.body.token));
+      sendSuccess(res, { saved: true }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** DELETE /users/me/push-token: signing out on this phone */
+  static async removePushToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { removePushToken } = await import('../services/PushTokens');
+      await removePushToken(userId, String(req.body.token));
+      sendSuccess(res, { removed: true }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** PUT /users/me/photo: the caller's profile picture */
+  static async setPhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { ProfilePhotoService } = await import('../services/ProfilePhotoService');
+      const profilePhotoUrl = await ProfilePhotoService.set(userId, String(req.body.data));
+      sendSuccess(res, { profilePhotoUrl }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** POST /users/me/phone/code: sends a code to a number to add or change */
+  static async sendPhoneCode(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { AuthService } = await import('../services/AuthService');
+      sendSuccess(res, await new AuthService().sendPhoneCode(userId, req.body.phone), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** PUT /users/me/phone: saves the number once its code is right */
+  static async confirmPhone(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { AuthService } = await import('../services/AuthService');
+      const user = await new AuthService().confirmPhone(userId, req.body.phone, req.body.otp);
+      sendSuccess(res, { phone: user.phone }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** DELETE /users/me/photo */
+  static async removePhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { ProfilePhotoService } = await import('../services/ProfilePhotoService');
+      await ProfilePhotoService.remove(userId);
+      sendSuccess(res, { removed: true }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** GET /users/me/impact: CO₂ saved by the caller's shared trips (UC-R11) */
+  static async impact(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { CarbonService } = await import('../services/CarbonService');
+      sendSuccess(res, await new CarbonService().impact(userId), 200, req.requestId);
     } catch (error) {
       next(error);
     }
@@ -186,7 +311,7 @@ export class UserController {
       const statement = await service.statement(user.userId, month);
       if (req.query.format === 'csv') {
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="poolora-earnings-${month}.csv"`);
+        res.setHeader('Content-Disposition', `attachment; filename="siham-earnings-${month}.csv"`);
         res.status(200).send(service.statementCsv(statement));
         return;
       }

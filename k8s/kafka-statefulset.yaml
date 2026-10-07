@@ -6,7 +6,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: kafka
-  namespace: poolora
+  namespace: siham
 spec:
   serviceName: kafka-headless
   replicas: 3

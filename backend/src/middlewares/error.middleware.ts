@@ -4,6 +4,8 @@ import { AppError, ValidationError } from '../utils/AppError';
 import { ApiResponse } from '../types';
 import { logger } from '../utils/logger';
 import { config } from '../config';
+import { recordError } from '../services/ProductAnalyticsService';
+import { AuthenticatedRequest } from '../types';
 import { Error } from 'mongoose';
 
 function safeStringify(value: unknown): string {
@@ -32,6 +34,15 @@ export function globalErrorHandler(
   _next: NextFunction,
 ): void {
   const requestId = req.requestId || '';
+  // Counted for the Analytics page's top errors; the route pattern, never the real URL
+  const respond = (status: number, response: ApiResponse): void => {
+    if (response.error) {
+      const route = `${req.baseUrl}${req.route?.path ?? ''}` || 'unmatched';
+      const user = (req as AuthenticatedRequest).user;
+      recordError(response.error.id, status, route, user?.userId, user?.capabilities);
+    }
+    res.status(status).json(response);
+  };
 
   // Mongoose validation error
   if (err.name === 'ValidationError' && !(err instanceof AppError)) {
@@ -50,7 +61,7 @@ export function globalErrorHandler(
       timestamp: new Date().toISOString(),
       requestId,
     };
-    res.status(422).json(response);
+    respond(422, response);
     return;
   }
 
@@ -70,7 +81,7 @@ export function globalErrorHandler(
       timestamp: new Date().toISOString(),
       requestId,
     };
-    res.status(409).json(response);
+    respond(409, response);
     return;
   }
 
@@ -86,7 +97,7 @@ export function globalErrorHandler(
       timestamp: new Date().toISOString(),
       requestId,
     };
-    res.status(422).json(response);
+    respond(422, response);
     return;
   }
 
@@ -102,7 +113,7 @@ export function globalErrorHandler(
       timestamp: new Date().toISOString(),
       requestId,
     };
-    res.status(401).json(response);
+    respond(401, response);
     return;
   }
 
@@ -122,7 +133,7 @@ export function globalErrorHandler(
       timestamp: new Date().toISOString(),
       requestId,
     };
-    res.status(err.statusCode).json(response);
+    respond(err.statusCode, response);
     return;
   }
 
@@ -150,5 +161,5 @@ export function globalErrorHandler(
     requestId,
   };
 
-  res.status(500).json(response);
+  respond(500, response);
 }

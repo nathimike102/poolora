@@ -7,19 +7,17 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
 } from 'react-native';
+import { Text, TextInput } from '../components/Text';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path } from '../components/ThemedSvg';
 
-import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../components/BackButton';
 import { GradientButton } from '../components/GradientButton';
@@ -27,28 +25,40 @@ import { Typography, Spacing, Radius, Shadow } from '../theme';
 import { sendOtpToBackend } from '../services/authService';
 import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
-import { nationalDigits, REGION, toE164 } from '../utils/region';
+import { MARKETS } from '../utils/region';
+import { countryByCode, HOME_COUNTRY, nationalDigitsFor, toE164For, type Country } from '../utils/countries';
+import { useLocationCountry } from '../services/locationCountry';
+import { CountryPicker } from '../components/CountryPicker';
+import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../theme/themed';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'PhoneLogin'>;
 
 export function PhoneLoginScreen() {
   const navigation = useNavigation<NavProp>();
-  const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);
 
-  const isValid = REGION.mobilePattern.test(nationalDigits(phone));
+  // The calling code starts on the country the phone is in, until one is picked
+  const here = useLocationCountry();
+  const [picked, setPicked] = useState<Country>();
+  const country = picked ?? countryByCode(here.code) ?? HOME_COUNTRY;
+
+  const e164 = toE164For(country, phone);
+  const isValid = e164 !== null;
+  const placeholder = MARKETS[country.code]?.phonePlaceholder ?? t('login.phonePlaceholder');
 
   const handleSendOtp = async () => {
     if (!isValid || sending) return;
     setSending(true);
     try {
-      await sendOtpToBackend(toE164(phone)!);
-      navigation.navigate('OTP', { phone: nationalDigits(phone) });
+      await sendOtpToBackend(e164!);
+      navigation.navigate('OTP', { phone: e164! });
     } catch (error) {
-      Alert.alert('Could not send code', errorHandler.process(error).message);
+      Alert.alert(t('login.sendFailed'), errorHandler.process(error).message);
     } finally {
       setSending(false);
     }
@@ -56,7 +66,7 @@ export function PhoneLoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}
+      style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}
       behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
@@ -71,63 +81,61 @@ export function PhoneLoginScreen() {
         keyboardShouldPersistTaps="handled"
         bounces={false}
       >
-        <Text style={[styles.title, { color: c.text }]}>
-          Enter your phone number
+        <Text style={[styles.title, tc.color_text]}>
+          {t('login.enterPhone')}
         </Text>
 
         {/* Phone input */}
         <View
           style={[
             styles.phoneContainer,
-            {
-              backgroundColor: c.surface,
-              borderColor: c.border,
-            },
-            Shadow.sm,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_border,
+            Shadow.sm
           ]}
         >
-          <Text style={[styles.phoneLabel, { color: c.textSec }]}>
-            MOBILE NUMBER
+          <Text style={[styles.phoneLabel, tc.color_textSec]}>
+            {t('login.mobileNumber')}
           </Text>
           <View style={styles.phoneRow}>
             <View style={styles.prefixRow}>
-              <Text style={[styles.dialCode, { color: c.text }]}>{REGION.dialCode}</Text>
-              <View style={[styles.divider, { backgroundColor: c.border }]} />
+              <CountryPicker value={country} suggested={[here.code, HOME_COUNTRY.code]} onChange={c => { setPicked(c); setPhone(''); }} />
+              <View style={[styles.divider, tc.backgroundColor_border]} />
             </View>
 
             <TextInput
               value={phone}
-              onChangeText={val => setPhone(val.replace(/\D/g, '').slice(0, 10))}
+              onChangeText={val => setPhone(nationalDigitsFor(country, val).slice(0, 14))}
               keyboardType="phone-pad"
-              maxLength={10}
-              placeholder={REGION.phonePlaceholder}
-              placeholderTextColor={c.textSec}
-              style={[styles.phoneInput, { color: c.text }]}
+              maxLength={15}
+              placeholder={placeholder}
+              placeholderTextColor={tk.textSec}
+              style={[styles.phoneInput, tc.color_text]}
               autoFocus
             />
           </View>
         </View>
 
         {/* Info note */}
-        <View style={[styles.infoNote, { backgroundColor: c.primaryLight }]}>
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill={c.primary}>
+        <View style={[styles.infoNote, tc.backgroundColor_primaryLight]}>
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill={tk.primary}>
             <Path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
           </Svg>
-          <Text style={[styles.infoText, { color: c.primary }]}>
-            A 6-digit OTP will be sent to this number
+          <Text style={[styles.infoText, tc.color_primary]}>
+            {t('login.otpInfo')}
           </Text>
         </View>
 
         {/* CTA */}
         <View style={styles.cta}>
           <GradientButton
-            label={sending ? '' : 'Send OTP'}
+            label={sending ? '' : t('login.sendOtp')}
             onPress={handleSendOtp}
             disabled={!isValid || sending}
             loading={sending}
-            colorStart={c.primary}
-            colorEnd={c.primaryDark}
-            disabledColor={c.border}
+            colorStart={tk.primary}
+            colorEnd={tk.primaryDark}
+            disabledColor={tk.border}
           />
         </View>
       </ScrollView>

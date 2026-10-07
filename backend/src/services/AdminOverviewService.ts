@@ -18,6 +18,7 @@ import { getRedisClient } from '../config/redis';
 import { BookingStatus, FraudLevel, KYCStatus, RideStatus, SOSStatus } from '../types';
 import { requestStats } from '../utils/requestStats';
 import { fromLocalClock, toLocalClock } from '../config/region';
+import { CarbonService } from './CarbonService';
 
 const DAY = 86_400_000;
 
@@ -163,6 +164,8 @@ export class AdminOverviewService {
         pendingSettlement: pendingSettlement.total,
         refunds7d: { total: refundsWeek.total, count: refundsWeek.count },
       },
+      // CO₂ saved by every shared seat so far (UC-R11)
+      impact: await new CarbonService().platformTotal(),
       safety: { activeSos, openDisputes, blockedUsers: blocked, suspendedUsers: suspended, pendingBlocks, fraudFlagged, reviewsWaiting, safetyReports, supportOpen, supportUrgent, ...(await secondAdminQueues()) },
       system,
     };

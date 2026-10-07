@@ -1,6 +1,6 @@
 /**
  * Disputes: a rider or driver reports a problem with a booking, and the
- * Poolora team decides (see admin-web).
+ * Siham team decides (see admin-web).
  */
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';

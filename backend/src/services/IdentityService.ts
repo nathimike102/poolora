@@ -24,6 +24,7 @@ import { audit } from './AuditService';
 import { NotificationService } from './NotificationService';
 import { kycPrefix } from './UploadService';
 import { logger } from '../utils/logger';
+import { phrase, type Phrase } from '../i18n';
 
 export type Gender = 'male' | 'female' | 'other';
 const GENDERS: Gender[] = ['male', 'female', 'other'];
@@ -165,8 +166,7 @@ export class IdentityService {
     await audit(adminId, 'identity.approve', 'user', userId, `Gender confirmed: ${gender}`);
     // In the background: the admin does not wait on the file store
     void this.deletePhotos(userId, user.identity);
-    const womenOnly = gender === 'female' ? ' You can now post and book women-only rides.' : '';
-    await this.tell(userId, 'Identity verified', `Your identity check is approved.${womenOnly}`);
+    await this.tell(userId, phrase('identity.approvedTitle'), phrase(gender === 'female' ? 'identity.approvedWoman' : 'identity.approved'));
     return publicView(user);
   }
 
@@ -188,7 +188,8 @@ export class IdentityService {
     if (!user) throw new AppError('This check is not waiting for review', 409, 'CONFLICT');
     await audit(adminId, 'identity.reject', 'user', userId, why);
     void this.deletePhotos(userId, user.identity);
-    await this.tell(userId, 'Identity check not approved', `${why} You can send it again from Profile > Identity check.`);
+    // The reason is the admin's own words
+    await this.tell(userId, phrase('identity.rejectedTitle'), phrase('identity.rejectedBody', { reason: why }));
     return publicView(user);
   }
 
@@ -214,7 +215,7 @@ export class IdentityService {
     }
   }
 
-  private async tell(userId: string, title: string, body: string): Promise<void> {
+  private async tell(userId: string, title: string | Phrase, body: string | Phrase): Promise<void> {
     await Promise.all([
       this.notifications.createNotification(userId, title, body, 'system'),
       this.notifications.sendPushNotification(userId, title, body, { type: 'identity' }),

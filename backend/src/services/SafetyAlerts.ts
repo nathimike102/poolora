@@ -9,7 +9,7 @@
  *   having set up an alert rule.
  * - The person who raised it hears when the team takes it and when it closes,
  *   by push and on their open SOS screen.
- * - Emergency contacts get texts; those who use Poolora also get a push.
+ * - Emergency contacts get texts; those who use Siham also get a push.
  *
  * Nothing here throws: a failed channel is logged and the others still go.
  */
@@ -19,6 +19,7 @@ import { UserCapability } from '../types';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { NotificationService } from './NotificationService';
+import type { Phrase } from '../i18n';
 
 const notifications = new NotificationService();
 
@@ -55,7 +56,7 @@ export async function pageSafetyTeam(
       sent.push++;
       if (options.sms !== false && textable(admin.phone) && smsAvailable()) {
         try {
-          await notifications.sendSMS(admin.phone, `Poolora SOS: ${headline}.${link}`.slice(0, 320));
+          await notifications.sendSMS(admin.phone, `Siham SOS: ${headline}.${link}`.slice(0, 320));
           sent.sms++;
         } catch {
           // Logged by sendSMS
@@ -88,8 +89,8 @@ export async function textPeople(phones: string[], message: string): Promise<str
   return results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
 }
 
-/** Pushes to the contacts who have Poolora accounts, found by phone number. */
-export async function pushToPhones(phones: string[], title: string, body: string, data: Record<string, string>): Promise<void> {
+/** Pushes to the contacts who have Siham accounts, found by phone number. */
+export async function pushToPhones(phones: string[], title: string | Phrase, body: string | Phrase, data: Record<string, string>): Promise<void> {
   try {
     const users = await User.find({ phone: { $in: phones.filter(textable) }, closedAt: { $exists: false } }).select('_id').lean();
     await Promise.all(users.map((u) => notifications.sendPushNotification(String(u._id), title, body, data)));
@@ -104,7 +105,7 @@ export async function pushToPhones(phones: string[], title: string, body: string
  */
 export async function tellUser(
   userId: string,
-  event: { emergencyId: string; change: string; title?: string; body?: string },
+  event: { emergencyId: string; change: string; title?: string | Phrase; body?: string | Phrase },
 ): Promise<void> {
   try {
     const { SocketGateway } = await import('../sockets/SocketGateway');

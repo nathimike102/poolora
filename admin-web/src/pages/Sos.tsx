@@ -7,9 +7,12 @@ import { ago, titleCase, when } from '../lib/format';
 import { Badge, Empty, ErrorBox, Field, Loading, PageHead, Pager, type Tone } from '../components/ui';
 import { ActionDialog } from '../components/Dialog';
 import type { MapPoint, OtherTrail } from '../components/MapView';
+import type { SosVideoState } from '../components/SosVideo';
 
 // The map library is large; load it only when an incident is opened
 const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
+// So is the video library; it loads when an incident is opened
+const SosVideo = lazy(() => import('../components/SosVideo').then((m) => ({ default: m.SosVideo })));
 
 type Geo = { coordinates: [number, number] };
 
@@ -79,6 +82,7 @@ interface SosDetail {
     triggeredBy: string;
     locationSource?: 'device' | 'ride' | 'pickup';
     contactsDueAt?: string;
+    video?: SosVideoState;
   };
   booking: {
     _id: string;
@@ -92,7 +96,9 @@ interface SosDetail {
   history: { days: number; earlier: number; falseAlarms: number };
   emergencyNumbers: { general: string; police: string; ambulance: string; fire: string };
   /** Recordings and screenshots, with 15-minute links */
-  evidence: Array<{ type: 'audio' | 'screenshot'; url: string | null }>;
+  evidence: Array<{ type: 'audio' | 'screenshot' | 'video'; url: string | null }>;
+  /** Live video during the SOS (UC-X04): set up at all, and recorded or not */
+  video: { available: boolean; recordingOn: boolean };
   vehicle: { make?: string; model?: string; color?: string; year?: number; plateNumber: string; vehicleType?: string; photos: string[]; tracker?: { deviceId: string; lastReportAt: string | null } | null } | null;
   coPassengers: Array<{ _id: string; status: string; rider: { _id: string; name: string; phone: string; profilePhotoUrl?: string; identity?: { status?: string } }; pickup: { address: string }; dropoff: { address: string }; actualPickupTime?: string; actualDropoffTime?: string }>;
   /** Mobile money numbers each person has paid or been paid with: registered to a real name */
@@ -104,6 +110,26 @@ interface SosDetail {
 }
 
 /** What is happening now, in words: the badges an admin scans the list for */
+/**
+ * An unacknowledged SOS re-pages the team every few minutes, and each page is
+ * logged. Back-to-back pages show as one line with a count, so the rest of the
+ * timeline stays readable; the record itself keeps every entry.
+ */
+type TimelineEntry = { event: string; timestamp: string; details?: string };
+function foldRepages(timeline: TimelineEntry[]): Array<TimelineEntry & { count: number; firstAt: string }> {
+  const out: Array<TimelineEntry & { count: number; firstAt: string }> = [];
+  for (const entry of timeline) {
+    const last = out[out.length - 1];
+    if (entry.event === 'Safety team paged again' && last?.event === entry.event) {
+      last.count += 1;
+      last.timestamp = entry.timestamp;
+    } else {
+      out.push({ ...entry, count: 1, firstAt: entry.timestamp });
+    }
+  }
+  return out;
+}
+
 function SosNow({ i }: { i: Incident }) {
   if (i.cancelledAt) return <Badge tone="neutral">Cancelled by the user</Badge>;
   if (i.status !== 'triggered' && i.status !== 'acknowledged') return <span className="faint">—</span>;
@@ -208,7 +234,7 @@ function PersonCard({ title, person, raised, named, money }: { title: string; pe
           <Link to={`/users/${person._id}`}><strong>{person.name}</strong></Link>
           {person.gender ? <span className="faint"> · {person.gender}</span> : null}
           <div className="faint">
-            {person.identity?.status === 'verified' ? 'ID checked by Poolora' : 'ID not checked'}
+            {person.identity?.status === 'verified' ? 'ID checked by Siham' : 'ID not checked'}
             {person.kyc?.licenseNumber ? ` · Licence ${person.kyc.licenseNumber}` : ''}
             {person.createdAt ? ` · Member since ${when(person.createdAt)}` : ''}
           </div>
@@ -369,6 +395,11 @@ export function SosDetailPage() {
           </div>
         </div>
       ) : null}
+      {open || record.video ? (
+        <Suspense fallback={<div className="card"><Loading label="Loading video" /></div>}>
+          <SosVideo id={id} video={record.video} open={open} available={data.video.available} recordingOn={data.video.recordingOn} onChange={reload} />
+        </Suspense>
+      ) : null}
 
       <div className="grid cols-2" style={{ gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)' }}>
         <div className="card stack" style={{ gap: 8 }}>
@@ -475,11 +506,12 @@ export function SosDetailPage() {
           {data.evidence.length ? (
             <>
               <h3 style={{ marginTop: 16 }}>Evidence</h3>
-              <p className="faint">Recorded on the phone during the SOS, in parts of about a minute. Links last 15 minutes; reload for new ones.</p>
+              <p className="faint">Recorded during the SOS: audio in parts of about a minute, video once the camera is turned off. Links last 15 minutes; reload for new ones.</p>
               {data.evidence.map((e, i) => (
                 <div key={i} style={{ padding: '4px 0' }}>
                   {!e.url ? <span className="faint">Part {i + 1} could not be loaded</span>
                     : e.type === 'audio' ? <audio controls preload="none" src={e.url} aria-label={`Recording part ${i + 1}`} style={{ width: '100%' }} />
+                      : e.type === 'video' ? <video controls preload="none" src={e.url} aria-label={`Video ${i + 1}`} style={{ width: '100%', maxHeight: 360, background: '#111' }} />
                       : <a href={e.url} target="_blank" rel="noreferrer">Screenshot {i + 1}</a>}
                 </div>
               ))}
@@ -489,10 +521,14 @@ export function SosDetailPage() {
         <div className="card">
           <h2>Timeline</h2>
           <ol className="timeline">
-            {[...record.timeline].reverse().map((t, i) => (
+            {foldRepages(record.timeline).reverse().map((t, i) => (
               <li key={i}>
                 <time dateTime={t.timestamp}>{when(t.timestamp)}</time>
-                <div><strong>{t.event}</strong>{t.details ? <div className="muted">{t.details}</div> : null}</div>
+                <div>
+                  <strong>{t.event}{t.count > 1 ? ` (${t.count} times)` : ''}</strong>
+                  {t.count > 1 ? <div className="muted">First at {when(t.firstAt)}, latest at {when(t.timestamp)}</div> : null}
+                  {t.details ? <div className="muted">{t.details}</div> : null}
+                </div>
               </li>
             ))}
           </ol>

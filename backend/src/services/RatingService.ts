@@ -8,6 +8,7 @@
  * admins straight away. Riders who have not rated get one reminder after a day.
  */
 
+import { addRatingPipeline } from '../utils/ratingScore';
 import { Rating, IRating } from '../models/Rating';
 import type { FilterQuery } from 'mongoose';
 import { Types } from 'mongoose';
@@ -19,6 +20,7 @@ import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
 import { audit } from './AuditService';
 import Filter from 'bad-words';
+import { phrase } from '../i18n';
 
 const profanityFilter = new Filter();
 
@@ -121,23 +123,8 @@ export class RatingService {
             flagReason,
         });
 
-        // Update ratee's aggregate rating
-        const ratingField = isRider ? 'avgRatingAsDriver' : 'avgRatingAsRider';
-        const countField = isRider ? 'totalRatingsAsDriver' : 'totalRatingsAsRider';
-        const ratee = await User.findById(rateeId);
-        if (ratee) {
-            const currentAvg = ratee.stats[ratingField] || 0;
-            const currentCount = ratee.stats[countField] || 0;
-            const newCount = currentCount + 1;
-            const newAvg = (currentAvg * currentCount + score) / newCount;
-
-            await User.findByIdAndUpdate(rateeId, {
-                $set: {
-                    [`stats.${ratingField}`]: Math.round(newAvg * 100) / 100,
-                    [`stats.${countField}`]: newCount,
-                },
-            });
-        }
+        // Update ratee's score: starts at 5 and moves only part way per rating (utils/ratingScore)
+        await User.updateOne({ _id: rateeId }, addRatingPipeline(isRider ? 'Driver' : 'Rider', score));
 
         if (safety !== undefined) {
             // Running average, kept apart from the public rating
@@ -162,10 +149,8 @@ export class RatingService {
             const { NotificationService } = await import('./NotificationService');
             await new NotificationService().createNotification(
                 userId,
-                'Thanks for your rating',
-                issues.length
-                    ? 'Thanks for rating your trip. Our team will look at the problem you reported.'
-                    : 'Thanks for rating your trip. It helps keep Poolora safe and friendly.',
+                phrase('rating.thanksTitle'),
+                phrase(issues.length ? 'rating.thanksIssue' : 'rating.thanks'),
                 'system',
             );
         } catch {
@@ -305,9 +290,9 @@ export class RatingService {
             // Claim it first, so two sweeps never remind twice
             const claimed = await Booking.updateOne({ _id: b._id, ratingReminderSentAt: { $exists: false } }, { $set: { ratingReminderSentAt: now } });
             if (!claimed.modifiedCount || rated.has(b._id.toString())) continue;
-            const driver = (b.driver?.name ?? 'your driver').split(' ')[0];
+            const driver = b.driver?.name ? b.driver.name.split(' ')[0] : phrase('rating.yourDriver');
             await push
-                .sendPushNotification(b.rider.toString(), `How was your ride with ${driver}?`, 'Rate your trip. It takes a few seconds and helps other riders.', { type: 'rate_trip', bookingId: b._id.toString() })
+                .sendPushNotification(b.rider.toString(), phrase('rating.reminderTitle', { driver }), phrase('rating.reminderBody'), { type: 'rate_trip', bookingId: b._id.toString() })
                 .catch(() => undefined);
             sent++;
         }

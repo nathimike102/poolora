@@ -1,12 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { useApp } from '../../context/AppContext';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { RefreshControl } from '../../components/Themed';
+import { Text } from '../../components/Text';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { Icon, type IconName } from '../../components/Icon';
 import { adminService, SystemMetrics } from '../../services/adminService';
 import { money } from '../../utils/region';
 
+import { tc } from '../../theme/themed';
+
 export const AdminMetricsScreen: React.FC = () => {
-  const { c } = useApp();
+  const insets = useSafeAreaInsets();
+  const frame = (body: React.ReactNode) => (
+    <View style={[{ flex: 1, paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title="System metrics" />
+      {body}
+    </View>
+  );
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,29 +48,29 @@ export const AdminMetricsScreen: React.FC = () => {
   };
 
   if (loading && !metrics) {
-    return (
-      <View style={[styles.container, styles.center, { backgroundColor: c.bg }]}>
-        <Text style={{ color: c.text }}>Loading metrics...</Text>
-      </View>
+    return frame(
+      <View style={[styles.container, styles.center]}>
+        <Text style={tc.color_text}>Loading metrics...</Text>
+      </View>,
     );
   }
 
   if (error && !metrics) {
-    return (
-      <View style={[styles.container, styles.center, { backgroundColor: c.bg }]}>
+    return frame(
+      <View style={[styles.container, styles.center]}>
         <Text style={{ color: '#FF6B6B', marginBottom: 8 }}>{error}</Text>
-        <Text onPress={loadMetrics} style={{ color: c.primary || '#4CAF50', fontWeight: 'bold' }}>
+        <Text onPress={loadMetrics} style={[{ fontWeight: 'bold' }, tc.color_primary]}>
           Tap to Retry
         </Text>
-      </View>
+      </View>,
     );
   }
 
   if (!metrics) {
-    return (
-      <View style={[styles.container, { backgroundColor: c.bg }]}> 
-        <Text style={{ color: c.text }}>No data available</Text>
-      </View>
+    return frame(
+      <View style={styles.container}>
+        <Text style={tc.color_text}>No data available</Text>
+      </View>,
     );
   }
 
@@ -75,30 +86,23 @@ export const AdminMetricsScreen: React.FC = () => {
     color: string;
   }) => (
     <View
-      style={[
-        styles.metricCard,
-        {
-          backgroundColor: c.surface,
-          borderLeftColor: color,
-        },
-      ]}
+      style={[styles.metricCard, { borderLeftColor: color }, tc.backgroundColor_surfaceVariant]}
     >
       <Icon name={icon} size={28} color={color} />
       <View style={{ flex: 1 }}>
-        <Text style={[styles.metricTitle, { color: c.textSec }]}>
+        <Text style={[styles.metricTitle, tc.color_textSec]}>
           {title}
         </Text>
-        <Text style={[styles.metricValue, { color: c.text }]}>{value}</Text>
+        <Text style={[styles.metricValue, tc.color_text]}>{value}</Text>
       </View>
     </View>
   );
 
-  return (
+  return frame(
     <ScrollView
-      style={[styles.container, { backgroundColor: c.bg }]}
+      style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Text style={[styles.title, { color: c.text }]}>System metrics</Text>
 
       {/* Top Row */}
       <View style={styles.row}>
@@ -191,11 +195,6 @@ const styles = StyleSheet.create({
   center: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
   },
   row: {
     flexDirection: 'row',

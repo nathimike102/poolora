@@ -28,7 +28,7 @@ describe('trip tracking', () => {
   });
 
   it('posts the position with speed in km/h and the battery, and stops when the server says so', async () => {
-    await AsyncStorage.setItem('@poolora_active_trip', 'ride1');
+    await AsyncStorage.setItem('@siham_active_trip', 'ride1');
     (Location.hasStartedLocationUpdatesAsync as jest.Mock).mockResolvedValue(true);
     (apiClient.post as jest.Mock).mockResolvedValueOnce({ data: { data: { tracking: true } } });
     await runTask({ data: fix(-17.8, 31.05) });
@@ -42,7 +42,7 @@ describe('trip tracking', () => {
   });
 
   it('another ride\'s screen never stops the ride being tracked', async () => {
-    await AsyncStorage.setItem('@poolora_active_trip', 'ride1');
+    await AsyncStorage.setItem('@siham_active_trip', 'ride1');
     (Location.hasStartedLocationUpdatesAsync as jest.Mock).mockResolvedValue(true);
     await stopTripTracking('ride9');
     expect(Location.stopLocationUpdatesAsync).not.toHaveBeenCalled();

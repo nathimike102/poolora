@@ -65,6 +65,7 @@ function htmlSeoMeta() {
         { tag: 'meta', attrs: { name: 'theme-color', content: themeColor }, injectTo: 'head' },
         { tag: 'link', attrs: { rel: 'canonical', href: url }, injectTo: 'head' },
         { tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: 'any' }, injectTo: 'head' },
+        { tag: 'link', attrs: { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }, injectTo: 'head' },
         { tag: 'link', attrs: { rel: 'icon', type: 'image/png', href: '/favicon-32.png', sizes: '32x32' }, injectTo: 'head' },
         { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }, injectTo: 'head' },
         { tag: 'meta', attrs: { property: 'og:type', content: 'website' }, injectTo: 'head' },
@@ -138,8 +139,34 @@ ${urls}
   }
 }
 
+/**
+ * Writes /.well-known/security.txt (RFC 9116) so researchers know where to
+ * report a vulnerability. The address follows COMPANY.emails.security, and
+ * Expires is a year from the build, so every deploy renews it.
+ */
+function securityTxt() {
+  const { url } = siteConfig
+  return {
+    name: 'security-txt',
+    apply: 'build' as const,
+    closeBundle() {
+      const dir = path.resolve(__dirname, 'dist/.well-known')
+      fs.mkdirSync(dir, { recursive: true })
+      const expires = new Date(Date.now() + 360 * 24 * 3600 * 1000).toISOString()
+      const body = [
+        `Contact: mailto:${COMPANY.emails.security}`,
+        `Expires: ${expires}`,
+        'Preferred-Languages: en',
+        `Canonical: ${url}/.well-known/security.txt`,
+        '',
+      ].join('\n')
+      fs.writeFileSync(path.join(dir, 'security.txt'), body)
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), htmlSeoMeta(), robotsAndSitemap()],
+  plugins: [react(), tailwindcss(), htmlSeoMeta(), robotsAndSitemap(), securityTxt()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

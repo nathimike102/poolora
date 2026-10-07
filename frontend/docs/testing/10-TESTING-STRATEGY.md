@@ -3,7 +3,7 @@
 > **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
-## Poolora - Comprehensive Testing Framework
+## Siham - Comprehensive Testing Framework
 
 **Classification**: Internal  
 **Version**: 1.0
@@ -511,8 +511,8 @@ describe("Ride Booking Flow", () => {
 // cypress/e2e/admin-dashboard.cy.js
 describe("Admin Dashboard", () => {
   beforeEach(() => {
-    cy.visit("https://admin.carpooling.com");
-    cy.login("admin@carpooling.com", "AdminPassword@123");
+    cy.visit("https://admin.<domain>");
+    cy.login("admin@<domain>", "AdminPassword@123");
   });
 
   it("should display dashboard with metrics", () => {
@@ -794,7 +794,7 @@ Bulk update: 180.34ms
 ```bash
 # Run OWASP ZAP scan against staging
 docker run -t owasp/zap2docker-stable zap-baseline.py \
-  -t https://staging-api.carpooling.com \
+  -t https://staging-api.<domain> \
   -r report.html
 
 # Results include:
@@ -1202,7 +1202,7 @@ Trend Analysis:
 
 ## 11. Summary
 
-This comprehensive testing strategy ensures the Poolora meets the highest quality standards through:
+This comprehensive testing strategy ensures the Siham meets the highest quality standards through:
 
 **Multi-layered Testing Approach:**
 

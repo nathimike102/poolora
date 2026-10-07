@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
+import { Modal, View, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
+import { Text } from './Text';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COMPANY } from '../config/company';
+import { useTranslation } from 'react-i18next';
+import { Palette } from '../theme';
 
-const STORAGE_KEY = '@poolora_policy_accepted';
+const STORAGE_KEY = '@siham_policy_accepted';
 
 interface Props {
   visible: boolean;
@@ -12,6 +15,7 @@ interface Props {
 
 export function PolicyModal({ visible, onAccept }: Props) {
   const [internalVisible, setInternalVisible] = useState(visible);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setInternalVisible(visible);
@@ -32,20 +36,19 @@ export function PolicyModal({ visible, onAccept }: Props) {
       <View style={styles.backdrop}>
         <View style={styles.container}>
           <ScrollView>
-            <Text style={styles.title} accessibilityRole="header">Before you continue</Text>
+            <Text style={styles.title} accessibilityRole="header">{t('policyModal.beforeYouContinue')}</Text>
             <Text style={styles.body}>
-              Poolora uses your phone number, location during rides and the details you share with drivers and
-              riders to arrange trips and keep them safe. Please read how we handle this before you continue.
+              {t('policyModal.intro')}
             </Text>
             <Pressable onPress={() => Linking.openURL(COMPANY.termsUrl)} accessibilityRole="link" style={styles.link}>
-              <Text style={styles.linkText}>Read the Terms of Service</Text>
+              <Text style={styles.linkText}>{t('policyModal.readTheTermsOfService')}</Text>
             </Pressable>
             <Pressable onPress={() => Linking.openURL(COMPANY.privacyUrl)} accessibilityRole="link" style={styles.link}>
-              <Text style={styles.linkText}>Read the Privacy Policy</Text>
+              <Text style={styles.linkText}>{t('policyModal.readThePrivacyPolicy')}</Text>
             </Pressable>
           </ScrollView>
           <Pressable onPress={accept} accessibilityRole="button" style={styles.acceptBtn}>
-            <Text style={styles.acceptText}>I agree to the Terms and Privacy Policy</Text>
+            <Text style={styles.acceptText}>{t('policyModal.iAgreeToTheTerms')}</Text>
           </Pressable>
         </View>
       </View>
@@ -79,12 +82,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   link: { minHeight: 44, justifyContent: 'center' },
-  linkText: { fontSize: 15, color: '#0B7A75', fontWeight: '600', textDecorationLine: 'underline' },
+  linkText: { fontSize: 15, color: Palette.primary, fontWeight: '600', textDecorationLine: 'underline' },
   acceptBtn: {
     marginTop: 12,
     minHeight: 48,
     borderRadius: 10,
-    backgroundColor: '#0B7A75',
+    backgroundColor: Palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,

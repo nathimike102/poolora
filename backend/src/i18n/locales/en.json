@@ -1,0 +1,194 @@
+{
+  "ride": {
+    "published": {
+      "title": "Ride Published",
+      "body": "Your ride has been published and is visible to riders."
+    },
+    "autoCancelled": {
+      "title": "Ride cancelled",
+      "body": "{{reason}}, so we cancelled it for you.",
+      "defaultReason": "Your ride was cancelled"
+    },
+    "changed": {
+      "title": "Your ride has changed",
+      "time": "Your driver moved the departure to {{when}}. If that no longer works, you can cancel for a full refund.",
+      "seats": "Your driver changed the seats of your ride.",
+      "price": "Your driver changed the price of your ride.",
+      "several": "Your driver changed the {{fields}} of your ride."
+    },
+    "started": {
+      "title": "Your driver is on the way",
+      "body": "Your ride has started. Open Siham to follow the car live."
+    }
+  },
+  "booking": {
+    "requested": {
+      "title": "New Booking Request",
+      "push": "You have a new ride booking request. Tap to review.",
+      "body": "A rider has requested to join your ride.",
+      "bodyWithStops": "A rider has requested to join your ride and added stops on the way ({{count}}). Check them before you accept."
+    },
+    "confirmed": {
+      "title": "Booking Confirmed",
+      "body": "Your seat is confirmed. At pickup, tell the driver the 4-digit code on your ride screen, and get in only when your app says it is confirmed."
+    },
+    "cancelled": {
+      "title": "Booking Cancelled",
+      "body": "Your booking has been cancelled."
+    },
+    "arrived": {
+      "title": "Your driver has arrived",
+      "body": "Your driver is at the pickup and will wait {{minutes}} minutes. Check the plate, then tell them your pickup code."
+    },
+    "noShow": {
+      "title": "Marked as a no-show",
+      "body": "Your driver waited at the pickup and left without you. The fare is not refunded; raise a dispute from My rides if this is wrong."
+    },
+    "expired": {
+      "title": "Request closed",
+      "body": "{{reason}}. Anything you paid is refunded.",
+      "defaultReason": "Your ride request was closed"
+    }
+  },
+  "payment": {
+    "succeeded": {
+      "title": "Payment Successful",
+      "body": "Payment of {{amount}} has been processed."
+    },
+    "seatRequestTitle": "New seat request",
+    "seatRequestBody": "A rider has paid for a seat and is waiting for you to accept.",
+    "parcelRequestTitle": "New parcel request",
+    "parcelRequestBody": "A parcel is waiting for you to accept. Tracking: {{tracking}}",
+    "toWalletTitle": "Payment added to your wallet",
+    "toWalletBody": "Your {{amount}} payment arrived after the request had closed or was already paid, so it is in your Siham wallet. You can use it or withdraw it."
+  },
+  "sos": {
+    "contacts": {
+      "raisedAgain": "Siham SOS: {{name}} has raised their emergency alert again. See where they are: {{url}} If they may be in danger, call {{number}}.",
+      "raised": "Siham SOS: {{name}} raised an emergency alert during a ride. See where they are: {{url}} If they may be in danger, call {{number}} (police {{police}}).",
+      "pushTitle": "{{name}} raised an SOS",
+      "pushBody": "Tap to see where they are.",
+      "safe": "Siham: {{name}} says they are safe now. Our safety team is checking with them.",
+      "closed": "Siham: the emergency alert for {{name}} has been closed by our safety team."
+    },
+    "user": {
+      "acknowledgedTitle": "The safety team has your SOS",
+      "acknowledgedNamed": "{{name}} from the Siham safety team is on it and will call you.",
+      "acknowledged": "The Siham safety team is on it and will call you.",
+      "closedTitle": "Your SOS is closed",
+      "closedBody": "The Siham safety team has closed your alert. If you need help again, raise a new SOS or call {{number}}.",
+      "videoAskTitle": "The safety team would like to see",
+      "videoAskBody": "If it is safe, open the SOS screen and turn on your camera. Your phone will make no sound."
+    }
+  },
+  "checkIn": {
+    "titleRepeat": "Please confirm you are OK",
+    "title": "Are you OK?",
+    "bodyRepeat": "We did not hear back. Tap to answer, or we will alert the safety team.",
+    "body": "A quick safety check during your ride. Tap to answer.",
+    "escalatedTitle": "We have alerted the Siham safety team",
+    "escalatedBody": "You did not answer two safety check-ins. Tap to tell us you are OK, or we will text your emergency contacts in {{minutes}} minutes."
+  },
+  "approach": {
+    "hereTitle": "Your driver is here",
+    "hereBody": "Head to the pickup point.",
+    "nearTitle": "Your driver is about 5 minutes away",
+    "nearBody": "Get ready at the pickup point."
+  },
+  "deviation": {
+    "title": "Your car has left the planned route",
+    "body": "The car is about {{meters}} m off the planned route. Open Siham to follow it, or use SOS if you feel unsafe."
+  },
+  "chat": {
+    "newMessage": "New message"
+  },
+  "pickupPin": {
+    "lockedTitle": "Check the car before you get in",
+    "lockedBody": "Five wrong pickup codes were entered for your ride.{{plate}} If you are in the right car, tap \"I'm in the car\".",
+    "onlyPlate": " Only get into {{plate}}."
+  },
+  "rating": {
+    "thanksTitle": "Thanks for your rating",
+    "thanksIssue": "Thanks for rating your trip. Our team will look at the problem you reported.",
+    "thanks": "Thanks for rating your trip. It helps keep Siham safe and friendly.",
+    "reminderTitle": "How was your ride with {{driver}}?",
+    "reminderBody": "Rate your trip. It takes a few seconds and helps other riders.",
+    "yourDriver": "your driver"
+  },
+  "rideAlert": {
+    "title": "A ride on your route",
+    "body": "{{from}} to {{to}}, {{when}}, {{price}} a seat."
+  },
+  "contacts": {
+    "verifyText": "{{name}} added you as an emergency contact on Siham. If they raise an SOS on a ride, you'll get a text with their live location. Please confirm: {{url}}",
+    "someone": "A Siham user",
+    "confirmedTitle": "Emergency contact confirmed",
+    "confirmedBody": "{{name}} confirmed they are your emergency contact."
+  },
+  "parcel": {
+    "acceptedTitle": "Parcel Accepted",
+    "acceptedBody": "Your parcel has been accepted by the driver. Tracking: {{tracking}}",
+    "pickedUpTitle": "Parcel Picked Up",
+    "pickedUpBody": "Your parcel has been picked up. Tracking: {{tracking}}",
+    "onTheWay": "Parcel On the Way",
+    "deliveredTitle": "Parcel Delivered",
+    "deliveredBody": "Your parcel has been delivered. Tracking: {{tracking}}",
+    "declinedTitle": "Parcel request declined",
+    "declinedBody": "The driver could not take your parcel.",
+    "declinedRefund": "The driver could not take your parcel. {{amount}} is back in your Siham wallet."
+  },
+  "trip": {
+    "joinRequestTitle": "Someone wants to join your trip",
+    "joinRequestBody": "{{name}} asked to join \"{{trip}}\".",
+    "acceptedTitle": "You are on the trip",
+    "acceptedBody": "You joined \"{{trip}}\". Say hello to the group!",
+    "declinedTitle": "Trip request declined",
+    "declinedBody": "The organizer of \"{{trip}}\" could not take you this time.",
+    "expenseTitle": "New expense on \"{{trip}}\"",
+    "expenseBody": "{{description}}: {{amount}}, about {{share}} each.",
+    "paymentTitle": "Payment on \"{{trip}}\"",
+    "paymentBody": "A payment of {{amount}} was marked settled.",
+    "settleTitle": "Settle up for \"{{trip}}\"",
+    "youOwe": "You owe {{list}}.",
+    "youGet": "You will receive {{list}}.",
+    "payTo": "{{amount}} to {{name}}",
+    "getFrom": "{{amount}} from {{name}}",
+    "voteTitle": "Vote: {{title}}",
+    "voteBody": "A new activity was proposed for \"{{trip}}\". Vote yes, no or maybe.",
+    "confirmedTitle": "Confirmed: {{title}}",
+    "confirmedBody": "The group voted yes.",
+    "confirmedOn": "The group voted yes for {{date}}."
+  },
+  "identity": {
+    "approvedTitle": "Identity verified",
+    "approved": "Your identity check is approved.",
+    "approvedWoman": "Your identity check is approved. You can now post and book women-only rides.",
+    "rejectedTitle": "Identity check not approved",
+    "rejectedBody": "{{reason}} You can send it again from Profile > Identity check."
+  },
+  "withdrawal": {
+    "sentTitle": "Withdrawal sent",
+    "sentBody": "{{amount}} has been sent to your {{wallet}} {{number}}. Reference {{reference}}.",
+    "returnedTitle": "Withdrawal not sent",
+    "returnedBody": "{{amount}} is back in your wallet. {{reason}}"
+  },
+  "driverMessage": {
+    "title": "Message from your driver"
+  },
+  "account": {
+    "pausedTitle": "Account paused for a check",
+    "pausedBody": "We paused your account while our team checks some unusual payment activity. This usually takes a few hours. Contact support if you think this is a mistake.",
+    "mergedTitle": "Accounts merged",
+    "mergedBody": "Your other Siham account (phone ending {{lastFour}}) has been merged into this one. Its trips, ratings and wallet balance are now here."
+  },
+  "work": {
+    "email": {
+      "subject": "Confirm your work email for {{company}} on Siham",
+      "body": "Hi {{name}}. Confirm this address to join the {{company}} programme on Siham, so you can share rides with colleagues.",
+      "button": "Confirm my work email",
+      "ignore": "If you did not ask for this, ignore this email. Nothing changes until the address is confirmed."
+    },
+    "joinedTitle": "Work email confirmed",
+    "joinedBody": "You are now part of the {{company}} programme on Siham."
+  }
+}

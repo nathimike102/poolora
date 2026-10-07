@@ -27,8 +27,8 @@ export interface SettingDefinition {
   label: string;
   help: string;
   /** 'percent' values are stored as fractions (0.15) and shown as 15% */
-  unit: 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers' | 'boolean' | 'zwgPerUsd';
-  /** Money settings: a change applies only after a second admin approves it */
+  unit: 'percent' | 'minutes' | 'hours' | 'seconds' | 'km' | 'meters' | 'count' | 'weights' | 'tiers' | 'boolean' | 'zwgPerUsd' | 'currency';
+  /** Money and privacy settings: a change applies only after a second admin approves it */
   critical?: boolean;
   min?: number;
   max?: number;
@@ -64,6 +64,7 @@ const WEIGHT_KEYS = ['proximity', 'time', 'rating', 'acceptance', 'safety'] as c
 
 export const SETTINGS: SettingDefinition[] = [
   { ...numberSetting('platformFeeRate', 'fees', 'Platform commission', 'Share of each fare the platform keeps. Applies to rides completed after the change.', 'percent', 0, 0.3, mutable.ride, 'platformFeeRate'), critical: true },
+  { ...numberSetting('companyFeeRate', 'fees', 'Commission on company-paid fares', 'Share the platform keeps of the part of a fare a company pays; the rider\'s own part keeps the platform commission. Applies to rides completed after the change.', 'percent', 0, 0.3, mutable.ride, 'companyFeeRate'), critical: true },
   {
     key: 'zwgPerUsd',
     group: 'fees',
@@ -101,11 +102,21 @@ export const SETTINGS: SettingDefinition[] = [
   numberSetting('paymentTimeoutMins', 'cancellation', 'Payment time limit', 'Requests paid online (EcoCash, OneMoney, InnBucks, card) still unpaid after this are cancelled.', 'minutes', 5, 60, mutable.ride, 'paymentTimeoutMins'),
   numberSetting('requestExpiryHours', 'cancellation', 'Driver response time', 'Requests the driver has not answered after this expire with a full refund.', 'hours', 1, 24, mutable.ride, 'requestExpiryHours'),
   numberSetting('emptyRideCancelMins', 'cancellation', 'Cancel empty rides before departure', 'Rides nobody has booked are cancelled this long before they leave.', 'minutes', 15, 240, mutable.ride, 'emptyRideCancelMins'),
-  numberSetting('routeDeviationMeters', 'safety', 'Route deviation alert', 'The rider, driver and admins are alerted when the car is further than this from the planned route.', 'meters', 100, 5000, mutable.tracking, 'routeDeviationMeters'),
+  numberSetting('routeDeviationMeters', 'safety', 'Route deviation alert', 'The rider, driver and admins are alerted when the car is further than this from the planned route. Going to a point a confirmed rider chose off the route (their pickup, a stop they added, their drop) counts as part of the plan.', 'meters', 100, 5000, mutable.tracking, 'routeDeviationMeters'),
   numberSetting('safetyCheckInMins', 'safety', 'In-ride safety check-in', 'Riders in the car are asked "Are you OK?" this often. Two unanswered prompts raise an SOS.', 'minutes', 10, 120, mutable.ride, 'safetyCheckInMins'),
   numberSetting('noShowWaitMins', 'cancellation', 'No-show wait', 'How long a driver waits at the pickup before they can report a no-show.', 'minutes', 5, 30, mutable.ride, 'noShowWaitMins'),
   numberSetting('sosContactDelaySeconds', 'safety', 'SOS: time to cancel before contacts are texted', 'The safety team is alerted the moment an SOS is raised. The person\'s emergency contacts are texted after this, so an accidental press can be cancelled first. 0 texts them at once.', 'seconds', 0, 30, mutable.safety, 'contactDelaySeconds'),
   numberSetting('sosAckTargetMins', 'safety', 'SOS: page again if nobody takes it', 'An SOS no admin has taken after this pages every admin again by push and SMS, and again at each interval until someone takes it.', 'minutes', 1, 15, mutable.safety, 'ackTargetMins'),
+  {
+    key: 'sosVideoRecording',
+    group: 'safety',
+    label: 'SOS: record video',
+    help: 'On: video a person sends during an SOS is kept with the incident\'s evidence, like SOS audio, and their phone says so before the camera comes on. Off: the safety team sees it live and nothing is kept. Leave off until legal advice confirms recording inside the car is allowed. Needs the LiveKit recording keys.',
+    unit: 'boolean',
+    critical: true,
+    read: () => mutable.safety.recordVideo,
+    write: (v) => { mutable.safety.recordVideo = v; },
+  },
   numberSetting('sosCheckInLow', 'safety', 'SOS signal, low risk', 'During an SOS the phone sends its position every few seconds. Three intervals of this long without it mark the phone out of contact and page the safety team.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'low'),
   numberSetting('sosCheckInMedium', 'safety', 'SOS signal, medium risk', 'The same, once the person has said they are not fully safe.', 'seconds', 30, 600, mutable.safety.checkInSeconds, 'medium'),
   numberSetting('sosCheckInHigh', 'safety', 'SOS signal, high risk', 'The same, once the person has reported danger.', 'seconds', 15, 300, mutable.safety.checkInSeconds, 'high'),
@@ -118,6 +129,8 @@ export const SETTINGS: SettingDefinition[] = [
     read: () => ({ ...mutable.matching.weights }),
     write: (v) => { Object.assign(mutable.matching.weights, v); },
   },
+  { ...numberSetting('extraStopFee', 'fees', 'Charge per extra stop', 'Added to a booking\'s fare for each stop the rider adds between their pickup and drop, whatever the seats. The driver accepts the stops with the request.', 'currency', 0, 20, mutable.ride, 'extraStopFee'), critical: true },
+  numberSetting('maxStopsPerBooking', 'rules', 'Extra stops per booking', 'Stops a rider may add between their pickup and drop. 0 turns extra stops off.', 'count', 0, 3, mutable.ride, 'maxStopsPerBooking'),
   numberSetting('maxPickupDistanceFromRouteKm', 'matching', 'Distance from the route', 'How far from a ride\'s route a rider may be picked up or dropped.', 'km', 0.5, 10, mutable.ride, 'maxPickupDistanceFromRouteKm'),
   numberSetting('defaultSearchRadiusKm', 'matching', 'Default search radius', 'Used when the app does not send its own radius.', 'km', 1, 50, mutable.ride, 'defaultSearchRadiusKm'),
   numberSetting('defaultTimeDeviationMins', 'matching', 'Default time window', 'How far either side of the requested time a ride may leave.', 'minutes', 15, 480, mutable.ride, 'defaultTimeDeviationMins'),

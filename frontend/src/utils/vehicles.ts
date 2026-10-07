@@ -6,16 +6,27 @@
  */
 
 import type { IconName } from '../components/Icon';
+import type { Icon3DName } from '../components/Icon3D';
 import type { VehicleType } from '../types/api';
+import i18n from '../i18n';
 
 export type VehicleCategory = 'car' | 'suv' | 'minivan' | 'auto' | 'bike';
 
-export const VEHICLE_CATEGORIES: Record<VehicleCategory, { label: string; icon: IconName; blurb: string }> = {
-  car: { label: 'Car', icon: 'car-side', blurb: 'Share a car going your way' },
-  suv: { label: 'SUV', icon: 'car-pickup', blurb: 'SUVs and bakkies, with room for luggage' },
-  minivan: { label: 'Minivan', icon: 'van-passenger', blurb: 'Seven-seaters for groups and long trips' },
-  auto: { label: 'Auto', icon: 'rickshaw', blurb: 'Share a tuk-tuk going your way' },
-  bike: { label: 'Bike', icon: 'motorbike', blurb: 'Ride pillion with a driver going your way' },
+/** Labels and blurbs come from the catalogue (vehicles.*), read when shown so they follow the language */
+const category = (key: VehicleCategory, icon: IconName, icon3d: Icon3DName) => ({
+  icon,
+  /** The 3D picture for tiles and ride options */
+  icon3d,
+  get label() { return i18n.t(`vehicles.${key}.label`); },
+  get blurb() { return i18n.t(`vehicles.${key}.blurb`); },
+});
+
+export const VEHICLE_CATEGORIES: Record<VehicleCategory, { label: string; icon: IconName; icon3d: Icon3DName; blurb: string }> = {
+  car: category('car', 'car-side', 'automobile'),
+  suv: category('suv', 'car-pickup', 'sportUtilityVehicle'),
+  minivan: category('minivan', 'van-passenger', 'minibus'),
+  auto: category('auto', 'rickshaw', 'autoRickshaw'),
+  bike: category('bike', 'motorbike', 'motorcycle'),
 };
 
 /** Rides with no vehicle on record are shown as cars, the most common case. */
@@ -28,14 +39,20 @@ export function vehicleCategory(type?: VehicleType): VehicleCategory {
 }
 
 /** What a driver can register, with the most seats each may offer (mirrors the backend) */
+const registrable = (value: VehicleType, maxSeats: number) => ({
+  value,
+  maxSeats,
+  get label() { return i18n.t(`vehicles.types.${value}`); },
+});
+
 export const REGISTRABLE_VEHICLES: { value: VehicleType; label: string; maxSeats: number }[] = [
-  { value: 'hatchback', label: 'Hatchback', maxSeats: 4 },
-  { value: 'sedan', label: 'Sedan', maxSeats: 4 },
-  { value: 'suv', label: 'SUV', maxSeats: 6 },
-  { value: 'pickup', label: 'Bakkie', maxSeats: 4 },
-  { value: 'minivan', label: 'Minivan', maxSeats: 7 },
-  { value: 'auto', label: 'Auto (tuk-tuk)', maxSeats: 3 },
-  { value: 'bike', label: 'Motorbike', maxSeats: 1 },
+  registrable('hatchback', 4),
+  registrable('sedan', 4),
+  registrable('suv', 6),
+  registrable('pickup', 4),
+  registrable('minivan', 7),
+  registrable('auto', 3),
+  registrable('bike', 1),
 ];
 
 /** Seats a ride in this vehicle may offer; 6 when the vehicle is unknown */

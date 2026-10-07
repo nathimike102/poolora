@@ -8,7 +8,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const STORAGE_KEY = '@poolora_place_history';
+const STORAGE_KEY = '@siham_place_history';
 const MAX_RECENT = 6;
 
 export interface HistoryPlace {
@@ -63,4 +63,9 @@ export async function toggleFavouritePlace(place: Pick<HistoryPlace, 'name' | 's
   const next = places.map(p => (samePlace(p, place) ? { ...p, favourite: !p.favourite } : p));
   await write(next);
   return getPlaceHistory();
+}
+
+/** The places belong to the account, so logging out removes them. */
+export async function clearPlaceHistory(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
 }

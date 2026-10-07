@@ -9,7 +9,7 @@ import {
   AffordabilityIcon,
   SustainabilityIcon,
   MissionTargetIcon,
-} from '../components/icons/PooloraIcons';
+} from '../components/icons/SihamIcons';
 import { COMPANY } from '../../config/company';
 import { FEATURES } from '../../config/features';
 import { Container } from '../components/layout/Container';

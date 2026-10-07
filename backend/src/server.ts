@@ -10,12 +10,14 @@ import { SocketGateway } from './sockets/SocketGateway';
 import { EventBridge } from './events';
 import { BookingSweeper } from './jobs/BookingSweeper';
 import { ReportScheduler } from './jobs/ReportScheduler';
+import { InvoiceScheduler } from './jobs/InvoiceScheduler';
 import { AlertMonitor } from './jobs/AlertMonitor';
 import { SosMonitor } from './jobs/SosMonitor';
 import { backfillRouteLines } from './jobs/backfillRouteLines';
 import { SettingsService } from './services/SettingsService';
 import { RideCheckInService } from './services/RideCheckInService';
 import { logger } from './utils/logger';
+import { flush as flushAnalytics } from './utils/posthog';
 
 const server = http.createServer(app);
 const socketGateway = new SocketGateway();
@@ -115,6 +117,7 @@ async function bootstrap(): Promise<void> {
     SosMonitor.start();
     // Scheduled admin report emails (UC-A06)
     ReportScheduler.start();
+    InvoiceScheduler.start();
     // Admins' alert rules: dashboard, email and SMS (UC-A02)
     AlertMonitor.start();
 
@@ -146,11 +149,15 @@ async function shutdown(signal: string): Promise<void> {
       BookingSweeper.stop();
       RideCheckInService.stop();
       ReportScheduler.stop();
+      InvoiceScheduler.stop();
       AlertMonitor.stop();
 
       // Close Socket.io connections
       socketGateway.getIO()?.close();
       logger.info('Socket.io server closed');
+
+      // Send queued analytics events before the process goes
+      await flushAnalytics();
 
       // Disconnect infrastructure
       await Promise.allSettled([

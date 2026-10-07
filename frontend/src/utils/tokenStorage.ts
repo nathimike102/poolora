@@ -26,7 +26,7 @@ const isWeb = Platform.OS === 'web';
 
 /**
  * SecureStore keys may only contain letters, digits, ".", "-" and "_", so
- * the "@poolora_..." keys are stripped for it. AsyncStorage (web, and the
+ * the "@siham_..." keys are stripped for it. AsyncStorage (web, and the
  * legacy migration below) keeps the original key.
  */
 function secureStoreKey(key: string): string {

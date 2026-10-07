@@ -1,7 +1,7 @@
 /**
  * SupportBotService.ts
  *
- * The in-app support assistant (UC-X02 chatbot). It answers from Poolora's
+ * The in-app support assistant (UC-X02 chatbot). It answers from Siham's
  * help answers and the user's own recent bookings, works out refunds with
  * the real cancellation policy, and hands anything it cannot settle to a
  * person by opening a support request. It never changes a booking or moves
@@ -24,6 +24,7 @@ import { SupportService } from './SupportService';
 import { getRedisClient } from '../config/redis';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
+import { riderPays } from '../utils/fares';
 
 const MODEL = process.env.SUPPORT_BOT_MODEL || 'claude-opus-5-5';
 const MAX_TOOL_ROUNDS = 5;
@@ -38,33 +39,33 @@ export function supportBotEnabled(): boolean {
 const HELP = `
 Booking and payment
 - A seat is confirmed when the driver accepts the request. Drivers have 6 hours to answer; a request not answered in time, or once the ride has left, expires and any payment is refunded in full.
-- A request paid online (EcoCash, OneMoney, InnBucks or card) that is not paid within 15 minutes is cancelled and nothing is charged. A payment that arrives after that goes to the Poolora wallet.
+- A request paid online (EcoCash, OneMoney, InnBucks or card) that is not paid within 15 minutes is cancelled and nothing is charged. A payment that arrives after that goes to the Siham wallet.
 - Rider cancellation refunds (defaults; the exact amount comes from the get_cancellation_quote tool): everything 24 hours or more before departure, half from 2 hours, nothing after; and everything back when cancelled within 30 minutes of the driver accepting, if the ride is still at least an hour away. If the driver changes the time or cancels, the rider gets everything back.
-- Refunds go to the Poolora wallet at once, however the rider paid. From the wallet they can withdraw to EcoCash, OneMoney or InnBucks (Wallet, Withdraw); a person sends it, usually within one working day.
+- Refunds go to the Siham wallet at once, however the rider paid. From the wallet they can withdraw to EcoCash, OneMoney or InnBucks (Wallet, Withdraw); a person sends it, usually within one working day.
 
 During a ride
 - Share trip on the ride screen gives a link anyone can follow until an hour after arrival.
-- SOS alerts the Poolora safety team at once and texts emergency contacts a live-location link. In danger: call 999 (police 995, ambulance 994).
+- SOS alerts the Siham safety team at once and texts emergency contacts a live-location link. In danger: call 999 (police 995, ambulance 994).
 - Riders are asked "Are you OK?" every 30 minutes on longer rides; two unanswered prompts raise an SOS.
 - If the driver cancels, the rider is refunded in full automatically. If they never arrived: My rides, the trip, Report a problem.
 
 After a ride
 - Ratings: right after the ride or later from My rides, for 7 days. Written reviews appear after a check.
-- Receipts: My rides, the trip, Receipt; it can be emailed.
+- Receipts: Profile, Receipts, or My rides, the trip, Receipt. They are kept in the app, not emailed after each trip; any one can be emailed or shared from its page.
 - Problems with a trip: My rides, the trip, Report a problem. Reviewed within 48 to 72 hours.
 - Suspended or blocked accounts can appeal within 30 days from Help, Appeal a suspension or block.
 
 Parcels
 - Drivers photograph the parcel at pickup and delivery. Damage can be claimed within 7 days of delivery, and a parcel 24 hours overdue can be reported lost, from the parcel's tracking screen. Insured parcels are covered up to their declared value, others up to the delivery charge.
 
-Driving with Poolora
+Driving with Siham
 - Verification of licence, registration and insurance takes up to 48 hours.
-- Seat prices: Poolora suggests one from distance and vehicle; drivers choose within 30% of it.
+- Seat prices: Siham suggests one from distance and vehicle; drivers choose within 30% of it.
 - Verified badge: approved documents, 20 trips, rating 4.7+ from at least 10 riders, few cancellations, 90 days, clean record.
 - Drivers are paid their share when they complete the ride; monthly statements are on the Earnings screen.
 `.trim();
 
-const SYSTEM = `You are Poolora's support assistant, inside the Poolora ride-sharing app in Zimbabwe. You talk with one signed-in user.
+const SYSTEM = `You are Siham's support assistant, inside the Siham ride-sharing app in Zimbabwe. You talk with one signed-in user.
 
 What you can do:
 - Answer questions from the help answers below. Do not invent policies, amounts or timelines that are not there or in a tool result.
@@ -83,7 +84,7 @@ ${HELP}`;
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: 'get_my_recent_bookings',
-    description: "The signed-in user's 10 most recent bookings as a rider or driver: id, role, status, route, departure, fare, refund. Use it before answering anything about their trips or payments.",
+    description: "The signed-in user's 10 most recent bookings as a rider or driver: id, role, status, route, departure, fare, the company's part and the user's own when their company paid towards it, refund. Use it before answering anything about their trips or payments.",
     input_schema: { type: 'object', properties: {}, additionalProperties: false },
     strict: true,
   },
@@ -100,7 +101,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   },
   {
     name: 'create_support_request',
-    description: 'Open a support request so a person from Poolora takes over. Include everything the user said that the team needs, so they do not have to repeat it.',
+    description: 'Open a support request so a person from Siham takes over. Include everything the user said that the team needs, so they do not have to repeat it.',
     input_schema: {
       type: 'object',
       properties: {
@@ -206,7 +207,9 @@ export class SupportBotService {
             to: b.dropoff?.address ?? b.ride?.dropoff?.address,
             departure: b.ride?.departureTime,
             fare: b.estimatedFare,
-            paid_by: b.paymentMethod === 'online' ? 'EcoCash, OneMoney, InnBucks or card' : 'Poolora wallet',
+            // A company may pay part of the fare (UC-C01); the user paid only the rest
+            ...(b.companyShare ? { company_paid: b.companyShare, user_paid: riderPays(b) } : {}),
+            paid_by: b.paymentMethod === 'online' ? 'EcoCash, OneMoney, InnBucks or card' : 'Siham wallet',
             refunded: b.refundAmount ?? 0,
             cancelled_reason: b.cancellationReason,
           })),

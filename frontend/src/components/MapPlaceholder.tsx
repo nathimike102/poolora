@@ -7,11 +7,13 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from './Text';
+import Svg, { Path } from './ThemedSvg';
 
-import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
+
+import { tc, tk, useIsDark } from '../theme/themed';
 
 interface MapPlaceholderProps {
   style?: StyleProp<ViewStyle>;
@@ -20,7 +22,7 @@ interface MapPlaceholderProps {
 }
 
 export function MapPlaceholder({ style, caption }: MapPlaceholderProps) {
-  const { c, isDarkMode } = useApp();
+  const isDarkMode = useIsDark();
   const street = isDarkMode ? 'rgba(255,255,255,0.07)' : 'rgba(17,24,39,0.07)';
 
   return (
@@ -36,11 +38,11 @@ export function MapPlaceholder({ style, caption }: MapPlaceholderProps) {
         <Path d="M90 -20 C 110 80, 70 160, 120 260" stroke={street} strokeWidth={10} fill="none" />
         <Path d="M250 -20 C 230 90, 280 170, 240 260" stroke={street} strokeWidth={14} fill="none" />
       </Svg>
-      <View style={[styles.pin, { backgroundColor: c.surface }]}>
-        <Icon name="map-marker" size={22} color={c.primary} />
+      <View style={[styles.pin, tc.backgroundColor_surface]}>
+        <Icon name="map-marker" size={22} color={tk.primary} />
       </View>
       {caption ? (
-        <Text style={[styles.caption, { color: c.textSec }]} numberOfLines={2}>
+        <Text style={[styles.caption, tc.color_textSec]} numberOfLines={2}>
           {caption}
         </Text>
       ) : null}

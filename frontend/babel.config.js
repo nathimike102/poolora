@@ -11,6 +11,8 @@ module.exports = function (api) {
         allowUndefined: true,
         verbose: false,
       }],
+      // Themed styles repaint natively on a theme change (theme/themed.ts)
+      ['react-native-unistyles/plugin', { root: 'src' }],
       'react-native-reanimated/plugin',
     ],
   };

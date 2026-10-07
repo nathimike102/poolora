@@ -1,26 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
-  TextInput,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { Text, TextInput } from '../../components/Text';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { chatService } from '../../services/chatService';
 import type { Message } from '../../types/api';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path } from '../../components/ThemedSvg';
 
 import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackButton } from '../../components/BackButton';
 import type { RootStackParamList } from '../../navigation/types';
 import { REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -32,15 +34,19 @@ interface ChatBubble {
   isRead: boolean;
 }
 
-const QUICK_REPLIES = ['On my way!', 'Be there in 2 min', 'Running late', 'At pickup point', 'Thanks!'];
+/** Quick replies; the words are in the catalogue under chat.quick */
+const QUICK_REPLIES = ['onMyWay', 'twoMin', 'late', 'atPickup', 'thanks'] as const;
 
 export function ChatScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
-  const { c, user } = useApp();
+  const { t } = useTranslation();
+  const {
+    user
+  } = useApp();
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>();
   const chatId = route.params?.chatId;
-  const recipientName = route.params?.recipientName || 'Chat';
+  const recipientName = route.params?.recipientName || t('common.chat');
 
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const [sendError, setSendError] = useState('');
@@ -112,40 +118,40 @@ export function ChatScreen(): React.ReactElement {
     } catch {
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setInput(msgText);
-      setSendError('Message not sent. Check your connection and try again.');
+      setSendError(t('chat.notSent'));
     }
   };
 
   return (
-   <KeyboardAvoidingView
-  style={{ flex: 1 }}
-  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-  keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
->
+    <KeyboardAvoidingView
+   style={{ flex: 1 }}
+   behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+   keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+ >
       {/* ── Header ──────────────────────────────────────────── */}
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
+      <View style={[s.header, tc.backgroundColor_surface, tc.borderBottomColor_border]}>
         <BackButton onPress={() => navigation.goBack()} />
 
-        <View style={[s.avatar, { backgroundColor: c.primaryLight }]}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.primary }}>{recipientName.charAt(0).toUpperCase()}</Text>
+        <View style={[s.avatar, tc.backgroundColor_primaryLight]}>
+          <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_primary]}>{recipientName.charAt(0).toUpperCase()}</Text>
         </View>
 
         <View style={s.flex1}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }} accessibilityRole="header">{recipientName}</Text>
-          <Text style={{ fontSize: 12, color: c.textSec }}>Chat for this booking</Text>
+          <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_text]} accessibilityRole="header">{recipientName}</Text>
+          <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('chat.chatForThisBooking')}</Text>
         </View>
 
         {/* SOS */}
         <Pressable
           onPress={() => navigation.navigate('SOS', { bookingId: chatId })}
-          style={[s.headerBtn, { backgroundColor: c.errorLight }]}
+          style={[s.headerBtn, tc.backgroundColor_errorLight]}
           accessibilityRole="button"
-          accessibilityLabel="SOS emergency"
+          accessibilityLabel={t('chat.sosEmergency')}
         >
           <Svg width={18} height={18} viewBox="0 0 24 24">
             <Path
               d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
-              fill={c.error}
+              fill={tk.error}
             />
           </Svg>
         </Pressable>
@@ -161,8 +167,8 @@ export function ChatScreen(): React.ReactElement {
         keyboardDismissMode="interactive"
       >
         {messages.length === 0 && (
-          <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center', marginTop: 24 }}>
-            No messages yet. Messages are kept for 90 days.
+          <Text style={[{ fontSize: 14, textAlign: 'center', marginTop: 24 }, tc.color_textSec]}>
+            {t('chat.noMessagesYetMessagesAre')}
           </Text>
         )}
 
@@ -178,21 +184,22 @@ export function ChatScreen(): React.ReactElement {
                   style={[
                     s.bubble,
                     isMe
-                      ? { backgroundColor: c.primary, borderBottomRightRadius: 4 }
-                      : { backgroundColor: c.surface, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: c.border },
+                      ? [{ borderBottomRightRadius: 4 }, tc.backgroundColor_primary]
+                      : [
+                      { borderBottomLeftRadius: 4, borderWidth: 1 },
+                      tc.backgroundColor_surfaceVariant,
+                      tc.borderColor_surfaceVariant
+                    ],
                   ]}
                 >
-                  <Text style={{ fontSize: 14, lineHeight: 20, color: isMe ? 'white' : c.text }}>
+                  <Text style={[{ fontSize: 14, lineHeight: 20 }, isMe ? {
+                    color: 'white'
+                  } : tc.color_text]}>
                     {msg.text}
                   </Text>
                 </View>
                 <Text
-                  style={{
-                    fontSize: 11,
-                    color: c.textSec,
-                    marginTop: 3,
-                    textAlign: isMe ? 'right' : 'left',
-                  }}
+                  style={[{ fontSize: 11, marginTop: 3, textAlign: isMe ? 'right' : 'left' }, tc.color_textSec]}
                 >
                   {msg.time}
                   {isMe && (msg.id.startsWith('pending-') ? ' · Sending' : msg.isRead ? ' · Read' : ' · Sent')}
@@ -204,7 +211,7 @@ export function ChatScreen(): React.ReactElement {
       </ScrollView>
 
       {sendError ? (
-        <Text style={{ fontSize: 13, color: c.error, textAlign: 'center', paddingHorizontal: 16 }} accessibilityLiveRegion="polite">
+        <Text style={[{ fontSize: 13, textAlign: 'center', paddingHorizontal: 16 }, tc.color_error]} accessibilityLiveRegion="polite">
           {sendError}
         </Text>
       ) : null}
@@ -216,34 +223,46 @@ export function ChatScreen(): React.ReactElement {
         style={s.quickRepliesScroll}
         contentContainerStyle={s.quickRow}
       >
-        {QUICK_REPLIES.map(qr => (
+        {QUICK_REPLIES.map(key => t(`chat.quick.${key}`)).map(qr => (
           <Pressable
             key={qr}
             onPress={() => send(qr)}
-            style={[s.quickChip, { backgroundColor: c.surface, borderColor: c.border }]}
+            style={[
+              s.quickChip,
+              tc.backgroundColor_surfaceVariant,
+              tc.borderColor_surfaceVariant
+            ]}
             hitSlop={4}
             accessibilityRole="button"
             accessibilityLabel={`Send: ${qr}`}
           >
-            <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>{qr}</Text>
+            <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_primary]}>{qr}</Text>
           </Pressable>
         ))}
       </ScrollView>
 
       {/* ── Input bar ───────────────────────────────────────── */}
-      <View style={[s.inputBar, { backgroundColor: c.surface,
-      borderTopColor: c.border,
-      paddingBottom: insets.bottom + 6 }]}>
+      <View style={[
+        s.inputBar,
+        { paddingBottom: insets.bottom + 6 },
+        tc.backgroundColor_surface,
+        tc.borderTopColor_border
+      ]}>
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder="Type a message"
-          placeholderTextColor={c.textSec}
-          accessibilityLabel="Message"
+          placeholder={t('chat.typeAMessage')}
+          placeholderTextColor={tk.textSec}
+          accessibilityLabel={t('chat.message')}
           maxLength={2000}
           onSubmitEditing={() => send(input)}
           returnKeyType="send"
-          style={[s.textInput, { backgroundColor: c.bg, borderColor: c.border, color: c.text }]}
+          style={[
+            s.textInput,
+            tc.backgroundColor_surface,
+            tc.borderColor_border,
+            tc.color_text
+          ]}
         />
 
         {/* Send */}
@@ -251,8 +270,8 @@ export function ChatScreen(): React.ReactElement {
           onPress={() => send(input)}
           disabled={!input.trim()}
           accessibilityRole="button"
-          accessibilityLabel="Send message"
-          style={[s.inputBtn, { backgroundColor: input.trim() ? c.primary : c.border }]}
+          accessibilityLabel={t('chat.sendMessage')}
+          style={[s.inputBtn, input.trim() ? tc.backgroundColor_primary : tc.backgroundColor_border]}
         >
           <Svg width={18} height={18} viewBox="0 0 24 24">
             <Path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="white" />

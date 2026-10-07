@@ -1,7 +1,7 @@
 {
-  "name": "poolora-presentation",
+  "name": "siham-presentation",
   "private": true,
-  "description": "Builds the Poolora decks and PDFs from the code and the app's screens",
+  "description": "Builds the Siham decks and PDFs from the code and the app's screens",
   "scripts": {
     "facts": "cd ../../../backend && npx ts-node --transpile-only -P tsconfig.json ../Doc/presentation/source/facts.ts > ../Doc/presentation/source/facts.json",
     "screens": "python3 prep_screens.py",

@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Menu, X, ArrowRight } from 'lucide-react';
-import logoImg from '../../assets/poolora-logo.webp';
-import { ImageWithFallback } from './common/ImageWithFallback';
-import { COMPANY } from '../../config/company';
+import { SihamLogo } from './brand/SihamLogo';
 import { NAVIGATION } from '../../config/navigation';
 import { Container } from './layout/Container';
 
@@ -32,8 +30,7 @@ export function Navbar() {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 shrink-0">
-            <ImageWithFallback src={logoImg} alt="" width={36} height={36} fetchPriority="high" decoding="async" className="h-9 w-9 object-contain" />
-            <span className="font-black text-[1.1rem] text-gray-900 tracking-[-0.02em]">{COMPANY.name}</span>
+            <SihamLogo size={36} />
           </Link>
 
           {/* Desktop nav */}

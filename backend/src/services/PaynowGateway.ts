@@ -28,7 +28,7 @@ export type PayChannel = 'ecocash' | 'onemoney' | 'innbucks' | 'card';
 export const PAY_CHANNELS: PayChannel[] = ['ecocash', 'onemoney', 'innbucks', 'card'];
 export const MOBILE_CHANNELS: PayChannel[] = ['ecocash', 'onemoney', 'innbucks'];
 
-/** Where a Paynow transaction stands, reduced to what Poolora acts on */
+/** Where a Paynow transaction stands, reduced to what Siham acts on */
 export type GatewayState = 'pending' | 'paid' | 'failed' | 'refunded' | 'disputed';
 
 export interface GatewayStatus {

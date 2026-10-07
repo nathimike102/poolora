@@ -30,6 +30,25 @@ export interface IEmergencyRecord extends Document {
   raisedVia?: 'app' | 'check-in' | 'tracker';
   audioRecordingUrls: string[];
   screenshotUrls: string[];
+  /**
+   * Live video during the SOS (UC-X04). The safety team can ask for it, and
+   * the person can turn the camera on themselves. Only the phone sends; the
+   * team watches without making any sound on it.
+   */
+  video?: {
+    room: string;
+    /** LiveKit's id for this video's room, so events about an earlier room are ignored */
+    roomSid?: string;
+    requestedAt?: Date;
+    requestedBy?: Types.ObjectId;
+    /** The phone's camera came on (the latest time, if turned on again) */
+    startedAt?: Date;
+    endedAt?: Date;
+    /** Decided when the camera comes on, so the person is told before it does */
+    recording: boolean;
+    egressId?: string;
+  };
+  videoRecordingUrls: string[];
   emergencyContactsNotified: Array<{
     name: string;
     phone: string;
@@ -51,7 +70,7 @@ export interface IEmergencyRecord extends Document {
   userSafeAt?: Date;
   /** The phone stopped sending its position */
   lostContactAt?: Date;
-  /** The user cancelled inside the window, before anyone outside Poolora was told */
+  /** The user cancelled inside the window, before anyone outside Siham was told */
   cancelledAt?: Date;
   liveTrackingUrl: string;
   riskLevel: SOSRiskLevel;
@@ -110,6 +129,23 @@ const EmergencyRecordSchema = new Schema<IEmergencyRecord>(
     raisedVia: { type: String, enum: ['app', 'check-in', 'tracker'] },
     audioRecordingUrls: [String],
     screenshotUrls: [String],
+    video: {
+      type: new Schema(
+        {
+          room: { type: String, required: true },
+          roomSid: String,
+          requestedAt: Date,
+          requestedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+          startedAt: Date,
+          endedAt: Date,
+          recording: { type: Boolean, default: false },
+          egressId: String,
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    videoRecordingUrls: [String],
     emergencyContactsNotified: [
       {
         name: { type: String, required: true },

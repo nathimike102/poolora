@@ -23,6 +23,7 @@ import { User } from '../../models/User';
 import { Booking } from '../../models/Booking';
 import { Rating } from '../../models/Rating';
 import { RatingService } from '../../services/RatingService';
+import { inEnglish } from '../setup/english';
 
 jest.setTimeout(60_000);
 
@@ -64,7 +65,7 @@ beforeEach(async () => {
 it('stores category scores, counts the score at once and summarises them', async () => {
   const bookingId = await completedBooking(1);
   await service.createRating(riderId.toString(), { bookingId, score: 4, categories: { behavior: 5, cleanliness: 3, punctuality: 4 } });
-  expect((await User.findById(driverId).lean())?.stats).toMatchObject({ avgRatingAsDriver: 4, totalRatingsAsDriver: 1 });
+  expect((await User.findById(driverId).lean())?.stats).toMatchObject({ avgRatingAsDriver: 4.91, totalRatingsAsDriver: 1, ratingSumAsDriver: 4 });
   expect(await service.summary(driverId.toString(), 'driver')).toEqual({
     count: 1, overall: 4, categories: { behavior: 5, cleanliness: 3, punctuality: 4 },
   });
@@ -134,7 +135,7 @@ it('lists trips still to rate, and reminds once a day after the trip', async () 
   expect(pending.find((p) => p.bookingId === unrated)).toMatchObject({ role: 'rider', rateeName: 'Ravi Kumar' });
 
   expect(await service.sendReminders()).toBe(1);
-  expect(mockPush).toHaveBeenCalledWith(riderId.toString(), 'How was your ride with Ravi?', expect.any(String), expect.objectContaining({ bookingId: unrated }));
+  expect(mockPush).toHaveBeenCalledWith(riderId.toString(), inEnglish('How was your ride with Ravi?'), expect.anything(), expect.objectContaining({ bookingId: unrated }));
   expect(await service.sendReminders()).toBe(0);
   expect(await Rating.countDocuments()).toBe(1);
 });

@@ -76,10 +76,10 @@ describe('send times and periods', () => {
 describe('managing schedules', () => {
   it('creates a schedule with a tidy recipient list and audits it', async () => {
     const { schedule } = await service.create(
-      { name: 'Weekly money', types: ['financial', 'rides'], frequency: 'weekly', recipients: 'Ops@Poolora.app, ops@poolora.app; cfo@poolora.app' },
+      { name: 'Weekly money', types: ['financial', 'rides'], frequency: 'weekly', recipients: 'Ops@Siham.app, ops@siham.app; cfo@siham.app' },
       admin,
     );
-    expect(schedule).toMatchObject({ recipients: ['ops@poolora.app', 'cfo@poolora.app'], format: 'xlsx', active: true });
+    expect(schedule).toMatchObject({ recipients: ['ops@siham.app', 'cfo@siham.app'], format: 'xlsx', active: true });
     expect(new Date(schedule.nextRunAt).getUTCDay()).toBe(1); // 07:00 CAT Monday is still Monday in UTC
     expect(await AdminAuditLog.countDocuments({ action: 'report_schedule.create' })).toBe(1);
   });
@@ -109,7 +109,7 @@ describe('sending', () => {
       types: ['rides', 'safety'],
       frequency: 'daily',
       format: 'csv',
-      recipients: ['ops@poolora.app', 'cfo@poolora.app'],
+      recipients: ['ops@siham.app', 'cfo@siham.app'],
       createdBy: admin,
       nextRunAt: new Date(Date.now() - 60_000),
       ...overrides,
@@ -121,10 +121,10 @@ describe('sending', () => {
     expect(a + b).toBe(1);
     expect(sendMail).toHaveBeenCalledTimes(2);
     const mail = sendMail.mock.calls[0][0];
-    expect(mail.subject).toContain('Daily Poolora reports: Ops daily');
+    expect(mail.subject).toContain('Daily Siham reports: Ops daily');
     expect(mail.attachments.map((x: { filename: string }) => x.filename)).toEqual([
-      expect.stringMatching(/^poolora-rides-.*\.csv$/),
-      expect.stringMatching(/^poolora-safety-.*\.csv$/),
+      expect.stringMatching(/^siham-rides-.*\.csv$/),
+      expect.stringMatching(/^siham-safety-.*\.csv$/),
     ]);
     expect(mail.text).toContain('Rides report');
 
@@ -166,7 +166,7 @@ describe('Excel and PDF export', () => {
     const names = book.worksheets.map((w) => w.name);
     expect(names.slice(0, 2)).toEqual(['Summary', 'By week']);
     expect(names.length).toBe(2 + report.tables.length);
-    expect(book.getWorksheet('Summary')!.getCell('A1').value).toBe('Poolora rides report');
+    expect(book.getWorksheet('Summary')!.getCell('A1').value).toBe('Siham rides report');
   });
 
   it('writes a PDF', async () => {

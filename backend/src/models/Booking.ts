@@ -17,6 +17,13 @@ export interface IBooking extends Document {
     location: GeoPoint;
     address: string;
   };
+  /**
+   * Stops the rider added between their pickup and drop, in route order (as on
+   * Rapido and Uber). The driver accepts them with the request.
+   */
+  stops?: Array<{ location: GeoPoint; address: string }>;
+  /** What the stops added to the fare (extraStopFee each); included in estimatedFare */
+  stopsFee?: number;
   estimatedFare: number;
   finalFare?: number;
   matchScore: number;
@@ -63,6 +70,22 @@ export interface IBooking extends Document {
   pickupPinAttempts?: number;
   /** Who confirmed the pickup: the driver with the code, or the rider in their app */
   pickupConfirmedBy?: 'pin' | 'rider' | 'simulation';
+  /** The rider's leg along the route, set on completion (UC-R11) */
+  distanceKm?: number;
+  /** CO₂ this shared seat saved against going alone, set on completion (UC-R11) */
+  co2SavedKg?: number;
+  /**
+   * The rider's company pays this much of the fare (UC-C01); the rider pays
+   * the rest. It is billed to the company only if the trip completes.
+   */
+  companyShare?: number;
+  organisation?: Types.ObjectId;
+  /** The month the company's contribution counts against its cap, YYYY-MM in market time */
+  companyMonth?: string;
+  /** The rider is catching a bus from the drop (UC-R12): when it leaves, and the terminus if the drop is at one */
+  connection?: { departsAt: Date; hub?: Types.ObjectId; hubName?: string };
+  /** The company bill this booking's share is on (UC-C03); a trip completed after its month was billed goes on the next one */
+  companyInvoice?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -95,6 +118,15 @@ const BookingSchema = new Schema<IBooking>(
       location: { type: GeoPointSchema, required: true },
       address: { type: String, required: true },
     },
+    stops: {
+      type: [{
+        _id: false,
+        location: { type: GeoPointSchema, required: true },
+        address: { type: String, required: true },
+      }],
+      default: undefined,
+    },
+    stopsFee: { type: Number, min: 0 },
     estimatedFare: { type: Number, required: true, min: 0 },
     finalFare: { type: Number, min: 0 },
     matchScore: { type: Number, default: 0, min: 0, max: 100 },
@@ -132,6 +164,16 @@ const BookingSchema = new Schema<IBooking>(
     pickupPin: { type: String, select: false },
     pickupPinAttempts: { type: Number, select: false },
     pickupConfirmedBy: { type: String, enum: ['pin', 'rider', 'simulation'] },
+    distanceKm: { type: Number, min: 0 },
+    co2SavedKg: { type: Number, min: 0 },
+    companyShare: { type: Number, min: 0 },
+    organisation: { type: Schema.Types.ObjectId, ref: 'Organisation' },
+    companyMonth: { type: String },
+    companyInvoice: { type: Schema.Types.ObjectId, ref: 'CompanyInvoice' },
+    connection: {
+      type: new Schema({ departsAt: { type: Date, required: true }, hub: { type: Schema.Types.ObjectId, ref: 'TransitHub' }, hubName: String }, { _id: false }),
+      default: undefined,
+    },
   },
   {
     timestamps: true,
@@ -146,6 +188,11 @@ BookingSchema.pre('validate', function (next) {
 });
 
 BookingSchema.index({ rider: 1, status: 1 });
+// A company's monthly cap per person (UC-C01)
+BookingSchema.index({ rider: 1, organisation: 1, companyMonth: 1 }, { sparse: true });
+// Company bills (UC-C03): only trips a company paid towards
+BookingSchema.index({ organisation: 1, companyMonth: 1, status: 1 }, { partialFilterExpression: { companyShare: { $gt: 0 } } });
+BookingSchema.index({ companyInvoice: 1 }, { sparse: true });
 BookingSchema.index({ driver: 1, status: 1 });
 BookingSchema.index({ status: 1, createdAt: 1 }); // booking sweeper
 BookingSchema.index(

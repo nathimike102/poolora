@@ -1,6 +1,6 @@
-"""Poolora: a short note on how the system works and the tools it uses.
+"""Siham: a short note on how the system works and the tools it uses.
 
-python3 note.py [out.pdf]   (default ../Poolora-System-Note.pdf). Numbers come from facts.json.
+python3 note.py [out.pdf]   (default ../Siham-System-Note.pdf). Numbers come from facts.json.
 """
 import json, os, sys
 from reportlab.lib.pagesizes import A4
@@ -14,7 +14,7 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph,
                                 TableStyle, Image, KeepTogether, ListFlowable, ListItem)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'Poolora-System-Note.pdf')
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'Siham-System-Note.pdf')
 FACTS = json.load(open(os.path.join(HERE, 'facts.json')))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 PR = FACTS['pricing']
@@ -80,27 +80,27 @@ def on_page(c, doc):
     c.saveState()
     c.setFont('DV', 8)
     c.setFillColor(MUTED)
-    c.drawString(2 * cm, 1.2 * cm, 'Poolora · How the system works')
+    c.drawString(2 * cm, 1.2 * cm, 'Siham · How the system works')
     c.drawRightString(A4[0] - 2 * cm, 1.2 * cm, str(doc.page))
     c.restoreState()
 
 
 doc = BaseDocTemplate(OUT, pagesize=A4, leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.8 * cm, bottomMargin=2 * cm,
-                      title='Poolora: how the system works', author='Nkosinathi Michael Sibanda')
+                      title='Siham: how the system works', author='Nkosinathi Michael Sibanda')
 frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id='f')
 doc.addPageTemplates([PageTemplate(id='p', frames=[frame], onPage=on_page)])
 W = doc.width
 
 s = []
-s.append(Image(os.path.join(ROOT, 'branding/poolora-lockup.png'), width=5.2 * cm, height=1.63 * cm, hAlign='LEFT'))
+s.append(Image(os.path.join(ROOT, 'branding/siham-lockup.png'), width=5.2 * cm, height=1.58 * cm, hAlign='LEFT'))
 s.append(Spacer(1, 8))
-s.append(P('How Poolora works', h1))
+s.append(P('How Siham works', h1))
 s.append(P('A short note on the system, the tools it uses and how each of them works. '
            'B.Tech CSE final year project · Nkosinathi Michael Sibanda · 2026 · launching first in Zimbabwe', lead))
 
 # 1
-s.append(P('1. What Poolora is', h2))
-s.append(P('Poolora connects people who are travelling the same way. A driver publishes a trip with free seats; riders anywhere '
+s.append(P('1. What Siham is', h2))
+s.append(P('Siham connects people who are travelling the same way. A driver publishes a trip with free seats; riders anywhere '
            'along that route can book a seat and share the cost. The same idea is extended to <b>parcels</b> (send a package with a '
            'driver already going there) and <b>group trips</b> (plan a holiday together and split the expenses). '
            'There are three users: <b>riders</b> and <b>drivers</b> use the mobile app, and <b>administrators</b> use a web dashboard. '
@@ -169,7 +169,7 @@ s.append(P('Refunds and money', h3))
 s.append(P(f'A rider cancelling a confirmed seat gets {pct(TIERS[0]["refundRate"])} back {TIERS[0]["minHours"]} hours or more before departure, '
            f'{pct(TIERS[1]["refundRate"])} from {TIERS[1]["minHours"]} hours and nothing after that; cancelling within {CAN["freeCancelMins"]} minutes of the driver '
            f'accepting is free while the ride is at least {CAN["freeCancelLeadMins"] // 60} hour away. If the driver cancels or moves the time, the rider '
-           'always gets everything back. Paynow cannot refund, so refunds go to the Poolora wallet, which can be withdrawn to mobile money. '
+           'always gets everything back. Paynow cannot refund, so refunds go to the Siham wallet, which can be withdrawn to mobile money. '
            'Wallet payments only succeed if the balance is enough (checked in the same database update), every refund has an idempotency '
            'key so a retry never pays twice, and group-trip shares are worked out in whole cents so they always add up.'))
 s.append(P('Settling group expenses', h3))
@@ -199,7 +199,7 @@ s.append(bullets([
 # 5
 s.append(P('5. Tools used and how they work', h2))
 tools = [
-    ['Tool', 'What it is and how it works', 'Used in Poolora for'],
+    ['Tool', 'What it is and how it works', 'Used in Siham for'],
     ['TypeScript', 'JavaScript with types. The compiler checks that values have the right shape before the code runs, then outputs plain JavaScript.', 'App, API and admin, so all three share one language'],
     ['React Native + Expo', 'Write the UI once in React; React Native draws real Android and iOS components. Expo adds ready-made modules (location, notifications) and the build tools.', 'The mobile app'],
     ['React + Vite', 'React builds the page from components that re-render when data changes. Vite is a fast dev server and bundler.', 'The admin dashboard'],
@@ -207,7 +207,7 @@ tools = [
     ['Socket.IO', 'Keeps a WebSocket open between the phone and the server so either side can send a message at any time. Clients join "rooms" (a booking, the admin SOS desk) and the server sends to a room.', 'Live GPS, chat, SOS, alerts'],
     ['MongoDB + Mongoose', 'A document database: each record is a JSON-like document. Indexes make lookups fast; 2dsphere indexes answer questions about points and lines on the Earth. Mongoose adds schemas and validation.', 'All stored data, route search'],
     ['Redis', 'An in-memory key-value store, very fast. Keys can expire on their own. SET with NX gives a simple lock.', 'Cache, rate limits, job locks, Socket.IO across servers'],
-    ['Apache Kafka', 'A log of events that services publish to and read from, so work happens after the request finishes. Poolora falls back to in-process handling when Kafka is down.', 'Booking, payment and safety events'],
+    ['Apache Kafka', 'A log of events that services publish to and read from, so work happens after the request finishes. Siham falls back to in-process handling when Kafka is down.', 'Booking, payment and safety events'],
     ['Python + FastAPI', 'FastAPI turns Python functions into HTTP endpoints and checks the input with Pydantic models.', 'The ML service'],
     ['Firebase', 'Google\'s service for sign-in (phone OTP, Google) and push notifications (FCM). The server verifies Firebase tokens with the Admin SDK.', 'Login and push'],
     ['Paynow', 'Zimbabwe\'s payment gateway. The server starts a charge; Paynow prompts the phone (EcoCash, OneMoney), gives an InnBucks code or a card page, then posts the result, signed with a hash the server checks.', 'EcoCash, OneMoney, InnBucks and card, in US$ or ZiG'],

@@ -1,6 +1,6 @@
 # Feature Gap Analysis
 
-What the documents in `frontend/docs` promise, compared with what the app and backend do today (last updated 30 September 2026). Sections 1 to 1.3 are a history written while Poolora targeted India, so they still mention Razorpay, rupees and India time; section 1.4 records the move to Zimbabwe, and sections 2 onward describe the system as it is now. Each gap says what the feature should do and where it would go. Use-case IDs (UC-…) refer to `design/03-USE-CASES.md`.
+What the documents in `frontend/docs` promise, compared with what the app and backend do today (last updated 30 September 2026). Sections 1 to 1.3 are a history written while Siham targeted India, so they still mention Razorpay, rupees and India time; section 1.4 records the move to Zimbabwe, and sections 2 onward describe the system as it is now. Each gap says what the feature should do and where it would go. Use-case IDs (UC-…) refer to `design/03-USE-CASES.md`.
 
 ---
 
@@ -125,7 +125,7 @@ The PRD's "Safe for her" list, UC-R05 to UC-R10 and UC-A03 were read against the
 | "I'm safe" (UC-A03) | Closed the incident at once, so a person made to tap it lost the safety team | Recorded and passed on to the team and the contacts; the SOS stays open until an admin has called |
 | Missed-check-in escalation (bug) | Ran only when someone opened the dashboard; any position update reset it, so it never fired while the app was open; escalating marked the SOS "acknowledged", hiding it from the "nobody has it" alert | A background job every 15 s. A phone silent for three intervals is "out of contact", risk high, team paged. Escalation never pretends an admin took it |
 | Leaving the SOS screen (bug) | The screen forgot the SOS: coming back showed the idle button, and pressing again failed with 409 | The open SOS is loaded every time; pressing again re-raises it |
-| No connection (UC-R07 5a) | "Could not reach Poolora" | Retries every 5 s, and offers to call the emergency line and to text the contacts from the phone's own messaging app, which needs no data |
+| No connection (UC-R07 5a) | "Could not reach Siham" | Retries every 5 s, and offers to call the emergency line and to text the contacts from the phone's own messaging app, which needs no data |
 | Positions to the admin map (bug) | Positions sent over REST (the app's path) were published on a stream nobody consumed; the map caught up only on its 20-second poll | Live, on the safety stream |
 | SOS from missed check-ins | Texted the contacts at once, for what is often a phone in a bag | The team is paged at once; the rider gets 5 minutes to answer before contacts are texted, and a late "I'm OK" stands it down |
 | Who can read an SOS | The other person on the ride could read it, including the tracking link | Only the person who raised it and admins |
@@ -151,7 +151,7 @@ The PRD's "Safe for her" list, UC-R05 to UC-R10 and UC-A03 were read against the
 | Riders' phones (decided 30 September) | Never traced; a driver robbed by riders had no trace of them | Traced from pickup to drop |
 | Phone switched off (decided 30 September) | "Out of contact" only | Every position carries the battery level: near 0% it probably ran out; with charge left it was switched off or taken, and the alert says so. The low-battery screen tells the person what still works |
 | "What's happening?" (decided 30 September) | Staff found out by calling | One optional tap after the alert: the driver, a passenger, someone outside, medical, accident. Naming someone raises the risk and marks them on the incident; medical or accident tells staff the other person may help |
-| Car trackers (decided 1 October) | When every phone was off, only last positions were left | Drivers can link the GPS tracker in their car (UC-D11). Trackers report to Poolora's Traccar gateway (forwarder only, `infra/traccar`), which reads almost every tracker protocol and accepts forwarding from tracking companies (Wialon, Traccar, GPSWox). During rides the car's own trail joins the trip trail; its panic button raises an SOS; a cut tracker alerts the team. Optional, with a "Tracked car" badge. Outside rides only the time of the last report is kept. Poolora never cuts an engine |
+| Car trackers (decided 1 October) | When every phone was off, only last positions were left | Drivers can link the GPS tracker in their car (UC-D11). Trackers report to Siham's Traccar gateway (forwarder only, `infra/traccar`), which reads almost every tracker protocol and accepts forwarding from tracking companies (Wialon, Traccar, GPSWox). During rides the car's own trail joins the trip trail; its panic button raises an SOS; a cut tracker alerts the team. Optional, with a "Tracked car" badge. Outside rides only the time of the last report is kept. Siham never cuts an engine |
 | Identifying everyone (UC-A03) | Names, phones and the plate | The car in full with photos and the driver's documents, every other rider, ID-check status, licence number, mobile money numbers (registered to a name), and the chat and calls between them |
 
 Decisions made on purpose:
@@ -159,6 +159,16 @@ Decisions made on purpose:
 - **No automatic warning for false alarms.** UC-R07 says more than three is a warning. They are counted and shown to the admin, who decides; an automatic penalty would teach people not to press SOS.
 - **No automatic suspension on every SOS.** UC-A03 says "driver suspended pending investigation". Automatic suspension would punish drivers for accidental presses and, worse, tell a dangerous driver about the SOS while the rider is still in the car. The admin does it in one click when it is safe.
 - **A declared gender alone is never enough.** It would let any man into a women-only ride; an admin checks the selfie against the ID, then confirms the gender the person lives as.
+
+### 1.8 Phase 2 begins (1–2 October 2026)
+
+Every use case up to Phase 4 is built, so work moved to the future phases in the project plan (§3.2). They are designed in `12-NEXT-PHASES.md`, with use cases UC-R11, UC-X03, UC-C01 to UC-C03, UC-X04 and UC-R12 in `design/03-USE-CASES.md` §13. Loyalty and rewards, one of them, was already built (coins and tiers in the wallet).
+
+| Area | Now |
+|---|---|
+| Carbon footprint tracking (UC-R11) | Each completed booking stores the rider's leg along the route (`distanceKm`) and the CO₂ it saved against going alone in an average car (`co2SavedKg`); both are added to the rider's and the driver's stats. Profile → Your impact shows all time, this month, six months of bars and "How we count"; the receipt and its email show the trip's saving; the web admin's dashboard shows the platform total. Emission factors per vehicle class are in `config.carbon`. `npm run backfill:carbon` measures bookings completed before. 13 tests (`Carbon.test.ts`) |
+| Sign-in by unverified email (security, found 2 October 2026) | Signing in with Firebase linked an existing account by email without checking that Firebase had verified the address, so anyone could make a Firebase email-and-password account with an admin's address and sign in as them. Now an email links an account only once verified (Google always is; a password reset by email link verifies it), and an unverified address cannot claim one in use. Test: `FirebaseEmailLink.test.ts`. Admins who signed in with an unverified email-and-password account must use "Forgot password" once |
+| Multi-language, step 1 (UC-X03) | i18next with English as the fallback; Settings → Language and `User.language`; each market lists its languages. Every screen except the four in-app admin screens is in the catalogue (about 1,700 phrases), and so are the server's pushes, texts and alerts (about 120). An SOS text sent in another language carries the English beneath it. Shona and Ndebele are empty and hidden until native speakers have reviewed them (12-NEXT-PHASES §2 has the translators' steps). Needs a native rebuild for `expo-localization` |
 
 ---
 
@@ -173,6 +183,11 @@ Decisions made on purpose:
 | Safe routes and safe pickup points | PRD | Needs data on lighting and busy places that does not exist for Zimbabwe yet; OpenStreetMap has too little |
 | New app build and store declarations | UC-R07 | Background SOS location and SOS audio add native modules: rebuild the app (`npx expo run:android`, or EAS). Google Play then asks for the foreground-service declarations (location and microphone, with a short video of the SOS), and Apple for the background-location and microphone reasons. Have the lawyer confirm recording during an SOS before launch |
 | Tracker gateway and partners | UC-D11 | Run the gateway (`infra/traccar/README.md`) and set `TRACKER_GATEWAY_KEY`, `_HOST`, `_PORT`. Local providers (eTrack, YoTracker, EzyTrack, Cartrack, Guard-Alert Pinpoint, Kukhutech) publish no API: forwarding a consenting driver's car needs an agreement with each. Low-cost GT06 trackers (about US$15 with a panic button) work without one |
+| Emission factors | UC-R11 | Round figures for typical petrol cars of each class (`config.carbon`). Check them against a published source before quoting a platform total in marketing |
+| Multi-language (UC-X03) | 12-NEXT-PHASES §2 | Built in English throughout; what remains is the Shona and Ndebele translations themselves, by paid native-speaker translators with a second reviewer, before either is switched on. Messages carrying an admin's own words, and the public website, stay in English for now. Shona and Ndebele need paid native-speaker translators and a second reviewer before they are switched on |
+| Company programmes (UC-C01 to UC-C03) | 12-NEXT-PHASES §3 | Built (all five slices): companies set up in the web admin, staff join by confirming a work email, colleagues-only rides and the "Works at" badge, company-paid fares, monthly billing, and the company's own dashboard. Before selling it: have finance check the bill (a statement, not a ZIMRA fiscal invoice) |
+| Ranks and termini (UC-R12) | 12-NEXT-PHASES §5 | Built. An admin must place and switch on each rank and terminus before riders see it |
+| Video calling (UC-X04) | 12-NEXT-PHASES §4 | Built for SOS, with LiveKit. Needs the LiveKit project keys, a new app build, and the lawyer's view before recording is switched on (off by default) |
 | Legal wording | Privacy policy | Updated for the ID photo and selfie, SOS audio and location with the screen off; still part of the lawyer's review |
 
 ## 3. Documentation cleanup
@@ -183,7 +198,7 @@ The documents disagree with each other and with the code in several places:
 2. ~~**API specification is out of date.**~~ Rewritten from the code in September 2026, and checked again on 29 September: all 234 routes are documented (236 with the support assistant's two, added 30 September; the safety pass of the same day added ten more: SOS current, cancel and audio upload, the rider's in-car confirmation, the identity check and its four admin routes) and none that is documented is missing.
 3. ~~**Contradictions in the use cases.**~~ UC-D02 now refuses rides over 650 km, and parcel pooling is Phase 4 everywhere.
 4. ~~**Numbering.**~~ `08-TECHNICAL-REQUIREMENTS.md` runs 1–15 (the second "Quality Metrics" was the database configuration), and `03-USE-CASES.md` runs 1–12.
-5. ~~**Naming.**~~ The documents say Poolora.
+5. ~~**Naming.**~~ The documents say Siham.
 6. ~~**Admin.**~~ The web dashboard the documents describe now exists (`admin-web/`), alongside the app's admin screens.
 7. ~~**Tracking interval.**~~ 5 seconds everywhere, as in the app.
 8. **Aspirational design.** `02-SYSTEM-ARCHITECTURE.md`, `05-SYSTEM-DESIGN.md`, `06-DATABASE-SCHEMAS.md` and `08-TECHNICAL-REQUIREMENTS.md` still describe a larger target design (PostgreSQL, RabbitMQ, Redux, a web dashboard) that was never built. Each now opens with a status note pointing here and to the API specification. Rewrite them only if they are needed as a reference for new work.

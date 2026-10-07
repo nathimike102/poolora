@@ -7,21 +7,16 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  useWindowDimensions,
-} from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { ActivityIndicator } from '../../components/Themed';
+import { ServiceAreaBanner } from '../../components/ServiceArea';
+import { Text } from '../../components/Text';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
 import { LiveMap } from '../../components/LiveMap';
+import { ServiceTile, TileGrid } from '../../components/ServiceTile';
 import { Icon, type IconName } from '../../components/Icon';
 import { Typography, Spacing, Radius, Shadow } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
@@ -32,6 +27,10 @@ import { useCurrentPlace } from '../../hooks/useCurrentPlace';
 import { logger } from '../../utils/logger';
 import type { Booking, Ride } from '../../types/api';
 import { REGION, money } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
+
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -53,14 +52,14 @@ function formatDeparture(iso: string): string {
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
   const time = d.toLocaleTimeString(REGION.dateLocale, { hour: 'numeric', minute: '2-digit' });
-  if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
-  if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+  if (d.toDateString() === today.toDateString()) return i18n.t('home.today', { time });
+  if (d.toDateString() === tomorrow.toDateString()) return i18n.t('home.tomorrow', { time });
   return `${d.toLocaleDateString(REGION.dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
 }
 
 export function DriverHomeScreen() {
   const navigation = useNavigation<Nav>();
-  const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const mapHeight = Math.round(height * 0.32);
@@ -108,8 +107,8 @@ export function DriverHomeScreen() {
         const booked = (r.seats ?? 0) - (r.availableSeats ?? 0);
         return {
           id: r._id,
-          from: r.pickupLocation?.address || 'Pickup',
-          to: r.dropoffLocation?.address || 'Drop',
+          from: r.pickupLocation?.address || t('common.pickup'),
+          to: r.dropoffLocation?.address || t('common.drop'),
           departure: r.scheduledDeparture,
           booked,
           total: r.seats ?? 0,
@@ -123,7 +122,7 @@ export function DriverHomeScreen() {
     } finally {
       if (isActive()) setLoaded(true);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -134,22 +133,22 @@ export function DriverHomeScreen() {
   );
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? t('driverHome.goodAfternoon') : t('driverHome.goodEvening');
   const firstName = driverName.split(' ')[0];
 
   const areaLabel =
     hereStatus === 'ready'
-      ? here?.address ?? 'Current location'
+      ? here?.address ?? t('home.currentLocation')
       : hereStatus === 'loading'
-        ? 'Finding your location…'
+        ? t('home.findingLocation')
         : hereStatus === 'denied'
-          ? 'Allow location to see your area'
-          : "Couldn't find your location";
+          ? t('driverHome.allowLocation')
+          : t('home.noLocation');
 
   const offerRide = () => navigation.navigate('DriverTabs', { screen: 'CreateRide' });
 
   return (
-    <View style={[styles.root, { backgroundColor: c.surface }]}>
+    <View style={[styles.root, tc.backgroundColor_surface]}>
       {/* ── Map ──────────────────────────────────────────────── */}
       <View style={[styles.mapWrap, { height: mapHeight + 40 }]}>
         <LiveMap />
@@ -161,61 +160,65 @@ export function DriverHomeScreen() {
         contentContainerStyle={{ paddingTop: mapHeight, paddingBottom: Spacing['2xl'] }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.sheet, { backgroundColor: c.surface }]}>
-          <View style={[styles.handle, { backgroundColor: c.border }]} />
+        <View style={[styles.sheet, tc.backgroundColor_surface]}>
+          <View style={[styles.handle, tc.backgroundColor_border]} />
 
-          <Text style={[styles.greeting, { color: c.textSec }]}>
+          <Text style={[styles.greeting, tc.color_textSec]}>
             {greeting}{firstName ? `, ${firstName}` : ''}
           </Text>
+
+          <ServiceAreaBanner />
 
           {/* Offer a ride */}
           <Pressable
             onPress={offerRide}
             accessibilityRole="button"
-            accessibilityLabel="Offer a ride"
+            accessibilityLabel={t('driverHome.offerARide')}
             style={({ pressed }) => [
               styles.offerPill,
-              { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.85 : 1 },
-              Shadow.md,
+              { opacity: pressed ? 0.85 : 1 },
+              tc.backgroundColor_surface,
+              tc.borderColor_border,
+              Shadow.md
             ]}
           >
-            <Icon name="steering" size={26} color={c.text} />
-            <Text style={[styles.offerText, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-              Where are you driving?
+            <Icon name="steering" size={26} color={tk.text} />
+            <Text style={[styles.offerText, tc.color_text]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              {t('driverHome.whereAreYouDriving')}
             </Text>
-            <View style={[styles.offerChip, { backgroundColor: c.primary }]}>
-              <Icon name="plus" size={18} color={c.textOnPrimary} />
-              <Text style={[styles.offerChipText, { color: c.textOnPrimary }]}>Offer</Text>
+            <View style={[styles.offerChip, tc.backgroundColor_primary]}>
+              <Icon name="plus" size={18} color={tk.textOnPrimary} />
+              <Text style={[styles.offerChipText, tc.color_textOnPrimary]}>{t('driverHome.offer')}</Text>
             </View>
           </Pressable>
 
           {/* Today */}
           {!loaded ? (
-            <ActivityIndicator style={styles.loader} color={c.primary} accessibilityLabel="Loading your dashboard" />
+            <ActivityIndicator style={styles.loader} color={tk.primary} accessibilityLabel={t('driverHome.loadingYourDashboard')} />
           ) : loadError ? (
             <Pressable
               onPress={() => load()}
               accessibilityRole="button"
-              style={[styles.banner, { backgroundColor: c.errorLight, borderColor: c.errorLight }]}
+              style={[styles.banner, tc.backgroundColor_errorLight, tc.borderColor_errorLight]}
             >
-              <Icon name="alert-circle-outline" size={22} color={c.error} />
-              <Text style={[styles.flex1, { color: c.text }]}>Your dashboard couldn't be loaded. Tap to retry.</Text>
+              <Icon name="alert-circle-outline" size={22} color={tk.error} />
+              <Text style={[styles.flex1, tc.color_text]}>{t('driverHome.yourDashboardCouldntBeLoaded')}</Text>
             </Pressable>
           ) : (
             <Pressable
               onPress={() => navigation.navigate('Earnings')}
               accessibilityRole="button"
-              accessibilityLabel={`Today: ${money(todayEarnings)} earned from ${ridesToday} ${ridesToday === 1 ? 'ride' : 'rides'}. View earnings`}
-              style={[styles.statsCard, { borderColor: c.border }]}
+              accessibilityLabel={t('driverHome.todayLabel', { amount: money(todayEarnings), rides: ridesToday === 1 ? t('driverHome.rideOne') : t('driverHome.rideMany', { count: ridesToday }) })}
+              style={[styles.statsCard, tc.borderColor_border]}
             >
-              <Stat label="Earned today" value={`${money(todayEarnings)}`} />
-              <View style={[styles.statDivider, { backgroundColor: c.border }]} />
-              <Stat label="Rides today" value={String(ridesToday)} />
-              <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+              <Stat label={t('driverHome.earnedToday')} value={`${money(todayEarnings)}`} />
+              <View style={[styles.statDivider, tc.backgroundColor_border]} />
+              <Stat label={t('driverHome.ridesToday')} value={String(ridesToday)} />
+              <View style={[styles.statDivider, tc.backgroundColor_border]} />
               <Stat
-                label={rating ? `${rating.count} ${rating.count === 1 ? 'rating' : 'ratings'}` : 'Rating'}
-                value={rating ? rating.avg.toFixed(1) : 'New'}
-                icon={rating ? 'star' : undefined}
+                label={rating ? (rating.count === 1 ? t('common.ratingOne') : t('common.ratingMany', { count: rating.count })) : t('common.rating')}
+                value={rating ? rating.avg.toFixed(1) : '5.0'}
+                icon="star"
               />
             </Pressable>
           )}
@@ -225,39 +228,43 @@ export function DriverHomeScreen() {
             <Pressable
               onPress={() => navigation.navigate('DriverTabs', { screen: 'ManageRequests' })}
               accessibilityRole="button"
-              accessibilityLabel={`${pendingCount} ${pendingCount === 1 ? 'request' : 'requests'} waiting. Review requests`}
-              style={[styles.banner, { backgroundColor: c.primaryLight, borderColor: c.primaryLight }]}
+              accessibilityLabel={t('driverHome.requestsLabel', { requests: pendingCount === 1 ? t('driverHome.requestOne') : t('driverHome.requestMany', { count: pendingCount }) })}
+              style={[
+                styles.banner,
+                tc.backgroundColor_primaryLight,
+                tc.borderColor_primaryLight
+              ]}
             >
-              <View style={[styles.bannerIcon, { backgroundColor: c.surface }]}>
-                <Icon name="account-clock-outline" size={22} color={c.primary} />
+              <View style={[styles.bannerIcon, tc.backgroundColor_surface]}>
+                <Icon name="account-clock-outline" size={22} color={tk.primary} />
               </View>
               <View style={styles.flex1}>
-                <Text style={[styles.bannerLabel, { color: c.primary }]}>Needs your answer</Text>
-                <Text style={[styles.bannerTitle, { color: c.text }]}>
+                <Text style={[styles.bannerLabel, tc.color_primary]}>{t('driverHome.needsYourAnswer')}</Text>
+                <Text style={[styles.bannerTitle, tc.color_text]}>
                   {pendingCount} {pendingCount === 1 ? 'rider is' : 'riders are'} waiting
                 </Text>
               </View>
-              <Icon name="chevron-right" size={22} color={c.textSec} />
+              <Icon name="chevron-right" size={22} color={tk.textSec} />
             </Pressable>
           )}
 
           {/* Upcoming rides */}
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, styles.sectionTitleInline, { color: c.text }]}>Your rides</Text>
+            <Text style={[styles.sectionTitle, styles.sectionTitleInline, tc.color_text]}>{t('driverHome.yourRides')}</Text>
             {upcomingRides.length > 0 && (
               <Pressable
                 onPress={() => navigation.navigate('UpcomingRides')}
                 accessibilityRole="button"
-                accessibilityLabel="See all your rides"
+                accessibilityLabel={t('driverHome.seeAllYourRides')}
                 hitSlop={8}
               >
-                <Text style={[styles.link, { color: c.primary }]}>See all</Text>
+                <Text style={[styles.link, tc.color_primary]}>{t('driverHome.seeAll')}</Text>
               </Pressable>
             )}
           </View>
           {loaded && upcomingRides.length === 0 && !loadError ? (
-            <Text style={[styles.hint, { color: c.textSec }]}>
-              No rides coming up. Offer one and riders going your way can book your empty seats.
+            <Text style={[styles.hint, tc.color_textSec]}>
+              {t('driverHome.noRidesComingUpOffer')}
             </Text>
           ) : (
             upcomingRides.slice(0, MAX_UPCOMING).map((r, i) => (
@@ -265,38 +272,38 @@ export function DriverHomeScreen() {
                 key={r.id}
                 onPress={() => navigation.navigate('DriverRideDetails', { rideId: r.id })}
                 accessibilityRole="button"
-                accessibilityLabel={`Ride to ${r.to}, ${formatDeparture(r.departure)}, ${r.booked} of ${r.total} seats booked`}
+                accessibilityLabel={t('driverHome.rideLabel', { to: r.to, when: formatDeparture(r.departure), booked: r.booked, total: r.total })}
                 style={[
                   styles.rideRow,
-                  i < Math.min(upcomingRides.length, MAX_UPCOMING) - 1 && [styles.dashed, { borderColor: c.border }],
+                  i < Math.min(upcomingRides.length, MAX_UPCOMING) - 1 && [styles.dashed, tc.borderColor_border],
                 ]}
               >
-                <View style={[styles.rideIcon, { backgroundColor: c.surfaceVariant }]}>
-                  <Icon name="car-clock" size={22} color={c.primary} />
+                <View style={[styles.rideIcon, tc.backgroundColor_surfaceVariant]}>
+                  <Icon name="car-clock" size={22} color={tk.primary} />
                 </View>
                 <View style={styles.flex1}>
-                  <Text style={[styles.rideTitle, { color: c.text }]} numberOfLines={1}>To {r.to}</Text>
-                  <Text style={[styles.rideSub, { color: c.textSec }]} numberOfLines={1}>
+                  <Text style={[styles.rideTitle, tc.color_text]} numberOfLines={1}>{t('driverHome.to', { place: r.to })}</Text>
+                  <Text style={[styles.rideSub, tc.color_textSec]} numberOfLines={1}>
                     {formatDeparture(r.departure)} · from {r.from}
                   </Text>
-                  <Text style={[styles.rideSub, { color: c.textSec }]}>
+                  <Text style={[styles.rideSub, tc.color_textSec]}>
                     {r.booked}/{r.total} seats booked
-                    {r.earned > 0 ? <Text style={{ color: c.success, fontWeight: Typography.semibold }}>{`  ·  ${money(r.earned)}`}</Text> : null}
+                    {r.earned > 0 ? <Text style={[{ fontWeight: Typography.semibold }, tc.color_success]}>{`  ·  ${money(r.earned)}`}</Text> : null}
                   </Text>
                 </View>
-                <Icon name="chevron-right" size={22} color={c.textSec} />
+                <Icon name="chevron-right" size={22} color={tk.textSec} />
               </Pressable>
             ))
           )}
 
           {/* Shortcuts */}
-          <Text style={[styles.sectionTitle, { color: c.text }]}>Drive with Poolora</Text>
-          <View style={styles.tileRow}>
-            <Tile icon="road-variant" label="Offer ride" onPress={offerRide} />
-            <Tile icon="cash" label="Earnings" onPress={() => navigation.navigate('Earnings')} />
-            <Tile icon="card-account-details-outline" label="Verify" onPress={() => navigation.navigate('KYC')} />
-            <Tile icon="shield-check-outline" label="Safety" onPress={() => navigation.navigate('SOS')} />
-          </View>
+          <Text style={[styles.sectionTitle, tc.color_text]}>{t('driverHome.driveWithSiham')}</Text>
+          <TileGrid>
+            <ServiceTile icon="oncomingAutomobile" label={t('driverHome.offerRide')} onPress={offerRide} />
+            <ServiceTile icon="moneyBag" label={t('driverHome.earnings')} onPress={() => navigation.navigate('Earnings')} />
+            <ServiceTile icon="identificationCard" label={t('driverHome.verify')} onPress={() => navigation.navigate('KYC')} />
+            <ServiceTile icon="shield" label={t('driverHome.safety')} onPress={() => navigation.navigate('SOS')} />
+          </TileGrid>
         </View>
       </ScrollView>
 
@@ -306,23 +313,23 @@ export function DriverHomeScreen() {
           onPress={() => (hereStatus === 'ready' ? undefined : refreshHere(true))}
           disabled={hereStatus === 'ready' || hereStatus === 'loading'}
           accessibilityRole="button"
-          accessibilityLabel={`Your area: ${areaLabel}`}
-          style={[styles.locationPill, { backgroundColor: c.surface }, Shadow.md]}
+          accessibilityLabel={t('driverHome.areaLabel', { area: areaLabel })}
+          style={[styles.locationPill, tc.backgroundColor_surface, Shadow.md]}
         >
           {hereStatus === 'loading' ? (
-            <ActivityIndicator size="small" color={c.primary} />
+            <ActivityIndicator size="small" color={tk.primary} />
           ) : (
-            <View style={[styles.pickupDot, { borderColor: hereStatus === 'ready' ? c.success : c.warning }]} />
+            <View style={[styles.pickupDot, hereStatus === 'ready' ? tc.borderColor_success : tc.borderColor_warning]} />
           )}
-          <Text style={[styles.locationText, { color: c.text }]} numberOfLines={1}>{areaLabel}</Text>
+          <Text style={[styles.locationText, tc.color_text]} numberOfLines={1}>{areaLabel}</Text>
         </Pressable>
         <Pressable
           onPress={() => navigation.navigate('Notifications')}
           accessibilityRole="button"
-          accessibilityLabel="Notifications"
-          style={[styles.roundBtn, { backgroundColor: c.surface }, Shadow.md]}
+          accessibilityLabel={t('driverHome.notifications')}
+          style={[styles.roundBtn, tc.backgroundColor_surface, Shadow.md]}
         >
-          <Icon name="bell-outline" size={22} color={c.text} />
+          <Icon name="bell-outline" size={22} color={tk.text} />
         </Pressable>
       </View>
     </View>
@@ -330,32 +337,14 @@ export function DriverHomeScreen() {
 }
 
 function Stat({ label, value, icon }: { label: string; value: string; icon?: IconName }) {
-  const { c } = useApp();
   return (
     <View style={styles.stat}>
       <View style={styles.statValueRow}>
-        {icon && <Icon name={icon} size={18} color="#F5B301" />}
-        <Text style={[styles.statValue, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+        {icon && <Icon name={icon} size={18} color={icon === 'star' ? tk.star : tk.text} />}
+        <Text style={[styles.statValue, tc.color_text]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
       </View>
-      <Text style={[styles.statLabel, { color: c.textSec }]} numberOfLines={1}>{label}</Text>
+      <Text style={[styles.statLabel, tc.color_textSec]} numberOfLines={1}>{label}</Text>
     </View>
-  );
-}
-
-function Tile({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
-  const { c } = useApp();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => [styles.tile, { opacity: pressed ? 0.7 : 1 }]}
-    >
-      <View style={[styles.tileIcon, { backgroundColor: c.surfaceVariant }]}>
-        <Icon name={icon} size={30} color={c.primary} />
-      </View>
-      <Text style={[styles.tileLabel, { color: c.text }]} numberOfLines={1}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -457,8 +446,4 @@ const styles = StyleSheet.create({
   rideTitle: { fontSize: Typography['2xl'], fontWeight: Typography.semibold },
   rideSub: { fontSize: Typography.md, marginTop: 2 },
 
-  tileRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  tile: { width: '23%', alignItems: 'center', gap: 6 },
-  tileIcon: { width: '100%', aspectRatio: 1, borderRadius: Radius.xl, alignItems: 'center', justifyContent: 'center' },
-  tileLabel: { fontSize: Typography.base, fontWeight: Typography.semibold },
 });

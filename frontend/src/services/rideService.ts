@@ -21,6 +21,7 @@ import type {
   RidePreferences,
   UpcomingBooking,
 } from '../types/api';
+import i18n from '../i18n';
 
 type BackendPlace = { location?: { coordinates?: [number, number] }; address?: string };
 
@@ -35,6 +36,7 @@ type BackendRide = Record<string, unknown> & {
   availableSeats?: number;
   vehicle?: { hasAC?: boolean };
   preferences?: RidePreferences;
+  waypoints?: Array<BackendPlace & { order?: number }>;
 };
 
 /** One entry of GET /rides/upcoming. */
@@ -67,11 +69,14 @@ export function normalizeRide(payload: unknown): Ride {
     ...raw,
     pickupLocation: toLocation(raw.pickup),
     dropoffLocation: toLocation(raw.dropoff),
+    // The driver's stops on the way, in the order the car meets them
+    stops: [...(raw.waypoints ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(toLocation),
     scheduledDeparture: raw.departureTime,
     estimatedArrival: raw.estimatedArrivalTime,
     seats: raw.totalSeats,
     availableSeats: raw.availableSeats,
     womenOnly: Boolean(preferences?.womenOnly),
+    colleaguesOnly: Boolean(preferences?.colleaguesOnly),
     hasAC: Boolean(raw.vehicle?.hasAC),
     allowLuggage: preferences ? preferences.luggageSize !== 'none' : false,
     preferences,
@@ -208,7 +213,7 @@ export const rideService = {
         to: r.dropoff?.address ?? '',
         departureTime: r.departureTime,
         pricePerSeat: r.pricePerSeat,
-        driverName: r.driver?.name ?? 'Driver',
+        driverName: r.driver?.name ?? i18n.t('common.driver'),
         status: r.status,
       }));
       logger.info('Upcoming rides fetched', { count: rides.length });

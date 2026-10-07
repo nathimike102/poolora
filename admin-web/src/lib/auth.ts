@@ -21,6 +21,24 @@ export interface AdminUser {
   email?: string;
   phone?: string;
   capabilities: string[];
+  /** Set for a company admin (UC-C01): they see only their company's own dashboard */
+  company?: { _id: string; name: string };
+}
+
+/**
+ * A non-admin may still be a company admin; anyone else is refused. Only
+ * the server saying so refuses them: a dropped connection is an error to
+ * retry, not a reason to sign a company admin out.
+ */
+async function withCompany(user: AdminUser): Promise<AdminUser | null> {
+  if (user.capabilities?.includes('admin')) return user;
+  try {
+    const { company } = await api.get<{ company: { _id: string; name: string } }>('/company/me');
+    return { ...user, company: { _id: company._id, name: company.name } };
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 403 || error.status === 404)) return null;
+    throw error;
+  }
 }
 
 const firebaseConfig = {
@@ -50,12 +68,14 @@ async function exchange(idToken: string): Promise<AdminUser> {
   const body = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(body?.error?.message ?? 'Sign-in failed', res.status);
   const data = body.data;
-  if (!data.user?.capabilities?.includes('admin')) {
+  tokens.set(data.accessToken, data.refreshToken);
+  const user = await withCompany(data.user as AdminUser);
+  if (!user) {
+    tokens.clear();
     await firebaseSignOut(auth()).catch(() => undefined);
     throw new ApiError('This account is not an admin account.', 403);
   }
-  tokens.set(data.accessToken, data.refreshToken);
-  return data.user as AdminUser;
+  return user;
 }
 
 function friendly(error: unknown): never {
@@ -107,7 +127,7 @@ export async function currentAdmin(): Promise<AdminUser | null> {
   if (!tokens.access && !tokens.refresh) return null;
   try {
     const data = await api.get<{ user: AdminUser }>('/auth/me');
-    return data.user?.capabilities?.includes('admin') ? data.user : null;
+    return data.user ? await withCompany(data.user) : null;
   } catch {
     return null;
   }

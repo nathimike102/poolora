@@ -9,7 +9,7 @@
 
 import { siteConfig } from '../config/site';
 
-const STORAGE_KEY = 'poolora.consent';
+const STORAGE_KEY = 'siham.consent';
 
 export type ConsentChoice = 'granted' | 'denied';
 

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 import { recordRequest } from '../utils/requestStats';
+import { redactUrl } from '../utils/redactUrl';
 
 export function requestLoggerMiddleware(req: Request, res: Response, next: NextFunction): void {
   const start = Date.now();
@@ -12,7 +13,7 @@ export function requestLoggerMiddleware(req: Request, res: Response, next: NextF
     const logData = {
       requestId,
       method: req.method,
-      url: req.originalUrl,
+      url: redactUrl(req.originalUrl),
       status: res.statusCode,
       duration: `${duration}ms`,
       ip: req.ip,

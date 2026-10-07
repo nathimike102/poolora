@@ -3,6 +3,7 @@
  * it settles every confirmed booking so riders can rate and drivers get paid.
  */
 const mockCompleteBooking = jest.fn();
+const mockCancelBooking = jest.fn();
 jest.mock('../../models/Ride', () => ({ Ride: { findById: jest.fn() } }));
 jest.mock('../../models/User', () => ({ User: {} }));
 jest.mock('../../models/Booking', () => ({ Booking: { find: jest.fn() } }));
@@ -10,7 +11,7 @@ jest.mock('../../events', () => ({ EventBridge: { publish: jest.fn() } }));
 jest.mock('../../services/MapsService', () => ({ getRoute: jest.fn() }));
 jest.mock('../../services/MatchingEngineClient', () => ({ MatchingEngineClient: jest.fn() }));
 jest.mock('../../services/BookingService', () => ({
-  BookingService: jest.fn().mockImplementation(() => ({ completeBooking: mockCompleteBooking })),
+  BookingService: jest.fn().mockImplementation(() => ({ completeBooking: mockCompleteBooking, cancelBooking: mockCancelBooking })),
 }));
 
 import { Types } from 'mongoose';
@@ -66,7 +67,8 @@ describe('RideService ride lifecycle', () => {
   it('settles each confirmed booking when the ride is completed', async () => {
     const ride = rideWith(RideStatus.IN_PROGRESS);
     (Ride.findById as jest.Mock).mockResolvedValue(ride);
-    bookingsFound([{ _id: 'b1' }, { _id: 'b2' }]);
+    const pickedUp = new Date();
+    bookingsFound([{ _id: 'b1', actualPickupTime: pickedUp }, { _id: 'b2', actualPickupTime: pickedUp }]);
     mockCompleteBooking.mockRejectedValueOnce(new Error('already settled')).mockResolvedValueOnce({});
 
     await new RideService().completeRide('ride1', driverId);
@@ -74,5 +76,18 @@ describe('RideService ride lifecycle', () => {
     expect(ride.status).toBe(RideStatus.COMPLETED);
     expect(mockCompleteBooking).toHaveBeenCalledWith('b1', driverId);
     expect(mockCompleteBooking).toHaveBeenCalledWith('b2', driverId);
+  });
+
+  it('refunds in full a rider the driver never picked up, instead of charging them', async () => {
+    (Ride.findById as jest.Mock).mockResolvedValue(rideWith(RideStatus.IN_PROGRESS));
+    bookingsFound([{ _id: 'b1', actualPickupTime: new Date() }, { _id: 'b2' }]);
+    mockCompleteBooking.mockReset().mockResolvedValue({});
+    mockCancelBooking.mockResolvedValue({});
+
+    await new RideService().completeRide('ride1', driverId);
+
+    expect(mockCompleteBooking).toHaveBeenCalledTimes(1);
+    expect(mockCompleteBooking).toHaveBeenCalledWith('b1', driverId);
+    expect(mockCancelBooking).toHaveBeenCalledWith('b2', driverId, 'The driver ended the trip without picking you up');
   });
 });

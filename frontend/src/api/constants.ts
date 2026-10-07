@@ -5,6 +5,7 @@
  */
 
 import { env } from '../config/env';
+import i18n from '../i18n';
 
 
 // ─── API Base URL Configuration ────────────────────────────────────────────
@@ -69,12 +70,18 @@ export const API_ENDPOINTS = {
   // Users
   users: {
     me: '/users/me',
+    pushToken: '/users/me/push-token',
+    photo: '/users/me/photo',
     savedRoutes: '/users/saved-routes',
     detail: (id: string) => `/users/${id}`,
     statement: '/users/me/statement',
     emailStatement: '/users/me/statement/email',
     verifiedStatus: '/users/me/verified-status',
+    impact: '/users/me/impact',
+    work: '/users/me/work',
     closure: '/users/me/closure',
+    phone: '/users/me/phone',
+    phoneCode: '/users/me/phone/code',
     identity: '/users/me/identity',
     trackers: '/users/me/trackers',
     vehicleTracker: (vehicleId: string) => `/users/me/vehicles/${vehicleId}/tracker`,
@@ -100,6 +107,7 @@ export const API_ENDPOINTS = {
   // Bookings
   bookings: {
     create: '/bookings',
+    quote: '/bookings/quote',
     riderBookings: '/bookings/as-rider',
     driverBookings: '/bookings/as-driver',
     confirm: (id: string) => `/bookings/${id}/confirm`,
@@ -247,6 +255,9 @@ export const API_ENDPOINTS = {
     addEvidence: (id: string) => `/safety/sos/${id}/evidence`,
     sosAudioUpload: (id: string) => `/safety/sos/${id}/audio-upload`,
     sosDetails: (id: string) => `/safety/sos/${id}/details`,
+    sosVideo: (id: string) => `/safety/sos/${id}/video`,
+    sosVideoSending: (id: string) => `/safety/sos/${id}/video/sending`,
+    sosVideoStop: (id: string) => `/safety/sos/${id}/video/stop`,
     checkIn: (id: string) => `/safety/sos/${id}/check-in`,
     acknowledge: (id: string) => `/safety/sos/${id}/acknowledge`,
     resolve: (id: string) => `/safety/sos/${id}/resolve`,
@@ -292,21 +303,22 @@ export const HTTP_STATUS = {
 } as const;
 
 // ─── Error Messages ───────────────────────────────────────────────────────
+/** In the user's language (catalogue: errors.*), read when shown */
 export const ERROR_MESSAGES = {
-  NETWORK_ERROR: 'Unable to connect to the server. Please check your internet connection.',
-  TIMEOUT: 'Request timed out. Please try again.',
-  UNAUTHORIZED: 'Your session has expired. Please log in again.',
-  FORBIDDEN: 'You do not have permission to perform this action.',
-  NOT_FOUND: 'The requested resource was not found.',
-  VALIDATION_ERROR: 'Please check your input and try again.',
-  SERVER_ERROR: 'Server error. Please try again later.',
-  GENERIC_ERROR: 'Something went wrong. Please try again.',
-} as const;
+  get NETWORK_ERROR() { return i18n.t('errors.network'); },
+  get TIMEOUT() { return i18n.t('errors.timeout'); },
+  get UNAUTHORIZED() { return i18n.t('errors.unauthorized'); },
+  get FORBIDDEN() { return i18n.t('errors.forbidden'); },
+  get NOT_FOUND() { return i18n.t('errors.notFound'); },
+  get VALIDATION_ERROR() { return i18n.t('errors.validation'); },
+  get SERVER_ERROR() { return i18n.t('errors.server'); },
+  get GENERIC_ERROR() { return i18n.t('errors.generic'); },
+};
 
 // ─── Token Storage Keys ────────────────────────────────────────────────────
 export const TOKEN_STORAGE_KEYS = {
-  accessToken: '@poolora_access_token',
-  refreshToken: '@poolora_refresh_token',
-  tokenExpiry: '@poolora_token_expiry',
-  userId: '@poolora_user_id',
+  accessToken: '@siham_access_token',
+  refreshToken: '@siham_refresh_token',
+  tokenExpiry: '@siham_token_expiry',
+  userId: '@siham_user_id',
 } as const;

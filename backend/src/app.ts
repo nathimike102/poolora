@@ -9,6 +9,7 @@ if (process.env.DNS_SERVERS) {
 
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import { corsOriginAllowed } from './middlewares/corsOrigin';
 import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
@@ -38,19 +39,7 @@ app.use(requestIdMiddleware);
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no Origin header (React Native / mobile)
-      if (!origin) return callback(null, true);
-
-      // In development, allow localhost and 127.0.0.1 from any port
-      // so local tools (e.g. live-server) can call the API.
-      const isLocalDevOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
-      if (!config.isProduction && isLocalDevOrigin) {
-        return callback(null, true);
-      }
-
-      if (config.cors.origin.includes(origin)) {
-        return callback(null, true);
-      }
+      if (corsOriginAllowed(origin)) return callback(null, true);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -97,9 +86,12 @@ if (config.isProduction) {
 // Paynow posts status updates as URL-encoded forms. Keep them as text so the
 // hash is checked over the values exactly as sent, in their order.
 app.use(['/payments/paynow/result', '/api/v1/payments/paynow/result'], express.text({ type: () => true, limit: '64kb' }));
+// LiveKit signs its webhook over the body as sent (application/webhook+json)
+app.use(['/video/webhook', '/api/v1/video/webhook'], express.text({ type: () => true, limit: '64kb' }));
 // Tighter body limits — 1 MB is ample for API payloads; prevents abuse
 // Parcel photos arrive as base64 JSON (UC-P03, UC-P05): a larger limit on that route only
 app.use(/^\/(api\/v1\/)?parcels\/[a-f0-9]{24}\/photos$/, express.json({ limit: '8mb' }));
+app.use(/^\/(api\/v1\/)?users\/me\/photo$/, express.json({ limit: '5mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
@@ -142,7 +134,7 @@ app.use(globalRateLimit);
 app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'success',
-    data: { service: 'poolora-api', health: '/health' },
+    data: { service: 'siham-api', health: '/health' },
   });
 });
 

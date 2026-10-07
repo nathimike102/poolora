@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { Booking, IBooking } from '../models/Booking';
-import { Ride, rideRoutePath } from '../models/Ride';
+import { Ride, rideRoutePath, type IRide } from '../models/Ride';
 import { User } from '../models/User';
 import { config } from '../config';
 import { BookingStatus, PaymentStatus, RideStatus } from '../types';
@@ -17,11 +17,19 @@ import { MatchingEngineClient } from './MatchingEngineClient';
 import { EventBridge } from '../events';
 import { logger } from '../utils/logger';
 import { WalletService } from './WalletService';
+import { CarbonService } from './CarbonService';
 import { NotificationService } from './NotificationService';
 import { isVerifiedWoman, womenOnlyRefusal } from './IdentityService';
 import type { FilterQuery } from 'mongoose';
+import { phrase } from '../i18n';
+import { activeOrganisationOf, colleaguesOf } from './OrganisationService';
+import { companyContribution } from './OrganisationService';
+import { riderPays } from '../utils/fares';
+import { TransitHubService } from './TransitHubService';
+import { money } from '../config/region';
 
 const walletService = new WalletService();
+const carbonService = new CarbonService();
 
 /**
  * What a refund did: credited the wallet (all, or only the part still
@@ -72,8 +80,69 @@ export function cancellationSplit(fare: number, refundRate: number, byPolicy: bo
   return { refund, retained, platformFee, driverEarnings: round2(retained - platformFee) };
 }
 
+type Place = { lng: number; lat: number; address: string };
+
+/**
+ * Where a rider joins and leaves a ride, and the stops they add in between,
+ * checked against its route (UC-R03): each point near the route, the pickup
+ * before the drop, and every stop between them. Stops come back in the order
+ * the car meets them. The fare is the seats plus extraStopFee per stop.
+ */
+export function planBooking(
+  ride: Pick<IRide, 'routePolyline' | 'pickup' | 'dropoff' | 'waypoints' | 'pricePerSeat'>,
+  data: { seatsBooked: number; pickup: Pick<Place, 'lat' | 'lng'>; dropoff: Pick<Place, 'lat' | 'lng'>; stops?: Place[] },
+) {
+  const path = rideRoutePath(ride);
+  const maxKm = config.ride.maxPickupDistanceFromRouteKm;
+  const boarding = nearestOnPath({ lat: data.pickup.lat, lng: data.pickup.lng }, path);
+  const leaving = nearestOnPath({ lat: data.dropoff.lat, lng: data.dropoff.lng }, path);
+  if (boarding.distanceKm > maxKm) {
+    throw new AppError(`Pickup location must be within ${maxKm}km of the ride route`, 400, 'PICKUP_TOO_FAR');
+  }
+  if (leaving.distanceKm > maxKm) {
+    throw new AppError(`Drop location must be within ${maxKm}km of the ride route`, 400, 'DROPOFF_TOO_FAR');
+  }
+  if (leaving.alongKm <= boarding.alongKm) {
+    throw new AppError('This ride goes the other way: your drop comes before your pickup on its route', 400, 'WRONG_DIRECTION');
+  }
+
+  const asked = data.stops ?? [];
+  // Admin-editable, so read as a plain number (0 turns stops off)
+  const maxStops: number = config.ride.maxStopsPerBooking;
+  if (asked.length > maxStops) {
+    throw new AppError(
+      maxStops === 0
+        ? 'Extra stops are not available at the moment'
+        : `You can add up to ${maxStops} stops`,
+      400,
+      'TOO_MANY_STOPS',
+    );
+  }
+  const stops = asked
+    .map((stop) => {
+      const at = nearestOnPath({ lat: stop.lat, lng: stop.lng }, path);
+      // A stop is a detour the other riders share, so it stays as close to the route as a pickup
+      if (at.distanceKm > maxKm) {
+        throw new AppError(`Each stop must be within ${maxKm}km of the ride route`, 400, 'STOP_TOO_FAR');
+      }
+      if (at.alongKm <= boarding.alongKm || at.alongKm >= leaving.alongKm) {
+        throw new AppError('Each stop must be between your pickup and your drop on the ride\'s route', 400, 'STOP_OUT_OF_ORDER');
+      }
+      return { stop, alongKm: at.alongKm };
+    })
+    .sort((a, b) => a.alongKm - b.alongKm)
+    .map(({ stop }) => stop);
+
+  const stopsFee = stops.length ? round2(stops.length * config.ride.extraStopFee) : 0;
+  const fare = round2(ride.pricePerSeat * data.seatsBooked + stopsFee);
+  return { boarding, leaving, stops, stopsFee, fare };
+}
+
 /** Wrong pickup codes before only the rider can confirm the pickup */
 export const PICKUP_PIN_MAX_TRIES = 5;
+
+/** How long a rider's booking in progress holds off another one, at most */
+const BOOKING_HOLD_MS = 30_000;
 
 export class BookingService {
   private matchingEngine = new MatchingEngineClient();
@@ -96,7 +165,36 @@ export class BookingService {
       useWallet?: boolean;
       /** Optional message to the driver (UC-R03 step 6) */
       note?: string;
+      /** Catching a bus from the drop (UC-R12) */
+      connection?: { departsAt: string | Date };
+      /** What the rider was shown they pay; never charged more than this */
+      expectedYouPay?: number;
+      /** Stops between the pickup and the drop, in any order (planBooking orders them) */
+      stops?: Place[];
     },
+  ): Promise<{ booking: IBooking; paidViaWallet: boolean }> {
+    // One booking at a time per rider: the company's monthly cap, the
+    // pending limit and the duplicate check are read before the booking is
+    // written, so two requests at once could both pass them. The hold
+    // expires by itself if the server stops part-way.
+    const until = new Date(Date.now() + BOOKING_HOLD_MS);
+    const held = await User.updateOne(
+      { _id: riderId, $or: [{ bookingHoldUntil: { $exists: false } }, { bookingHoldUntil: { $lt: new Date() } }] },
+      { $set: { bookingHoldUntil: until } },
+    );
+    if (!held.modifiedCount && (await User.exists({ _id: riderId }))) {
+      throw new ConflictError('Another booking of yours is being made. Try again in a moment.');
+    }
+    try {
+      return await this.placeBooking(riderId, data);
+    } finally {
+      if (held.modifiedCount) await User.updateOne({ _id: riderId, bookingHoldUntil: until }, { $unset: { bookingHoldUntil: 1 } });
+    }
+  }
+
+  private async placeBooking(
+    riderId: string,
+    data: Parameters<BookingService['createBooking']>[1],
   ): Promise<{ booking: IBooking; paidViaWallet: boolean }> {
     const ride = await Ride.findById(data.rideId);
     if (!ride) throw new NotFoundError('Ride');
@@ -110,6 +208,13 @@ export class BookingService {
     if (ride.preferences?.womenOnly) {
       const rider = await User.findById(riderId).select('gender identity').lean();
       if (!isVerifiedWoman(rider)) throw womenOnlyRefusal(rider);
+    }
+    // Search hides colleagues-only rides from other companies; a ride id must not get round that either
+    if (ride.preferences?.colleaguesOnly) {
+      const company = await activeOrganisationOf(riderId);
+      if (!company || String(company._id) !== String(ride.organisation)) {
+        throw new AppError('This ride is only for the driver\'s colleagues.', 403, 'COLLEAGUES_ONLY');
+      }
     }
 
     if (ride.status !== RideStatus.SCHEDULED && ride.status !== RideStatus.ACTIVE) {
@@ -147,29 +252,37 @@ export class BookingService {
       throw new ConflictError('You already have a booking for this ride');
     }
 
-    // Riders may join and leave part-way, so both ends are measured against
-    // the whole route (UC-R03), and the pickup must come before the drop
-    const path = rideRoutePath(ride);
-    const maxKm = config.ride.maxPickupDistanceFromRouteKm;
-    const boarding = nearestOnPath({ lat: data.pickup.lat, lng: data.pickup.lng }, path);
-    const leaving = nearestOnPath({ lat: data.dropoff.lat, lng: data.dropoff.lng }, path);
-    if (boarding.distanceKm > maxKm) {
-      throw new AppError(`Pickup location must be within ${maxKm}km of the ride route`, 400, 'PICKUP_TOO_FAR');
-    }
-    if (leaving.distanceKm > maxKm) {
-      throw new AppError(`Drop location must be within ${maxKm}km of the ride route`, 400, 'DROPOFF_TOO_FAR');
-    }
-    if (leaving.alongKm <= boarding.alongKm) {
-      throw new AppError('This ride goes the other way: your drop comes before your pickup on its route', 400, 'WRONG_DIRECTION');
-    }
+    // Riders may join and leave part-way, so both ends (and any stops they
+    // add) are measured against the whole route (UC-R03)
+    const plan = planBooking(ride, data);
+    const { boarding } = plan;
+    const stopFields = plan.stops.length
+      ? {
+          stops: plan.stops.map((p) => ({ location: toGeoPoint(p.lng, p.lat), address: p.address })),
+          stopsFee: plan.stopsFee,
+        }
+      : {};
 
-    // Calculate estimated fare
-    const estimatedFare = ride.pricePerSeat * data.seatsBooked;
-
-    // Compute match score
+    // Calculate estimated fare, and what the rider's company pays of it (UC-C01)
+    const estimatedFare = plan.fare;
     const rider = await User.findById(riderId);
     const driver = await User.findById(ride.driver);
     if (!rider || !driver) throw new NotFoundError('User');
+    const company = await companyContribution({
+      riderId, rider, fare: estimatedFare, departure: ride.departureTime, pickup: data.pickup, dropoff: data.dropoff,
+    });
+    const companyFields = company && company.share > 0
+      ? { companyShare: company.share, organisation: company.organisation, companyMonth: company.month }
+      : {};
+    const youPay = riderPays({ estimatedFare, companyShare: company?.share });
+    // The company's part can shrink after the quote (cap used, paused, policy
+    // changed): the rider sees the new price before anything is taken
+    if (data.expectedYouPay !== undefined && youPay > data.expectedYouPay + 0.005) {
+      throw new AppError(`The price has changed: you would now pay ${money(youPay)}. Check it and book again.`, 409, 'PRICE_CHANGED');
+    }
+    const connection = data.connection ? await this.connectionFor(ride, data.dropoff, data.connection.departsAt) : undefined;
+
+    // Compute match score
 
     const [matchResult] = await this.matchingEngine.scoreRides(
       [{ ride, driver, pickupDistanceKm: boarding.distanceKm }],
@@ -184,7 +297,8 @@ export class BookingService {
 
     // ── Payment: wallet now, or online next ─────────────────────────────────
 
-    if (data.useWallet) {
+    // Nothing to charge when the company pays it all: it goes the wallet way with no debit
+    if (data.useWallet || youPay <= 0) {
       // Wallet payment. Create the booking first so the debit is keyed to its
       // real id (one debit per booking), then roll back if the debit fails.
       const booking = await Booking.create({
@@ -201,13 +315,16 @@ export class BookingService {
           location: toGeoPoint(data.dropoff.lng, data.dropoff.lat),
           address: data.dropoff.address,
         },
+        ...stopFields,
         estimatedFare,
+        ...companyFields,
+        ...(connection ? { connection } : {}),
         matchScore: matchResult?.overallScore || 0,
         note: data.note?.trim() || undefined,
         paymentMethod: 'wallet',
       });
       try {
-        await walletService.deductForBooking(riderId, booking._id.toString(), estimatedFare);
+        if (youPay > 0) await walletService.deductForBooking(riderId, booking._id.toString(), youPay);
       } catch (error) {
         await Booking.deleteOne({ _id: booking._id });
         throw error;
@@ -221,6 +338,7 @@ export class BookingService {
           riderId,
           driverId: ride.driver.toString(),
           seatsBooked: data.seatsBooked,
+          stopCount: plan.stops.length,
           paidViaWallet: true,
         },
       });
@@ -243,7 +361,10 @@ export class BookingService {
         location: toGeoPoint(data.dropoff.lng, data.dropoff.lat),
         address: data.dropoff.address,
       },
+      ...stopFields,
       estimatedFare,
+      ...companyFields,
+      ...(connection ? { connection } : {}),
       matchScore: matchResult?.overallScore || 0,
       note: data.note?.trim() || undefined,
       paymentMethod: 'online',
@@ -257,6 +378,7 @@ export class BookingService {
         riderId,
         driverId: ride.driver.toString(),
         seatsBooked: data.seatsBooked,
+        stopCount: plan.stops.length,
       },
     });
 
@@ -361,7 +483,7 @@ export class BookingService {
     booking: IBooking,
     reason: string,
     _actorId: string,
-    amount: number = booking.estimatedFare,
+    amount: number = riderPays(booking),
     /** A dispute passes its own, so it is not deduplicated against a cancellation refund */
     walletIdempotencyKey?: string,
   ): Promise<RefundOutcome> {
@@ -484,7 +606,7 @@ export class BookingService {
     // refunded in full.
     // Full refund when the driver moved the departure after this booking was made (UC-D08)
     const byPolicy = Boolean(isRider && ride && !booking.rideChangedAt);
-    const split = cancellationSplit(booking.estimatedFare, byPolicy ? riderRefundRate(ride!.departureTime, new Date(), booking.confirmedAt) : 1, byPolicy);
+    const split = cancellationSplit(riderPays(booking), byPolicy ? riderRefundRate(ride!.departureTime, new Date(), booking.confirmedAt) : 1, byPolicy);
     const refundAmount = split.refund;
     const cancellationFee = split.retained;
     booking.refundAmount = refundAmount;
@@ -534,12 +656,14 @@ export class BookingService {
         if (freeUntil && freeUntil.getTime() < now.getTime()) freeUntil = null;
       }
     }
-    const { refund: refundAmount, platformFee } = cancellationSplit(booking.estimatedFare, refundRate, byPolicy);
+    // The rider's own part: a cancelled trip costs the company nothing
+    const paid = riderPays(booking);
+    const { refund: refundAmount, platformFee } = cancellationSplit(paid, refundRate, byPolicy);
     const feeKept = byPolicy && config.ride.keepPlatformFeeOnCancel;
     return {
-      fare: booking.estimatedFare,
+      fare: paid,
       refundAmount,
-      refundPercent: booking.estimatedFare ? Math.round((refundAmount / booking.estimatedFare) * 100) : 0,
+      refundPercent: paid ? Math.round((refundAmount / paid) * 100) : 0,
       /** The platform fee kept from this cancellation when the fee is non-refundable */
       platformFeeKept: feeKept ? platformFee : 0,
       platformFeeRefundable: !config.ride.keepPlatformFeeOnCancel,
@@ -636,11 +760,11 @@ export class BookingService {
   /** Five wrong codes: the rider is told to check the car, and admins hear of it. */
   private async pickupPinLocked(booking: IBooking): Promise<void> {
     const ride = await Ride.findById(booking.ride).select('vehicle.plateNumber').lean();
-    const plate = ride?.vehicle?.plateNumber ? ` Only get into ${ride.vehicle.plateNumber}.` : '';
+    const plate = ride?.vehicle?.plateNumber ? phrase('pickupPin.onlyPlate', { plate: ride.vehicle.plateNumber }) : '';
     await new NotificationService().sendPushNotification(
       booking.rider.toString(),
-      'Check the car before you get in',
-      `Five wrong pickup codes were entered for your ride.${plate} If you are in the right car, tap "I'm in the car".`,
+      phrase('pickupPin.lockedTitle'),
+      phrase('pickupPin.lockedBody', { plate }),
       { type: 'pickup_pin', bookingId: booking._id.toString() },
     ).catch(() => undefined);
     const { pushAdmins } = await import('./SafetyAlerts');
@@ -670,7 +794,8 @@ export class BookingService {
       throw new AppError(`Wait ${left} more minute${left === 1 ? '' : 's'} before reporting a no-show`, 409, 'WAIT_FOR_RIDER');
     }
 
-    const fee = booking.estimatedFare;
+    // The rider's own part; the company pays nothing for a trip that did not happen
+    const fee = riderPays(booking);
     const platformFee = round2(fee * config.ride.platformFeeRate);
     booking.status = BookingStatus.CANCELLED;
     booking.noShow = true;
@@ -707,6 +832,44 @@ export class BookingService {
   }
 
   /**
+   * A bus the rider is catching from their drop (UC-R12): it must leave after
+   * the ride does, within a day, and is tied to the terminus at the drop if
+   * there is one.
+   */
+  private async connectionFor(ride: { departureTime: Date }, dropoff: { lat: number; lng: number }, departsAtInput: string | Date) {
+    const departsAt = new Date(departsAtInput);
+    if (Number.isNaN(departsAt.getTime()) || departsAt <= ride.departureTime || departsAt.getTime() - ride.departureTime.getTime() > 24 * 3_600_000) {
+      throw new AppError('The bus must leave after this ride, on the same day', 422, 'BAD_CONNECTION_TIME');
+    }
+    const hub = await new TransitHubService().at(dropoff).catch(() => null);
+    return { departsAt, ...(hub ? { hub: hub._id, hubName: hub.name } : {}) };
+  }
+
+  /**
+   * What a booking would cost the rider, before they make it: the fare, what
+   * their company pays (UC-C01) and the rest, which is theirs to pay.
+   */
+  async quote(riderId: string, data: { rideId: string; seatsBooked: number; pickup: { lat: number; lng: number }; dropoff: { lat: number; lng: number }; stops?: Place[] }) {
+    const ride = await Ride.findById(data.rideId).select('pricePerSeat departureTime routePolyline pickup dropoff waypoints');
+    if (!ride) throw new NotFoundError('Ride');
+    // Stops are checked here too, so the rider hears about one off the route before paying
+    const { fare, stopsFee, stops } = data.stops?.length
+      ? planBooking(ride, data)
+      : { fare: round2(ride.pricePerSeat * data.seatsBooked), stopsFee: 0, stops: [] };
+    const company = await companyContribution({ riderId, fare, departure: ride.departureTime, pickup: data.pickup, dropoff: data.dropoff });
+    // A drop at a bus terminus lets the rider add when their bus leaves (UC-R12)
+    const hub = await new TransitHubService().at(data.dropoff).catch(() => null);
+    return {
+      ...(hub ? { dropoffHub: { name: hub.name, kind: hub.kind } } : {}),
+      fare,
+      ...(stops.length ? { stopsFee, stopCount: stops.length } : {}),
+      companyShare: company?.share ?? 0,
+      youPay: riderPays({ estimatedFare: fare, companyShare: company?.share }),
+      ...(company ? { company: company.company, ...(company.limitedBy ? { limitedBy: company.limitedBy } : {}) } : {}),
+    };
+  }
+
+  /**
    * Complete a booking — calculate final fare, settle payment.
    */
   async completeBooking(bookingId: string, driverId: string): Promise<IBooking> {
@@ -718,32 +881,51 @@ export class BookingService {
     if (booking.status !== BookingStatus.CONFIRMED) {
       throw new ConflictError('Booking must be confirmed to complete');
     }
+    // No pickup, no fare: the driver is paid and a company billed only for a rider who got in
+    if (!booking.actualPickupTime) {
+      throw new ConflictError('Mark the rider as picked up first');
+    }
 
     // Calculate final fare (in production, use actual distance/time)
     const finalFare = booking.estimatedFare;
-    const platformFeeRate = config.ride.platformFeeRate;
-    const platformFee = Math.round(finalFare * platformFeeRate * 100) / 100;
-    const driverEarnings = finalFare - platformFee;
+    // The company's part carries its own, lower commission (UC-C01)
+    const companyPart = booking.companyShare ?? 0;
+    const riderPart = riderPays(booking);
+    const platformFee = round2(riderPart * config.ride.platformFeeRate + (companyPart > 0 ? companyPart * config.ride.companyFeeRate : 0));
+    const driverEarnings = round2(finalFare - platformFee);
 
     booking.status = BookingStatus.COMPLETED;
     booking.finalFare = finalFare;
     booking.driverEarnings = driverEarnings;
     booking.platformFee = platformFee;
     booking.actualDropoffTime = new Date();
+
+    // CO₂ saved by this seat (UC-R11). An estimate, so a failure only leaves it unmeasured
+    let carbon = { distanceKm: 0, co2SavedKg: 0 };
+    try {
+      carbon = await carbonService.measureBooking(booking);
+      booking.distanceKm = carbon.distanceKm;
+      booking.co2SavedKg = carbon.co2SavedKg;
+    } catch (error) {
+      logger.warn('Could not measure the CO₂ saved', { bookingId, error: (error as Error).message });
+    }
     await booking.save();
 
     // Update driver & rider stats
+    const shared = { 'stats.co2SavedKg': carbon.co2SavedKg, 'stats.kmShared': carbon.distanceKm };
     await Promise.all([
       User.findByIdAndUpdate(driverId, {
         $inc: {
           'stats.totalRidesAsDriver': 1,
           'stats.totalEarnings': driverEarnings,
+          ...shared,
         },
       }),
       User.findByIdAndUpdate(booking.rider, {
         $inc: {
           'stats.totalRidesAsRider': 1,
-          'stats.totalSpent': finalFare,
+          'stats.totalSpent': riderPart,
+          ...shared,
         },
       }),
     ]);
@@ -771,7 +953,7 @@ export class BookingService {
         walletService.awardCoinsForRide(
           booking.rider.toString(),
           bookingId,
-          finalFare,
+          riderPart,
         ),
       ]);
     } catch (coinError) {
@@ -781,10 +963,8 @@ export class BookingService {
       });
     }
 
-    // Receipt by email when the rider has an address and mail is set up
-    import('./ReceiptService')
-      .then(({ ReceiptService }) => new ReceiptService().emailOnCompletion(bookingId, booking.rider.toString()))
-      .catch((error) => logger.warn('Receipt email failed', { bookingId, error: (error as Error).message }));
+    // No receipt email: receipts stay in the app (My rides and Receipts), and the
+    // rider can send themself a copy from there when they need one
 
     return booking;
   }
@@ -825,6 +1005,20 @@ export class BookingService {
       const person = booking.get(counterpart) as { phone?: string } | null;
       if (booking.status !== BookingStatus.CONFIRMED && person && typeof person === 'object') {
         person.phone = undefined;
+      }
+    }
+
+    // A driver sees "Works at" on riders from their own company, never their work email
+    if (role === 'driver') {
+      const riderIds = bookings.map((b) => (b.get('rider') as { _id?: Types.ObjectId } | null)?._id).filter((id): id is Types.ObjectId => Boolean(id));
+      const colleagues = await colleaguesOf(userId, riderIds);
+      if (colleagues.size) {
+        const items = bookings.map((b) => {
+          const json = b.toJSON() as Record<string, unknown> & { rider?: { _id?: unknown } };
+          const at = json.rider?._id ? colleagues.get(String(json.rider._id)) : undefined;
+          return at ? { ...json, rider: { ...json.rider, colleagueAt: at } } : json;
+        });
+        return paginate(items as unknown as typeof bookings, total, page, limit);
       }
     }
 

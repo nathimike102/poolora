@@ -5,6 +5,7 @@ import { signOut } from '../lib/auth';
 import { isUrgent, subscribeSos } from '../lib/socket';
 import { soundSosAlarm } from '../lib/alarm';
 import { useApi } from '../lib/useApi';
+import { Brand } from './Brand';
 
 interface Counts {
   safety: { activeSos: number; openDisputes: number; pendingBlocks: number; fraudFlagged: number; reviewsWaiting?: number; supportOpen?: number; appealsOpen?: number; parcelClaimsOpen?: number; withdrawalsPending?: number; mergesPending?: number; settingsPending?: number; identityPending?: number };
@@ -16,7 +17,7 @@ type Theme = 'system' | 'light' | 'dark';
 function useTheme(): [Theme, (t: Theme) => void] {
   const [theme, setTheme] = useState<Theme>(() => {
     try {
-      return (localStorage.getItem('poolora-admin-theme') as Theme) || 'system';
+      return (localStorage.getItem('siham-admin-theme') as Theme) || 'system';
     } catch {
       return 'system';
     }
@@ -25,7 +26,7 @@ function useTheme(): [Theme, (t: Theme) => void] {
     if (theme === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', theme);
     try {
-      localStorage.setItem('poolora-admin-theme', theme);
+      localStorage.setItem('siham-admin-theme', theme);
     } catch {
       // private mode: the choice lasts for this visit only
     }
@@ -67,6 +68,9 @@ export function Layout({ onSignedOut }: { onSignedOut: () => void }) {
     ['/support', 'Support requests', data?.safety.supportOpen ?? 0],
     ['/parcel-claims', 'Parcel claims', data?.safety.parcelClaimsOpen ?? 0],
     ['/withdrawals', 'Withdrawals', data?.safety.withdrawalsPending ?? 0],
+    ['/companies', 'Companies', 0],
+    ['/hubs', 'Ranks and termini', 0],
+    ['/analytics', 'Analytics', 0],
     ['/reports', 'Reports', 0],
     ['/alerts', 'Alerts', 0],
     ['/settings', 'Settings', data?.safety.settingsPending ?? 0],
@@ -76,10 +80,7 @@ export function Layout({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">
-          <img src="/mark.png" alt="" />
-          Poolora Admin
-        </div>
+        <Brand label="Admin" />
         <nav className="nav" aria-label="Main">
           {nav.map(([to, label, n]) => (
             <NavLink key={to} to={to} end={to === '/'}>

@@ -7,7 +7,7 @@
 import { apiClient } from '../api/axios';
 import { API_ENDPOINTS } from '../api/constants';
 import { logger } from '../utils/logger';
-import type { ApiResponse, EarningsStatement, User, VerifiedStatus } from '../types/api';
+import type { ApiResponse, EarningsStatement, Impact, User, VerifiedStatus, WorkStatus } from '../types/api';
 
 /**
  * Service for user profile operations
@@ -30,7 +30,7 @@ export const userService = {
   /**
    * Update the signed-in user's name, email and date of birth
    */
-  async updateMyProfile(update: { name?: string; email?: string | null; dateOfBirth?: string }): Promise<User> {
+  async updateMyProfile(update: { name?: string; email?: string | null; dateOfBirth?: string; language?: string }): Promise<User> {
     try {
       const response = await apiClient.patch<ApiResponse<{ user: User }>>(API_ENDPOINTS.users.me, update);
       logger.info('User profile updated');
@@ -39,6 +39,27 @@ export const userService = {
       logger.error('Failed to update user profile', { error });
       throw error;
     }
+  },
+
+  /** Sets the profile picture from a base64 JPEG or PNG; returns its link */
+  async setPhoto(base64: string): Promise<string> {
+    const response = await apiClient.put<ApiResponse<{ profilePhotoUrl: string }>>(API_ENDPOINTS.users.photo, { data: base64 }, { timeout: 60_000 });
+    return response.data.data.profilePhotoUrl;
+  },
+
+  async removePhoto(): Promise<void> {
+    await apiClient.delete(API_ENDPOINTS.users.photo);
+  },
+
+  /** Sends a code to a number to add to, or change on, this account */
+  async sendPhoneCode(phone: string): Promise<void> {
+    await apiClient.post(API_ENDPOINTS.users.phoneCode, { phone });
+  },
+
+  /** Saves the number once its code is right; returns the number saved */
+  async confirmPhone(phone: string, otp: string): Promise<string> {
+    const response = await apiClient.put<ApiResponse<{ phone: string }>>(API_ENDPOINTS.users.phone, { phone, otp });
+    return response.data.data.phone;
   },
 
   /** Whether the account can be closed now, and what is in the way if not */
@@ -91,6 +112,29 @@ export const userService = {
   /** Progress towards the Verified Driver badge (UC-D10) */
   async getVerifiedStatus(): Promise<VerifiedStatus> {
     const response = await apiClient.get<ApiResponse<VerifiedStatus>>(API_ENDPOINTS.users.verifiedStatus);
+    return response.data.data;
+  },
+
+  /** The user's company programme (UC-C02) */
+  async getWork(): Promise<WorkStatus> {
+    const response = await apiClient.get<ApiResponse<WorkStatus>>(API_ENDPOINTS.users.work);
+    return response.data.data;
+  },
+
+  /** Sends a confirmation link to a work email; they join when they confirm it */
+  async joinWork(email: string): Promise<{ sentTo: string; company: string }> {
+    const response = await apiClient.post<ApiResponse<{ sentTo: string; company: string }>>(API_ENDPOINTS.users.work, { email });
+    return response.data.data;
+  },
+
+  /** Leaves the company programme */
+  async leaveWork(): Promise<void> {
+    await apiClient.delete(API_ENDPOINTS.users.work);
+  },
+
+  /** CO₂ saved by the user's shared trips (UC-R11) */
+  async getImpact(): Promise<Impact> {
+    const response = await apiClient.get<ApiResponse<Impact>>(API_ENDPOINTS.users.impact);
     return response.data.data;
   },
 

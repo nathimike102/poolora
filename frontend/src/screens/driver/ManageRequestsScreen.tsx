@@ -8,24 +8,26 @@ import {
   Pressable,
   LayoutAnimation,
 } from 'react-native';
-import { Text } from 'react-native-paper';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text } from '../../components/Text';
+import { useFocusEffect } from '@react-navigation/native';
 import { bookingService } from '../../services/bookingService';
 import type { Booking, UserGender, BookingStatus } from '../../types/api';
-import { ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
+import 'react-native';
+import { StyleSheet as UStyleSheet } from 'react-native-unistyles';
+import { LinearGradient } from '../../components/Themed';
+import Svg, { Path } from '../../components/ThemedSvg';
 
-import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { ImageWithFallback } from '../../components/ImageWithFallback';
-import type { RootStackParamList } from '../../navigation/types';
-import { Shadow } from '../../theme';
+import { Shadow, Palette } from '../../theme';
 import { Icon } from '../../components/Icon';
+import { EmptyState } from '../../components/EmptyState';
 import { errorHandler } from '../../utils/errorHandler';
 import { money, REGION } from '../../utils/region';
+import { useTranslation } from 'react-i18next';
+import { tc, tk } from '../../theme/themed';
 
 type Gender = UserGender;
 type Status = BookingStatus;
@@ -45,9 +47,15 @@ interface RequestItem {
   price: number;
   aiScore: number | null;
   passengers: Array<{ name: string; gender: string }>;
+  /** The rider's company, when it is the driver's too (UC-C02) */
+  colleagueAt?: string;
   status: Status;
   /** The rider's message with the request */
   note?: string;
+  /** The rider is catching a bus from the drop (UC-R12) */
+  bus?: { time: string; hub?: string };
+  /** Stops the rider added on the way, in route order; accepting the request accepts them */
+  stops: string[];
 }
 
 interface TripItem {
@@ -62,35 +70,37 @@ interface TripItem {
 }
 
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 // TRIPS and REQUESTS will be derived from state
 
 /* ── Sub-components ────────────────────────────────────────── */
 
 function GenderBadge({ gender }: { gender: Gender }): React.ReactElement {
+  const { t } = useTranslation();
+  // The colour key; the label shown comes from the catalogue
   const normalizedGender = gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : 'Other';
   const map: Record<string, { bg: string; border: string; text: string }> = {
     Female: { bg: '#FFF1F2', border: '#FCA5A5', text: '#E11D48' },
     Male:   { bg: '#EFF6FF', border: '#93C5FD', text: '#2563EB' },
-    Other:  { bg: '#E3F2F1', border: '#9CD3CF', text: '#0B7A75' },
+    Other:  { bg: Palette.primaryLight, border: '#9CD3CF', text: Palette.primary },
   };
   const s = map[normalizedGender];
   return (
     <View style={[styles.genderBadge, { backgroundColor: s.bg, borderColor: s.border }]}>
-      <Text style={{ fontSize: 11, fontWeight: '600', color: s.text }}>{normalizedGender}</Text>
+      <Text style={{ fontSize: 11, fontWeight: '600', color: s.text }}>{t(`manageRequests.gender.${normalizedGender.toLowerCase()}`)}</Text>
     </View>
   );
 }
 
 function StatusChip({ status }: { status: Status }): React.ReactElement {
+  const { t } = useTranslation();
   const map: Record<string, { label: string; bg: string; text: string }> = {
-    pending:   { label: 'Pending',   bg: '#FEF3C7', text: '#D97706' },
-    accepted:  { label: 'Accepted',  bg: '#D1FAE5', text: '#059669' },
-    confirmed: { label: 'Confirmed', bg: '#D1FAE5', text: '#059669' },
-    rejected:  { label: 'Declined',  bg: '#FFF1F2', text: '#E11D48' },
-    cancelled: { label: 'Cancelled', bg: '#FFF1F2', text: '#E11D48' },
-    completed: { label: 'Completed', bg: '#D1FAE5', text: '#059669' },
+    pending:   { label: t('manageRequests.status.pending'),   bg: '#FEF3C7', text: '#D97706' },
+    accepted:  { label: t('manageRequests.status.accepted'),  bg: '#D1FAE5', text: '#059669' },
+    confirmed: { label: t('manageRequests.status.confirmed'), bg: '#D1FAE5', text: '#059669' },
+    rejected:  { label: t('manageRequests.status.rejected'),  bg: '#FFF1F2', text: '#E11D48' },
+    cancelled: { label: t('manageRequests.status.cancelled'), bg: '#FFF1F2', text: '#E11D48' },
+    completed: { label: t('manageRequests.status.completed'), bg: '#D1FAE5', text: '#059669' },
   };
   const m = map[status] || { label: status, bg: '#F0F0F0', text: '#666' };
   return (
@@ -102,8 +112,7 @@ function StatusChip({ status }: { status: Status }): React.ReactElement {
 
 /* ═══════════════════════════════════════════════════════════════ */
 export function ManageRequestsScreen(): React.ReactElement {
-  const navigation = useNavigation<Nav>();
-  const { c } = useApp();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   const [requests, setRequests] = useState<RequestItem[]>([]);
@@ -140,22 +149,27 @@ export function ManageRequestsScreen(): React.ReactElement {
               return {
                 id: b._id,
                 tripId: ride?._id ?? 'unknown',
-                rider: b.rider?.name || 'Rider',
+                rider: b.rider?.name || t('manageRequests.rider'),
+                colleagueAt: (b.rider as { colleagueAt?: string } | undefined)?.colleagueAt,
                 avatar: b.rider?.profilePhotoUrl,
                 rating: ratingCount > 0 ? stats?.avgRatingAsRider ?? null : null,
                 ratingCount,
                 trips: stats?.totalRidesAsRider ?? 0,
-                from: b.pickup?.address || 'Pickup',
-                to: b.dropoff?.address || 'Drop',
+                from: b.pickup?.address || t('manageRequests.pickup'),
+                to: b.dropoff?.address || t('manageRequests.drop'),
                 date: ride?.departureTime
                   ? new Date(ride.departureTime).toLocaleString(REGION.dateLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                   : '',
                 seats: b.seatsBooked,
                 price: b.estimatedFare ?? 0,
                 aiScore: b.matchScore ? Math.round(b.matchScore) : null,
-                passengers: [{ name: b.rider?.name || 'Rider', gender: b.rider?.gender || '' }],
+                passengers: [{ name: b.rider?.name || t('manageRequests.rider'), gender: b.rider?.gender || '' }],
                 status: b.status,
                 note: b.note,
+                stops: (b.stops ?? []).map(s => s.address),
+                bus: b.connection
+                  ? { time: new Date(b.connection.departsAt).toLocaleTimeString(REGION.dateLocale, { hour: '2-digit', minute: '2-digit' }), hub: b.connection.hubName }
+                  : undefined,
               };
             });
 
@@ -170,7 +184,7 @@ export function ManageRequestsScreen(): React.ReactElement {
               const filledSeats = totalSeats - (ride.availableSeats ?? 0);
               tripMap.set(ride._id, {
                 id: ride._id,
-                label: `${ride.pickup?.address || 'Start'} to ${ride.dropoff?.address || 'end'}`,
+                label: t('common.route', { from: ride.pickup?.address || t('common.start'), to: ride.dropoff?.address || t('common.endLower') }),
                 from: ride.pickup?.address,
                 to: ride.dropoff?.address,
                 date: ride.departureTime ? new Date(ride.departureTime).toLocaleDateString(REGION.dateLocale, { day: 'numeric', month: 'short' }) : '',
@@ -193,7 +207,7 @@ export function ManageRequestsScreen(): React.ReactElement {
       };
       fetchBookings();
       return () => { isActive = false; };
-    }, [activeTripId])
+    }, [activeTripId, t])
   );
 
   const trip = trips.find(t => t.id === activeTripId) || null;
@@ -206,7 +220,7 @@ export function ManageRequestsScreen(): React.ReactElement {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setRequests(prev => prev.map(r => (r.id === id ? { ...r, status: 'confirmed' } : r)));
     } catch (error) {
-      Alert.alert('Could not accept request', errorHandler.process(error).message);
+      Alert.alert(t('manageRequests.couldNotAcceptRequest'), errorHandler.process(error).message);
     }
   };
 
@@ -216,7 +230,7 @@ export function ManageRequestsScreen(): React.ReactElement {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setRequests(prev => prev.map(r => (r.id === id ? { ...r, status: 'rejected' } : r)));
     } catch (error) {
-      Alert.alert('Could not decline request', errorHandler.process(error).message);
+      Alert.alert(t('manageRequests.couldNotDeclineRequest'), errorHandler.process(error).message);
     }
   };
 
@@ -229,28 +243,27 @@ export function ManageRequestsScreen(): React.ReactElement {
   };
 
   const TABS: { key: Status; label: string; color: string; bg: string }[] = [
-    { key: 'pending', label: 'Pending', color: '#92400E', bg: '#FEF3C7' },
-    { key: 'confirmed', label: 'Accepted', color: '#047857', bg: '#D1FAE5' },
-    { key: 'rejected', label: 'Declined', color: '#BE123C', bg: '#FFF1F2' },
+    { key: 'pending', label: t('manageRequests.status.pending'), color: '#92400E', bg: '#FEF3C7' },
+    { key: 'confirmed', label: t('manageRequests.status.accepted'), color: '#047857', bg: '#D1FAE5' },
+    { key: 'rejected', label: t('manageRequests.status.rejected'), color: '#BE123C', bg: '#FFF1F2' },
   ];
 
   /* ═══════════════════════════════════════════════════════════ */
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
       {/* ── Header ─────────────────────────────────────────── */}
-      <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        {/* Title row */}
-        <View style={styles.titleRow}>
-          <BackButton onPress={() => navigation.goBack()} />
-          <Text style={[styles.title, { color: c.text }]} accessibilityRole="header">Ride requests</Text>
-          {totalPending > 0 && (
-            <View style={[styles.pendingBadge, { backgroundColor: c.accent + '20', borderColor: c.accent + '50' }]}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: c.accent }}>
-                {totalPending} pending
-              </Text>
-            </View>
-          )}
-        </View>
+      <ScreenHeader
+        title={t('manageRequests.rideRequests')}
+        noBack
+        right={totalPending > 0 ? (
+          <View style={[styles.pendingBadge, themed.pendingBadge]}>
+            <Text style={[{ fontSize: 13, fontWeight: '700' }, tc.color_accent]}>
+              {totalPending} pending
+            </Text>
+          </View>
+        ) : null}
+      />
+      <View style={[styles.header, tc.backgroundColor_surface, tc.borderBottomColor_border]}>
 
         {/* Trip selector */}
         <ScrollView
@@ -265,13 +278,11 @@ export function ManageRequestsScreen(): React.ReactElement {
                 <View
                   style={[
                     styles.tripChip,
-                    {
-                      borderColor: isActive ? c.primary : c.border,
-                      backgroundColor: isActive ? c.primaryLight : c.surface,
-                    },
+                    isActive ? tc.borderColor_primary : tc.borderColor_border,
+                    isActive ? tc.backgroundColor_primaryLight : tc.backgroundColor_surface
                   ]}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: isActive ? c.primary : c.textSec }}>
+                  <Text style={[{ fontSize: 12, fontWeight: '600' }, isActive ? tc.color_primary : tc.color_textSec]}>
                     {t.label}
                   </Text>
                 </View>
@@ -281,13 +292,12 @@ export function ManageRequestsScreen(): React.ReactElement {
         </ScrollView>
       </View>
 
-      {loading || !trip ? (
+      {loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={c.primary} />
-          {!trip && !loading && (
-            <Text style={{ marginTop: 10, color: c.textSec }}>No active trips found</Text>
-          )}
+          <ActivityIndicator size="large" color={tk.primary} />
         </View>
+      ) : !trip ? (
+        <EmptyState icon="automobile" title={t('manageRequests.noTripsTitle')} body={t('manageRequests.noTripsBody')} />
       ) : (
         <FlatList
           data={visibleRequests}
@@ -298,21 +308,25 @@ export function ManageRequestsScreen(): React.ReactElement {
         ListHeaderComponent={
           <>
             {/* Trip summary card */}
-            <View style={[styles.summaryCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={[
+              styles.summaryCard,
+              tc.backgroundColor_surfaceVariant,
+              tc.borderColor_surfaceVariant
+            ]}>
               <View style={styles.summaryTop}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>
-                    {trip.from} to {trip.to}
+                  <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_text]}>
+                    {t('manageRequests.route', { from: trip.from, to: trip.to })}
                   </Text>
-                  <Text style={{ fontSize: 12, color: c.textSec, marginTop: 3 }}>
+                  <Text style={[{ fontSize: 12, marginTop: 3 }, tc.color_textSec]}>
                     {trip.date} · {trip.totalSeats} seats total
                   </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ fontSize: 20, fontWeight: '800', color: c.success }}>
+                  <Text style={[{ fontSize: 20, fontWeight: '800' }, tc.color_success]}>
                     {money(trip.earnings)}
                   </Text>
-                  <Text style={{ fontSize: 11, color: c.textSec }}>from booked seats</Text>
+                  <Text style={[{ fontSize: 11 }, tc.color_textSec]}>{t('manageRequests.fromBookedSeats')}</Text>
                 </View>
               </View>
 
@@ -326,8 +340,8 @@ export function ManageRequestsScreen(): React.ReactElement {
                       style={[
                         styles.seatBlock,
                         filled
-                          ? { backgroundColor: c.primary }
-                          : { backgroundColor: c.bg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.border },
+                          ? tc.backgroundColor_primary
+                          : [{ borderWidth: 1.5, borderStyle: 'dashed' }, tc.backgroundColor_surface, tc.borderColor_border],
                       ]}
                     >
                       {filled ? (
@@ -338,12 +352,12 @@ export function ManageRequestsScreen(): React.ReactElement {
                           />
                         </Svg>
                       ) : (
-                        <Text style={{ fontSize: 11, color: c.textSec, fontWeight: '500' }}>Free</Text>
+                        <Text style={[{ fontSize: 11, fontWeight: '500' }, tc.color_textSec]}>{t('manageRequests.free')}</Text>
                       )}
                     </View>
                   );
                 })}
-                <Text style={{ fontSize: 12, fontWeight: '600', color: c.primary, marginLeft: 4 }}>
+                <Text style={[{ fontSize: 12, fontWeight: '600', marginLeft: 4 }, tc.color_primary]}>
                   {trip.filledSeats}/{trip.totalSeats} filled
                 </Text>
               </View>
@@ -356,20 +370,24 @@ export function ManageRequestsScreen(): React.ReactElement {
                 return (
                   <Pressable accessibilityRole="button" key={tab.key} onPress={() => setActiveTab(tab.key)} style={{ flex: 1 }}>
                     <View
-                      style={[
-                        styles.tabBtn,
-                        {
-                          backgroundColor: isActive2 ? tab.bg : c.surface,
-                          borderColor: isActive2 ? tab.color + '60' : c.border,
-                        },
-                      ]}
+                      style={[styles.tabBtn, isActive2 ? {
+                        backgroundColor: tab.bg
+                      } : tc.backgroundColor_surface, isActive2 ? {
+                        borderColor: tab.color + '60'
+                      } : tc.borderColor_border]}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: isActive2 ? tab.color : c.textSec }}>
+                      <Text style={[{ fontSize: 13, fontWeight: '700' }, isActive2 ? {
+                        color: tab.color
+                      } : tc.color_textSec]}>
                         {tab.label}
                       </Text>
                       {tabCounts[tab.key] > 0 && (
-                        <View style={[styles.tabCount, { backgroundColor: isActive2 ? tab.color : c.border }]}>
-                          <Text style={{ fontSize: 10, fontWeight: '800', color: isActive2 ? 'white' : c.textSec }}>
+                        <View style={[styles.tabCount, isActive2 ? {
+                          backgroundColor: tab.color
+                        } : tc.backgroundColor_border]}>
+                          <Text style={[{ fontSize: 10, fontWeight: '800' }, isActive2 ? {
+                            color: 'white'
+                          } : tc.color_textSec]}>
                             {tabCounts[tab.key]}
                           </Text>
                         </View>
@@ -382,7 +400,7 @@ export function ManageRequestsScreen(): React.ReactElement {
 
             {/* Section label */}
             {visibleRequests.length > 0 && (
-              <Text variant="bodyMedium" style={{ fontWeight: '700', color: c.text, marginTop: 4, marginBottom: -2 }}>
+              <Text style={[type.bodyMedium, { fontWeight: '700', marginTop: 4, marginBottom: -2 }, tc.color_text]}>
                 {visibleRequests.length}{' '}
                 {activeTab === 'pending' ? 'pending' : activeTab === 'confirmed' ? 'accepted' : 'declined'}{' '}
                 {visibleRequests.length !== 1 ? 'requests' : 'request'}
@@ -391,53 +409,36 @@ export function ManageRequestsScreen(): React.ReactElement {
           </>
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Icon
-              name={activeTab === 'pending' ? 'timer-sand' : activeTab === 'confirmed' ? 'check-circle-outline' : 'close-circle-outline'}
-              size={48}
-              color={c.textSec}
+          activeTab === 'pending' || activeTab === 'confirmed' || activeTab === 'rejected' ? (
+            <EmptyState
+              icon={activeTab === 'confirmed' ? 'handshake' : 'bustsInSilhouette'}
+              title={t(`manageRequests.empty.${activeTab}Title`)}
+              body={t(`manageRequests.empty.${activeTab}Sub`)}
             />
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>
-              {activeTab === 'pending' && 'No pending requests'}
-              {activeTab === 'confirmed' && 'No accepted requests yet'}
-              {activeTab === 'rejected' && 'No declined requests'}
-            </Text>
-            <Text style={{ fontSize: 13, color: c.textSec, textAlign: 'center', lineHeight: 19, paddingHorizontal: 20 }}>
-              {activeTab === 'pending' && 'New ride requests from riders will appear here.'}
-              {activeTab === 'confirmed' && 'When you accept a request it will show up here.'}
-              {activeTab === 'rejected' && 'Declined requests will be moved here.'}
-            </Text>
-          </View>
+          ) : null
         }
         renderItem={({ item: req }) => (
           <View
             key={req.id}
             style={[
               styles.reqCard,
-              {
-                backgroundColor: c.surface,
-                borderColor:
-                  req.status === 'confirmed'
-                    ? c.success + '50'
-                    : req.status === 'rejected'
-                    ? c.error + '40'
-                    : c.border,
-              },
+              tc.backgroundColor_surfaceVariant,
+              req.status === 'confirmed' ? themed.confirmedEdge : req.status === 'rejected' ? themed.rejectedEdge : tc.borderColor_border,
             ]}
           >
             {/* Top banner */}
             {req.status === 'pending' ? (
-              <View style={[styles.bannerRow, { backgroundColor: c.warningLight }]}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#92400E' }}>Waiting for your answer</Text>
+              <View style={[styles.bannerRow, tc.backgroundColor_warningLight]}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#92400E' }}>{t('manageRequests.waitingForYourAnswer')}</Text>
                 {req.aiScore !== null && (
                   <View
-                    style={[styles.aiBadge, { backgroundColor: req.aiScore >= 75 ? c.successLight : c.primaryLight }]}
-                    accessibilityLabel={`Match score ${req.aiScore} out of 100`}
+                    style={[styles.aiBadge, req.aiScore >= 75 ? tc.backgroundColor_successLight : tc.backgroundColor_primaryLight]}
+                    accessibilityLabel={t('manageRequests.matchScore', { score: req.aiScore })}
                   >
-                    <Text style={{ fontSize: 13, fontWeight: '800', lineHeight: 15, color: req.aiScore >= 75 ? c.successDark : c.primary }}>
+                    <Text style={[{ fontSize: 13, fontWeight: '800', lineHeight: 15 }, req.aiScore >= 75 ? tc.color_successDark : tc.color_primary]}>
                       {req.aiScore}
                     </Text>
-                    <Text style={{ fontSize: 9, fontWeight: '700', color: req.aiScore >= 75 ? c.successDark : c.primary }}>match</Text>
+                    <Text style={[{ fontSize: 9, fontWeight: '700' }, req.aiScore >= 75 ? tc.color_successDark : tc.color_primary]}>{t('manageRequests.match')}</Text>
                   </View>
                 )}
               </View>
@@ -445,10 +446,7 @@ export function ManageRequestsScreen(): React.ReactElement {
               <View
                 style={[
                   styles.bannerRow,
-                  {
-                    backgroundColor:
-                      req.status === 'confirmed' ? c.successLight : c.errorLight,
-                  },
+                  req.status === 'confirmed' ? tc.backgroundColor_successLight : tc.backgroundColor_errorLight,
                 ]}
               >
                 <View style={styles.row}>
@@ -459,7 +457,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                           ? 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'
                           : 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
                       }
-                      fill={req.status === 'confirmed' ? c.success : c.error}
+                      fill={req.status === 'confirmed' ? tk.success : tk.error}
                     />
                   </Svg>
                   <Text
@@ -469,7 +467,7 @@ export function ManageRequestsScreen(): React.ReactElement {
                       color: req.status === 'confirmed' ? '#065F46' : '#9F1239',
                     }}
                   >
-                    {req.status === 'confirmed' ? 'Request accepted' : 'Request declined'}
+                    {req.status === 'confirmed' ? t('manageRequests.requestAccepted') : t('manageRequests.requestDeclined')}
                   </Text>
                 </View>
                 <StatusChip status={req.status} />
@@ -483,51 +481,55 @@ export function ManageRequestsScreen(): React.ReactElement {
                 {req.avatar ? (
                   <ImageWithFallback src={req.avatar} alt={req.rider} width={54} height={54} borderRadius={14} />
                 ) : (
-                  <View style={[styles.avatarFallback, { backgroundColor: c.primaryLight }]}>
-                    <Text style={{ fontSize: 20, fontWeight: '700', color: c.primary }}>{req.rider.charAt(0).toUpperCase()}</Text>
+                  <View style={[styles.avatarFallback, tc.backgroundColor_primaryLight]}>
+                    <Text style={[{ fontSize: 20, fontWeight: '700' }, tc.color_primary]}>{req.rider.charAt(0).toUpperCase()}</Text>
                   </View>
                 )}
                 <View style={{ flex: 1 }}>
-                  <Text variant="titleSmall" style={{ fontWeight: '800', color: c.text }}>{req.rider}</Text>
+                  <Text style={[type.titleSmall, { fontWeight: '800' }, tc.color_text]}>{req.rider}</Text>
+                  {req.colleagueAt ? (
+                    <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_primary]}>{t('manageRequests.worksAt', { company: req.colleagueAt })}</Text>
+                  ) : null}
                   <View style={[styles.row, { flexWrap: 'wrap', marginTop: 4 }]}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: c.text }}>
-                      {req.rating !== null ? `Rated ${req.rating.toFixed(1)} (${req.ratingCount})` : 'No ratings yet'}
+                    <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_text]}>
+                      {req.rating !== null ? t('manageRequests.rated', { rating: req.rating.toFixed(1), count: req.ratingCount }) : t('manageRequests.noRatings')}
                     </Text>
-                    <Text variant="bodySmall" style={{ color: c.textSec, marginLeft: 8 }}>
-                      {req.trips} {req.trips === 1 ? 'trip' : 'trips'}
+                    <Text style={[type.bodySmall, { marginLeft: 8 }, tc.color_textSec]}>
+                      {req.trips === 1 ? t('manageRequests.tripOne') : t('manageRequests.tripMany', { count: req.trips })}
                     </Text>
-                    <View style={[styles.seatLabel, { backgroundColor: c.primaryLight }]}>
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: c.primary }}>
-                        {req.seats} seat{req.seats > 1 ? 's' : ''}
+                    <View style={[styles.seatLabel, tc.backgroundColor_primaryLight]}>
+                      <Text style={[{ fontSize: 11, fontWeight: '600' }, tc.color_primary]}>
+                        {req.seats > 1 ? t('manageRequests.seatMany', { count: req.seats }) : t('manageRequests.seatOne')}
                       </Text>
                     </View>
                   </View>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text variant="titleLarge" style={{ fontWeight: '800', color: c.primary }}>{money(req.price)}</Text>
-                  <Text variant="labelSmall" style={{ color: c.textSec }}>total</Text>
+                  <Text style={[type.titleLarge, { fontWeight: '800' }, tc.color_primary]}>{money(req.price)}</Text>
+                  <Text style={[type.labelSmall, tc.color_textSec]}>{t('manageRequests.total')}</Text>
                 </View>
               </View>
 
               {/* Passenger details */}
-              <View style={[styles.passTable, { borderColor: c.border }]}>
+              <View style={[styles.passTable, tc.borderColor_border]}>
                 <View
                   style={[
                     styles.passHeader,
-                    { backgroundColor: c.primaryLight, borderBottomColor: c.border },
+                    tc.backgroundColor_primaryLight,
+                    tc.borderBottomColor_border
                   ]}
                 >
                   <Svg width={13} height={13} viewBox="0 0 24 24">
                     <Path
                       d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"
-                      fill={c.primary}
+                      fill={tk.primary}
                     />
                   </Svg>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: c.primary }}>
-                    Passenger Details
+                  <Text style={[{ fontSize: 12, fontWeight: '700' }, tc.color_primary]}>
+                    {t('manageRequests.passengerDetails')}
                   </Text>
-                  <Text style={{ fontSize: 11, color: c.textSec, marginLeft: 'auto' }}>
-                    {req.passengers.length} passenger{req.passengers.length > 1 ? 's' : ''}
+                  <Text style={[{ fontSize: 11, marginLeft: 'auto' }, tc.color_textSec]}>
+                    {req.passengers.length > 1 ? t('manageRequests.passengerMany', { count: req.passengers.length }) : t('manageRequests.passengerOne')}
                   </Text>
                 </View>
                 {req.passengers.map((pax, i) => (
@@ -535,25 +537,23 @@ export function ManageRequestsScreen(): React.ReactElement {
                     key={i}
                     style={[
                       styles.passRow,
-                      {
-                        backgroundColor: i % 2 === 0 ? c.bg : c.surface,
-                        borderTopWidth: i > 0 ? 1 : 0,
-                        borderTopColor: c.border,
-                      },
+                      { borderTopWidth: i > 0 ? 1 : 0 },
+                      i % 2 === 0 ? tc.backgroundColor_surface : tc.backgroundColor_surfaceVariant,
+                      tc.borderTopColor_border
                     ]}
                   >
-                    <View style={[styles.paxNum, { backgroundColor: c.primary }]}>
+                    <View style={[styles.paxNum, tc.backgroundColor_primary]}>
                       <Text style={{ fontSize: 12, fontWeight: '800', color: 'white' }}>
                         {i + 1}
                       </Text>
                     </View>
-                    <Icon name={pax.gender === 'female' ? 'human-female' : pax.gender === 'male' ? 'human-male' : 'account'} size={20} color={c.textSec} />
+                    <Icon name={pax.gender === 'female' ? 'human-female' : pax.gender === 'male' ? 'human-male' : 'account'} size={20} color={tk.textSec} />
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: c.text }}>
+                      <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_text]}>
                         {pax.name}
                       </Text>
-                      <Text style={{ fontSize: 11, color: c.textSec }}>
-                        {pax.gender ? (pax.gender === 'male' ? 'Male' : pax.gender === 'female' ? 'Female' : 'Other') : 'Not specified'}
+                      <Text style={[{ fontSize: 11 }, tc.color_textSec]}>
+                        {pax.gender ? t(`manageRequests.gender.${pax.gender === 'male' || pax.gender === 'female' ? pax.gender : 'other'}`) : t('manageRequests.gender.notSpecified')}
                       </Text>
                     </View>
                     {pax.gender ? <GenderBadge gender={pax.gender as Gender} /> : null}
@@ -562,44 +562,64 @@ export function ManageRequestsScreen(): React.ReactElement {
               </View>
 
               {/* Route */}
-              <View style={[styles.routeRow, { backgroundColor: c.bg }]}>
+              <View style={[styles.routeRow, tc.backgroundColor_surface]}>
                 <View style={{ alignItems: 'center' }}>
-                  <View style={[styles.routeDot, { backgroundColor: c.primary, borderRadius: 4 }]} />
-                  <View style={[styles.routeLine, { backgroundColor: c.border }]} />
-                  <View style={[styles.routeDot, { backgroundColor: c.error, borderRadius: 2 }]} />
+                  <View style={[styles.routeDot, { borderRadius: 4 }, tc.backgroundColor_primary]} />
+                  <View style={[styles.routeLine, tc.backgroundColor_border]} />
+                  <View style={[styles.routeDot, { borderRadius: 2 }, tc.backgroundColor_error]} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text variant="bodySmall" style={{ fontWeight: '700', color: c.text }}>{req.from}</Text>
-                  <Text variant="bodySmall" style={{ color: c.textSec, marginTop: 6 }}>{req.to}</Text>
+                  <Text style={[type.bodySmall, { fontWeight: '700' }, tc.color_text]}>{req.from}</Text>
+                  <Text style={[type.bodySmall, { marginTop: 6 }, tc.color_textSec]}>{req.to}</Text>
                 </View>
-                <Text variant="labelSmall" style={{ color: c.textSec }}>{req.date}</Text>
+                <Text style={[type.labelSmall, tc.color_textSec]}>{req.date}</Text>
               </View>
+
+              {req.bus ? (
+                <View style={[styles.routeRow, tc.backgroundColor_surface]}>
+                  <Text style={[type.bodySmall, { fontWeight: '700', flex: 1 }, tc.color_text]}>
+                    {req.bus.hub ? t('manageRequests.busFrom', { time: req.bus.time, hub: req.bus.hub }) : t('manageRequests.bus', { time: req.bus.time })}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Stops the rider asked for on the way */}
+              {req.stops.length ? (
+                <View style={[styles.routeRow, tc.backgroundColor_surface, { flexDirection: 'column', alignItems: 'flex-start', gap: 2 }]}>
+                  <Text style={[type.bodySmall, { fontWeight: '700' }, tc.color_text]}>
+                    {req.stops.length === 1 ? t('manageRequests.stopsOne') : t('manageRequests.stopsMany', { count: req.stops.length })}
+                  </Text>
+                  {req.stops.map((stop, i) => (
+                    <Text key={`${stop}-${i}`} style={[type.bodySmall, tc.color_textSec]}>{`${i + 1}. ${stop}`}</Text>
+                  ))}
+                </View>
+              ) : null}
 
               {/* Message from the rider */}
               {req.note ? (
-                <View style={[styles.routeRow, { backgroundColor: c.bg }]}>
-                  <Text variant="bodySmall" style={{ color: c.text, fontStyle: 'italic', flex: 1 }}>“{req.note}”</Text>
+                <View style={[styles.routeRow, tc.backgroundColor_surface]}>
+                  <Text style={[type.bodySmall, { fontStyle: 'italic', flex: 1 }, tc.color_text]}>“{req.note}”</Text>
                 </View>
               ) : null}
 
               {/* Action buttons */}
               {req.status === 'pending' && (
                 <View style={[styles.actionRow, { marginTop: 4 }]}>
-                  <Pressable onPress={() => reject(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Decline request from ${req.rider}`}>
-                    <View style={[styles.actionBtn, { backgroundColor: c.errorLight }]}>
+                  <Pressable onPress={() => reject(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={t('manageRequests.declineFrom', { name: req.rider })}>
+                    <View style={[styles.actionBtn, tc.backgroundColor_errorLight]}>
                       <Svg width={14} height={14} viewBox="0 0 24 24">
                         <Path
                           d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                          fill={c.error}
+                          fill={tk.error}
                         />
                       </Svg>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: c.error }}>Decline</Text>
+                      <Text style={[{ fontSize: 14, fontWeight: '600' }, tc.color_error]}>{t('manageRequests.decline')}</Text>
                     </View>
                   </Pressable>
 
-                  <Pressable onPress={() => accept(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Accept request from ${req.rider}`}>
+                  <Pressable onPress={() => accept(req.id)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={t('manageRequests.acceptFrom', { name: req.rider })}>
                     <LinearGradient
-                      colors={[c.success, '#059669']}
+                      colors={[tk.success, '#059669']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.acceptBtn}
@@ -610,33 +630,33 @@ export function ManageRequestsScreen(): React.ReactElement {
                           fill="white"
                         />
                       </Svg>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: 'white' }}>Accept</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: 'white' }}>{t('manageRequests.accept')}</Text>
                     </LinearGradient>
                   </Pressable>
                 </View>
               )}
 
               {req.status === 'confirmed' && (
-                <View style={[styles.statusBanner, { backgroundColor: c.successLight }]}>
+                <View style={[styles.statusBanner, tc.backgroundColor_successLight]}>
                   <Svg width={16} height={16} viewBox="0 0 24 24">
-                    <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill={c.success} />
+                    <Path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill={tk.success} />
                   </Svg>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: '#065F46' }}>
-                    You accepted this request. Rider has been notified.
+                    {t('manageRequests.youAcceptedThisRequestRider')}
                   </Text>
                 </View>
               )}
 
               {req.status === 'rejected' && (
-                <View style={[styles.statusBanner, { backgroundColor: c.errorLight }]}>
+                <View style={[styles.statusBanner, tc.backgroundColor_errorLight]}>
                   <Svg width={16} height={16} viewBox="0 0 24 24">
                     <Path
                       d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                      fill={c.error}
+                      fill={tk.error}
                     />
                   </Svg>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: '#9F1239' }}>
-                    You declined this request.
+                    {t('manageRequests.youDeclinedThisRequest')}
                   </Text>
                 </View>
               )}
@@ -651,13 +671,29 @@ export function ManageRequestsScreen(): React.ReactElement {
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
+// Theme colours made see-through (hex alpha), repainted with the theme
+const themed = UStyleSheet.create(theme => ({
+  pendingBadge: { backgroundColor: theme.colors.accent + '20', borderColor: theme.colors.accent + '50' },
+  confirmedEdge: { borderColor: theme.colors.success + '50' },
+  rejectedEdge: { borderColor: theme.colors.error + '40' },
+}));
+
+// The Material 3 type sizes this screen had from react-native-paper's Text,
+// kept on the app's own Text (which Unistyles repaints with the theme)
+const type = StyleSheet.create({
+  titleLarge: { fontSize: 22, lineHeight: 28 },
+  titleSmall: { fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1 },
+  bodyMedium: { fontSize: 14, lineHeight: 20, letterSpacing: 0.25 },
+  bodySmall: { fontSize: 12, lineHeight: 16, letterSpacing: 0.4 },
+  labelSmall: { fontSize: 11, lineHeight: 16, fontWeight: '500', letterSpacing: 0.5 },
+});
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex1: { flex: 1 },
 
   /* Header */
-  header: { borderBottomWidth: 1, paddingHorizontal: 20, paddingTop: 12 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  header: { borderBottomWidth: 1, paddingHorizontal: 20 },
   title: { fontSize: 22, fontWeight: '800', flex: 1 },
   pendingBadge: {
     paddingVertical: 4,

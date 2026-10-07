@@ -8,31 +8,28 @@
 import React, { useCallback, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   Image,
   Linking,
   Modal,
   ScrollView,
-  TextInput,
   Alert,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { ActivityIndicator } from '../../components/Themed';
+import { Text, TextInput } from '../../components/Text';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useApp } from '../../context/AppContext';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { adminService, type AdminUser, type KycReview } from '../../services/adminService';
 import { errorHandler } from '../../utils/errorHandler';
 import { REGION } from '../../utils/region';
 import { displayPhone } from '../../utils/phone';
+import { tc, tk } from '../../theme/themed';
 
 export function AdminVerificationsScreen() {
-  const navigation = useNavigation();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
 
   const [pending, setPending] = useState<AdminUser[] | null>(null);
@@ -120,21 +117,18 @@ export function AdminVerificationsScreen() {
     : [];
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">Driver verifications</Text>
-      </View>
+    <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title="Driver verifications" />
 
       {pending === null && !loadError ? (
-        <ActivityIndicator style={{ marginTop: 32 }} color={c.primary} />
+        <ActivityIndicator style={{ marginTop: 32 }} color={tk.primary} />
       ) : (
         <FlatList
           data={pending ?? []}
           keyExtractor={u => u._id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={{ color: loadError ? c.error : c.textSec, textAlign: 'center', marginTop: 24 }}>
+            <Text style={[{ textAlign: 'center', marginTop: 24 }, loadError ? tc.color_error : tc.color_textSec]}>
               {loadError ? 'Verifications could not be loaded.' : 'No verifications are waiting for review.'}
             </Text>
           }
@@ -142,91 +136,105 @@ export function AdminVerificationsScreen() {
             <Pressable
               onPress={() => open(item)}
               accessibilityRole="button"
-              style={[styles.row, { backgroundColor: c.surface, borderColor: c.border }]}
+              style={[
+                styles.row,
+                tc.backgroundColor_surfaceVariant,
+                tc.borderColor_surfaceVariant
+              ]}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>{item.name}</Text>
-                <Text style={{ fontSize: 13, color: c.textSec }}>
+                <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_text]}>{item.name}</Text>
+                <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
                   {displayPhone(item.phone) ?? item.phone}
                   {item.kyc.submittedAt ? ` · Submitted ${new Date(item.kyc.submittedAt).toLocaleDateString(REGION.dateLocale)}` : ''}
                 </Text>
               </View>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>Review</Text>
+              <Text style={[{ fontSize: 14, fontWeight: '600' }, tc.color_primary]}>Review</Text>
             </Pressable>
           )}
         />
       )}
 
       <Modal visible={Boolean(selected)} animationType="slide" onRequestClose={() => setSelected(null)}>
-        <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-          <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
-            <BackButton onPress={() => setSelected(null)} />
-            <Text style={[styles.headerTitle, { color: c.text }]} accessibilityRole="header">{selected?.name}</Text>
-          </View>
+        <View style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+          <ScreenHeader title={selected?.name ?? ''} onBack={() => setSelected(null)} />
           {!review ? (
-            <ActivityIndicator style={{ marginTop: 32 }} color={c.primary} />
+            <ActivityIndicator style={{ marginTop: 32 }} color={tk.primary} />
           ) : (
             <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
-              <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <Text style={[styles.label, { color: c.textSec }]}>Licence number</Text>
-                <Text style={[styles.value, { color: c.text }]}>{review.licenseNumber ?? 'Not provided'}</Text>
+              <View style={[
+                styles.card,
+                tc.backgroundColor_surfaceVariant,
+                tc.borderColor_surfaceVariant
+              ]}>
+                <Text style={[styles.label, tc.color_textSec]}>Licence number</Text>
+                <Text style={[styles.value, tc.color_text]}>{review.licenseNumber ?? 'Not provided'}</Text>
                 {review.vehicle && (
                   <>
-                    <Text style={[styles.label, { color: c.textSec }]}>Vehicle</Text>
-                    <Text style={[styles.value, { color: c.text }]}>
+                    <Text style={[styles.label, tc.color_textSec]}>Vehicle</Text>
+                    <Text style={[styles.value, tc.color_text]}>
                       {review.vehicle.make} {review.vehicle.model} ({review.vehicle.year}), {review.vehicle.color}
                     </Text>
-                    <Text style={[styles.value, { color: c.text }]}>
+                    <Text style={[styles.value, tc.color_text]}>
                       {review.vehicle.plateNumber} · {review.vehicle.vehicleType}
                     </Text>
                   </>
                 )}
               </View>
 
-              <Text style={{ fontSize: 13, color: c.textSec }}>Document links expire after 5 minutes.</Text>
+              <Text style={[{ fontSize: 13 }, tc.color_textSec]}>Document links expire after 5 minutes.</Text>
               {docLinks.map(doc => (
-                <View key={doc.label} style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-                  <Text style={[styles.label, { color: c.textSec }]}>{doc.label}</Text>
+                <View key={doc.label} style={[
+                  styles.card,
+                  tc.backgroundColor_surfaceVariant,
+                  tc.borderColor_surfaceVariant
+                ]}>
+                  <Text style={[styles.label, tc.color_textSec]}>{doc.label}</Text>
                   {doc.url ? (
                     <Pressable onPress={() => Linking.openURL(doc.url!)} accessibilityRole="link" accessibilityLabel={`Open ${doc.label}`}>
                       <Image source={{ uri: doc.url }} style={styles.docImage} resizeMode="contain" />
-                      <Text style={{ fontSize: 14, color: c.primary, marginTop: 6 }}>Open full size</Text>
+                      <Text style={[{ fontSize: 14, marginTop: 6 }, tc.color_primary]}>Open full size</Text>
                     </Pressable>
                   ) : (
-                    <Text style={{ color: c.error }}>Missing</Text>
+                    <Text style={tc.color_error}>Missing</Text>
                   )}
                 </View>
               ))}
 
-              <Text style={[styles.label, { color: c.textSec }]}>Reason (required to reject)</Text>
+              <Text style={[styles.label, tc.color_textSec]}>Reason (required to reject)</Text>
               <TextInput
                 value={reason}
                 onChangeText={setReason}
                 multiline
                 placeholder="For example, the registration book photo is blurred"
-                placeholderTextColor={c.textSec}
+                placeholderTextColor={tk.textSec}
                 accessibilityLabel="Rejection reason"
-                style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
+                style={[
+                  styles.input,
+                  tc.borderColor_surfaceVariant,
+                  tc.color_text,
+                  tc.backgroundColor_surfaceVariant
+                ]}
               />
               <View style={styles.actions}>
                 <Pressable
                   onPress={() => decide(false)}
                   disabled={acting}
                   accessibilityRole="button"
-                  style={[styles.actionBtn, { backgroundColor: c.errorLight }]}
+                  style={[styles.actionBtn, tc.backgroundColor_errorLight]}
                 >
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>Reject</Text>
+                  <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_error]}>Reject</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => decide(true)}
                   disabled={acting}
                   accessibilityRole="button"
-                  style={[styles.actionBtn, { backgroundColor: c.primary }]}
+                  style={[styles.actionBtn, tc.backgroundColor_primary]}
                 >
                   {acting ? (
-                    <ActivityIndicator color={c.textOnPrimary} />
+                    <ActivityIndicator color={tk.textOnPrimary} />
                   ) : (
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: c.textOnPrimary }}>Approve</Text>
+                    <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_textOnPrimary]}>Approve</Text>
                   )}
                 </Pressable>
               </View>

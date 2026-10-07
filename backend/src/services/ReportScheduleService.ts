@@ -226,7 +226,7 @@ export class ReportScheduleService {
 
     const range = `${localDay(params.from.toISOString())} to ${localDay(params.to.toISOString())}`;
     const localRange = `${fmtDay(params.from)} to ${fmtDay(params.to)}`;
-    const subject = `${LABEL[schedule.frequency]} Poolora reports: ${schedule.name} (${fmtDay(params.from)}${schedule.frequency === 'daily' ? '' : ` to ${fmtDay(params.to)}`})`;
+    const subject = `${LABEL[schedule.frequency]} Siham reports: ${schedule.name} (${fmtDay(params.from)}${schedule.frequency === 'daily' ? '' : ` to ${fmtDay(params.to)}`})`;
     const text = [
       `${schedule.name}: ${localRange}, Zimbabwe time.`,
       '',
@@ -236,7 +236,7 @@ export class ReportScheduleService {
         '',
       ]),
       `The full reports are attached (${schedule.format.toUpperCase()}).`,
-      'You get this email because an admin added you to a scheduled report in the Poolora admin.',
+      'You get this email because an admin added you to a scheduled report in the Siham admin.',
     ].join('\n');
     const html = emailLayout(
       `${schedule.name}`,
@@ -245,7 +245,7 @@ export class ReportScheduleService {
 <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:14px">
 ${r.summary.map((s) => `<tr><td style="border-bottom:1px solid #eeede8">${escapeHtml(s.label)}</td><td align="right" style="border-bottom:1px solid #eeede8;font-weight:bold">${escapeHtml(formatFigure(s.value, s.format))}</td></tr>`).join('\n')}
 </table>`).join('\n') +
-        '<p style="font-size:12px;color:#75746f;margin-top:20px">You get this email because an admin added you to a scheduled report in the Poolora admin.</p>',
+        '<p style="font-size:12px;color:#75746f;margin-top:20px">You get this email because an admin added you to a scheduled report in the Siham admin.</p>',
     );
 
     let delivered = 0;

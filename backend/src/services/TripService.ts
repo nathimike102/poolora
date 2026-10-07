@@ -6,6 +6,7 @@
  * Money is worked out in whole cents so shares always add up to the total.
  */
 
+import { addRatingPipeline } from '../utils/ratingScore';
 import crypto from 'crypto';
 import { Types } from 'mongoose';
 import { Trip, ITrip, TRIP_LIMITS, TripVote } from '../models/Trip';
@@ -15,6 +16,7 @@ import { config } from '../config';
 import { AppError, AuthorizationError, ConflictError, NotFoundError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 import { localTime, money, REGION, toE164, toLocalClock } from '../config/region';
+import { phrase, type Phrase } from '../i18n';
 
 const DAY_MS = 86_400_000;
 /** Members can rate the organizer for this long after the trip ends */
@@ -141,13 +143,13 @@ export function tripCalendar(trip: ITrip): string {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Poolora//Trips//EN',
+    'PRODID:-//Siham//Trips//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${icsText(trip.title)}`,
     `X-WR-TIMEZONE:${REGION.timeZone}`,
     'BEGIN:VEVENT',
-    `UID:trip-${trip._id}@poolora.app`,
+    `UID:trip-${trip._id}@siham.app`,
     `DTSTAMP:${stamp}`,
     `DTSTART;VALUE=DATE:${icsDate(new Date(trip.startDate))}`,
     `DTEND;VALUE=DATE:${icsDate(new Date(new Date(trip.endDate).getTime() + DAY_MS))}`,
@@ -162,7 +164,7 @@ export function tripCalendar(trip: ITrip): string {
     const timed = Boolean(a.durationMins);
     lines.push(
       'BEGIN:VEVENT',
-      `UID:activity-${a._id}@poolora.app`,
+      `UID:activity-${a._id}@siham.app`,
       `DTSTAMP:${stamp}`,
       timed ? `DTSTART:${icsTime(start)}` : `DTSTART;VALUE=DATE:${icsDate(start)}`,
       timed ? `DTEND:${icsTime(new Date(start.getTime() + a.durationMins! * 60_000))}` : `DTEND;VALUE=DATE:${icsDate(new Date(start.getTime() + DAY_MS))}`,
@@ -323,7 +325,7 @@ export class TripService {
     trip.joinRequests.push({ user: new Types.ObjectId(userId), message: message?.trim() || undefined, status: 'pending', at: new Date() } as never);
     await trip.save();
     const name = (await User.findById(userId).select('name').lean())?.name?.split(' ')[0] ?? 'Someone';
-    await this.notify([trip.organizer.toString()], 'Someone wants to join your trip', `${name} asked to join "${trip.title}".`, trip);
+    await this.notify([trip.organizer.toString()], phrase('trip.joinRequestTitle'), phrase('trip.joinRequestBody', { name, trip: trip.title }), trip);
     return { status: 'pending' as const };
   }
 
@@ -340,8 +342,8 @@ export class TripService {
     await trip.save();
     await this.notify(
       [request.user.toString()],
-      accept ? 'You are on the trip' : 'Trip request declined',
-      accept ? `You joined "${trip.title}". Say hello to the group!` : `The organizer of "${trip.title}" could not take you this time.`,
+      phrase(accept ? 'trip.acceptedTitle' : 'trip.declinedTitle'),
+      phrase(accept ? 'trip.acceptedBody' : 'trip.declinedBody', { trip: trip.title }),
       trip,
     );
     return this.get(tripId, organizerId);
@@ -395,7 +397,7 @@ export class TripService {
     });
     const others = splitAmong.filter((m) => m !== userId);
     const share = toDollars(Math.ceil(toCents(data.amount) / splitAmong.length));
-    await this.notify(others, `New expense on "${trip.title}"`, `${data.description.trim()}: ${money(expense.amount)}, about ${money(share)} each.`, trip);
+    await this.notify(others, phrase('trip.expenseTitle', { trip: trip.title }), phrase('trip.expenseBody', { description: data.description.trim(), amount: money(expense.amount), share: money(share) }), trip);
     return expense;
   }
 
@@ -484,7 +486,7 @@ export class TripService {
     trip.settlements.push({ from: new Types.ObjectId(data.from), to: new Types.ObjectId(data.to), amount: toDollars(toCents(data.amount)), markedBy: new Types.ObjectId(userId), at: new Date() } as never);
     await trip.save();
     const other = userId === data.from ? data.to : data.from;
-    await this.notify([other], `Payment on "${trip.title}"`, `A payment of ${money(data.amount)} was marked settled.`, trip);
+    await this.notify([other], phrase('trip.paymentTitle', { trip: trip.title }), phrase('trip.paymentBody', { amount: money(data.amount) }), trip);
     return this.settlement(tripId, userId);
   }
 
@@ -493,11 +495,11 @@ export class TripService {
     const report = await this.settlement(tripId, userId);
     const trip = await this.memberTrip(tripId, userId);
     for (const m of report.members) {
-      const pays = report.transfers.filter((t) => t.from === m.userId).map((t) => `${money(t.amount)} to ${t.toName}`);
-      const gets = report.transfers.filter((t) => t.to === m.userId).map((t) => `${money(t.amount)} from ${t.fromName}`);
+      const pays = report.transfers.filter((t) => t.from === m.userId).map((t) => phrase('trip.payTo', { amount: money(t.amount), name: t.toName }));
+      const gets = report.transfers.filter((t) => t.to === m.userId).map((t) => phrase('trip.getFrom', { amount: money(t.amount), name: t.fromName }));
       if (!pays.length && !gets.length) continue;
-      const body = pays.length ? `You owe ${pays.join(', ')}.` : `You will receive ${gets.join(', ')}.`;
-      await this.notify([m.userId], `Settle up for "${trip.title}"`, body, trip);
+      const body = pays.length ? phrase('trip.youOwe', { list: pays }) : phrase('trip.youGet', { list: gets });
+      await this.notify([m.userId], phrase('trip.settleTitle', { trip: trip.title }), body, trip);
     }
     return { notified: report.members.length };
   }
@@ -518,7 +520,7 @@ export class TripService {
     } as never);
     await trip.save();
     const others = trip.members.map((m) => m.user.toString()).filter((m) => m !== userId);
-    await this.notify(others, `Vote: ${data.title.trim()}`, `A new activity was proposed for "${trip.title}". Vote yes, no or maybe.`, trip);
+    await this.notify(others, phrase('trip.voteTitle', { title: data.title.trim() }), phrase('trip.voteBody', { trip: trip.title }), trip);
     return this.decide(trip, trip.activities[trip.activities.length - 1]._id.toString(), userId);
   }
 
@@ -551,7 +553,7 @@ export class TripService {
         activity.expense = expense._id;
       }
       await trip.save();
-      await this.notify(trip.members.map((m) => m.user.toString()), `Confirmed: ${activity.title}`, `The group voted yes${activity.date ? ` for ${localTime(activity.date, { day: 'numeric', month: 'short' })}` : ''}.`, trip);
+      await this.notify(trip.members.map((m) => m.user.toString()), phrase('trip.confirmedTitle', { title: activity.title }), activity.date ? phrase('trip.confirmedOn', { date: localTime(activity.date, { day: 'numeric', month: 'short' }) }) : phrase('trip.confirmedBody'), trip);
     } else if (no >= majority) {
       activity.status = 'rejected';
       await trip.save();
@@ -577,17 +579,8 @@ export class TripService {
       { $push: { organizerRatings: { user: new Types.ObjectId(userId), score, comment: comment?.trim() || undefined, at: new Date() } } },
     );
     if (!saved) throw new ConflictError('You have already rated this organizer');
-    // Running average, updated in one step from the stored values
-    const n = { $ifNull: ['$stats.totalRatingsAsOrganizer', 0] };
-    const avg = { $ifNull: ['$stats.avgRatingAsOrganizer', 0] };
-    await User.updateOne({ _id: trip.organizer }, [
-      {
-        $set: {
-          'stats.avgRatingAsOrganizer': { $round: [{ $divide: [{ $add: [{ $multiply: [avg, n] }, score] }, { $add: [n, 1] }] }, 2] },
-          'stats.totalRatingsAsOrganizer': { $add: [n, 1] },
-        },
-      },
-    ]);
+    // Score updated in one step on the server (utils/ratingScore)
+    await User.updateOne({ _id: trip.organizer }, addRatingPipeline('Organizer', score));
     return { rated: true, score };
   }
 
@@ -622,7 +615,7 @@ export class TripService {
     return trip;
   }
 
-  private async notify(userIds: string[], title: string, body: string, trip: ITrip) {
+  private async notify(userIds: string[], title: string | Phrase, body: string | Phrase, trip: ITrip) {
     if (!userIds.length) return;
     try {
       const { NotificationService } = await import('./NotificationService');

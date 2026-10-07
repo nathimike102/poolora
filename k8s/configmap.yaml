@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: poolora-config
-  namespace: poolora
+  name: siham-config
+  namespace: siham
 data:
   NODE_ENV: "production"
   PORT: "5002"
@@ -17,15 +17,15 @@ data:
   AUTH_PROVIDER: "hybrid"
   PLATFORM_FEE_RATE: "0.15"
   # Comma-separated. The marketing site is served by Vercel.
-  CORS_ORIGIN: "https://poolora.vercel.app"
-  ML_SERVICE_URL: "http://poolora-ml:8000"
+  CORS_ORIGIN: "https://siham.vercel.app"
+  ML_SERVICE_URL: "http://siham-ml:8000"
 
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
-  namespace: poolora
+  namespace: siham
 data:
   prometheus.yml: |
     global:
@@ -33,17 +33,17 @@ data:
       evaluation_interval: 15s
 
     scrape_configs:
-      - job_name: 'poolora-backend'
+      - job_name: 'siham-backend'
         metrics_path: /metrics
         static_configs:
-          - targets: ['poolora-backend:5002']
+          - targets: ['siham-backend:5002']
             labels:
               service: backend
 
-      - job_name: 'poolora-ml'
+      - job_name: 'siham-ml'
         metrics_path: /metrics
         static_configs:
-          - targets: ['poolora-ml:8000']
+          - targets: ['siham-ml:8000']
             labels:
               service: ml-engine
 

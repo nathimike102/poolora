@@ -1,6 +1,6 @@
-# Poolora Admin
+# Siham Admin
 
-The web dashboard for Poolora's operations team, built to the admin use cases UC-A01 to UC-A07 in `frontend/docs/design/03-USE-CASES.md`. It is a Vite and React single-page app that talks to the backend's `/admin` API. The mobile app's admin screens remain for use on the go.
+The web dashboard for Siham's operations team, built to the admin use cases UC-A01 to UC-A07 in `frontend/docs/design/03-USE-CASES.md`. It is a Vite and React single-page app that talks to the backend's `/admin` API. The mobile app's admin screens remain for use on the go.
 
 ## What it does
 
@@ -33,10 +33,10 @@ npm run dev             # http://localhost:5174
 - **Admin accounts:** an account becomes an admin by having the `admin` capability. There is no self-service way to get it; set it in the database:
 
   ```js
-  db.users.updateOne({ email: 'someone@poolora.app' }, { $addToSet: { capabilities: 'admin' } })
+  db.users.updateOne({ email: 'someone@siham.app', emailVerifiedAt: { $exists: true } }, { $addToSet: { capabilities: 'admin' } })
   ```
 
-  The account must already exist (sign in once from the app or this site first).
+  The person signs in once on this site first, with Google or with their email and password. If they are told to verify the address, they choose "Forgot password?" and set the password from the email, which proves it. Keep `emailVerifiedAt` in the filter: anyone can type any address into their profile in the app, and without the filter the capability could go to their account instead. If nothing matches, they have not signed in here with a verified address yet.
 
 ## Scripts
 

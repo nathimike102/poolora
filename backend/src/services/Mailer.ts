@@ -44,7 +44,7 @@ export async function sendMail(mail: Mail): Promise<boolean> {
   if (!mail.to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail.to)) return false;
   try {
     await transport().sendMail({
-      from: process.env.MAIL_FROM || 'Poolora <no-reply@poolora.app>',
+      from: process.env.MAIL_FROM || 'Siham <no-reply@siham.app>',
       to: mail.to,
       subject: mail.subject,
       text: mail.text,
@@ -73,11 +73,11 @@ export function emailLayout(title: string, bodyHtml: string): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #e2e1dc;border-radius:8px" cellpadding="0" cellspacing="0">
 <tr><td style="padding:24px 28px">
-<div style="font-size:14px;font-weight:bold;color:#0b7a75;margin-bottom:12px">Poolora</div>
+<div style="font-size:14px;font-weight:bold;color:#0b7a75;margin-bottom:12px">Siham</div>
 <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(title)}</h1>
 ${bodyHtml}
 </td></tr></table>
-<p style="font-size:12px;color:#75746f;margin:16px 0 0">You are receiving this because you use Poolora.</p>
+<p style="font-size:12px;color:#75746f;margin:16px 0 0">You are receiving this because you use Siham.</p>
 </td></tr></table></body></html>`;
 }
 
@@ -91,7 +91,7 @@ export async function emailUser(userId: string, subject: string, message: string
   return sendMail({
     to: user.email,
     subject,
-    text: `${greeting}\n\n${message}\n\nPoolora`,
+    text: `${greeting}\n\n${message}\n\nSiham`,
     html: emailLayout(subject, `<p>${escapeHtml(greeting)}</p><p style="line-height:1.5">${escapeHtml(message).replace(/\n/g, '<br>')}</p>`),
   });
 }

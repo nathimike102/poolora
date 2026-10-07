@@ -158,8 +158,8 @@ describe('the gateway endpoint', () => {
     (config.trackers as { gatewayKey: string }).gatewayKey = '';
     expect((await request(app).post('/trackers/traccar').send(fromGateway())).status).toBe(404);
     (config.trackers as { gatewayKey: string }).gatewayKey = 'gateway-secret';
-    expect((await request(app).post('/trackers/traccar').set('X-Poolora-Tracker-Key', 'wrong').send(fromGateway())).status).toBe(401);
-    const ok = await request(app).post('/trackers/traccar').set('X-Poolora-Tracker-Key', 'gateway-secret').send(fromGateway());
+    expect((await request(app).post('/trackers/traccar').set('X-Siham-Tracker-Key', 'wrong').send(fromGateway())).status).toBe(401);
+    const ok = await request(app).post('/trackers/traccar').set('X-Siham-Tracker-Key', 'gateway-secret').send(fromGateway());
     expect(ok.status).toBe(200);
     expect(ok.body.result).toBe('unknown'); // nothing linked in this test
   });

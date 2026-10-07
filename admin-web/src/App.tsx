@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
 import { SignInPage } from './pages/SignIn';
 import { DashboardPage } from './pages/Dashboard';
+import { AnalyticsPage } from './pages/Analytics';
 import { SosListPage, SosDetailPage } from './pages/Sos';
 import { IdentityDetailPage, IdentityListPage } from './pages/Identity';
 import { ApplicationsPage, ApplicationDetailPage } from './pages/Applications';
@@ -20,7 +21,10 @@ import { SupportPage, SupportDetailPage } from './pages/Support';
 import { AppealsPage } from './pages/Appeals';
 import { ParcelClaimsPage } from './pages/ParcelClaims';
 import { WithdrawalsPage } from './pages/Withdrawals';
+import { CompaniesPage, CompanyDetailPage } from './pages/Companies';
 import { AlertsPage } from './pages/Alerts';
+import { CompanyPortal } from './pages/CompanyPortal';
+import { HubsPage } from './pages/Hubs';
 
 const AdminContext = createContext<AdminUser | null>(null);
 export const useAdmin = () => useContext(AdminContext)!;
@@ -35,6 +39,8 @@ export function App() {
 
   if (admin === undefined) return <Loading label="Checking your session" />;
   if (!admin) return <SignInPage onSignedIn={setAdmin} />;
+  // A company admin sees only their company's own dashboard
+  if (!admin.capabilities.includes('admin') && admin.company) return <CompanyPortal user={admin} onSignedOut={() => setAdmin(null)} />;
 
   return (
     <AdminContext.Provider value={admin}>
@@ -56,10 +62,14 @@ export function App() {
             <Route path="appeals" element={<AppealsPage />} />
             <Route path="parcel-claims" element={<ParcelClaimsPage />} />
             <Route path="withdrawals" element={<WithdrawalsPage />} />
+            <Route path="companies" element={<CompaniesPage />} />
+            <Route path="companies/:id" element={<CompanyDetailPage />} />
+            <Route path="hubs" element={<HubsPage />} />
             <Route path="alerts" element={<AlertsPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="support" element={<SupportPage />} />
             <Route path="support/:id" element={<SupportDetailPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="audit" element={<AuditPage />} />

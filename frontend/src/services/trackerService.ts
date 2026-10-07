@@ -2,8 +2,8 @@
  * services/trackerService.ts
  *
  * A GPS tracker fitted in the driver's car, linked by its device id. It
- * reports to Poolora's tracker gateway and keeps the car traceable during a
- * ride even when every phone in it is off. Outside rides Poolora keeps only
+ * reports to Siham's tracker gateway and keeps the car traceable during a
+ * ride even when every phone in it is off. Outside rides Siham keeps only
  * when it last reported, never where the car was.
  */
 

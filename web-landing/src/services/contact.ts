@@ -59,7 +59,7 @@ export function validateContact(payload: ContactPayload): string | null {
 
   if (payload.type === 'waitlist') {
     if (!payload.city) return 'Please select your city.';
-    if (!payload.role) return 'Please tell us how you plan to use Poolora.';
+    if (!payload.role) return 'Please tell us how you plan to use Siham.';
   } else {
     if (!payload.range) return 'Please select the stage you invest at.';
   }

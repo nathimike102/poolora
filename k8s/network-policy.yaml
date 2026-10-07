@@ -2,12 +2,12 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: poolora-backend-policy
-  namespace: poolora
+  name: siham-backend-policy
+  namespace: siham
 spec:
   podSelector:
     matchLabels:
-      app: poolora-backend
+      app: siham-backend
   policyTypes:
   - Ingress
   - Egress
@@ -64,7 +64,7 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: poolora-ml
+          app: siham-ml
     ports:
     - protocol: TCP
       port: 8000
@@ -85,19 +85,19 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: poolora-ml-policy
-  namespace: poolora
+  name: siham-ml-policy
+  namespace: siham
 spec:
   podSelector:
     matchLabels:
-      app: poolora-ml
+      app: siham-ml
   policyTypes:
   - Ingress
   ingress:
   - from:
     - podSelector:
         matchLabels:
-          app: poolora-backend
+          app: siham-backend
     - podSelector:
         matchLabels:
           app: prometheus
@@ -111,7 +111,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: mongodb-policy
-  namespace: poolora
+  namespace: siham
 spec:
   podSelector:
     matchLabels:
@@ -122,10 +122,10 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: poolora-backend
+          app: siham-backend
     - podSelector:
         matchLabels:
-          app: poolora-ml
+          app: siham-ml
     - podSelector:
         matchLabels:
           app: mongodb
@@ -145,7 +145,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: redis-policy
-  namespace: poolora
+  namespace: siham
 spec:
   podSelector:
     matchLabels:
@@ -156,10 +156,10 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: poolora-backend
+          app: siham-backend
     - podSelector:
         matchLabels:
-          app: poolora-ml
+          app: siham-ml
     ports:
     - protocol: TCP
       port: 6379

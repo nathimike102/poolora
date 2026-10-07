@@ -1,20 +1,15 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
-import { useApp } from "../../context/AppContext";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from "react-native";
+import { RefreshControl } from '../../components/Themed';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { safetyService, type IncidentData } from "../../services/safetyService";
 import { initSocket, joinAdminSosRoom, getSocket } from "../../utils/socket";
 import { REGION } from '../../utils/region';
+import { tc } from '../../theme/themed';
 
 export const AdminIncidentsScreen: React.FC = () => {
-  const { c } = useApp();
+  const insets = useSafeAreaInsets();
   const [incidents, setIncidents] = useState<IncidentData[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -80,9 +75,9 @@ export const AdminIncidentsScreen: React.FC = () => {
   };
 
   const renderItem = ({ item }: { item: IncidentData }) => (
-    <View style={[styles.incidentCard, { backgroundColor: c.surface }]}> 
+    <View style={[styles.incidentCard, tc.backgroundColor_surfaceVariant]}>
       <View style={styles.incidentHeader}>
-        <Text style={[styles.userName, { color: c.text }]}>{item.userName}</Text>
+        <Text style={[styles.userName, tc.color_text]}>{item.userName}</Text>
         <Text
           style={[
             styles.statusBadge,
@@ -99,10 +94,10 @@ export const AdminIncidentsScreen: React.FC = () => {
           {item.status.toUpperCase()}
         </Text>
       </View>
-      <Text style={{ color: c.text, fontSize: 12, marginTop: 8 }}>
+      <Text style={[{ fontSize: 12, marginTop: 8 }, tc.color_text]}>
         Location: {item.location.lat.toFixed(4)}, {item.location.lng.toFixed(4)}
       </Text>
-      <Text style={{ color: c.text, fontSize: 12, marginTop: 4 }}>
+      <Text style={[{ fontSize: 12, marginTop: 4 }, tc.color_text]}>
         Raised at {new Date(item.timestamp).toLocaleTimeString(REGION.dateLocale)}
       </Text>
       <View style={styles.actionButtons}>
@@ -124,15 +119,15 @@ export const AdminIncidentsScreen: React.FC = () => {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: c.bg }]}> 
-      <Text style={[styles.title, { color: c.text }]}>Safety incidents</Text>
-      <Text style={[styles.subtitle, { color: c.textSec }]}>Total Active: {incidents.length}</Text>
+    <View style={[styles.container, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title="Safety incidents" subtitle={`Total active: ${incidents.length}`} />
       <FlatList
         data={incidents}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={<Text style={{ color: c.text, textAlign: "center", marginTop: 20 }}>No active incidents</Text>}
+        ListEmptyComponent={<Text style={[{ textAlign: "center", marginTop: 20 }, tc.color_text]}>No active incidents</Text>}
       />
     </View>
   );
@@ -141,17 +136,8 @@ export const AdminIncidentsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
+  list: { padding: 16 },
   incidentCard: {
     borderRadius: 12,
     padding: 12,

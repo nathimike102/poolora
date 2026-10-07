@@ -154,9 +154,28 @@ export async function confirmOtp(
 export const confirmOTP = confirmOtp;
 
 /**
+ * Forgets the Google account chosen last, so the next Google sign-in asks
+ * which account to use instead of reusing it. `revoke` also withdraws this
+ * app's access to that Google account (when the account is closed).
+ */
+export async function forgetGoogleAccount({ revoke = false } = {}): Promise<void> {
+  try {
+    if (revoke) await GoogleSignin.revokeAccess();
+  } catch {
+    // Not signed in with Google: nothing to withdraw
+  }
+  try {
+    await GoogleSignin.signOut();
+  } catch {
+    // Not signed in with Google
+  }
+}
+
+/**
  * Sign out the current user.
  */
 export async function signOut(): Promise<void> {
+  await forgetGoogleAccount();
   await firebaseSignOut(getAuth());
 }
 
@@ -267,7 +286,8 @@ export async function signInWithGoogle(): Promise<UserCredential> {
     // Check Play Services availability
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-    // Open Google account picker
+    // Always ask which account: a previous choice (even of a closed account) is not reused
+    await forgetGoogleAccount();
     await GoogleSignin.signIn();
 
     const { idToken } = await GoogleSignin.getTokens();
@@ -416,15 +436,19 @@ let refreshInFlight: Promise<string> | null = null;
  * Refresh the JWT access token. Concurrent calls share one request.
  */
 export function refreshAccessToken(): Promise<string> {
+  return sharedRefresh(true);
+}
+
+function sharedRefresh(logoutOnFailure: boolean): Promise<string> {
   if (!refreshInFlight) {
-    refreshInFlight = refreshAccessTokenOnce().finally(() => {
+    refreshInFlight = refreshAccessTokenOnce(logoutOnFailure).finally(() => {
       refreshInFlight = null;
     });
   }
   return refreshInFlight;
 }
 
-async function refreshAccessTokenOnce(): Promise<string> {
+async function refreshAccessTokenOnce(logoutOnFailure: boolean): Promise<string> {
   try {
     const refreshToken = await tokenStorage.getRefreshToken();
     if (!refreshToken) {
@@ -450,7 +474,7 @@ async function refreshAccessTokenOnce(): Promise<string> {
   } catch (error) {
     logger.error('Token refresh failed', { error });
     // Clear auth on refresh failure
-    await logoutAll();
+    if (logoutOnFailure) await logoutAll();
     throw error;
   }
 }
@@ -473,19 +497,29 @@ export async function getCurrentUserFromBackend(): Promise<User> {
 /**
  * Logout from backend and Firebase
  */
-let loggingOut = false;
+let logoutInFlight: Promise<void> | null = null;
 
-export async function logoutAll(): Promise<void> {
-  // A failed refresh calls logoutAll(); don't recurse into another refresh.
-  if (loggingOut) return;
-  loggingOut = true;
+// A second caller waits for the logout already running, so it never returns
+// while the Firebase session is still signed in.
+export function logoutAll(): Promise<void> {
+  if (!logoutInFlight) {
+    logoutInFlight = logoutAllOnce().finally(() => {
+      logoutInFlight = null;
+    });
+  }
+  return logoutInFlight;
+}
+
+async function logoutAllOnce(): Promise<void> {
   try {
     // The backend revokes the session only for a valid access token, so
     // refresh an expired one first; otherwise the refresh token would stay
-    // usable on the server after "logging out".
+    // usable on the server after "logging out". A refresh already in flight
+    // may be the failed one that called us, so waiting on it would never end;
+    // and the one started here must not log out again when it fails.
     try {
-      if (await tokenStorage.isTokenExpired()) {
-        await refreshAccessToken();
+      if ((await tokenStorage.isTokenExpired()) && !refreshInFlight) {
+        await sharedRefresh(false);
       }
     } catch (error) {
       logger.warn('Could not refresh before logout', { error });
@@ -502,6 +536,7 @@ export async function logoutAll(): Promise<void> {
     clearAuthorizationHeader();
     clearLocalAuthState();
 
+    await forgetGoogleAccount();
     // Phone sign-in goes through the backend only, so there may be no
     // Firebase session; signOut() throws in that case.
     if (getAuth().currentUser) {
@@ -512,8 +547,6 @@ export async function logoutAll(): Promise<void> {
   } catch (error) {
     logger.error('Logout error', { error });
     throw error;
-  } finally {
-    loggingOut = false;
   }
 }
 

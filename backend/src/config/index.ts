@@ -98,8 +98,8 @@ export const config = {
 
   trackers: {
     /**
-     * Car GPS trackers reach Poolora through a Traccar gateway (forwarder
-     * only), which posts each position with this key in X-Poolora-Tracker-Key.
+     * Car GPS trackers reach Siham through a Traccar gateway (forwarder
+     * only), which posts each position with this key in X-Siham-Tracker-Key.
      * Empty turns the endpoint off.
      */
     gatewayKey: process.env.TRACKER_GATEWAY_KEY || '',
@@ -152,6 +152,24 @@ export const config = {
     recordCalls: process.env.CALL_RECORDING !== 'false',
   },
 
+  /**
+   * Live video during an SOS (UC-X04), through LiveKit. Unset, the app never
+   * offers video and the SOS works as before. LIVEKIT_URL is the wss:// URL
+   * of the LiveKit Cloud project (or a self-hosted server).
+   */
+  video: {
+    url: process.env.LIVEKIT_URL || '',
+    apiKey: process.env.LIVEKIT_API_KEY || '',
+    apiSecret: process.env.LIVEKIT_API_SECRET || '',
+    /**
+     * Keys LiveKit is given to write recordings into the uploads bucket. Their
+     * own IAM user, allowed only s3:PutObject on sos/*, never the backend's
+     * keys (which can read identity documents). Without them nothing is recorded.
+     */
+    recordingAccessKeyId: process.env.LIVEKIT_RECORDING_AWS_ACCESS_KEY_ID || '',
+    recordingSecretAccessKey: process.env.LIVEKIT_RECORDING_AWS_SECRET_ACCESS_KEY || '',
+  },
+
   maps: {
     googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || '',
     /**
@@ -166,7 +184,7 @@ export const config = {
     nominatimUrl: optional('NOMINATIM_URL', 'https://nominatim.openstreetmap.org'),
     osrmUrl: optional('OSRM_URL', 'https://router.project-osrm.org'),
     // Nominatim's usage policy asks every client to identify itself.
-    osmUserAgent: optional('OSM_USER_AGENT', 'Poolora/1.0 (poolora carpooling app)'),
+    osmUserAgent: optional('OSM_USER_AGENT', 'Siham/1.0 (siham carpooling app)'),
   },
 
   simulation: {
@@ -224,6 +242,13 @@ export const config = {
     maxConcurrent: 3,
   },
 
+  accountClosure: {
+    /** How long a closed account's number is remembered, so new-user perks are not given to it again */
+    rememberPhoneDays: parseInt(optional('CLOSED_PHONE_REMEMBER_DAYS', '365'), 10),
+    /** Key for the hash of those numbers; changing it forgets every remembered number */
+    phoneHashSecret: process.env.PHONE_HASH_SECRET || required('JWT_ACCESS_SECRET'),
+  },
+
   tracking: {
     intervalMs: 5_000,
     startBeforePickupMins: 30,
@@ -252,6 +277,12 @@ export const config = {
     autoContactDelaySeconds: 300,
     /** An SOS nobody has taken after this pages every admin again, at each interval (UC-A03: 5 minutes). Admin-editable. */
     ackTargetMins: 5,
+    /**
+     * Record SOS video with the incident's evidence (sos/<id>/), as SOS audio
+     * is. Off until legal advice confirms recording in the car is allowed in
+     * the market; live video works either way. Admin-editable.
+     */
+    recordVideo: process.env.SOS_VIDEO_RECORDING === 'true',
     /** A false alarm's record, with its location trail, is deleted after this; real incidents are kept */
     falseAlarmRetentionDays: 90,
     /** The SOS tracking link works for this long */
@@ -269,9 +300,15 @@ export const config = {
     maxActivePerDriver: 5,
     maxPendingRequestsPerRider: 3,
     maxPickupDistanceFromRouteKm: 2,
+    /** Stops a rider may add between their pickup and drop (as on Rapido and Uber). Admin-editable. */
+    maxStopsPerBooking: 2,
+    /** Added to the fare for each stop the rider adds, once per booking, in the market's currency. Admin-editable. */
+    extraStopFee: 0.5,
     defaultSearchRadiusKm: 5,
     defaultTimeDeviationMins: 120,
     platformFeeRate: parseFloat(process.env.PLATFORM_FEE_RATE || '0.15'), // 15% default
+    /** Commission on the part of a fare a company pays (UC-C01; decided 2 October 2026) */
+    companyFeeRate: parseFloat(process.env.COMPANY_FEE_RATE || '0.10'),
     /**
      * When a rider cancels a confirmed seat, keep the platform fee on the whole
      * fare instead of refunding it with the fare (UC-R09 "platform fee is
@@ -366,8 +403,39 @@ export const config = {
     } as Record<string, number>,
   },
 
+  /**
+   * CO₂ saved by shared seats (UC-R11, docs/planning/12-NEXT-PHASES.md §1).
+   * kg CO₂ per km for a typical petrol car of each class: round figures of
+   * the order of the UK government's conversion factors. Zimbabwe's fleet is
+   * older, so these understate the saving rather than overstate it.
+   */
+  carbon: {
+    /** The car a rider would otherwise have driven alone */
+    baselineKgPerKm: parseFloat(process.env.CARBON_BASELINE_KG_PER_KM || '0.17'),
+    kgPerKm: {
+      hatchback: 0.14,
+      mini: 0.14,
+      sedan: 0.17,
+      suv: 0.21,
+      minivan: 0.21,
+      pickup: 0.21,
+      bike: 0.11,
+      auto: 0.09,
+    } as Record<string, number>,
+  },
+
+  /**
+   * Product analytics (docs/ANALYTICS_PLAN.md). The admin's Analytics page
+   * always works; PostHog only receives events in production with a key, so
+   * development and staging never reach the live project.
+   */
+  analytics: {
+    posthogKey: process.env.POSTHOG_API_KEY || '',
+    posthogHost: optional('POSTHOG_HOST', 'https://eu.i.posthog.com'),
+  },
+
   services: {
-    mlServiceUrl: optional('ML_SERVICE_URL', 'http://poolora-ml:8000'),
+    mlServiceUrl: optional('ML_SERVICE_URL', 'http://siham-ml:8000'),
     mlServiceApiKey: process.env.ML_SERVICE_API_KEY || '',
   },
 } as const;

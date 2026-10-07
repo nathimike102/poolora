@@ -11,22 +11,15 @@
  * An open SOS is loaded again whenever the screen opens, so leaving it never
  * loses the alert. "I'm safe" is passed on to the safety team, who confirm
  * and close it.
+ *
+ * The person can turn on their camera for the safety team (UC-X04), or be
+ * asked to. Only the team sees it, and the phone makes no sound.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Platform,
-  Share,
-  Switch,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert, Linking, Platform, Share } from 'react-native';
+import { ActivityIndicator, Switch } from '../../components/Themed';
+import { Text } from '../../components/Text';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -39,21 +32,24 @@ import ReAnimated, {
 } from 'react-native-reanimated';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle } from '../../components/ThemedSvg';
 
-import { useApp } from '../../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import type { RootStackParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
 import { safetyService, type EmergencyContact, type SOSResponse, type SOSThreat } from '../../services/safetyService';
 import { batteryLevel } from '../../utils/battery';
-import { REGION } from '../../utils/region';
+import { emergencyNumbers as currentEmergency, useEmergencyNumbers } from '../../utils/emergencyNumbers';
 import { displayPhone } from '../../utils/phone';
 import { initSocket } from '../../utils/socket';
 import { errorHandler } from '../../utils/errorHandler';
 import { startSosTracking, stopSosTracking } from '../../services/sosTracking';
 import { setSosAudioEnabled, sosAudioEnabled, useSosRecording } from '../../services/sosAudio';
+import { startSosVideo, SosVideoUnsupported, type SosVideoSession } from '../../services/sosVideo';
+import { useTranslation } from 'react-i18next';
+import i18n, { english } from '../../i18n';
+import { tc, tk } from '../../theme/themed';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -70,19 +66,12 @@ type Phase = 'loading' | 'idle' | 'holding' | 'sending' | 'active' | 'retrying';
 type Position = { lat: number; lng: number };
 
 const OPEN_STATUSES = ['triggered', 'acknowledged'];
-const CONTACTS_CACHE_KEY = '@poolora_sos_contacts';
+const CONTACTS_CACHE_KEY = '@siham_sos_contacts';
 /** Below this, the screen says the contacts already have the last position */
 const LOW_BATTERY = 0.15;
 
 /** "What's happening?": optional, after the alert has gone */
-const THREATS: Array<{ value: SOSThreat; label: string }> = [
-  { value: 'driver', label: 'The driver' },
-  { value: 'passenger', label: 'A passenger' },
-  { value: 'outside', label: 'Someone outside the car' },
-  { value: 'medical', label: 'Medical' },
-  { value: 'accident', label: 'Accident' },
-  { value: 'other', label: 'Something else' },
-];
+const THREATS: SOSThreat[] = ['driver', 'passenger', 'outside', 'medical', 'accident', 'other'];
 
 async function quickPosition(): Promise<Position | null> {
   try {
@@ -105,16 +94,27 @@ function call(number: string) {
   Linking.openURL(`tel:${number}`);
 }
 
+/**
+ * The SOS text. In any language but English the English follows, so a
+ * contact who reads only English still understands (UC-X03).
+ */
+export function sosMessage(position: Position | null, language = i18n.language): string {
+  const url = position ? `https://maps.google.com/?q=${position.lat},${position.lng}` : '';
+  const say = (t: typeof english) => [t('sos.smsBody'), url ? t('sos.smsWhere', { url }) : ''].filter(Boolean).join(' ');
+  const local = say(i18n.getFixedT(language));
+  const inEnglish = say(english);
+  return local === inEnglish ? local : `${local}\n\n${inEnglish}`;
+}
+
 /** Opens the phone's own messaging app, which works without mobile data */
 async function textContactsFromPhone(contacts: EmergencyContact[]) {
   const numbers = contacts.filter(c => c.notifyOnSos !== false).map(c => c.phone);
   if (!numbers.length) {
-    Alert.alert('No emergency contacts', `Call ${REGION.emergency.general} if you are in danger.`);
+    Alert.alert(i18n.t('sos.noContactsTitle'), i18n.t('sos.callIfDanger', { number: currentEmergency().general }));
     return;
   }
   const position = await quickPosition();
-  const where = position ? ` I am here: https://maps.google.com/?q=${position.lat},${position.lng}` : '';
-  const body = encodeURIComponent(`SOS. I need help during a Poolora ride.${where}`);
+  const body = encodeURIComponent(sosMessage(position));
   const list = numbers.join(',');
   Linking.openURL(Platform.OS === 'ios' ? `sms:${list}&body=${body}` : `sms:${list}?body=${body}`);
 }
@@ -125,10 +125,12 @@ function secondsUntil(iso?: string): number {
 }
 
 export function SOSScreen() {
+  // Re-renders when the phone's country is found, so the numbers shown are the local ones
+  useEmergencyNumbers();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<RootStackParamList, 'SOS'>>();
-  const { c } = useApp();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [holdProgress, setHoldProgress] = useState(0);
@@ -139,6 +141,13 @@ export function SOSScreen() {
   const [busy, setBusy] = useState(false);
   const [recordAudio, setRecordAudio] = useState(false);
   const [battery, setBattery] = useState<number | undefined>(undefined);
+  const [video, setVideo] = useState({ available: false, recorded: false });
+  const [camera, setCamera] = useState<'off' | 'starting' | 'live'>('off');
+  const [soundOnly, setSoundOnly] = useState(false);
+  const [recordingNow, setRecordingNow] = useState(false);
+  const videoSession = useRef<SosVideoSession | null>(null);
+  // False once the camera should be off: a camera still starting is stopped as soon as it is on
+  const cameraWanted = useRef(false);
   const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseScale = useSharedValue(1);
 
@@ -158,7 +167,8 @@ export function SOSScreen() {
         setContacts(cached ? (JSON.parse(cached) as EmergencyContact[]) : []);
       });
     safetyService.getCurrentSOS()
-      .then(({ sos, bookingId: current }) => {
+      .then(({ sos, bookingId: current, videoAvailable, videoRecorded }) => {
+        setVideo({ available: Boolean(videoAvailable), recorded: Boolean(videoRecorded) });
         if (sos) {
           setEmergency(sos);
           setBookingId(current);
@@ -196,7 +206,7 @@ export function SOSScreen() {
       const { code, message } = errorHandler.process(error);
       if (code >= 400 && code < 500) {
         // Refused (the ride is no longer confirmed, say): retrying will not help
-        Alert.alert('SOS not sent', `${message} Call ${REGION.emergency.general} if you are in danger.`);
+        Alert.alert(i18n.t('sos.notSentTitle'), `${message} ${i18n.t('sos.callIfDanger', { number: currentEmergency().general })}`);
         setPhase('idle');
         return;
       }
@@ -286,7 +296,7 @@ export function SOSScreen() {
     try {
       setEmergency(await safetyService.setSOSThreat(emergency._id, threat));
     } catch (error) {
-      Alert.alert('Not sent', `${errorHandler.process(error).message} The safety team still has your alert.`);
+      Alert.alert(t('common.notSent'), t('sos.threatNotSent', { message: errorHandler.process(error).message }));
     }
   };
 
@@ -296,8 +306,66 @@ export function SOSScreen() {
   const toggleAudio = async (on: boolean) => {
     const result = await setSosAudioEnabled(on);
     setRecordAudio(result);
-    if (on && !result) Alert.alert('Microphone not allowed', 'Allow Poolora to use the microphone in your phone settings to record during an SOS.');
+    if (on && !result) Alert.alert(t('sos.micTitle'), t('sos.micBody'));
   };
+
+  // The camera for the safety team (UC-X04). It stops when the SOS closes or the screen is left.
+  const startCamera = async () => {
+    if (!emergency || camera !== 'off') return;
+    setCamera('starting');
+    cameraWanted.current = true;
+    try {
+      const session = await startSosVideo(emergency._id, !recordAudio, video.recorded, () => {
+        videoSession.current = null;
+        cameraWanted.current = false;
+        setCamera('off');
+      });
+      // The screen was left, or the SOS closed, while it started
+      if (!cameraWanted.current) {
+        await session.stop();
+        return;
+      }
+      videoSession.current = session;
+      setRecordingNow(session.recording);
+      setSoundOnly(false);
+      setCamera('live');
+      refresh();
+    } catch (error) {
+      cameraWanted.current = false;
+      setCamera('off');
+      if (error instanceof SosVideoUnsupported) Alert.alert(t('sos.video.updateTitle'), error.message);
+      else Alert.alert(t('sos.video.failedTitle'), t('sos.video.failedBody', { message: errorHandler.process(error).message, number: currentEmergency().general }));
+    }
+  };
+  const stopCamera = async () => {
+    const session = videoSession.current;
+    videoSession.current = null;
+    cameraWanted.current = false;
+    setCamera('off');
+    await session?.stop();
+    refresh();
+  };
+  const toggleSoundOnly = async () => {
+    const next = !soundOnly;
+    setSoundOnly(next);
+    await videoSession.current?.setCamera(!next).catch(() => setSoundOnly(!next));
+  };
+  useEffect(() => {
+    if (open) return;
+    cameraWanted.current = false;
+    videoSession.current?.stop();
+    videoSession.current = null;
+    setCamera('off');
+  }, [open]);
+  useEffect(() => () => {
+    cameraWanted.current = false;
+    videoSession.current?.stop();
+  }, []);
+  // Asked for video: the phone buzzes, without a sound
+  const videoAskedAt = emergency?.video?.requestedAt;
+  useEffect(() => {
+    if (videoAskedAt && camera === 'off') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+  }, [videoAskedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open || !emergency) return;
@@ -336,7 +404,7 @@ export function SOSScreen() {
       setEmergency(await safetyService.cancelSOS(emergency._id));
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Could not cancel', errorHandler.process(error).message);
+      Alert.alert(t('sos.cancelFailed'), errorHandler.process(error).message);
       refresh();
     } finally {
       setBusy(false);
@@ -346,12 +414,12 @@ export function SOSScreen() {
   const sayImSafe = () => {
     if (!emergency) return;
     Alert.alert(
-      'Tell the safety team you are safe?',
-      'They will still call you to check, then close the alert. Your emergency contacts will be told you are safe.',
+      t('sos.safeConfirmTitle'),
+      t('sos.safeConfirmBody'),
       [
-        { text: 'Not yet', style: 'cancel' },
+        { text: t('sos.notYet'), style: 'cancel' },
         {
-          text: "I'm safe",
+          text: t('sos.imSafe'),
           onPress: async () => {
             setBusy(true);
             try {
@@ -359,7 +427,7 @@ export function SOSScreen() {
               setEmergency(updated);
               if (!OPEN_STATUSES.includes(updated.status)) navigation.goBack();
             } catch (error) {
-              Alert.alert('Not sent', `${errorHandler.process(error).message} Your alert is still active.`);
+              Alert.alert(t('common.notSent'), t('sos.stillActive', { message: errorHandler.process(error).message }));
             } finally {
               setBusy(false);
             }
@@ -375,7 +443,7 @@ export function SOSScreen() {
     try {
       setEmergency(await safetyService.updateSOSCheckIn(emergency._id, 'not_ok', 'Reported danger in the app'));
     } catch (error) {
-      Alert.alert('Not sent', `${errorHandler.process(error).message} Call ${REGION.emergency.general} if you can.`);
+      Alert.alert(t('common.notSent'), t('sos.callIfYouCan', { message: errorHandler.process(error).message, number: currentEmergency().general }));
     } finally {
       setBusy(false);
     }
@@ -384,28 +452,32 @@ export function SOSScreen() {
   const shareLocation = async () => {
     const position = await quickPosition();
     if (!position) {
-      Alert.alert('Location unavailable', 'Allow location access to share where you are.');
+      Alert.alert(t('sos.locationUnavailable'), t('sos.locationAllow'));
       return;
     }
-    Share.share({ message: `My current location: https://maps.google.com/?q=${position.lat},${position.lng}` });
+    Share.share({ message: t('sos.myLocation', { url: `https://maps.google.com/?q=${position.lat},${position.lng}` }) });
   };
 
   const emergencyNumbers = (onRed: boolean) => (
     <View style={s.numbersRow}>
-      {[
-        ['Police', REGION.emergency.police],
-        ['Ambulance', REGION.emergency.ambulance],
-        ['Fire', REGION.emergency.fire],
-      ].map(([label, number]) => (
+      {([
+        [t('sos.police'), currentEmergency().police],
+        [t('sos.ambulance'), currentEmergency().ambulance],
+        [t('sos.fire'), currentEmergency().fire],
+      ] as [string, string | undefined][]).filter((row): row is [string, string] => !!row[1]).map(([label, number]) => (
         <Pressable
           key={label}
           onPress={() => call(number)}
-          style={[s.numberBtn, onRed ? s.numberBtnOnRed : { backgroundColor: c.surface, borderColor: c.border }]}
+          style={[s.numberBtn, onRed ? s.numberBtnOnRed : [tc.backgroundColor_surfaceVariant, tc.borderColor_surfaceVariant]]}
           accessibilityRole="button"
-          accessibilityLabel={`Call ${label.toLowerCase()} on ${number}`}
+          accessibilityLabel={t('sos.callService', { service: label.toLowerCase(), number })}
         >
-          <Text style={{ fontSize: 16, fontWeight: '800', color: onRed ? 'white' : c.text }}>{number}</Text>
-          <Text style={{ fontSize: 12, color: onRed ? 'white' : c.textSec }}>{label}</Text>
+          <Text style={[{ fontSize: 16, fontWeight: '800' }, onRed ? {
+            color: 'white'
+          } : tc.color_text]}>{number}</Text>
+          <Text style={[{ fontSize: 12 }, onRed ? {
+            color: 'white'
+          } : tc.color_textSec]}>{label}</Text>
         </Pressable>
       ))}
     </View>
@@ -416,50 +488,52 @@ export function SOSScreen() {
     const notified = emergency?.emergencyContactsNotified ?? [];
     const acknowledged = emergency?.status === 'acknowledged';
     const safe = Boolean(emergency?.userSafeAt);
-    let title = 'SOS alert active';
-    let sub = 'The Poolora safety team has been alerted and can see where you are.';
+    let title = t('sos.active.title');
+    let sub = t('sos.active.sub');
     if (phase === 'sending') {
-      title = 'Sending SOS';
+      title = t('sos.active.sending');
       sub = '';
     } else if (phase === 'retrying') {
-      title = 'Trying to reach Poolora';
-      sub = `No connection yet. We keep trying every few seconds. Call ${REGION.emergency.general}, or text your contacts from your phone.`;
+      title = t('sos.active.retryingTitle');
+      sub = t('sos.active.retryingSub', { number: currentEmergency().general });
     } else if (isClosed) {
-      title = 'SOS closed';
-      sub = emergency?.cancelledAt ? 'You cancelled the alert. Your contacts were not told.' : 'The safety team has closed your alert.';
+      title = t('sos.active.closedTitle');
+      sub = emergency?.cancelledAt ? t('sos.active.closedCancelled') : t('sos.active.closedByTeam');
     } else if (safe) {
-      sub = 'You said you are safe. The safety team will call you to check, then close the alert.';
+      sub = t('sos.active.safeSub');
     } else if (acknowledged) {
-      sub = 'The safety team has your alert and will call you. Keep your phone with you.';
+      sub = t('sos.active.acknowledgedSub');
     }
 
     return (
-      <View style={[s.root, { backgroundColor: isClosed ? c.bg : '#B71C1C', paddingTop: insets.top }]}>
+      <View style={[s.root, { paddingTop: insets.top }, isClosed ? tc.backgroundColor_surface : {
+        backgroundColor: '#B71C1C'
+      }]}>
         <ScrollView contentContainerStyle={s.activeBody}>
           {phase === 'sending' || phase === 'retrying' ? (
             <ActivityIndicator size="large" color="white" />
           ) : (
             <ReAnimated.View style={[s.activeCircle, !isClosed && pulseStyle]}>
-              <Icon name={isClosed ? 'shield-check-outline' : 'alert'} size={54} color={isClosed ? c.primary : 'white'} />
+              <Icon name={isClosed ? 'shield-check-outline' : 'alert'} size={54} color={isClosed ? tk.primary : 'white'} />
             </ReAnimated.View>
           )}
-          <Text style={[s.activeTitle, isClosed && { color: c.text }]} accessibilityRole="header" accessibilityLiveRegion="assertive">{title}</Text>
-          {sub ? <Text style={[s.activeSub, isClosed && { color: c.textSec }]} accessibilityLiveRegion="polite">{sub}</Text> : null}
+          <Text style={[s.activeTitle, isClosed && tc.color_text]} accessibilityRole="header" accessibilityLiveRegion="assertive">{title}</Text>
+          {sub ? <Text style={[s.activeSub, isClosed && tc.color_textSec]} accessibilityLiveRegion="polite">{sub}</Text> : null}
 
           {open ? (
             <View style={s.sharingCard}>
               {pending ? (
                 <>
                   <Text style={s.cardTitle} accessibilityLiveRegion="polite">
-                    Texting your emergency contacts in {windowLeft} s
+                    {t('sos.textingIn', { seconds: windowLeft })}
                   </Text>
                   <Pressable onPress={cancelAccidental} disabled={busy} style={s.cancelBtn} accessibilityRole="button">
-                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#B71C1C' }}>Cancel, I pressed it by accident</Text>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#B71C1C' }}>{t('sos.cancelAccident')}</Text>
                   </Pressable>
                 </>
               ) : notified.length > 0 ? (
                 <>
-                  <Text style={s.cardTitle}>Text with your live location sent to:</Text>
+                  <Text style={s.cardTitle}>{t('sos.sentTo')}</Text>
                   {notified.map(contact => (
                     <View key={contact.phone} style={s.contactDot}>
                       <View style={s.greenDot} />
@@ -468,33 +542,82 @@ export function SOSScreen() {
                   ))}
                 </>
               ) : emergency?.contactsState === 'none' ? (
-                <Text style={s.cardText}>You have no emergency contacts to text. Add some after this so they can be told next time.</Text>
+                <Text style={s.cardText}>{t('sos.noContactsToText')}</Text>
               ) : emergency?.contactsState === 'sending' ? (
-                <Text style={s.cardText}>Texting your emergency contacts…</Text>
+                <Text style={s.cardText}>{t('sos.texting')}</Text>
               ) : (
-                <Text style={s.cardText}>We could not text your emergency contacts. Call them, or text them from your phone.</Text>
+                <Text style={s.cardText}>{t('sos.textFailed')}</Text>
               )}
             </View>
           ) : null}
 
           {open && !emergency?.threat ? (
             <View style={s.sharingCard}>
-              <Text style={s.cardTitle}>What's happening? (optional)</Text>
+              <Text style={s.cardTitle}>{t('sos.whatsHappening')}</Text>
               <View style={s.threatRow}>
-                {THREATS.map(t => (
-                  <Pressable key={t.value} onPress={() => chooseThreat(t.value)} style={s.threatChip} accessibilityRole="button">
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: 'white' }}>{t.label}</Text>
+                {THREATS.map(threat => (
+                  <Pressable key={threat} onPress={() => chooseThreat(threat)} style={s.threatChip} accessibilityRole="button">
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: 'white' }}>{t(`sos.threats.${threat}`)}</Text>
                   </Pressable>
                 ))}
               </View>
             </View>
           ) : open && emergency?.threat ? (
-            <Text style={s.activeSub}>You told the safety team: {THREATS.find(t => t.value === emergency.threat)?.label.toLowerCase()}.</Text>
+            <Text style={s.activeSub}>{t('sos.youTold', { threat: t(`sos.threats.${emergency.threat}`).toLowerCase() })}</Text>
+          ) : null}
+
+          {open && video.available ? (
+            <View style={s.sharingCard}>
+              {camera === 'live' ? (
+                <>
+                  <View style={s.contactDot}>
+                    <View style={s.liveDot} />
+                    <Text style={[s.cardTitle, { marginBottom: 0 }]} accessibilityLiveRegion="polite">{t('sos.video.live')}</Text>
+                  </View>
+                  <Text style={s.cardText}>
+                    {recordingNow ? t('sos.video.liveRecorded') : t('sos.video.liveNotRecorded')} {t('sos.video.leaveStops')}
+                  </Text>
+                  <View style={[s.threatRow, { marginTop: 10 }]}>
+                    <Pressable onPress={() => videoSession.current?.switchCamera()} style={s.threatChip} accessibilityRole="button">
+                      <Text style={s.chipText}>{t('sos.video.switch')}</Text>
+                    </Pressable>
+                    {!recordAudio ? (
+                      <Pressable onPress={toggleSoundOnly} style={s.threatChip} accessibilityRole="button">
+                        <Text style={s.chipText}>{soundOnly ? t('sos.video.cameraBack') : t('sos.video.soundOnly')}</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable onPress={stopCamera} style={s.threatChip} accessibilityRole="button">
+                      <Text style={s.chipText}>{t('sos.video.turnOff')}</Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={s.cardTitle}>
+                    {videoAskedAt && !(emergency?.video?.startedAt && emergency.video.startedAt > videoAskedAt) ? t('sos.video.asked') : t('sos.video.title')}
+                  </Text>
+                  <Text style={[s.cardText, { marginBottom: 10 }]}>
+                    {t('sos.video.body')} {video.recorded ? t('sos.video.recorded') : t('sos.video.notRecorded')}
+                    {recordAudio ? ` ${t('sos.video.noSound')}` : ''}
+                  </Text>
+                  {camera === 'starting' ? (
+                    <View style={s.contactDot}>
+                      <ActivityIndicator color="white" />
+                      <Text style={s.cardText}>{t('sos.video.connecting')}</Text>
+                    </View>
+                  ) : (
+                    <Pressable onPress={startCamera} style={s.cancelBtn} accessibilityRole="button">
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#B71C1C' }}>{t('sos.video.turnOn')}</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </View>
           ) : null}
 
           {open && battery !== undefined && battery < LOW_BATTERY ? (
             <Text style={[s.activeSub, { fontWeight: '700' }]} accessibilityLiveRegion="polite">
-              Battery {Math.round(battery * 100)}%. If your phone dies, the safety team keeps your last position and can still see the other phones on the ride.
+              {t('sos.lowBattery', { percent: Math.round(battery * 100) })}
             </Text>
           ) : null}
 
@@ -502,17 +625,17 @@ export function SOSScreen() {
             <>
               <Pressable
                 style={s.callBtn}
-                onPress={() => call(REGION.emergency.general)}
+                onPress={() => call(currentEmergency().general)}
                 accessibilityRole="button"
-                accessibilityLabel={`Call ${REGION.emergency.general} emergency services`}
+                accessibilityLabel={t('sos.callEmergencyLabel', { number: currentEmergency().general })}
               >
                 <Icon name="phone" size={24} color="#B71C1C" />
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#B71C1C' }}>Call {REGION.emergency.general}</Text>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#B71C1C' }}>{t('sos.callEmergency', { number: currentEmergency().general })}</Text>
               </Pressable>
               {emergencyNumbers(true)}
               {phase === 'retrying' || (open && emergency?.contactsState !== 'sent' && !pending) ? (
                 <Pressable onPress={() => textContactsFromPhone(contacts ?? [])} style={s.outlineBtn} accessibilityRole="button">
-                  <Text style={s.outlineText}>Text my contacts from my phone</Text>
+                  <Text style={s.outlineText}>{t('sos.textFromPhone')}</Text>
                 </Pressable>
               ) : null}
             </>
@@ -521,30 +644,30 @@ export function SOSScreen() {
           {open && !pending ? (
             safe ? (
               <Pressable onPress={reportDanger} disabled={busy} style={s.outlineBtn} accessibilityRole="button">
-                <Text style={s.outlineText}>I'm not safe after all</Text>
+                <Text style={s.outlineText}>{t('sos.notSafeAfterAll')}</Text>
               </Pressable>
             ) : (
               <Pressable onPress={sayImSafe} disabled={busy} style={s.outlineBtn} accessibilityRole="button">
-                <Text style={s.outlineText}>I'm safe now</Text>
+                <Text style={s.outlineText}>{t('sos.imSafeNow')}</Text>
               </Pressable>
             )
           ) : null}
 
           {phase === 'retrying' ? (
             <Pressable onPress={() => setPhase('idle')} style={s.linkRow} accessibilityRole="button">
-              <Text style={{ fontSize: 14, color: 'white', textDecorationLine: 'underline' }}>Stop trying</Text>
+              <Text style={{ fontSize: 14, color: 'white', textDecorationLine: 'underline' }}>{t('sos.stopTrying')}</Text>
             </Pressable>
           ) : null}
           {open ? (
             <Pressable onPress={() => navigation.goBack()} style={s.linkRow} accessibilityRole="button">
               <Text style={{ fontSize: 14, color: 'white', textDecorationLine: 'underline' }}>
-                Leave this screen (the alert stays on)
+                {t('sos.leaveScreen')}
               </Text>
             </Pressable>
           ) : null}
           {isClosed ? (
-            <Pressable onPress={() => navigation.goBack()} style={[s.doneBtn, { backgroundColor: c.primary }]} accessibilityRole="button">
-              <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Done</Text>
+            <Pressable onPress={() => navigation.goBack()} style={[s.doneBtn, tc.backgroundColor_primary]} accessibilityRole="button">
+              <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>{t('common.done')}</Text>
             </Pressable>
           ) : null}
         </ScrollView>
@@ -556,11 +679,8 @@ export function SOSScreen() {
   const canRaise = Boolean(bookingId);
 
   return (
-    <View style={[s.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-      <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: c.text }}>Safety and SOS</Text>
-      </View>
+    <View style={[s.root, { paddingTop: insets.top }, tc.backgroundColor_surface]}>
+      <ScreenHeader title={t('sos.title')} compact />
 
       <ScrollView style={s.flex1} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
         <View style={s.sosSection}>
@@ -569,8 +689,8 @@ export function SOSScreen() {
             onPressOut={endHold}
             disabled={!canRaise}
             accessibilityRole="button"
-            accessibilityLabel="SOS. Press and hold for 3 seconds to alert the safety team"
-            accessibilityHint="Your emergency contacts are texted 10 seconds later unless you cancel"
+            accessibilityLabel={t('sos.holdLabel')}
+            accessibilityHint={t('sos.holdHint')}
             accessibilityState={{ disabled: !canRaise }}
             style={[s.sosBtn, !canRaise && { opacity: 0.4 }, { elevation: phase === 'holding' ? 16 : 8 }]}
           >
@@ -591,99 +711,108 @@ export function SOSScreen() {
               />
             </Svg>
             <Icon name="alert" size={44} color="white" />
-            <Text style={s.sosLabel}>SOS</Text>
+            <Text style={s.sosLabel}>{t('sos.sosLabel')}</Text>
           </Pressable>
-          <Text style={{ fontSize: 14, color: c.textSec, textAlign: 'center' }}>
+          <Text style={[{ fontSize: 14, textAlign: 'center' }, tc.color_textSec]}>
             {phase === 'loading'
-              ? 'Checking for your current ride'
+              ? t('sos.checkingRide')
               : !canRaise
-                ? `SOS alerts work during a confirmed ride. If you are in danger now, call ${REGION.emergency.general}.`
+                ? t('sos.needsRide', { number: currentEmergency().general })
                 : phase === 'holding'
-                  ? 'Keep holding'
-                  : 'Hold for 3 seconds. The safety team is alerted at once; your emergency contacts 10 seconds later, unless you cancel.'}
+                  ? t('sos.keepHolding')
+                  : t('sos.holdInstructions')}
           </Text>
         </View>
 
         {!canRaise && phase !== 'loading' && (contacts?.length ?? 0) > 0 ? (
           <Pressable
             onPress={() => textContactsFromPhone(contacts ?? [])}
-            style={[s.bigCall, { backgroundColor: c.primaryLight }]}
+            style={[s.bigCall, tc.backgroundColor_primaryLight]}
             accessibilityRole="button"
-            accessibilityHint="Opens your messaging app with a message and your location; works without data"
+            accessibilityHint={t('sos.textFromPhoneHint')}
           >
-            <Icon name="message-alert-outline" size={22} color={c.primary} />
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.primary }}>Text my contacts from my phone</Text>
+            <Icon name="message-alert-outline" size={22} color={tk.primary} />
+            <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_primary]}>{t('sos.textFromPhone')}</Text>
           </Pressable>
         ) : null}
         <Pressable
-          onPress={() => call(REGION.emergency.general)}
-          style={[s.bigCall, { backgroundColor: c.errorLight }]}
+          onPress={() => call(currentEmergency().general)}
+          style={[s.bigCall, tc.backgroundColor_errorLight]}
           accessibilityRole="button"
-          accessibilityLabel={`Call ${REGION.emergency.general} emergency services`}
+          accessibilityLabel={t('sos.callEmergencyLabel', { number: currentEmergency().general })}
         >
-          <Icon name="phone" size={22} color={c.error} />
-          <Text style={{ fontSize: 16, fontWeight: '700', color: c.error }}>Call {REGION.emergency.general}</Text>
+          <Icon name="phone" size={22} color={tk.error} />
+          <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_error]}>{t('sos.callEmergency', { number: currentEmergency().general })}</Text>
         </Pressable>
         {emergencyNumbers(false)}
 
         <View style={s.quickRow}>
-          <Pressable onPress={shareLocation} style={[s.quickBtn, { backgroundColor: c.primaryLight }]} accessibilityRole="button">
-            <Icon name="map-marker" size={24} color={c.primary} />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Share location</Text>
+          <Pressable onPress={shareLocation} style={[s.quickBtn, tc.backgroundColor_primaryLight]} accessibilityRole="button">
+            <Icon name="map-marker" size={24} color={tk.primary} />
+            <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_primary]}>{t('sos.shareLocation')}</Text>
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('FakeCall')} style={[s.quickBtn, { backgroundColor: c.primaryLight }]} accessibilityRole="button" accessibilityHint="Your phone rings in a few seconds, so you have a reason to leave">
-            <Icon name="phone-incoming" size={24} color={c.primary} />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Fake call</Text>
+          <Pressable onPress={() => navigation.navigate('FakeCall')} style={[s.quickBtn, tc.backgroundColor_primaryLight]} accessibilityRole="button" accessibilityHint={t('sos.fakeCallHint')}>
+            <Icon name="phone-incoming" size={24} color={tk.primary} />
+            <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_primary]}>{t('sos.fakeCall')}</Text>
           </Pressable>
         </View>
 
-        <View style={[s.contactsCard, s.audioRow, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <View style={[
+          s.contactsCard,
+          s.audioRow,
+          tc.backgroundColor_surfaceVariant,
+          tc.borderColor_surfaceVariant
+        ]}>
           <View style={s.flex1}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: c.text }}>Record audio during an SOS</Text>
-            <Text style={{ fontSize: 13, color: c.textSec, lineHeight: 19 }}>
-              Off unless you switch it on. During an SOS your phone records what it hears and sends it to the Poolora safety team only, in parts of a minute.
+            <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_text]}>{t('sos.audioTitle')}</Text>
+            <Text style={[{ fontSize: 13, lineHeight: 19 }, tc.color_textSec]}>
+              {t('sos.audioBody')}
             </Text>
           </View>
-          <Switch value={recordAudio} onValueChange={toggleAudio} accessibilityLabel="Record audio during an SOS" trackColor={{ false: c.border, true: c.primary }} />
+          <Switch value={recordAudio} onValueChange={toggleAudio} accessibilityLabel={t('sos.audioTitle')} trackColor={{ false: tk.border, true: tk.primary }} />
         </View>
 
         <View>
           <View style={s.sectionHeader}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.text }}>Emergency contacts</Text>
+            <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_text]}>{t('sos.contactsTitle')}</Text>
             <Pressable onPress={() => navigation.navigate('EmergencyContacts')} accessibilityRole="button" hitSlop={8}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: c.primary }}>Manage</Text>
+              <Text style={[{ fontSize: 13, fontWeight: '600' }, tc.color_primary]}>{t('common.manage')}</Text>
             </Pressable>
           </View>
 
-          <View style={[s.contactsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={[
+            s.contactsCard,
+            tc.backgroundColor_surfaceVariant,
+            tc.borderColor_surfaceVariant
+          ]}>
             {contacts === null ? (
-              <ActivityIndicator style={{ padding: 16 }} color={c.primary} />
+              <ActivityIndicator style={{ padding: 16 }} color={tk.primary} />
             ) : contacts.length === 0 ? (
               <View style={s.contactRow}>
-                <Text style={{ flex: 1, fontSize: 14, color: c.textSec }}>
-                  Add people who should get a text with your location if you raise an SOS.
+                <Text style={[{ flex: 1, fontSize: 14 }, tc.color_textSec]}>
+                  {t('sos.contactsEmpty')}
                 </Text>
               </View>
             ) : (
               contacts.map((contact, i) => (
                 <View key={contact.phone}>
-                  {i > 0 && <View style={[s.divider, { backgroundColor: c.border }]} />}
+                  {i > 0 && <View style={[s.divider, tc.backgroundColor_border]} />}
                   <View style={s.contactRow}>
-                    <View style={[s.contactIcon, { backgroundColor: c.primaryLight }]}>
-                      <Icon name="account" size={22} color={c.primary} />
+                    <View style={[s.contactIcon, tc.backgroundColor_primaryLight]}>
+                      <Icon name="account" size={22} color={tk.primary} />
                     </View>
                     <View style={s.flex1}>
                       <View style={s.contactNameRow}>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: c.text }}>{contact.name}</Text>
+                        <Text style={[{ fontSize: 14, fontWeight: '600' }, tc.color_text]}>{contact.name}</Text>
                         {contact.relation ? (
-                          <View style={[s.relationBadge, { backgroundColor: c.bg }]}>
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSec }}>{contact.relation}</Text>
+                          <View style={[s.relationBadge, tc.backgroundColor_surface]}>
+                            <Text style={[{ fontSize: 11, fontWeight: '700' }, tc.color_textSec]}>{contact.relation}</Text>
                           </View>
                         ) : null}
                       </View>
-                      <Text style={{ fontSize: 13, color: c.textSec }}>
+                      <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
                         {displayPhone(contact.phone) ?? contact.phone}
-                        {contact.notifyOnSos === false ? ' · not texted on SOS' : ''}
+                        {contact.notifyOnSos === false ? t('sos.notTextedOnSos') : ''}
                       </Text>
                     </View>
                   </View>
@@ -746,6 +875,8 @@ const s = StyleSheet.create({
   cancelBtn: { minHeight: 52, borderRadius: 14, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   contactDot: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   greenDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#00E676' },
+  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'white' },
+  chipText: { fontSize: 14, fontWeight: '600', color: 'white' },
   callBtn: {
     width: '100%',
     height: 60,

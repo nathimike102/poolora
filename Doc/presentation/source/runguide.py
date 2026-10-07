@@ -1,6 +1,6 @@
-"""Poolora: how to run the app on any Android device over adb.
+"""Siham: how to run the app on any Android device over adb.
 
-python3 runguide.py [out.pdf]   (default ../Poolora-Run-On-Android.pdf)
+python3 runguide.py [out.pdf]   (default ../Siham-Run-On-Android.pdf)
 """
 import os, sys
 from reportlab.lib.pagesizes import A4
@@ -13,7 +13,7 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph,
                                 Image, KeepTogether, ListFlowable, ListItem, CondPageBreak)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'Poolora-Run-On-Android.pdf')
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'Siham-Run-On-Android.pdf')
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 F = '/usr/share/fonts/truetype/dejavu/'
 pdfmetrics.registerFont(TTFont('DV', F + 'DejaVuSans.ttf'))
@@ -77,20 +77,20 @@ def on_page(c, doc):
     c.saveState()
     c.setFont('DV', 8)
     c.setFillColor(MUTED)
-    c.drawString(2 * cm, 1.2 * cm, 'Poolora · Running the app on an Android device')
+    c.drawString(2 * cm, 1.2 * cm, 'Siham · Running the app on an Android device')
     c.drawRightString(A4[0] - 2 * cm, 1.2 * cm, str(doc.page))
     c.restoreState()
 
 
 doc = BaseDocTemplate(OUT, pagesize=A4, leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.8 * cm, bottomMargin=2 * cm,
-                      title='Poolora: running the app on an Android device', author='Nkosinathi Michael Sibanda')
+                      title='Siham: running the app on an Android device', author='Nkosinathi Michael Sibanda')
 doc.addPageTemplates([PageTemplate(id='p', frames=[Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height)], onPage=on_page)])
 W = doc.width
 
 s = []
-s.append(Image(os.path.join(ROOT, 'branding/poolora-lockup.png'), width=5.2 * cm, height=1.63 * cm, hAlign='LEFT'))
+s.append(Image(os.path.join(ROOT, 'branding/siham-lockup.png'), width=5.2 * cm, height=1.58 * cm, hAlign='LEFT'))
 s.append(Spacer(1, 8))
-s.append(P('Running Poolora on an Android device', h1))
+s.append(P('Running Siham on an Android device', h1))
 s.append(P('Step-by-step: connect any Android phone or emulator with adb, start the backend, and install and run the app '
            'for manual testing.', lead))
 
@@ -210,7 +210,7 @@ s.append(C(['npx expo run:android --device "SM_A047F"', '# adb commands take the
 s.append(P('Next time: no rebuild needed', h3))
 s.append(P('The installed app is a development build. Rebuild only when native code or packages change. Otherwise start Metro '
            'and open the app:'))
-s.append(C(['cd frontend', 'npx expo start --dev-client     # then press "a", or tap the Poolora icon on the phone']))
+s.append(C(['cd frontend', 'npx expo start --dev-client     # then press "a", or tap the Siham icon on the phone']))
 s.append(P('Code changes reload by themselves. Press <b>r</b> in the Metro terminal to reload by hand, or open the developer menu '
            'on the phone by shaking it or running <i>adb shell input keyevent 82</i>.'))
 
@@ -245,9 +245,9 @@ s.append(table([
                                    'adb shell cmd location providers set-test-provider-location gps --location -17.8252,31.0532 '
                                    '(repeat every few seconds while the app looks for a fix)'],
     ['Open the dev build on Metro', 'adb shell am start -a android.intent.action.VIEW -d '
-                                    '"exp+poolora://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081" com.poolora.app'],
-    ['Start again from a clean app', 'adb shell pm clear com.poolora.app (signs you out and clears saved data)'],
-    ['Remove the app', 'adb uninstall com.poolora.app'],
+                                    '"exp+siham://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081" com.siham.app'],
+    ['Start again from a clean app', 'adb shell pm clear com.siham.app (signs you out and clears saved data)'],
+    ['Remove the app', 'adb uninstall com.siham.app'],
     ['Open the web admin', 'cd admin-web, npm run dev, then open the address it prints in a browser'],
 ], [5.0 * cm, 12.0 * cm]))
 s.append(Spacer(1, 6))
@@ -268,7 +268,7 @@ s.append(table([
     ['CommandError: Could not find device with name', '--device was given the serial number', 'Pass the device name (the model shown by adb devices -l), or leave --device out'],
     ['SDK location not found', 'Gradle cannot find the Android SDK', 'Set ANDROID_HOME, or create frontend/android/local.properties with sdk.dir=/path/to/Android/Sdk'],
     ['Unsupported class file major version', 'Wrong Java version', 'Use JDK 17 (set JAVA_HOME)'],
-    ['INSTALL_FAILED_UPDATE_INCOMPATIBLE', 'A copy signed with another key is installed', 'adb uninstall com.poolora.app, then install again'],
+    ['INSTALL_FAILED_UPDATE_INCOMPATIBLE', 'A copy signed with another key is installed', 'adb uninstall com.siham.app, then install again'],
     ['Google sign-in fails', 'This computer\'s debug key is not registered in Firebase', 'Add the SHA-1 from ./gradlew signingReport to the Firebase Android app, or sign in with a phone number'],
     ['Map is blank', 'No internet on the phone', 'Map tiles come from OpenFreeMap over the internet; check the phone\'s data or Wi-Fi'],
     ['Code changes do not show up', 'Metro missed the file change', 'Stop Metro and start it again with --clear, then reopen the app'],

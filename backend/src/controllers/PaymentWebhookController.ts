@@ -40,9 +40,9 @@ export class PaymentWebhookController {
     res
       .status(200)
       .type('html')
-      .send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Poolora payment</title>
+      .send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Siham payment</title>
 <style>body{font-family:system-ui,sans-serif;max-width:480px;margin:48px auto;padding:0 16px;color:#1a1a1a;line-height:1.5}h1{font-size:22px}p{color:#55544f}</style></head>
-<body><h1>Thank you</h1><p>Go back to the Poolora app. It will show your payment as soon as Paynow confirms it, usually within a minute.</p>${reference ? `<p style="font-size:13px">Reference ${reference}</p>` : ''}</body></html>`);
+<body><h1>Thank you</h1><p>Go back to the Siham app. It will show your payment as soon as Paynow confirms it, usually within a minute.</p>${reference ? `<p style="font-size:13px">Reference ${reference}</p>` : ''}</body></html>`);
   }
 
   /** GET /payments/options: currencies and methods available now */

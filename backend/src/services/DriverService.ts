@@ -6,6 +6,7 @@
  * Verified Driver badge (UC-D10).
  */
 
+import { plainAverage } from '../utils/ratingScore';
 import { Booking } from '../models/Booking';
 import { Ride } from '../models/Ride';
 import { User, IUser } from '../models/User';
@@ -15,6 +16,7 @@ import { ChatService } from './ChatService';
 import { NotificationService } from './NotificationService';
 import { emailLayout, escapeHtml, mailEnabled, sendMail } from './Mailer';
 import { fromLocalClock, money, toLocalClock } from '../config/region';
+import { phrase } from '../i18n';
 
 /** What it takes to earn the Verified Driver badge (UC-D10) */
 export const VERIFIED_DRIVER_RULES = {
@@ -40,11 +42,12 @@ export function verifiedDriverStatus(user: Pick<IUser, 'kyc' | 'stats' | 'create
     { label: `${r.minTrips} or more trips`, met: (s.totalRidesAsDriver ?? 0) >= r.minTrips, progress: `${s.totalRidesAsDriver ?? 0} of ${r.minTrips}` },
     {
       label: `Rating ${r.minRating} or higher from at least ${r.minRatings} riders`,
-      met: (s.avgRatingAsDriver ?? 0) >= r.minRating && (s.totalRatingsAsDriver ?? 0) >= r.minRatings,
-      progress: `${(s.avgRatingAsDriver ?? 0).toFixed(1)} from ${s.totalRatingsAsDriver ?? 0} ratings`,
+      // The plain average: the shown score starts at 5 and would flatter a short record
+      met: plainAverage(s, 'Driver') >= r.minRating && (s.totalRatingsAsDriver ?? 0) >= r.minRatings,
+      progress: `${plainAverage(s, 'Driver').toFixed(1)} from ${s.totalRatingsAsDriver ?? 0} ratings`,
     },
     { label: `Cancels under ${r.maxCancellationRate * 100}% of rides`, met: (s.cancellationRate ?? 0) < r.maxCancellationRate, progress: `${Math.round((s.cancellationRate ?? 0) * 100)}%` },
-    { label: `Driving with Poolora for ${r.minAccountDays} days`, met: days >= r.minAccountDays, progress: `${days} days` },
+    { label: `Driving with Siham for ${r.minAccountDays} days`, met: days >= r.minAccountDays, progress: `${days} days` },
     { label: 'No warnings or suspensions', met: !(user.warnings ?? 0) && !user.isSuspended && !user.isBlocked, progress: user.warnings ? `${user.warnings} warning${user.warnings === 1 ? '' : 's'}` : 'Clear' },
   ];
   return { verified: checks.every((c) => c.met), checks };
@@ -87,7 +90,7 @@ export class DriverService {
         contentType: 'text',
         createdAt: message.createdAt,
       });
-      await push.sendPushNotification(b.rider.toString(), 'Message from your driver', message.content.slice(0, 120), { bookingId: b._id.toString(), type: 'chat' }).catch(() => undefined);
+      await push.sendPushNotification(b.rider.toString(), phrase('driverMessage.title'), message.content.slice(0, 120), { bookingId: b._id.toString(), type: 'chat' }).catch(() => undefined);
     }
     return { sent: bookings.length };
   }
@@ -147,10 +150,10 @@ export class DriverService {
     const s = await this.statement(driverId, month);
     await sendMail({
       to: user.email,
-      subject: `Your Poolora earnings for ${month}`,
+      subject: `Your Siham earnings for ${month}`,
       text: `${s.totals.trips} trips in ${month}. Fares ${money(s.totals.fare)}, platform fees ${money(s.totals.platformFee)}, your earnings ${money(s.totals.earnings)}. The full statement is attached.`,
       html: emailLayout(`Earnings for ${month}`, `<p>${s.totals.trips} trips. Fares ${escapeHtml(money(s.totals.fare))}, platform fees ${escapeHtml(money(s.totals.platformFee))}.</p><p style="font-size:18px"><strong>Your earnings: ${escapeHtml(money(s.totals.earnings))}</strong></p><p>The full statement is attached as a spreadsheet.</p>`),
-      attachments: [{ filename: `poolora-earnings-${month}.csv`, content: this.statementCsv(s), contentType: 'text/csv' }],
+      attachments: [{ filename: `siham-earnings-${month}.csv`, content: this.statementCsv(s), contentType: 'text/csv' }],
     });
     return { to: user.email };
   }

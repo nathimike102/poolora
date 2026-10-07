@@ -1,6 +1,6 @@
 # API Specifications
 
-**Poolora REST and real-time API**
+**Siham REST and real-time API**
 
 This document describes the API the backend serves today (last checked against the code on 29 September 2026, after the move to Zimbabwe and Paynow). It was rebuilt from the route files in `backend/src/routes` and the request schemas in `backend/src/validators`. When the two disagree, the code wins, so update this file in the same change as the route.
 
@@ -79,7 +79,7 @@ Request bodies give positions as `{ "lng": 31.05, "lat": -17.83, "address": "…
 |---|---|---|---|
 | POST | `/auth/send-otp` | public, 3 per hour | Send a 6-digit code. Body: `phone`, as `0771 234 567` or E.164 (`+263771234567`) |
 | POST | `/auth/verify-otp` | public, 10 per 15 min | Body: `phone`, `otp`; `name` is required for a new account; `email` and `dateOfBirth` are optional. Returns the user and tokens |
-| POST | `/auth/firebase-login` | public, 10 per 15 min | Exchange a Firebase ID token (phone or Google sign-in) for Poolora tokens |
+| POST | `/auth/firebase-login` | public, 10 per 15 min | Exchange a Firebase ID token (phone or Google sign-in) for Siham tokens |
 | POST | `/auth/refresh-token` | public, 10 per 15 min | Body: `refreshToken`. Returns a new token pair |
 | POST | `/auth/logout` | signed in | Ends the session |
 | GET | `/auth/me` | signed in | The current user |
@@ -96,12 +96,16 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/users/me` | Own profile |
-| PATCH | `/users/me` | Update name, email, photo and preferences. `gender` (`female`, `male`, `other`) can be set until an identity check confirms it; then `409 IDENTITY_VERIFIED` |
+| PATCH | `/users/me` | Update name, email, photo and preferences. `gender` (`female`, `male`, `other`) can be set until an identity check confirms it; then `409 IDENTITY_VERIFIED`. `language` is one of the market's languages (`en`, `sn`, `nd` in Zimbabwe; UC-X03) |
 | GET | `/users/saved-routes` | Routes the rider searches often |
 | GET | `/users/kyc/status` | Driver verification state |
 | GET | `/users/me/statement` | A driver's earnings for a month (UC-D09). `?month=2026-09` (local time; defaults to this month). Returns `lines` (date, `Trip` / `Late cancellation` / `No-show`, route, rider's first name, fare, platform fee, earnings) and `totals`. Add `&format=csv` for a spreadsheet download |
 | POST | `/users/me/statement/email` | Emails that statement to the profile's address with the CSV attached. Body: `month`. `409 NO_EMAIL` without an address, `503 EMAIL_UNAVAILABLE` when SMTP is not set up |
 | GET | `/users/me/verified-status` | Progress towards the Verified Driver badge (UC-D10): `verified` and one `checks` entry per rule (`label`, `met`, `progress`) |
+| GET | `/users/me/impact` | CO₂ saved by the caller's shared trips, as rider and driver (UC-R11): `allTime` and `thisMonth` (`co2SavedKg`, `kmShared`, `trips`), `months` (the last six, oldest first, `month` as YYYY-MM in market time) and `method` (the emission factors used). An estimate |
+| GET | `/users/me/work` | The caller's company programme (UC-C02): `work` (`organisation` with `name` and `active`, `email`, `since`) or `null`, and `pending` (a work email waiting for its link, `email`, `sentAt`) or `null`. A member's `work.contribution` says what the company pays (`sharePercent`, `monthlyCapUsd`, `weekdaysOnly`, site names, `usedThisMonth`), or is `null` when it pays nothing |
+| POST | `/users/me/work` | Body: `email`. Emails a confirmation link to a work address on a company's domain; the user joins when they confirm it. `404 NO_COMPANY_PROGRAMME` when no active company has the domain; `409` when the address belongs to another account; `429 WORK_LINK_RATE_LIMITED` within 10 minutes of the last link; `503 MAIL_UNAVAILABLE` without email |
+| DELETE | `/users/me/work` | Leave the company programme |
 | GET | `/users/me/identity` | The caller's identity check for women-only rides: `status` (`none`, `pending`, `verified`, `rejected`), `gender`, `declaredGender`, `submittedAt`, `reviewedAt`, `rejectionReason` |
 | POST | `/users/me/identity` | Send an identity check. Body: `gender`, `documentUrl`, `selfieUrl` (both uploaded first through `/uploads/kyc` with purpose `identity` and `selfie`, and inside the caller's own folder, else `422 INVALID_DOCUMENT`). `409 IDENTITY_VERIFIED` once verified |
 | GET | `/users/me/closure` | Whether the account can be closed now: `canClose`, `blockers` (plain-language reasons), `walletBalance`, `coins` |
@@ -141,7 +145,7 @@ A wrong OTP makes the next attempt wait longer (5 s, doubling, up to 15 min). Af
   "totalSeats": 3,
   "pricePerSeat": 1,
   "recurring": "none",
-  "preferences": { "womenOnly": false, "smokingAllowed": false, "petsAllowed": false, "luggageSize": "medium", "maxDetourMins": 15 },
+  "preferences": { "womenOnly": false, "colleaguesOnly": false, "smokingAllowed": false, "petsAllowed": false, "luggageSize": "medium", "maxDetourMins": 15 },
   "waypoints": [{ "lng": 31.0850, "lat": -17.7950, "address": "Highlands, Harare" }],
   "returnDepartureTime": "2026-09-24T18:00:00.000Z"
 }
@@ -158,7 +162,7 @@ Rules (UC-D02):
 
 The backend fetches the driving route and stores its polyline, distance and duration.
 
-`GET /rides/:id` adds `driverVerified`, whether the driver has the Verified Driver badge; search results carry the same as `driver.verified`. The badge needs approved documents, 20 or more trips, a rating of 4.7 or higher from at least 10 riders, under 5% cancellations, 90 days on Poolora and no warnings or suspensions.
+`GET /rides/:id` adds `driverVerified`, whether the driver has the Verified Driver badge; search results carry the same as `driver.verified`. The badge needs approved documents, 20 or more trips, a rating of 4.7 or higher from at least 10 riders, under 5% cancellations, 90 days on Siham and no warnings or suspensions.
 
 A ride nobody has booked is **cancelled automatically 1 hour before departure**, and the driver gets a push. A ride posted less than an hour before departure is left alone until it has been up for an hour.
 
@@ -175,6 +179,10 @@ A ride nobody has booked is **cancelled automatically 1 hour before departure**,
 | POST | `/rides/:id/position` | the ride's driver or a rider on it | A phone on a ride in progress, from the app's background task: the driver's (the car) every 5 s, a rider's every 15 s from pickup to drop. Body: `location`, optional `speed`, `heading`, `accuracy`, `battery`. The car's position reaches each rider's live map as before. About one point every 15 s per phone is stored as the trip trail, kept 30 days, or for good once an SOS, safety report or dispute is attached. While an SOS is open on the ride, each phone's position goes to the admins live (`sos:alert` with `eventType: sos.trail`). Returns `tracking`; false once the ride is over or the rider dropped |
 
 **Women-only rides.** Only a verified woman (an admin-approved identity check, `/users/me/identity`) sees them in search, can filter with `womenOnly=true`, and can book one; anyone else never sees them, `womenOnly=true` answers `403`, and booking one by its id answers `403`. Only a verified woman driver can post one (`preferences.womenOnly`). Search results carry `driver.identityVerified`, and a ride's driver carries `identity.status`.
+
+**Colleagues-only rides (UC-C02).** A driver in an active company programme (`/users/me/work`) can post one (`preferences.colleaguesOnly`); anyone else gets `403 NOT_A_COMPANY_MEMBER`. The ride keeps the driver's company, and only that company's members see it in search, get ride alerts for it and can book it; booking it by id from outside answers `403 COLLEAGUES_ONLY`. While the company is suspended nobody sees it. Search results carry `driver.colleagueAt` (the company's name) only when the driver works at the searcher's company, and `GET /rides/:id` carries `colleagueAt` the same way; a driver's `GET /bookings/driver` carries `rider.colleagueAt` for riders from their company. Nobody's work email is ever sent to another user.
+
+**Company-paid fares (UC-C01).** When a rider's company pays (an active programme with a share and sites; on weekdays and outside public holidays if it says so; a trip that starts or ends within a site's radius; within the person's monthly cap), the booking stores `companyShare`, `organisation` and `companyMonth`. The rider is charged, refunded and cancelled on their own part only (`estimatedFare` − `companyShare`); a cancelled trip costs the company nothing; when the company pays it all the request needs no payment. On completion the platform keeps `platformFeeRate` of the rider's part and `companyFeeRate` (a setting, 10% by default) of the company's part. Receipts carry `companyPaid` and `company`.
 | `page`, `limit` | no | 1, 20 | `limit` at most 50 |
 
 A ride matches when its **route** passes within `radiusKm` of the rider's pickup and of their drop, in that order, so riders can join part-way. Each ride stores its road route as a GeoJSON LineString (`routeLine`, `2dsphere` index); search runs `$geoNear` on it near the pickup, requires it to cross a circle around the drop, then drops rides going the other way. Up to 200 candidates are considered per search.
@@ -210,7 +218,8 @@ rider requests ──► pending ──(driver accepts, payment in)──► con
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/bookings` | signed in | Request seats |
+| POST | `/bookings` | signed in | Request seats. Optional `connection.departsAt`: the rider is catching a bus from the drop (UC-R12); it must leave after the ride and within a day, else `422 BAD_CONNECTION_TIME`. The booking keeps it, with the terminus at the drop if there is one, and the driver sees it on the request |
+| POST | `/bookings/quote` | signed in | Same body as `/bookings`. What it would cost: `fare`, `companyShare` (what the rider's company pays, UC-C01), `youPay`, `company`, and `limitedBy: 'cap'` when the company's monthly cap cuts its share. `dropoffHub` (`name`, `kind`) when the drop is within 600 m of a switched-on rank or terminus |
 | GET | `/bookings/as-rider` | signed in | The caller's bookings as a rider. Query: `status`, `page`, `limit` |
 | GET | `/bookings/as-driver` | signed in | Requests and bookings on the caller's rides |
 | POST | `/bookings/:id/confirm` | the ride's driver | Accept. Reserves the seats atomically; `409 PAYMENT_PENDING` until an online payment is in |
@@ -238,22 +247,28 @@ Phone numbers of the other party appear only on confirmed bookings.
   "useWallet": false,
   "pickup":  { "lng": 31.0530, "lat": -17.8270, "address": "Samora Machel Ave" },
   "dropoff": { "lng": 31.0930, "lat": -17.7620, "address": "Borrowdale Village" },
+  "stops": [{ "lng": 31.0710, "lat": -17.7950, "address": "Avondale Shops" }],
   "note": "I'll wait at the kombi stop by the bank."
 }
 ```
 
 - With `useWallet: true`, the fare is taken from the wallet at once, and the response has `paidViaWallet: true`.
 - `note` is optional (up to 300 characters) and is shown on the driver's request card.
+- `stops` is optional: places the rider wants to stop at between their pickup and drop, as on Rapido and Uber (any order; the booking keeps them in the order the car meets them). Each adds the admin setting `extraStopFee` to the fare once, whatever the seats, and the booking records it as `stopsFee`. The driver sees the stops on the request and accepts them with it. `POST /bookings/quote` takes the same `stops` and returns `stopsFee` and `stopCount`.
+- To get on or off at one of the driver's own stops, the app sends that stop as the `pickup` or `dropoff`; there is no extra charge.
+- `expectedYouPay` is optional: what the app showed the rider they pay. If their company's part has shrunk since (cap used up, contribution paused), the booking is refused with `409 PRICE_CHANGED` before anything is charged, so the rider sees the new price first.
 - Otherwise the booking is created with `paymentMethod: "online"`, and the app pays for it with `POST /payments/start` (section 7). The driver can accept only once it is paid.
 
 Rules:
 - the pickup and the drop must each be within **2 km of the ride's route** (measured against the road route, so riders can join and leave part-way)
 - along the route, the pickup must come before the drop
+- each stop must be within the same **2 km of the route**, and between the pickup and the drop
+- at most `maxStopsPerBooking` stops (admin setting, default **2**; 0 turns stops off)
 - at most **3 pending requests** per rider
 - no booking of one's own ride
 - one active booking per ride
 
-Errors: `PICKUP_TOO_FAR`, `DROPOFF_TOO_FAR`, `WRONG_DIRECTION`, `MAX_PENDING_BOOKINGS`, `INSUFFICIENT_SEATS`, `SELF_BOOKING`, `CONFLICT`.
+Errors: `PICKUP_TOO_FAR`, `DROPOFF_TOO_FAR`, `WRONG_DIRECTION`, `STOP_TOO_FAR`, `STOP_OUT_OF_ORDER`, `TOO_MANY_STOPS`, `MAX_PENDING_BOOKINGS`, `INSUFFICIENT_SEATS`, `SELF_BOOKING`, `CONFLICT`.
 
 ### 5.2 Automatic rules
 
@@ -278,7 +293,7 @@ A rider cancelling a **confirmed** booking gets back a share that depends on the
 | 6–12 h | 25% |
 | Under 6 h | 0% |
 
-What the rider does not get back is paid to the driver as a cancellation fee, less the platform fee. A request that was never accepted, a request the driver declines, and any booking the driver cancels are always refunded in full. Every refund goes to the Poolora wallet, at once: Paynow has no refund API. Riders can then use the balance or withdraw it to mobile money (section 6).
+What the rider does not get back is paid to the driver as a cancellation fee, less the platform fee. A request that was never accepted, a request the driver declines, and any booking the driver cancels are always refunded in full. Every refund goes to the Siham wallet, at once: Paynow has no refund API. Riders can then use the balance or withdraw it to mobile money (section 6).
 
 `GET /bookings/:id/cancellation-quote` returns:
 
@@ -337,7 +352,7 @@ Online payments go through **Paynow** (paynow.co.zw): EcoCash, OneMoney, InnBuck
 
 **References.** Each attempt has its own reference, such as `BK-<booking id>-<6 hex characters>` (`PC-` for parcels, `WT-` for top-ups), so two quick taps on Pay never send Paynow the same reference.
 
-**Refunds.** Paynow has no authorise-then-capture and no refund API. So a request is paid before the driver can accept, and refunds go to the Poolora wallet.
+**Refunds.** Paynow has no authorise-then-capture and no refund API. So a request is paid before the driver can accept, and refunds go to the Siham wallet.
 
 **Fraud checks.** A failed payment is recorded for the fraud check, which scores the payer: high risk flags the account for admin review, and critical risk suspends it until an admin reviews it (see `/admin/fraud`). The check never blocks an account by itself.
 
@@ -376,7 +391,7 @@ Messages also flow over the socket (section 13). Profanity is filtered.
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | POST | `/safety/ride-check-in` | the booking's rider | Answer an in-ride "Are you OK?" prompt. Body: `bookingId`, `status` (`ok` or `help`), optional `location`. `help` raises an SOS at once. `ok` also stands down an SOS raised for missed prompts if the contacts have not been texted yet |
-| GET | `/safety/sos/current` | signed in | What the SOS screen opens with: `sos` (the caller's open SOS, or null) and `bookingId` (that SOS's booking, else the ride under way, else the confirmed ride leaving closest to now within 3 hours; never a later one) |
+| GET | `/safety/sos/current` | signed in | What the SOS screen opens with: `sos` (the caller's open SOS, or null) and `bookingId` (that SOS's booking, else the ride under way, else the confirmed ride leaving closest to now within 3 hours; never a later one). `videoAvailable`: whether the screen may offer the camera (UC-X04); `videoRecorded`: whether video turned on now would be recorded, so the screen says so first |
 | POST | `/safety/sos` | the booking's rider or driver | Raise an SOS. Body: `bookingId`, optional `location {lng, lat}`: without it the car's last reported position, else the pickup point, is used. Every admin is paged at once (push and SMS) and the dashboard is alerted. The caller's SOS contacts are texted `contactsDueAt` later (10 seconds by default, an admin setting). Raising again while one is open returns it re-raised (risk high, team paged again), never `409` |
 | POST | `/safety/sos/:id/cancel` | the person who raised it | Cancel an accidental SOS inside the window: closed as a false alarm, contacts never texted, team told. After the contacts are texted, `409 SOS_CANCEL_WINDOW_CLOSED` |
 | GET | `/safety/sos/:id` | the person who raised it, or an admin | SOS state. The other person on the ride gets `403`: they may be the reason for it |
@@ -384,6 +399,10 @@ Messages also flow over the socket (section 13). Profanity is filtered.
 | POST | `/safety/sos/:id/check-in` | the person who raised it | Body: `status` (`ok`, `partial_ok`, `not_ok`), optional `notes`, `location`. `ok` inside the cancel window cancels; after it, it sets `userSafeAt` and tells the team and the texted contacts, but the SOS stays open until an admin closes it. `partial_ok` and `not_ok` raise the risk level; `not_ok` pages the team by SMS |
 | POST | `/safety/sos/:id/details` | the person who raised it | "What's happening?" after the alert has gone. Body: `threat` (`driver`, `passenger`, `outside`, `medical`, `accident`, `other`). Naming someone on the ride raises the risk; medical or accident tells the team the other person may help |
 | POST | `/safety/sos/:id/audio-upload` | the person who raised it | A presigned upload for one part of SOS audio. Body: `contentType` (`audio/mp4`, `audio/m4a` or `audio/aac`). Stored with the incident (`sos/<id>/`), not the user, so closing an account never deletes it |
+| POST | `/safety/sos/:id/video` | the person who raised it | Turns on the camera for the safety team (UC-X04), asked or not, while the SOS is open. Body: `toldRecorded`, what the screen told the person; it is recorded only if this is true and recording is on, so a setting changed while the screen was open never records someone told it would not be. Returns `url` and `token` for the LiveKit room (send camera and microphone only; nothing is received), and `recording`. The team is paged. `503 VIDEO_UNAVAILABLE` when LiveKit is not set up |
+| POST | `/safety/sos/:id/video/sending` | the person who raised it | The camera is reaching the room; starts the recording if this video is recorded (once, however often it is called). Returns `recording`. `409 VIDEO_NOT_STARTED` before `/video` |
+| POST | `/safety/sos/:id/video/stop` | the person who raised it | Turns the camera off: stops any recording and closes the room. Also sent when the camera could not connect. Also allowed just after the SOS closes; the video ends with the SOS anyway |
+| POST | `/video/webhook` | LiveKit (signed) | LiveKit's events, signed with the API secret over the body as sent; unsigned or altered ones get `401`. When the phone of the person who raised the SOS leaves its room and is not back within 30 seconds (the app closed, or lost signal for good), or LiveKit closes this video's room empty, the video is marked ended. When a recording fails without writing anything, its file comes off the incident's evidence and the video shows as not recorded |
 | POST | `/safety/sos/:id/evidence` | the person who raised it | Body: `type` (`audio` or `screenshot`), `url`: an https link, or an `s3://` file from this incident's audio upload (`422 INVALID_DOCUMENT` otherwise) |
 | GET | `/safety/sos/active` | admin | Open incidents |
 | POST | `/safety/sos/:id/acknowledge` | admin | Take the incident; the user is told who has it. `400` if someone already has |
@@ -401,6 +420,8 @@ An SOS record carries, besides the above: `contactsState` (`pending` in the canc
 |---|---|---|---|
 | GET | `/track/contact/:token` | public, token in the link | The page an emergency contact opens from their verification text. It shows who added them and has a Confirm button. Opening it changes nothing, so link previews cannot confirm |
 | POST | `/track/contact/:token` | public, token in the link | Confirms the contact. The user gets a notification |
+| GET | `/track/work/:token` | public, token in the link | The page opened from a work-email link (UC-C02), with a Confirm button. Opening it changes nothing, so mail scanners cannot confirm. Links work for 24 hours |
+| POST | `/track/work/:token` | public, token in the link | Confirms the work email: the user joins the company and is notified |
 | GET | `/track/sos/:token` | public, token in the link | A web page for emergency contacts without the app: the first name, the latest position, whether the safety team has it, whether the person says they are safe or the phone is out of contact, and while open the trip, the other person's first name and the car with its plate. Never phone numbers. Refreshes every 15 seconds; the token is random and lasts 7 days |
 | GET | `/track/trip/:token` | public, token in the link | A trip a rider shared (UC-R08): first names, the car, the route, the car's latest position and an ETA. Refreshes itself, has no scripts, stops working an hour after the trip ends or when it is cancelled, and logs every visit |
 
@@ -418,7 +439,7 @@ Results are cached in Redis.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/maps/autocomplete?input=&lat=&lng=` | Place suggestions (2–200 characters). Optional `lat`/`lng` (the user's position) ranks nearby places first |
+| GET | `/maps/autocomplete?input=&lat=&lng=` | Place suggestions (2–200 characters). Optional `lat`/`lng` (the user's position) ranks nearby places first. Switched-on kombi ranks and bus termini that match come first (UC-R12), with `hub` (`kombi_rank`, `bus_terminus`), `lat` and `lng` |
 | GET | `/maps/geocode?address=` | Address to position |
 | GET | `/maps/reverse-geocode?lat=&lng=` | Position to address |
 | GET | `/maps/directions` | Route with polyline, distance and duration |
@@ -435,14 +456,14 @@ Under `osm`, the free services answer autocomplete, geocoding, reverse geocoding
 
 ## 11.5 Car trackers
 
-A GPS tracker in a driver's car (UC-D11) reports to Poolora's Traccar gateway (`infra/traccar`), which stores nothing and posts each position here.
+A GPS tracker in a driver's car (UC-D11) reports to Siham's Traccar gateway (`infra/traccar`), which stores nothing and posts each position here.
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | GET | `/users/me/trackers` | signed in | The caller's cars with their trackers (`deviceId`, `linkedAt`, `lastReportAt`, `tracked`: reported in the last day), and `gateway` (`host`, `port`, `protocol`) to point a tracker at |
 | PUT | `/users/me/vehicles/:vehicleId/tracker` | the car's owner | Body: `deviceId` (6 to 20 letters or digits; spaces are removed). `409 TRACKER_IN_USE` if another car has it |
 | DELETE | `/users/me/vehicles/:vehicleId/tracker` | the car's owner | Unlink |
-| POST | `/trackers/traccar` | the gateway, with `X-Poolora-Tracker-Key` (`TRACKER_GATEWAY_KEY`; off when unset) | One position as Traccar posts it (`forward.type=json`): `device.uniqueId`, `position.latitude`, `longitude`, `speed` (knots), `valid`, `attributes.batteryLevel` (%) and `attributes.alarm`. Stored as the car's trail (`role: vehicle`) only while the car is on a ride in progress or an SOS on one of its rides is open; otherwise only the report time is kept. Alarm `sos` during a ride raises an SOS (`raisedVia: tracker`); `powerCut`, `removing` and `tampering` alert the safety team. Each alarm counts once per ride per 5 minutes. Always `200`, so the gateway does not retry |
+| POST | `/trackers/traccar` | the gateway, with `X-Siham-Tracker-Key` (`TRACKER_GATEWAY_KEY`; off when unset) | One position as Traccar posts it (`forward.type=json`): `device.uniqueId`, `position.latitude`, `longitude`, `speed` (knots), `valid`, `attributes.batteryLevel` (%) and `attributes.alarm`. Stored as the car's trail (`role: vehicle`) only while the car is on a ride in progress or an SOS on one of its rides is open; otherwise only the report time is kept. Alarm `sos` during a ride raises an SOS (`raisedVia: tracker`); `powerCut`, `removing` and `tampering` alert the safety team. Each alarm counts once per ride per 5 minutes. Always `200`, so the gateway does not retry |
 
 Search results carry `driver.trackedCar`, and a ride carries `trackedCar`.
 
@@ -492,7 +513,7 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/admin/overview` | Dashboard figures (users, rides, money, safety, system health) and anomalies (UC-A02) |
+| GET | `/admin/overview` | Dashboard figures (users, rides, money, safety, system health), `impact` (CO₂ saved by every completed booking, UC-R11) and anomalies (UC-A02) |
 | GET | `/admin/applications` | Driver applications waiting for review, with document status, risk indicators and an `overdue` flag after 48 hours (UC-A01) |
 | POST | `/admin/applications/:userId/recheck` | Run the automatic document checks again (Zimbabwe plate format, licence, driver age, vehicle age, duplicates), and the vendor background check when `KYC_VERIFY_URL` is set |
 | POST | `/admin/applications/:userId/request-changes` | Ask for documents again. Body: `documents` (any of `licence`, `registration`, `insurance`, `photo`) and `note`. The driver is notified and can resubmit |
@@ -518,6 +539,23 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | GET | `/admin/withdrawals` | Wallet withdrawals. `?status=pending` (default), `paid`, `rejected` |
 | POST | `/admin/withdrawals/:id/paid` | Record that the money was sent. Body: `payoutReference` (the mobile money transaction id). The user is notified |
 | POST | `/admin/withdrawals/:id/reject` | Body: `note`. The amount goes back to the wallet |
+| GET | `/admin/organisations` | Companies with a programme (UC-C01), with their member counts |
+| POST | `/admin/organisations` | Body: `name`, `domains` (the company's own email domains; public services such as gmail.com are refused, and a domain belongs to one company), `billingContact` (`name`, `email`, `phone`), `notes`. Audited |
+| GET | `/admin/organisations/:id` | The company and its members (name, phone, work email, joined) |
+| PATCH | `/admin/organisations/:id` | Any of the fields above, and `status` (`active`, `suspended`). Removing a domain stops new joins with it; members stay. Audited. `policy` (UC-C01): `sharePercent` (0–100), `monthlyCapUsd` (0 for no limit), `weekdaysOnly`, and `sites` (up to 10: `name`, `address`, `radiusKm` 0.2–20; a site without `lat`/`lng` is found on the map from its address, else `422 SITE_NOT_FOUND`). Applies to bookings made afterwards |
+| DELETE | `/admin/organisations/:id/members/:userId` | Removes someone from the company. `?reason=` for the audit log |
+| GET | `/admin/organisations/:id/invoices` | The company's monthly bills (UC-C03), newest first, without their lines: `number`, `month`, `trips`, `members`, `amount`, `adjustments`, `total`, `status` (`issued`, `paid`), `overdue`, `issuedAt`, `dueAt` (30 days on), `emailedAt` or `emailError`, `paidAt`, `paidReference`. The company's `billingHold` (on `GET /admin/organisations/:id`) is set while a bill is more than 30 days unpaid; its contribution to fares pauses until then |
+| POST | `/admin/organisations/:id/invoices` | Bills last month now for trips not billed yet, and emails it. `409 NOTHING_TO_BILL` when there is nothing. Audited |
+| GET | `/admin/invoices/:id` | One bill with its lines (date, member, fare, company share, CO₂; never routes or places) |
+| GET | `/admin/invoices/:id/file` | The bill as a file: `?format=pdf` (default) or `xlsx` |
+| POST | `/admin/invoices/:id/paid` | Body: `reference` (the bank transfer's). Lifts the billing hold once nothing else is overdue. Audited |
+| POST | `/admin/invoices/:id/adjust` | Body: `amount` (negative for a credit), `reason`. Only before payment; the total never goes below zero. Audited |
+| POST | `/admin/organisations/:id/admins` | Body: `name`, `email`. Names a company admin (UC-C01 step 3): the address must be on the company's domains or be its billing contact; Siham admins and another company's admins are refused. Without an account they get one, and an email with a link to set a password (Firebase). Audited |
+| GET | `/admin/hubs` | Kombi ranks and bus termini (UC-R12), and `suggestions`: names in the market registry not added yet |
+| POST | `/admin/hubs` | Body: `name`, `kind` (`kombi_rank`, `bus_terminus`), `city`, `address`, `aliases`, and `lat`/`lng` or else it is found on the map from its address (`422 HUB_NOT_FOUND`; outside the market `422 OUTSIDE_MARKET`). Starts switched off. Audited |
+| PATCH | `/admin/hubs/:id` | Any of the fields, and `active` to show it to riders. Audited |
+| DELETE | `/admin/hubs/:id` | Audited |
+| DELETE | `/admin/organisations/:id/admins/:userId` | Removes a company admin. Audited |
 | GET | `/admin/parcel-claims` | Parcel claims |
 | POST | `/admin/parcel-claims/:id/decide` | Body: `decision` (`approve`, `reject`), `note` (the claimant sees it), optional `payout` (up to the cover limit; paid to the wallet) and `insurerReference` |
 | GET | `/admin/parcels/:id/photos/:photoId` | A parcel photo |
@@ -541,11 +579,13 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | POST | `/admin/identity/:userId/approve` | Body: `gender`, the gender the person lives as. The ID proves identity, not gender. The user is told |
 | POST | `/admin/identity/:userId/reject` | Body: `reason` (at least 5 characters), shown to the user, who can send it again |
 | GET | `/admin/sos` | Incidents. Query: `status` (`open`, `resolved`, `false_alarm`, or empty for all) (UC-A03) |
-| GET | `/admin/sos/:id` | The incident with rider, driver (including emergency contacts), booking and ride; `history` (the person's other SOS and false alarms in the last 90 days), the market's `emergencyNumbers`, and `evidence` with 15-minute links to play recordings; to identify everyone: `vehicle` (make, model, colour, year, plate, photos), `coPassengers` (every other rider on the ride), `moneyNumbers` (mobile money numbers each person has paid or been paid with), `messages` and `calls` between them, and `trails` (every phone on the ride from the trip trail) |
+| GET | `/admin/sos/:id` | The incident with rider, driver (including emergency contacts), booking and ride; `history` (the person's other SOS and false alarms in the last 90 days), the market's `emergencyNumbers`, and `evidence` with 15-minute links to play recordings; to identify everyone: `vehicle` (make, model, colour, year, plate, photos), `coPassengers` (every other rider on the ride), `moneyNumbers` (mobile money numbers each person has paid or been paid with), `messages` and `calls` between them, and `trails` (every phone on the ride from the trip trail); `video` (`available`: LiveKit is set up; `recordingOn`: a camera turned on now would be recorded), and the record's own `video` (asked, started and ended times, and whether it is recorded). Recorded video appears in `evidence` as `type: video` once its camera is off |
 | POST | `/admin/sos/:id/acknowledge` | Take the incident |
 | POST | `/admin/sos/:id/log` | Add a call or action to the timeline. Body: `text` |
 | POST | `/admin/sos/:id/police` | Record that police were called. Body: optional `notes` |
 | POST | `/admin/sos/:id/resolve` | Body: `notes`, `isFalseAlarm` |
+| POST | `/admin/sos/:id/video/ask` | Asks the person to turn on their camera (UC-X04): a push and a card on their SOS screen. Audited. Returns `asked`, and `live` if the camera is already on |
+| POST | `/admin/sos/:id/video/watch` | A watch-only, hidden pass to the incident's room: `url`, `token`, `live`, `recording`. Nothing reaches the phone. Every viewing is audited |
 | GET | `/admin/reports/:type` | `type`: `users`, `rides`, `financial`, `performance`, `safety`. Query: `from`, `to` (at most two years apart; default the last 30 days), `groupBy` (`day`, `week`, `month`), `format=csv`, `xlsx` or `pdf` for a download. Periods are in local time (UC-A06) |
 | GET | `/admin/report-schedules` | Scheduled report emails, and `emailEnabled` (false when the server has no SMTP) |
 | POST | `/admin/report-schedules` | `{ name, types[], frequency: daily\|weekly\|monthly, format?: xlsx\|pdf\|csv, recipients }` (up to 10 addresses, as an array or comma-separated). Sent at 07:00 local time: daily covers yesterday, weekly (Mondays) the last seven days, monthly (the 1st) last month |
@@ -734,3 +774,17 @@ Each limit is keyed by what it protects. Mobile networks put many subscribers be
 | `refresh-token`, `firebase-login` | IP | 300 per 15 minutes |
 
 Paynow's result callback, Twilio's callbacks and the background-check callback are not limited: they come from a few addresses and carry their own signatures. A limited request gets `429 RATE_LIMITED`, with the wait in the message.
+
+## Company dashboard (UC-C01 step 3)
+
+For company admins, signed in like web admins. Every call answers about the caller's own company only, and `403` for anyone who is not a company admin. Nothing here says where anyone went: no routes, places, positions, ratings or safety reports.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/company/me` | The company: `name`, `status`, `domains`, `contributionPaused`, and its `policy` (share, cap, weekdays, site names and addresses). Contract notes are left out |
+| GET | `/company/overview` | `?month=YYYY-MM`, default this month: `members`, `newMembers`, `ridersThisMonth`, `trips` (completed, company-paid), `companyPaid`, `staffPaid`, `co2SavedKg` |
+| GET | `/company/members` | Staff who joined: name, work email, joined, this month's trips and what the company paid for them |
+| DELETE | `/company/members/:userId` | Removes someone who left the company from the programme. Audited |
+| GET | `/company/bills` | The company's bills, without lines |
+| GET | `/company/bills/:id/file` | A bill as a file: `?format=pdf` or `xlsx` |
+

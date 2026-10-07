@@ -15,7 +15,7 @@ jest.mock('../../config', () => ({
       photonUrl: 'https://photon.test',
       nominatimUrl: 'https://nominatim.test',
       osrmUrl: 'https://osrm.test',
-      osmUserAgent: 'Poolora tests',
+      osmUserAgent: 'Siham tests',
     },
   },
 }));
@@ -50,7 +50,7 @@ describe('OpenStreetMap maps provider', () => {
       },
     ]);
     expect(mockedGet.mock.calls[0][0]).toBe('https://photon.test/api/');
-    expect(mockedGet.mock.calls[0][1].headers['User-Agent']).toBe('Poolora tests');
+    expect(mockedGet.mock.calls[0][1].headers['User-Agent']).toBe('Siham tests');
   });
 
   it('ranks places near the user first, with the position rounded for caching', async () => {

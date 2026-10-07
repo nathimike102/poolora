@@ -248,7 +248,7 @@ describe('reports and dashboard', () => {
     const report = await service.build(type, parseReportParams({ groupBy: 'week' }));
     expect(report.summary.length).toBeGreaterThan(0);
     expect(report.series.length).toBeGreaterThanOrEqual(4);
-    expect(service.toCsv(report)).toContain(`Poolora ${type} report`);
+    expect(service.toCsv(report)).toContain(`Siham ${type} report`);
   });
 
   it('refuses a range longer than two years', () => {

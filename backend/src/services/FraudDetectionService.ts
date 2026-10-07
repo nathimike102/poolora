@@ -4,6 +4,7 @@ import { Payment } from '../models/Payment';
 import { Booking } from '../models/Booking';
 import { logger } from '../utils/logger';
 import { FraudLevel, KYCStatus } from '../types';
+import { phrase } from '../i18n';
 
 /** Suspensions the fraud check places start with this, so a review can lift exactly those */
 export const FRAUD_SUSPENSION_PREFIX = 'Automatic fraud check';
@@ -147,8 +148,7 @@ export class FraudDetectionService {
       await User.updateOne({ _id: userId }, { $set: { fraudLevel: FraudLevel.BLOCKED, fraudFlags: flags, fraudFlaggedAt: new Date() }, $unset: { fraudReview: 1 } });
     } else {
       const { NotificationService } = await import('./NotificationService');
-      const message = 'We paused your account while our team checks some unusual payment activity. This usually takes a few hours. Contact support if you think this is a mistake.';
-      await new NotificationService().createNotification(userId, 'Account paused for a check', message, 'system').catch(() => undefined);
+      await new NotificationService().createNotification(userId, phrase('account.pausedTitle'), phrase('account.pausedBody'), 'system').catch(() => undefined);
     }
     await this.alertAdmins(userId, 'suspended', flags);
   }

@@ -199,7 +199,12 @@ export class RideController {
       const { isTracked } = await import('../services/TrackerService');
       const car = driver?.vehicles?.find((v) => String(v._id) === String(ride.vehicle?.vehicleId));
       const trackedCar = isTracked(car?.tracker);
-      sendSuccess(res, { ride: { ...ride.toJSON(), driverVerified, trackedCar } }, 200, req.requestId);
+      // "Works at": shown only to the driver's colleagues
+      const { colleaguesOf } = await import('../services/OrganisationService');
+      const colleagueAt = driverId ? (await colleaguesOf(user.userId, [String(driverId)])).get(String(driverId)) : undefined;
+      const view = ride.toJSON() as Record<string, unknown>;
+      delete view.organisation;
+      sendSuccess(res, { ride: { ...view, driverVerified, trackedCar, ...(colleagueAt ? { colleagueAt } : {}) } }, 200, req.requestId);
     } catch (error) {
       next(error);
     }

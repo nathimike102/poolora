@@ -35,6 +35,9 @@ import { config } from '../config';
 import { getRedisClient } from '../config/redis';
 import { REGION } from '../config/region';
 import { pageSafetyTeam, pushToPhones, smsAvailable, tellUser, textPeople } from './SafetyAlerts';
+import { phrase, withEnglish } from '../i18n';
+import { endSosVideo } from './SosVideoService';
+import { recordingAvailable, videoAvailable } from './LiveVideo';
 
 type Position = { lng: number; lat: number };
 
@@ -298,13 +301,14 @@ export class SafetyService {
       eventType: 'sos.escalated',
       data: { emergencyId: record._id, reason: record.escalationReason },
     });
-    const user = await User.findById(record.triggeredBy).select('name emergencyContacts').lean();
+    const user = await User.findById(record.triggeredBy).select('name emergencyContacts language').lean();
     void pageSafetyTeam(String(record._id), `${user?.name ?? 'Someone'} raised their SOS again`);
     if (saidSafe && record.emergencyContactsNotified.length) {
       // They were told the person was safe; they must hear that it is live again
       void textPeople(
         record.emergencyContactsNotified.map((c) => c.phone),
-        `Poolora SOS: ${firstName(user?.name)} has raised their emergency alert again. See where they are: ${record.liveTrackingUrl} If they may be in danger, call ${REGION.emergency.general}.`,
+        // In the person's language, with the English beneath for contacts who read only English
+        withEnglish(user?.language, phrase('sos.contacts.raisedAgain', { name: firstName(user?.name), url: record.liveTrackingUrl, number: REGION.emergency.general })),
       );
     }
     return record;
@@ -334,13 +338,17 @@ export class SafetyService {
     );
     if (!record) return false;
 
-    const user = await User.findById(record.triggeredBy).select('name emergencyContacts').lean();
+    const user = await User.findById(record.triggeredBy).select('name emergencyContacts language').lean();
     const contacts = (user?.emergencyContacts ?? []).filter((c) => c.notifyOnSos !== false);
     const who = firstName(user?.name);
-    const message = `Poolora SOS: ${who} raised an emergency alert during a ride. See where they are: ${record.liveTrackingUrl} If they may be in danger, call ${REGION.emergency.general} (police ${REGION.emergency.police}).`;
+    // In the person's language, with the English beneath for contacts who read only English (UC-X03)
+    const message = withEnglish(user?.language, phrase('sos.contacts.raised', {
+      name: who, url: record.liveTrackingUrl, number: REGION.emergency.general, police: REGION.emergency.police,
+    }));
 
     const reached = new Set(await textPeople(contacts.map((c) => c.phone), message));
-    void pushToPhones(contacts.map((c) => c.phone), `${who} raised an SOS`, 'Tap to see where they are.', { type: 'sos_contact', url: record.liveTrackingUrl });
+    // Contacts with the app get a push in their own language
+    void pushToPhones(contacts.map((c) => c.phone), phrase('sos.contacts.pushTitle', { name: who }), phrase('sos.contacts.pushBody'), { type: 'sos_contact', url: record.liveTrackingUrl });
 
     const sentAt = new Date();
     const notified = contacts
@@ -409,6 +417,7 @@ export class SafetyService {
       eventType: 'sos.resolved',
       data: { emergencyId: record._id, resolvedBy: userId, isFalseAlarm: true, cancelled: true },
     });
+    void endSosVideo(String(record._id));
     const user = await User.findById(userId).select('name').lean();
     void pageSafetyTeam(String(record._id), `${user?.name ?? 'The user'} cancelled their SOS within seconds (pressed by accident)`);
     return record;
@@ -441,7 +450,7 @@ export class SafetyService {
       record.locationHistory.push({ location: toGeoPoint(data.location.lng, data.location.lat), timestamp: now });
     }
 
-    const user = await User.findById(record.triggeredBy).select('name').lean();
+    const user = await User.findById(record.triggeredBy).select('name language').lean();
     const name = user?.name ?? 'The user';
 
     if (data.status === SOSCheckInStatus.OK) {
@@ -458,7 +467,7 @@ export class SafetyService {
       if (record.emergencyContactsNotified.length) {
         void textPeople(
           record.emergencyContactsNotified.map((c) => c.phone),
-          `Poolora: ${firstName(user?.name)} says they are safe now. Our safety team is checking with them.`,
+          withEnglish(user?.language, phrase('sos.contacts.safe', { name: firstName(user?.name) })),
         );
       }
       return record;
@@ -593,10 +602,11 @@ export class SafetyService {
    * leaving the screen never loses it, and otherwise the booking an SOS would
    * be about.
    */
-  async getCurrent(userId: string): Promise<{ sos: IEmergencyRecord | null; bookingId: string | null }> {
+  async getCurrent(userId: string): Promise<{ sos: IEmergencyRecord | null; bookingId: string | null; videoAvailable: boolean; videoRecorded: boolean }> {
     const sos = await EmergencyRecord.findOne({ triggeredBy: userId, status: { $in: OPEN } }).sort({ createdAt: -1 });
     const bookingId = sos ? refId(sos.booking) : await this.currentBookingId(userId);
-    return { sos, bookingId };
+    // Whether the SOS screen may offer the camera (UC-X04), and says it is recorded before it comes on
+    return { sos, bookingId, videoAvailable: videoAvailable(), videoRecorded: recordingAvailable() };
   }
 
   /**
@@ -652,12 +662,13 @@ export class SafetyService {
     }
 
     EventBridge.publish('safety-events', { eventType: 'sos.updated', data: { emergencyId: record._id, change: 'acknowledged' } });
-    const who = admin?.name ? `${firstName(admin.name)} from the Poolora safety team` : 'The Poolora safety team';
     void tellUser(refId(record.triggeredBy), {
       emergencyId: String(record._id),
       change: 'acknowledged',
-      title: 'The safety team has your SOS',
-      body: `${who} is on it and will call you.`,
+      title: phrase('sos.user.acknowledgedTitle'),
+      body: admin?.name
+        ? phrase('sos.user.acknowledgedNamed', { name: firstName(admin.name) })
+        : phrase('sos.user.acknowledged'),
     });
     return record;
   }
@@ -697,17 +708,18 @@ export class SafetyService {
       eventType: 'sos.resolved',
       data: { emergencyId, resolvedBy: adminId, isFalseAlarm },
     });
+    void endSosVideo(emergencyId);
     void tellUser(refId(record.triggeredBy), {
       emergencyId: String(record._id),
       change: 'resolved',
-      title: 'Your SOS is closed',
-      body: 'The Poolora safety team has closed your alert. If you need help again, raise a new SOS or call ' + REGION.emergency.general + '.',
+      title: phrase('sos.user.closedTitle'),
+      body: phrase('sos.user.closedBody', { number: REGION.emergency.general }),
     });
     if (record.emergencyContactsNotified.length) {
-      const user = await User.findById(record.triggeredBy).select('name').lean();
+      const user = await User.findById(record.triggeredBy).select('name language').lean();
       void textPeople(
         record.emergencyContactsNotified.map((c) => c.phone),
-        `Poolora: the emergency alert for ${firstName(user?.name)} has been closed by our safety team.`,
+        withEnglish(user?.language, phrase('sos.contacts.closed', { name: firstName(user?.name) })),
       );
     }
     return record;

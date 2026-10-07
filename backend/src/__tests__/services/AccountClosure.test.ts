@@ -2,6 +2,7 @@
  * Closing your own account against a real MongoDB: refused while anything is
  * under way or money is left in the wallet; once closed, personal data is
  * gone, the phone number is free, and records other people rely on remain.
+ * The number is remembered (as a hash) so it does not earn new-user perks twice.
  */
 import mongoose, { Types } from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -18,6 +19,7 @@ import { Booking } from '../../models/Booking';
 import { Wallet } from '../../models/Wallet';
 import { RideAlert } from '../../models/RideAlert';
 import { AdminAuditLog } from '../../models/AdminAuditLog';
+import { ClosedPhone } from '../../models/ClosedPhone';
 import { AccountClosureService } from '../../services/AccountClosureService';
 import { BookingStatus } from '../../types';
 
@@ -103,8 +105,23 @@ it('closes the account, removes personal data and frees the phone number', async
   expect(deleteUser).toHaveBeenCalledWith('fb-1');
   expect(await AdminAuditLog.findOne({ action: 'user.close' }).lean()).toMatchObject({ reason: 'Moving abroad' });
 
-  // The number can sign up again as a new account
-  await expect(User.create({ name: 'New Tendai', phone })).resolves.toBeTruthy();
+  // The number can sign up again as a new account, but without the new-user perks
+  const again = await User.create({ name: 'New Tendai', phone });
+  expect(again.newUserPerksUsed).toBe(true);
+});
+
+it('remembers only a hash of the number, and only for a while', async () => {
+  await closure.close(userId.toString());
+  const remembered = await ClosedPhone.findOne().lean();
+  expect(remembered?.phoneHash).toMatch(/^[a-f0-9]{64}$/);
+  expect(JSON.stringify(remembered)).not.toContain(phone.slice(1));
+  expect(remembered!.expiresAt.getTime() - remembered!.closedAt.getTime()).toBe(365 * 86_400_000);
+
+  // Once the time is up the number counts as new again
+  await ClosedPhone.updateOne({}, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+  expect((await User.create({ name: 'Later Tendai', phone })).newUserPerksUsed).toBeUndefined();
+  // A number never closed is a normal new user
+  expect((await User.create({ name: 'Rudo', phone: '+263774444444' })).newUserPerksUsed).toBeUndefined();
 });
 
 it('does not close twice', async () => {

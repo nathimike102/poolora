@@ -3,7 +3,7 @@
 > **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
-## Poolora - Security & Compliance Framework
+## Siham - Security & Compliance Framework
 
 **Classification**: Confidential  
 **Version**: 1.0
@@ -266,7 +266,7 @@ All data in transit encrypted with TLS 1.3:
    - Backup: Multiple certificate providers
 
 3. WebSocket Security (Real-time Tracking)
-   wss://api.carpooling.com/ws/tracking (Secure WebSocket)
+   wss://api.<domain>/ws/tracking (Secure WebSocket)
    - TLS encryption with same certificate
    - Authentication required before upgrade
    - Message integrity verified
@@ -403,7 +403,7 @@ response.setHeader('Content-Security-Policy',
   "script-src 'self' https://cdn.example.com; " +
   "style-src 'self' 'unsafe-inline'; " +
   "img-src 'self' data: https:; " +
-  "connect-src 'self' wss://api.carpooling.com"
+  "connect-src 'self' wss://api.<domain>"
 );
 
 // React Protection
@@ -470,7 +470,7 @@ app.post('/auth/login', authLimiter, controller.login);
 const cors = require("cors");
 
 const corsOptions = {
-  origin: process.env.allowed_origins.split(","), // ['app.carpooling.com', 'admin.carpooling.com']
+  origin: process.env.allowed_origins.split(","), // ['app.<domain>', 'admin.<domain>']
   credentials: true, // Allow cookies
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -486,7 +486,7 @@ app.use(cors({ origin: "*" }));
 // ✅ SAFE: Whitelist specific origins
 app.use(
   cors({
-    origin: ["https://app.carpooling.com", "https://admin.carpooling.com"],
+    origin: ["https://app.<domain>", "https://admin.<domain>"],
   }),
 );
 ```
@@ -670,7 +670,7 @@ CMD ["node", "dist/index.js"]
 
 ### 6.0 Zimbabwe: Cyber and Data Protection Act [Chapter 12:07]
 
-**Applies To**: every user; Zimbabwe is the launch market. The Data Protection Authority is POTRAZ. GDPR and CCPA (below) apply only if Poolora serves those regions.
+**Applies To**: every user; Zimbabwe is the launch market. The Data Protection Authority is POTRAZ. GDPR and CCPA (below) apply only if Siham serves those regions.
 
 ```
 ✅ Registration
@@ -743,8 +743,8 @@ CMD ["node", "dist/index.js"]
 
 ```
 ✅ Don't Store Full Card Numbers
-   - Card details are typed on Paynow's own page and never reach Poolora
-   - Only Paynow references are stored (the Poolora reference, e.g.
+   - Card details are typed on Paynow's own page and never reach Siham
+   - Only Paynow references are stored (the Siham reference, e.g.
      "BK-<booking id>-a1b2c3", and Paynow's own reference)
    - Never store: card numbers, CVV, expiry dates, mobile money PINs
 
@@ -877,7 +877,7 @@ Reward Tiers:
 
 Process:
 1. Security researcher discovers vulnerability
-2. Reports via security@carpooling.com
+2. Reports via security@<domain>
 3. Team confirms vulnerability
 4. 15 days to patch
 5. Researcher can responsibly disclose after patch
@@ -1116,7 +1116,7 @@ Response Time: Within 1 day
 
 ```
 Paynow (payments, Zimbabwe):
-- Cards are entered on Paynow's page; Poolora never sees card data
+- Cards are entered on Paynow's page; Siham never sees card data
 - Every request, reply and status update is hash-verified (SHA-512)
 - Integration keys live only on the server (PAYNOW_*_INTEGRATION_KEY)
 - To confirm before launch: PCI DSS status, and a data processing

@@ -20,7 +20,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'What this policy covers',
-          text: 'This website and the Poolora mobile app. The app has not launched publicly, so at the moment the only personal data most people give us is what they type into the waitlist or investor form on this site.',
+          text: 'This website and the Siham mobile app. The app has not launched publicly, so at the moment the only personal data most people give us is what they type into the waitlist or investor form on this site.',
         },
       ],
     },
@@ -62,7 +62,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'Car tracker (drivers, optional)',
-          text: 'If you link a GPS tracker in your car, we receive its reports through our tracker server. We keep where the car is only while it is on a Poolora ride or an SOS on one of its rides is open, kept like the trip trail; the rest of the time we note only when it last reported. We never control the car.',
+          text: 'If you link a GPS tracker in your car, we receive its reports through our tracker server. We keep where the car is only while it is on a Siham ride or an SOS on one of its rides is open, kept like the trip trail; the rest of the time we note only when it last reported. We never control the car.',
         },
         {
           sub: 'Audio during an SOS (off unless you switch it on)',
@@ -103,7 +103,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'To fix and improve the product',
-          text: 'Crash reports and error logs, and, where you have agreed to analytics, aggregate usage patterns.',
+          text: 'Crash reports and error logs. In the app, we note which days you used it and the main steps you take (signing up, booking or offering a seat, paying, completing a trip, raising an SOS), against your account number but never your name, phone number or location, to measure whether the service works. We keep those records for 13 months. On this website, aggregate usage patterns only where you have agreed to analytics.',
         },
         {
           sub: 'To reply to you',
@@ -124,7 +124,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'Service providers',
-          text: 'Paynow for payments, Twilio for SMS, Google Firebase for push notifications and sign-in, Google Maps or OpenStreetMap for routing and maps, Amazon Web Services for hosting and file storage, and Sentry for error reports. Each one only receives what it needs to do its job.',
+          text: 'Paynow for payments, Twilio for SMS, Google Firebase for push notifications and sign-in, Google Maps or OpenStreetMap for routing and maps, Amazon Web Services for hosting and file storage, Sentry for error reports, and PostHog (EU) for the in-app measurements above. Each one only receives what it needs to do its job.',
         },
         {
           sub: 'Nobody else',
@@ -154,7 +154,7 @@ export function PrivacyPolicyPage() {
       content: [
         {
           sub: 'See, correct or delete your data',
-          text: `Email ${COMPANY.emails.contact} and we will send you a copy of what we hold, correct it, or delete it. We aim to reply within 30 days. Once the app is live you will also be able to edit your profile and close your account in the app.`,
+          text: `Email ${COMPANY.emails.privacy} and we will send you a copy of what we hold, correct it, or delete it. We aim to reply within 30 days. Once the app is live you will also be able to edit your profile and close your account in the app.`,
         },
         {
           sub: 'Marketing email',
@@ -240,8 +240,8 @@ export function PrivacyPolicyPage() {
             <p className="text-sm font-bold text-brand-dark mb-1">Questions about this policy?</p>
             <p className="text-sm text-gray-700">
               Email{' '}
-              <a href={`mailto:${COMPANY.emails.contact}`} className="text-brand-dark font-semibold hover:underline">
-                {COMPANY.emails.contact}
+              <a href={`mailto:${COMPANY.emails.privacy}`} className="text-brand-dark font-semibold hover:underline">
+                {COMPANY.emails.privacy}
               </a>
               . A person reads it, so give us a few days.
             </p>

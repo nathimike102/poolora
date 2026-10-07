@@ -12,6 +12,16 @@ export class BookingController {
    * Create a booking request. Unless it was paid from the wallet, the app
    * pays for it next with POST /payments/start.
    */
+  /** POST /api/v1/bookings/quote: the fare, the company's part and the rider's, before booking (UC-C01) */
+  static async quote(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      sendSuccess(res, await bookingService.quote(user.userId, req.body), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async createBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = (req as AuthenticatedRequest).user;

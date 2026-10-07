@@ -3,7 +3,7 @@
  *
  * Cashing out the wallet to EcoCash, OneMoney or InnBucks. Drivers are paid
  * into their wallet, and online payments that are refunded come back to it
- * (Paynow has no refund API), so this is how money leaves Poolora.
+ * (Paynow has no refund API), so this is how money leaves Siham.
  *
  * The amount leaves the wallet when the request is made, so it cannot be
  * spent twice. An admin sends it from the business mobile money account and
@@ -22,6 +22,7 @@ import { logger } from '../utils/logger';
 import { WalletService } from './WalletService';
 import { NotificationService } from './NotificationService';
 import { audit } from './AuditService';
+import { phrase } from '../i18n';
 
 export const WITHDRAWAL_RULES = { min: 2, max: 1000 } as const;
 const CHANNELS = ['ecocash', 'onemoney', 'innbucks'] as const;
@@ -110,7 +111,7 @@ export class WithdrawalService {
     const request = await this.settle(id, {}, { status: 'paid', payoutReference: reference.slice(0, 100), processedBy: adminId, processedAt: new Date() });
     await audit(adminId, 'withdrawal.paid', 'withdrawal', id, undefined, { amount: request.amount, payoutReference: reference });
     await this.notifications
-      .createNotification(request.user.toString(), 'Withdrawal sent', `${money(request.amount)} has been sent to your ${LABEL[request.channel]} ${request.payNumber}. Reference ${reference}.`, 'system', { withdrawalId: id })
+      .createNotification(request.user.toString(), phrase('withdrawal.sentTitle'), phrase('withdrawal.sentBody', { amount: money(request.amount), wallet: LABEL[request.channel], number: request.payNumber, reference }), 'system', { withdrawalId: id })
       .catch(() => undefined);
     return request;
   }
@@ -123,7 +124,7 @@ export class WithdrawalService {
     await this.wallet.credit(request.user.toString(), request.amount, 'Withdrawal returned', `withdraw_back_${request._id}`);
     await audit(adminId, 'withdrawal.reject', 'withdrawal', id, reason, { amount: request.amount });
     await this.notifications
-      .createNotification(request.user.toString(), 'Withdrawal not sent', `${money(request.amount)} is back in your wallet. ${reason}`, 'system', { withdrawalId: id })
+      .createNotification(request.user.toString(), phrase('withdrawal.returnedTitle'), phrase('withdrawal.returnedBody', { amount: money(request.amount), reason }), 'system', { withdrawalId: id })
       .catch(() => undefined);
     return request;
   }

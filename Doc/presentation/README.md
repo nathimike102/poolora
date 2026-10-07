@@ -4,10 +4,10 @@ Everything here is generated from the code and the running app, so it stays in s
 
 | File | What it is |
 |---|---|
-| `Poolora-Project-Presentation.pptx` | Final-year project review deck (27 slides) |
-| `Poolora-Launch-Pitch.pptx` | Zimbabwe launch deck for partners (18 slides) |
-| `Poolora-System-Note.pdf` | Five pages on how the system works and the tools it uses |
-| `Poolora-Run-On-Android.pdf` | Running the app on a phone or emulator over adb |
+| `Siham-Project-Presentation.pptx` | Final-year project review deck (27 slides) |
+| `Siham-Launch-Pitch.pptx` | Zimbabwe launch deck for partners (18 slides) |
+| `Siham-System-Note.pdf` | Five pages on how the system works and the tools it uses |
+| `Siham-Run-On-Android.pdf` | Running the app on a phone or emulator over adb |
 | `media/` | The 3D animations: `hero` (the app on a turning phone), `pool` (three solo trips become one shared car), `map` (Zimbabwe's intercity routes from Harare), as MP4, GIF and a still |
 | `screens/clean`, `screens/frames` | App and admin captures, cropped, and in phone or browser frames |
 

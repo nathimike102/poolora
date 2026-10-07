@@ -3,7 +3,7 @@
 > **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
-## Poolora
+## Siham
 
 ---
 
@@ -180,7 +180,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 - Payment must be completed within 15 minutes of acceptance
 - Failed payment cancels the booking
-- Refunds go to the Poolora wallet at once (Paynow has no refund API); the user can withdraw them to mobile money
+- Refunds go to the Siham wallet at once (Paynow has no refund API); the user can withdraw them to mobile money
 - As built: the rider pays when requesting, and the driver can accept only once the payment is in (see the API specification, section 5)
 
 ---
@@ -281,7 +281,7 @@ This document outlines detailed use cases for the car pooling platform, covering
    - Pages the safety team (every admin) by push and SMS, and shows the SOS on the live dashboard with an alarm sound
    - Records the ride: booking, driver, vehicle, route
 4. The screen shows "Texting your emergency contacts in 10 s" with a Cancel button
-5. After 10 seconds the contacts the user chose (UC-R10) get a text with a live tracking link; those with Poolora accounts also get a push
+5. After 10 seconds the contacts the user chose (UC-R10) get a text with a live tracking link; those with Siham accounts also get a push
 6. The tracking link shows the person's first name, the latest position, the trip, the other person's first name and the car with its plate: what a relative would give the police. Never phone numbers
 7. The phone sends its position every 5 seconds while the SOS is open, also with the screen off or the app closed (an "SOS active" notification shows it). If the user has switched on "Record audio during an SOS" (off by default), the phone records in one-minute parts and uploads each as it ends, for the safety team only. The screen shows when an admin takes it ("Tendai from the safety team is on it and will call you") and when it is closed
 8. Admin calls the user and the other party separately (UC-A03) and closes the SOS with a note
@@ -382,7 +382,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 **Extensions**:
 
-- 6a. Refund: credited to the Poolora wallet at once
+- 6a. Refund: credited to the Siham wallet at once
 - 4a. Driver-related issue: Admin reviews for full refund
 
 **Business Rules**:
@@ -954,8 +954,8 @@ This document outlines detailed use cases for the car pooling platform, covering
 **Main Success Scenario**:
 
 1. Driver opens Profile > Car tracker and enters the tracker's device id (usually its 15-digit IMEI)
-2. Driver points the tracker at Poolora's tracker gateway (an SMS command shown in the app), or asks their tracking company to forward the car there
-3. The gateway (Traccar, forwarder only, storing nothing) decodes each report and posts it to Poolora
+2. Driver points the tracker at Siham's tracker gateway (an SMS command shown in the app), or asks their tracking company to forward the car there
+3. The gateway (Traccar, forwarder only, storing nothing) decodes each report and posts it to Siham
 4. Once it reports, the car's rides show "Tracked car" (a report within the last day)
 5. During a ride in progress, the tracker's positions join the trip trail as the car's own trail, apart from the driver's phone; during an SOS on the ride the safety team sees them live
 
@@ -968,8 +968,8 @@ This document outlines detailed use cases for the car pooling platform, covering
 **Business Rules**:
 
 - Optional; a badge, not a requirement (decided 1 October 2026)
-- Outside rides and open SOS, Poolora keeps only when the tracker last reported, never where the car was
-- Poolora never cuts a car's engine (decided 1 October 2026)
+- Outside rides and open SOS, Siham keeps only when the tracker last reported, never where the car was
+- Siham never cuts a car's engine (decided 1 October 2026)
 - One tracker, one car
 
 ---
@@ -1992,5 +1992,175 @@ Settlement: Bob owes Alice US$10, Carol owes Alice US$10
 - **Itinerary updates**: Real-time
 - **Settlement calculation**: Within 2 hours of trip completion
 - **Dispute resolution**: Within 7 days
+
+---
+
+## 13. Phase 2 and 3 Use Cases
+
+Designed on 1 October 2026 from the future phases in `planning/01-PROJECT-PLAN.md` §3.2. The reasoning behind each is in [12-NEXT-PHASES](../planning/12-NEXT-PHASES.md). Loyalty and rewards, also listed there, is already built (coins and tiers in the wallet).
+
+### UC-R11: See My Carbon Savings
+
+**Primary Actor**: Rider or Driver
+**Goal**: Know how much CO₂ sharing rides has saved
+**Preconditions**: At least one completed booking
+**Postconditions**: None (read only)
+
+**Main Success Scenario**:
+
+1. When a booking completes, the system measures the rider's leg along the ride's route and works out the CO₂ saved against the rider going alone in an average car
+2. The saving is stored on the booking and added to the totals of the rider and the driver
+3. User opens Profile > Your impact
+4. System shows CO₂ saved, kilometres shared and trips shared, all time and this month, and the last six months
+5. User taps "How we count" and sees the method and its assumptions
+6. The trip's receipt shows what that trip saved
+
+**Extensions**:
+
+- 1a. The ride has no usable route: the straight-line distance between pickup and drop is used
+- 1b. The car emits more per passenger than an average car alone (a large car with one rider): the saving is zero, never negative
+- 4a. No completed trips yet: the screen explains what will be counted
+
+**Business Rules**:
+
+- One car per booking is the baseline, however many seats it holds
+- The figure is an estimate and is always called one
+- Emission factors are platform settings, per vehicle class and per market
+- The driver sees the savings of the seats they shared; the platform total is shown to admins
+
+### UC-X03: Use the App in My Language
+
+**Primary Actor**: Any user
+**Goal**: Read the app, its pushes and its messages in their own language
+**Preconditions**: The language is offered in the user's market and its translation has been reviewed
+**Postconditions**: The app, and what the backend sends this user, use that language
+
+**Main Success Scenario**:
+
+1. On first start, the app uses the phone's language if the market offers it, otherwise English
+2. User opens Settings > Language and picks a language (English, Shona or Ndebele in Zimbabwe)
+3. The app changes at once, without signing out
+4. The choice is saved on the phone and on the account
+5. Pushes, texts and emails to the user are written in that language
+
+**Extensions**:
+
+- 3a. A phrase has no translation yet: it is shown in English
+- 5a. An SOS text to an emergency contact: written in the language of the person who raised it, with the English beneath it
+
+**Business Rules**:
+
+- A language is offered only once native speakers have reviewed it, safety screens first
+- Emergency numbers, money and dates follow the market, not the language
+- Each market lists its languages in the market registry
+
+### UC-C01: Set Up a Company Programme
+
+**Primary Actor**: Admin, with the company's representative
+**Goal**: Let a company's staff pool rides to work, optionally paid in part by the company
+**Preconditions**: A signed agreement with the company
+**Postconditions**: The organisation exists with its email domains, policy and company admins
+
+**Main Success Scenario**:
+
+1. Admin creates the organisation: name, email domains, billing contact
+2. Admin sets the policy: who may join (any address on the domains), the share of the fare the company pays (0–100%), the monthly cap per person, and the days and places it applies to
+3. Admin invites the company's own admins, who get a company dashboard limited to their organisation
+4. The company tells its staff
+
+**Business Rules**:
+
+- The company sees who rode, when and what it cost; never routes, positions, ratings or safety reports
+- Changes to the policy apply from the next booking
+
+### UC-C02: Join My Company's Programme
+
+**Primary Actor**: Rider or Driver
+**Goal**: Ride with colleagues and get the company's contribution
+**Preconditions**: The user's company has a programme
+**Postconditions**: The user is a member of the organisation
+
+**Main Success Scenario**:
+
+1. User opens Profile > Work and enters their work email
+2. System sends a link to that address
+3. User opens the link; system adds them to the organisation
+4. Colleagues see a "Works at …" badge on the user's rides; the public does not
+5. A driver can now post a ride for colleagues only; members see such rides in search
+6. On an eligible booking, the fare shows the company's share and what the rider pays
+
+**Extensions**:
+
+- 3a. The link expires (24 hours): the user asks for a new one
+- 6a. The monthly cap is reached: the rider pays the full fare and is told why
+
+**Business Rules**:
+
+- Leaving the company (removed by a company admin, or the email bounces at the yearly recheck) ends membership; past rides keep their contribution
+
+### UC-C03: Bill a Company
+
+**Primary Actor**: System
+**Goal**: Charge the company its share each month
+**Preconditions**: Company-paid bookings completed in the month
+**Postconditions**: A statement is sent and recorded as owed
+
+**Main Success Scenario**:
+
+1. On the 1st, the system totals the company's share of last month's completed bookings
+2. It emails the billing contact a statement (PDF and Excel, as the scheduled reports are), with members, trips, amounts and CO₂ saved
+3. Admin records the bank transfer when it arrives
+
+**Extensions**:
+
+- 3a. Not paid in 30 days: the company's contribution stops until it is paid; staff are told and pay full fares
+
+### UC-X04: Video Call During an SOS
+
+**Primary Actor**: Person who raised the SOS; safety team member
+**Goal**: Let the safety team see what is happening when the person cannot speak freely
+**Preconditions**: An open SOS; video is set up for the market
+**Postconditions**: The team saw what the camera showed; the video is stored with the incident only if recording is on
+
+**Main Success Scenario**:
+
+1. From the incident, the safety team member asks for video
+2. The person's phone buzzes, without a sound, and the SOS screen shows "The safety team asked to see what is happening", with whether it is recorded
+3. The person turns on the camera; video goes to the team at low resolution (about 1 MB a minute), back camera first
+4. The team watches from the incident page; the phone receives nothing and makes no sound
+5. The video ends when the person turns it off, leaves the SOS screen, or the SOS closes
+
+**Extensions**:
+
+- 1a. The person turns on the camera without being asked: the team is paged and watches the same way
+- 3a. The person declines or does not answer: nothing changes; the SOS continues as before
+- 3b. Data is short or the connection weak: the person taps "Sound only"; video quality also drops by itself before sound does
+- 3c. The phone is recording SOS audio itself: the video goes without sound, so the recording is not interrupted
+
+**Business Rules**:
+
+- Video is never automatic: only the person turns their camera on
+- The team watches unseen and silent, so the phone never gives the person away
+- Recording is a platform setting, off until legal advice allows recording inside the car; when on, the phone says so before the camera comes on, and recordings are kept and deleted on the SOS audio's rules
+- Every viewing by the team is in the audit log
+- Later uses (an identity check by video, rider and driver before pickup) follow the same pattern and are opt-in
+
+### UC-R12: Pool to a Rank or Terminus
+
+**Primary Actor**: Rider
+**Goal**: Share the first or last part of a journey made by kombi or bus
+**Preconditions**: The market lists its ranks and termini
+**Postconditions**: A booking to or from a rank, with the bus time if given
+
+**Main Success Scenario**:
+
+1. Rider searches for a place; ranks and termini are suggested first
+2. Rider books a ride to a terminus and optionally adds "catching a bus at …"
+3. The driver sees the bus time on the request and on the ride screen
+
+**Business Rules**:
+
+- No timetable is shown where no reliable feed exists (none in Zimbabwe today)
+- A market that publishes a GTFS feed can add departures later
 
 ---
