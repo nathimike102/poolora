@@ -18,7 +18,7 @@
     },
     "started": {
       "title": "Your driver is on the way",
-      "body": "Your ride has started. Open Poolora to follow the car live."
+      "body": "Your ride has started. Open Siham to follow the car live."
     }
   },
   "booking": {
@@ -60,23 +60,23 @@
     "parcelRequestTitle": "New parcel request",
     "parcelRequestBody": "A parcel is waiting for you to accept. Tracking: {{tracking}}",
     "toWalletTitle": "Payment added to your wallet",
-    "toWalletBody": "Your {{amount}} payment arrived after the request had closed or was already paid, so it is in your Poolora wallet. You can use it or withdraw it."
+    "toWalletBody": "Your {{amount}} payment arrived after the request had closed or was already paid, so it is in your Siham wallet. You can use it or withdraw it."
   },
   "sos": {
     "contacts": {
-      "raisedAgain": "Poolora SOS: {{name}} has raised their emergency alert again. See where they are: {{url}} If they may be in danger, call {{number}}.",
-      "raised": "Poolora SOS: {{name}} raised an emergency alert during a ride. See where they are: {{url}} If they may be in danger, call {{number}} (police {{police}}).",
+      "raisedAgain": "Siham SOS: {{name}} has raised their emergency alert again. See where they are: {{url}} If they may be in danger, call {{number}}.",
+      "raised": "Siham SOS: {{name}} raised an emergency alert during a ride. See where they are: {{url}} If they may be in danger, call {{number}} (police {{police}}).",
       "pushTitle": "{{name}} raised an SOS",
       "pushBody": "Tap to see where they are.",
-      "safe": "Poolora: {{name}} says they are safe now. Our safety team is checking with them.",
-      "closed": "Poolora: the emergency alert for {{name}} has been closed by our safety team."
+      "safe": "Siham: {{name}} says they are safe now. Our safety team is checking with them.",
+      "closed": "Siham: the emergency alert for {{name}} has been closed by our safety team."
     },
     "user": {
       "acknowledgedTitle": "The safety team has your SOS",
-      "acknowledgedNamed": "{{name}} from the Poolora safety team is on it and will call you.",
-      "acknowledged": "The Poolora safety team is on it and will call you.",
+      "acknowledgedNamed": "{{name}} from the Siham safety team is on it and will call you.",
+      "acknowledged": "The Siham safety team is on it and will call you.",
       "closedTitle": "Your SOS is closed",
-      "closedBody": "The Poolora safety team has closed your alert. If you need help again, raise a new SOS or call {{number}}.",
+      "closedBody": "The Siham safety team has closed your alert. If you need help again, raise a new SOS or call {{number}}.",
       "videoAskTitle": "The safety team would like to see",
       "videoAskBody": "If it is safe, open the SOS screen and turn on your camera. Your phone will make no sound."
     }
@@ -86,7 +86,7 @@
     "title": "Are you OK?",
     "bodyRepeat": "We did not hear back. Tap to answer, or we will alert the safety team.",
     "body": "A quick safety check during your ride. Tap to answer.",
-    "escalatedTitle": "We have alerted the Poolora safety team",
+    "escalatedTitle": "We have alerted the Siham safety team",
     "escalatedBody": "You did not answer two safety check-ins. Tap to tell us you are OK, or we will text your emergency contacts in {{minutes}} minutes."
   },
   "approach": {
@@ -97,7 +97,7 @@
   },
   "deviation": {
     "title": "Your car has left the planned route",
-    "body": "The car is about {{meters}} m off the planned route. Open Poolora to follow it, or use SOS if you feel unsafe."
+    "body": "The car is about {{meters}} m off the planned route. Open Siham to follow it, or use SOS if you feel unsafe."
   },
   "chat": {
     "newMessage": "New message"
@@ -110,7 +110,7 @@
   "rating": {
     "thanksTitle": "Thanks for your rating",
     "thanksIssue": "Thanks for rating your trip. Our team will look at the problem you reported.",
-    "thanks": "Thanks for rating your trip. It helps keep Poolora safe and friendly.",
+    "thanks": "Thanks for rating your trip. It helps keep Siham safe and friendly.",
     "reminderTitle": "How was your ride with {{driver}}?",
     "reminderBody": "Rate your trip. It takes a few seconds and helps other riders.",
     "yourDriver": "your driver"
@@ -120,8 +120,8 @@
     "body": "{{from}} to {{to}}, {{when}}, {{price}} a seat."
   },
   "contacts": {
-    "verifyText": "{{name}} added you as an emergency contact on Poolora. If they raise an SOS on a ride, you'll get a text with their live location. Please confirm: {{url}}",
-    "someone": "A Poolora user",
+    "verifyText": "{{name}} added you as an emergency contact on Siham. If they raise an SOS on a ride, you'll get a text with their live location. Please confirm: {{url}}",
+    "someone": "A Siham user",
     "confirmedTitle": "Emergency contact confirmed",
     "confirmedBody": "{{name}} confirmed they are your emergency contact."
   },
@@ -135,7 +135,7 @@
     "deliveredBody": "Your parcel has been delivered. Tracking: {{tracking}}",
     "declinedTitle": "Parcel request declined",
     "declinedBody": "The driver could not take your parcel.",
-    "declinedRefund": "The driver could not take your parcel. {{amount}} is back in your Poolora wallet."
+    "declinedRefund": "The driver could not take your parcel. {{amount}} is back in your Siham wallet."
   },
   "trip": {
     "joinRequestTitle": "Someone wants to join your trip",
@@ -179,16 +179,16 @@
     "pausedTitle": "Account paused for a check",
     "pausedBody": "We paused your account while our team checks some unusual payment activity. This usually takes a few hours. Contact support if you think this is a mistake.",
     "mergedTitle": "Accounts merged",
-    "mergedBody": "Your other Poolora account (phone ending {{lastFour}}) has been merged into this one. Its trips, ratings and wallet balance are now here."
+    "mergedBody": "Your other Siham account (phone ending {{lastFour}}) has been merged into this one. Its trips, ratings and wallet balance are now here."
   },
   "work": {
     "email": {
-      "subject": "Confirm your work email for {{company}} on Poolora",
-      "body": "Hi {{name}}. Confirm this address to join the {{company}} programme on Poolora, so you can share rides with colleagues.",
+      "subject": "Confirm your work email for {{company}} on Siham",
+      "body": "Hi {{name}}. Confirm this address to join the {{company}} programme on Siham, so you can share rides with colleagues.",
       "button": "Confirm my work email",
       "ignore": "If you did not ask for this, ignore this email. Nothing changes until the address is confirmed."
     },
     "joinedTitle": "Work email confirmed",
-    "joinedBody": "You are now part of the {{company}} programme on Poolora."
+    "joinedBody": "You are now part of the {{company}} programme on Siham."
   }
 }

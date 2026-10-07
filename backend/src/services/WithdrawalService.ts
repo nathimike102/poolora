@@ -3,7 +3,7 @@
  *
  * Cashing out the wallet to EcoCash, OneMoney or InnBucks. Drivers are paid
  * into their wallet, and online payments that are refunded come back to it
- * (Paynow has no refund API), so this is how money leaves Poolora.
+ * (Paynow has no refund API), so this is how money leaves Siham.
  *
  * The amount leaves the wallet when the request is made, so it cannot be
  * spent twice. An admin sends it from the business mobile money account and

@@ -11,7 +11,7 @@ import { Image, type ImageStyle, type StyleProp } from 'react-native';
 
 import { useIsDark } from '../theme/themed';
 
-// Studio renders made for Poolora (see assets/3d/real/README.md)
+// Studio renders made for Siham (see assets/3d/real/README.md)
 const ICONS = {
   autoRickshaw: require('../../assets/3d/real/auto_rickshaw.png'),
   automobile: require('../../assets/3d/real/automobile.png'),

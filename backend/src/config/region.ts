@@ -1,7 +1,7 @@
 /**
  * region.ts
  *
- * The markets Poolora runs in, and the one this deployment serves. Time
+ * The markets Siham runs in, and the one this deployment serves. Time
  * zone, phone numbers, money, map bounds and emergency numbers all come
  * from here, so nothing else hard-codes a country. Zimbabwe is the first
  * market; a new country is a new entry in MARKETS (and its payment

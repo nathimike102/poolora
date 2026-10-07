@@ -14,7 +14,7 @@ import { COMPANY } from './company';
  */
 export interface SiteConfig {
   name: string;
-  /** Bare domain, e.g. "poolora.vercel.app". */
+  /** Bare domain, e.g. "siham.vercel.app". */
   domain: string;
   /** Canonical absolute URL, no trailing slash. */
   url: string;
@@ -37,7 +37,7 @@ export interface SiteConfig {
 
 export const siteConfig: SiteConfig = {
   name: COMPANY.name,
-  domain: 'poolora.vercel.app',
+  domain: 'siham.vercel.app',
   url: COMPANY.website,
   themeColor: '#0B7A75',
   seo: {

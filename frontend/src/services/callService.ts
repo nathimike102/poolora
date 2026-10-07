@@ -1,7 +1,7 @@
 /**
- * Masked calls (UC-D06): Poolora rings you, then connects you to the other
+ * Masked calls (UC-D06): Siham rings you, then connects you to the other
  * person without either seeing the other's number. When calls through
- * Poolora are not set up on the server, the phone dials directly if the
+ * Siham are not set up on the server, the phone dials directly if the
  * number is known.
  */
 import { Alert, Linking } from 'react-native';

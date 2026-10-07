@@ -70,13 +70,13 @@ function contactHeaders(res: Response): void {
 const CONTACT_LINK_EXPIRED = page(
   'Link expired',
   `<h1>This link is no longer active</h1>
-<p>Confirmation links work for 7 days. Ask the person who added you to send a new one from the Poolora app.</p>`,
+<p>Confirmation links work for 7 days. Ask the person who added you to send a new one from the Siham app.</p>`,
 );
 
 const WORK_LINK_EXPIRED = page(
   'Link expired',
   `<h1>This link is no longer active</h1>
-<p>Work email links work for 24 hours. Open Poolora and send a new one from Profile, Work.</p>`,
+<p>Work email links work for 24 hours. Open Siham and send a new one from Profile, Work.</p>`,
 );
 
 export class TrackingController {
@@ -98,12 +98,12 @@ export class TrackingController {
       const who = escapeHtml(found.userFirstName);
       if (found.verified) {
         res.status(200).type('html').send(page('Already confirmed', `<h1>You're already confirmed</h1>
-<p class="ok">You are ${who}'s emergency contact on Poolora. Nothing more to do.</p>`));
+<p class="ok">You are ${who}'s emergency contact on Siham. Nothing more to do.</p>`));
         return;
       }
       res.status(200).type('html').send(page(`${found.userFirstName} added you as an emergency contact`, `<h1>${who} added you as an emergency contact</h1>
-<p>Hi ${escapeHtml(found.contactName)}. ${who} uses Poolora to share rides. If they raise an SOS during a ride, you will get a text with a link to their live location.</p>
-<p class="muted">Poolora does not use your number for anything else.</p>
+<p>Hi ${escapeHtml(found.contactName)}. ${who} uses Siham to share rides. If they raise an SOS during a ride, you will get a text with a link to their live location.</p>
+<p class="muted">Siham does not use your number for anything else.</p>
 <form method="post"><button type="submit" style="width:100%;padding:12px 16px;border:0;border-radius:6px;background:var(--link);color:#fff;font:inherit;font-weight:600;cursor:pointer">Confirm I'm ${who}'s contact</button></form>
 <p class="muted">If you don't know ${who}, you can ignore this message.</p>`));
     } catch (error) {
@@ -122,7 +122,7 @@ export class TrackingController {
         return;
       }
       const company = escapeHtml(found.company);
-      res.status(200).type('html').send(page(`Join ${found.company} on Poolora`, `<h1>Join ${company} on Poolora</h1>
+      res.status(200).type('html').send(page(`Join ${found.company} on Siham`, `<h1>Join ${company} on Siham</h1>
 <p>Hi ${escapeHtml(found.firstName)}. Confirm that ${escapeHtml(found.email)} is your work email to share rides with colleagues at ${company}.</p>
 <form method="post"><button type="submit" style="width:100%;padding:12px 16px;border:0;border-radius:6px;background:var(--link);color:#fff;font:inherit;font-weight:600;cursor:pointer">Confirm my work email</button></form>
 <p class="muted">If you did not ask for this, close this page. Nothing changes until you confirm.</p>`));
@@ -142,7 +142,7 @@ export class TrackingController {
         return;
       }
       res.status(200).type('html').send(page('Confirmed', `<h1>You're in</h1>
-<p class="ok">You are now part of the ${escapeHtml(done.company)} programme on Poolora. Go back to the app to see rides with your colleagues.</p>`));
+<p class="ok">You are now part of the ${escapeHtml(done.company)} programme on Siham. Go back to the app to see rides with your colleagues.</p>`));
     } catch (error) {
       next(error);
     }
@@ -161,7 +161,7 @@ export class TrackingController {
       const who = escapeHtml(done.userFirstName);
       res.status(200).type('html').send(page('Confirmed', `<h1>Thank you</h1>
 <p class="ok">You are now ${who}'s emergency contact. We have let ${who} know.</p>
-<p>If you ever get an SOS text from Poolora, open the link to see where ${who} is, and call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a> if they may be in danger.</p>`));
+<p>If you ever get an SOS text from Siham, open the link to see where ${who} is, and call <a href="tel:${REGION.emergency.general}">${REGION.emergency.general}</a> if they may be in danger.</p>`));
     } catch (error) {
       next(error);
     }
@@ -205,11 +205,11 @@ export class TrackingController {
       if (isActive) {
         status = `<p class="alert">${name} raised an SOS alert. It is still active.</p>`;
         if (tracking.userSafeAt) {
-          status += `<p class="ok">${name} said they were safe at ${at(tracking.userSafeAt)}. The Poolora safety team is checking with them.</p>`;
+          status += `<p class="ok">${name} said they were safe at ${at(tracking.userSafeAt)}. The Siham safety team is checking with them.</p>`;
         } else if (tracking.acknowledged) {
-          status += '<p>The Poolora safety team is handling this alert.</p>';
+          status += '<p>The Siham safety team is handling this alert.</p>';
         } else {
-          status += '<p>The Poolora safety team has been alerted.</p>';
+          status += '<p>The Siham safety team has been alerted.</p>';
         }
         if (tracking.lostContactAt && !tracking.userSafeAt) {
           status += `<p class="alert">${name}'s phone has stopped sending its location.</p>`;
@@ -218,7 +218,7 @@ export class TrackingController {
         const closedAt = tracking.resolvedAt ? ` at ${at(tracking.resolvedAt)}` : '';
         status = tracking.status === SOSStatus.FALSE_ALARM
           ? `<p class="ok">This alert was closed as a false alarm${closedAt}.</p>`
-          : `<p class="ok">This alert was closed by the Poolora safety team${closedAt}.</p>`;
+          : `<p class="ok">This alert was closed by the Siham safety team${closedAt}.</p>`;
       }
 
       // What someone would need to tell the police
@@ -254,7 +254,7 @@ export class TrackingController {
       res.status(200).type('html').send(
         page(
           isActive ? `SOS alert from ${tracking.firstName}` : 'SOS alert closed',
-          `<h1>Poolora SOS alert</h1>${status}${trip}${location}${footer}`,
+          `<h1>Siham SOS alert</h1>${status}${trip}${location}${footer}`,
           isActive ? 15 : undefined,
         ),
       );
@@ -304,8 +304,8 @@ export class TrackingController {
       const live = trip.status === 'on_the_way' || trip.status === 'in_car';
       res.status(200).type('html').send(
         page(
-          `${trip.riderFirstName}'s Poolora trip`,
-          `<h1>${rider} is sharing a Poolora trip</h1>
+          `${trip.riderFirstName}'s Siham trip`,
+          `<h1>${rider} is sharing a Siham trip</h1>
 <p class="${trip.status === 'arrived' ? 'ok' : ''}">${statusText[trip.status]}</p>
 <p><strong>${escapeHtml(trip.from)}</strong> to <strong>${escapeHtml(trip.to)}</strong><br>
 <span class="muted">Leaves ${escapeHtml(formatTime(trip.departure))} (${escapeHtml(REGION.timeZoneLabel)})</span></p>

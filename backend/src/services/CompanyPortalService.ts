@@ -1,7 +1,7 @@
 /**
  * CompanyPortalService.ts
  *
- * A company's own dashboard (UC-C01 step 3), for the people a Poolora admin
+ * A company's own dashboard (UC-C01 step 3), for the people a Siham admin
  * named as its company admins. They see who joined, how many trips the
  * company helped pay for, what it cost, the CO₂ saved and their bills.
  * Never where anyone went, positions, ratings or safety reports.
@@ -42,7 +42,7 @@ export async function companyOfAdmin(userId: string) {
 export class CompanyPortalService {
   private invoices = new InvoiceService();
 
-  // ── Poolora admins name company admins ───────────────────────────────────
+  // ── Siham admins name company admins ───────────────────────────────────
 
   /**
    * Makes someone at the company an admin of its dashboard. The address must
@@ -91,7 +91,7 @@ export class CompanyPortalService {
       }
       link = account?.link ?? null;
     }
-    if (user.capabilities.includes('admin' as never)) throw new ConflictError('Poolora admins already see every company');
+    if (user.capabilities.includes('admin' as never)) throw new ConflictError('Siham admins already see every company');
     if (await Organisation.exists({ 'admins.user': user._id, _id: { $ne: org._id } })) {
       throw new ConflictError('They are an admin of another company');
     }
@@ -132,14 +132,14 @@ export class CompanyPortalService {
 
   private async tellNewAdmin(email: string, name: string, company: string, link: string | null): Promise<boolean> {
     if (!mailEnabled()) return false;
-    const signIn = config.admin.webUrl || 'the Poolora dashboard';
+    const signIn = config.admin.webUrl || 'the Siham dashboard';
     const lines = [
       `Hello ${name.split(' ')[0]},`,
-      `You can now see ${company}'s Poolora programme: who has joined, the trips the company helps pay for, what they cost, and its bills.`,
+      `You can now see ${company}'s Siham programme: who has joined, the trips the company helps pay for, what they cost, and its bills.`,
       link ? `Set your password with this link, then sign in at ${signIn}: ${link}` : `Sign in at ${signIn} with this email address.`,
       'You will not see where anyone goes; that stays private to them.',
     ];
-    const subject = `You can now see ${company}'s Poolora programme`;
+    const subject = `You can now see ${company}'s Siham programme`;
     return sendMail({ to: email, subject, text: lines.join('\n\n'), html: emailLayout(subject, lines.map((l) => `<p>${escapeHtml(l)}</p>`).join('\n')) });
   }
 

@@ -1,6 +1,6 @@
 /**
  * Car GPS trackers through the Traccar gateway (TrackerService). The gateway
- * authenticates with the shared key in X-Poolora-Tracker-Key; the endpoint is
+ * authenticates with the shared key in X-Siham-Tracker-Key; the endpoint is
  * off while TRACKER_GATEWAY_KEY is unset.
  */
 import { Router, Request, Response } from 'express';
@@ -22,7 +22,7 @@ function keyMatches(given: unknown): boolean {
 
 // POST /trackers/traccar: one position (Traccar forward.type=json)
 router.post('/traccar', async (req: Request, res: Response) => {
-  if (!keyMatches(req.get('X-Poolora-Tracker-Key'))) {
+  if (!keyMatches(req.get('X-Siham-Tracker-Key'))) {
     res.status(config.trackers.gatewayKey ? 401 : 404).json({ status: 'error' });
     return;
   }

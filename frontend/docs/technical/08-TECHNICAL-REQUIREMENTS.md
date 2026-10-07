@@ -3,7 +3,7 @@
 > **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
-## Poolora - Technical Requirements
+## Siham - Technical Requirements
 
 ---
 
@@ -680,7 +680,7 @@ data:
 - **Integrations**: one in US dollars (required), one in ZiG (optional, with an admin-set rate)
 - **Status**: result URL (`/payments/paynow/result`) plus polling by the app and the sweeper
 - **Timeout**: 30 seconds; a failed request is shown to the payer as "try again, or pay from your wallet"
-- **Refunds**: none through Paynow; refunds go to the Poolora wallet, and admins pay out withdrawals to mobile money
+- **Refunds**: none through Paynow; refunds go to the Siham wallet, and admins pay out withdrawals to mobile money
 
 ### 9.2 Maps Integration
 

@@ -193,11 +193,11 @@ export class InvoiceService {
   }
 
   async email(invoice: ICompanyInvoice, o: BillTo): Promise<boolean> {
-    const subject = `Poolora bill ${invoice.number}: ${monthName(invoice.month)}, ${money(invoice.total)}`;
+    const subject = `Siham bill ${invoice.number}: ${monthName(invoice.month)}, ${money(invoice.total)}`;
     const due = day(invoice.dueAt);
     const text = [
       `Hello ${o.billingContact.name},`,
-      `Here is ${o.name}'s Poolora bill for ${monthName(invoice.month)}: your share of ${invoice.trips} trip${invoice.trips === 1 ? '' : 's'} by ${invoice.members} member${invoice.members === 1 ? '' : 's'} of staff, ${money(invoice.total)}.`,
+      `Here is ${o.name}'s Siham bill for ${monthName(invoice.month)}: your share of ${invoice.trips} trip${invoice.trips === 1 ? '' : 's'} by ${invoice.members} member${invoice.members === 1 ? '' : 's'} of staff, ${money(invoice.total)}.`,
       `Please pay by bank transfer by ${due}, quoting ${invoice.number}. Sharing these rides saved about ${invoice.co2SavedKg} kg of CO2.`,
       'The statement is attached as a PDF and a spreadsheet. Reply to this email with any questions.',
     ].join('\n\n');
@@ -318,9 +318,9 @@ export class InvoiceService {
 
   async xlsx(invoice: ICompanyInvoice, org: BillTo): Promise<Buffer> {
     const book = new ExcelJS.Workbook();
-    book.creator = 'Poolora';
+    book.creator = 'Siham';
     const summary = book.addWorksheet('Bill');
-    summary.addRow([`Poolora bill ${invoice.number}`]).font = { bold: true, size: 14 };
+    summary.addRow([`Siham bill ${invoice.number}`]).font = { bold: true, size: 14 };
     summary.addRow([org.name, monthName(invoice.month)]);
     summary.addRow([]);
     const rows: Array<[string, string | number]> = [
@@ -349,7 +349,7 @@ export class InvoiceService {
 
   pdf(invoice: ICompanyInvoice, org: BillTo): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', margin: 48, info: { Title: `Poolora bill ${invoice.number}`, Author: 'Poolora' } });
+      const doc = new PDFDocument({ size: 'A4', margin: 48, info: { Title: `Siham bill ${invoice.number}`, Author: 'Siham' } });
       const chunks: Buffer[] = [];
       doc.on('data', (c: Buffer) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -357,7 +357,7 @@ export class InvoiceService {
       const left = doc.page.margins.left;
       const width = doc.page.width - left - doc.page.margins.right;
 
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#0b7a75').text('Poolora');
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#0b7a75').text('Siham');
       doc.font('Helvetica-Bold').fontSize(18).fillColor('#1a1a1a').text(`Bill ${invoice.number}`);
       doc.font('Helvetica').fontSize(10).fillColor('#555555')
         .text(`${org.name}, ${monthName(invoice.month)}. Issued ${day(invoice.issuedAt)}, due by ${day(invoice.dueAt)}. ${REGION.countryName} time.`);

@@ -1,6 +1,6 @@
 # API Specifications
 
-**Poolora REST and real-time API**
+**Siham REST and real-time API**
 
 This document describes the API the backend serves today (last checked against the code on 29 September 2026, after the move to Zimbabwe and Paynow). It was rebuilt from the route files in `backend/src/routes` and the request schemas in `backend/src/validators`. When the two disagree, the code wins, so update this file in the same change as the route.
 
@@ -79,7 +79,7 @@ Request bodies give positions as `{ "lng": 31.05, "lat": -17.83, "address": "…
 |---|---|---|---|
 | POST | `/auth/send-otp` | public, 3 per hour | Send a 6-digit code. Body: `phone`, as `0771 234 567` or E.164 (`+263771234567`) |
 | POST | `/auth/verify-otp` | public, 10 per 15 min | Body: `phone`, `otp`; `name` is required for a new account; `email` and `dateOfBirth` are optional. Returns the user and tokens |
-| POST | `/auth/firebase-login` | public, 10 per 15 min | Exchange a Firebase ID token (phone or Google sign-in) for Poolora tokens |
+| POST | `/auth/firebase-login` | public, 10 per 15 min | Exchange a Firebase ID token (phone or Google sign-in) for Siham tokens |
 | POST | `/auth/refresh-token` | public, 10 per 15 min | Body: `refreshToken`. Returns a new token pair |
 | POST | `/auth/logout` | signed in | Ends the session |
 | GET | `/auth/me` | signed in | The current user |
@@ -162,7 +162,7 @@ Rules (UC-D02):
 
 The backend fetches the driving route and stores its polyline, distance and duration.
 
-`GET /rides/:id` adds `driverVerified`, whether the driver has the Verified Driver badge; search results carry the same as `driver.verified`. The badge needs approved documents, 20 or more trips, a rating of 4.7 or higher from at least 10 riders, under 5% cancellations, 90 days on Poolora and no warnings or suspensions.
+`GET /rides/:id` adds `driverVerified`, whether the driver has the Verified Driver badge; search results carry the same as `driver.verified`. The badge needs approved documents, 20 or more trips, a rating of 4.7 or higher from at least 10 riders, under 5% cancellations, 90 days on Siham and no warnings or suspensions.
 
 A ride nobody has booked is **cancelled automatically 1 hour before departure**, and the driver gets a push. A ride posted less than an hour before departure is left alone until it has been up for an hour.
 
@@ -293,7 +293,7 @@ A rider cancelling a **confirmed** booking gets back a share that depends on the
 | 6–12 h | 25% |
 | Under 6 h | 0% |
 
-What the rider does not get back is paid to the driver as a cancellation fee, less the platform fee. A request that was never accepted, a request the driver declines, and any booking the driver cancels are always refunded in full. Every refund goes to the Poolora wallet, at once: Paynow has no refund API. Riders can then use the balance or withdraw it to mobile money (section 6).
+What the rider does not get back is paid to the driver as a cancellation fee, less the platform fee. A request that was never accepted, a request the driver declines, and any booking the driver cancels are always refunded in full. Every refund goes to the Siham wallet, at once: Paynow has no refund API. Riders can then use the balance or withdraw it to mobile money (section 6).
 
 `GET /bookings/:id/cancellation-quote` returns:
 
@@ -352,7 +352,7 @@ Online payments go through **Paynow** (paynow.co.zw): EcoCash, OneMoney, InnBuck
 
 **References.** Each attempt has its own reference, such as `BK-<booking id>-<6 hex characters>` (`PC-` for parcels, `WT-` for top-ups), so two quick taps on Pay never send Paynow the same reference.
 
-**Refunds.** Paynow has no authorise-then-capture and no refund API. So a request is paid before the driver can accept, and refunds go to the Poolora wallet.
+**Refunds.** Paynow has no authorise-then-capture and no refund API. So a request is paid before the driver can accept, and refunds go to the Siham wallet.
 
 **Fraud checks.** A failed payment is recorded for the fraud check, which scores the payer: high risk flags the account for admin review, and critical risk suspends it until an admin reviews it (see `/admin/fraud`). The check never blocks an account by itself.
 
@@ -456,14 +456,14 @@ Under `osm`, the free services answer autocomplete, geocoding, reverse geocoding
 
 ## 11.5 Car trackers
 
-A GPS tracker in a driver's car (UC-D11) reports to Poolora's Traccar gateway (`infra/traccar`), which stores nothing and posts each position here.
+A GPS tracker in a driver's car (UC-D11) reports to Siham's Traccar gateway (`infra/traccar`), which stores nothing and posts each position here.
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | GET | `/users/me/trackers` | signed in | The caller's cars with their trackers (`deviceId`, `linkedAt`, `lastReportAt`, `tracked`: reported in the last day), and `gateway` (`host`, `port`, `protocol`) to point a tracker at |
 | PUT | `/users/me/vehicles/:vehicleId/tracker` | the car's owner | Body: `deviceId` (6 to 20 letters or digits; spaces are removed). `409 TRACKER_IN_USE` if another car has it |
 | DELETE | `/users/me/vehicles/:vehicleId/tracker` | the car's owner | Unlink |
-| POST | `/trackers/traccar` | the gateway, with `X-Poolora-Tracker-Key` (`TRACKER_GATEWAY_KEY`; off when unset) | One position as Traccar posts it (`forward.type=json`): `device.uniqueId`, `position.latitude`, `longitude`, `speed` (knots), `valid`, `attributes.batteryLevel` (%) and `attributes.alarm`. Stored as the car's trail (`role: vehicle`) only while the car is on a ride in progress or an SOS on one of its rides is open; otherwise only the report time is kept. Alarm `sos` during a ride raises an SOS (`raisedVia: tracker`); `powerCut`, `removing` and `tampering` alert the safety team. Each alarm counts once per ride per 5 minutes. Always `200`, so the gateway does not retry |
+| POST | `/trackers/traccar` | the gateway, with `X-Siham-Tracker-Key` (`TRACKER_GATEWAY_KEY`; off when unset) | One position as Traccar posts it (`forward.type=json`): `device.uniqueId`, `position.latitude`, `longitude`, `speed` (knots), `valid`, `attributes.batteryLevel` (%) and `attributes.alarm`. Stored as the car's trail (`role: vehicle`) only while the car is on a ride in progress or an SOS on one of its rides is open; otherwise only the report time is kept. Alarm `sos` during a ride raises an SOS (`raisedVia: tracker`); `powerCut`, `removing` and `tampering` alert the safety team. Each alarm counts once per ride per 5 minutes. Always `200`, so the gateway does not retry |
 
 Search results carry `driver.trackedCar`, and a ride carries `trackedCar`.
 
@@ -550,7 +550,7 @@ Used by the web admin (`admin-web/`) and the app's admin screens. Every action t
 | GET | `/admin/invoices/:id/file` | The bill as a file: `?format=pdf` (default) or `xlsx` |
 | POST | `/admin/invoices/:id/paid` | Body: `reference` (the bank transfer's). Lifts the billing hold once nothing else is overdue. Audited |
 | POST | `/admin/invoices/:id/adjust` | Body: `amount` (negative for a credit), `reason`. Only before payment; the total never goes below zero. Audited |
-| POST | `/admin/organisations/:id/admins` | Body: `name`, `email`. Names a company admin (UC-C01 step 3): the address must be on the company's domains or be its billing contact; Poolora admins and another company's admins are refused. Without an account they get one, and an email with a link to set a password (Firebase). Audited |
+| POST | `/admin/organisations/:id/admins` | Body: `name`, `email`. Names a company admin (UC-C01 step 3): the address must be on the company's domains or be its billing contact; Siham admins and another company's admins are refused. Without an account they get one, and an email with a link to set a password (Firebase). Audited |
 | GET | `/admin/hubs` | Kombi ranks and bus termini (UC-R12), and `suggestions`: names in the market registry not added yet |
 | POST | `/admin/hubs` | Body: `name`, `kind` (`kombi_rank`, `bus_terminus`), `city`, `address`, `aliases`, and `lat`/`lng` or else it is found on the map from its address (`422 HUB_NOT_FOUND`; outside the market `422 OUTSIDE_MARKET`). Starts switched off. Audited |
 | PATCH | `/admin/hubs/:id` | Any of the fields, and `active` to show it to riders. Audited |

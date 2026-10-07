@@ -3,7 +3,7 @@
  *
  * Everything a rider can do, as grids of 3D tiles in the style of Uber's
  * Services tab: each kind of ride and ways to travel, sending a parcel, and
- * the rider's own Poolora (work, wallet, impact, receipts, safety).
+ * the rider's own Siham (work, wallet, impact, receipts, safety).
  */
 
 import React from 'react';
@@ -84,7 +84,7 @@ export function ServicesScreen() {
         <Text style={[styles.section, tc.color_text]}>{t('services.sendSomething')}</Text>
         <Grid items={send} />
 
-        <Text style={[styles.section, tc.color_text]}>{t('services.yourPoolora')}</Text>
+        <Text style={[styles.section, tc.color_text]}>{t('services.yourSiham')}</Text>
         <Grid items={yours} />
       </ScrollView>
     </View>

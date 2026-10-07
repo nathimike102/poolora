@@ -1,6 +1,6 @@
-<p align="center"><img src="branding/poolora-mark.png" alt="Poolora logo" width="140"></p>
+<p align="center"><img src="branding/siham-mark.png" alt="Siham logo" width="140"></p>
 
-# Poolora — Smart AI-Powered Mobility & Pooling Ecosystem
+# Siham — Smart AI-Powered Mobility & Pooling Ecosystem
 
 > **"Share Seats. Save Costs. Travel Smarter."**
 
@@ -8,9 +8,9 @@ A full-stack mobility platform for Zimbabwe, encompassing Car-Pooling, Parcel-Po
 
 Built with **React Native (Expo)**, **Node.js / Express**, **MongoDB**, **Redis**, **Kafka**, **Elasticsearch**, **Docker**, and **Socket.IO**.
 
-**GitHub:** [nathimike102/poolora](https://github.com/nathimike102/poolora)
+**GitHub:** [nathimike102/siham](https://github.com/nathimike102/siham)
 
-**Logo:** the artwork is vector, in [branding/source/poolora-icon.svg](branding/source/poolora-icon.svg). After editing it, run `python3 scripts/render_brand_master.py` (adds the neon glow and writes `branding/poolora-icon.png`), then `python3 scripts/generate_brand_assets.py` to regenerate every app icon, splash, web logo and link preview (needs `cairosvg` and `pillow`).
+**Logo:** the artwork is vector, in [branding/source/siham-icon.svg](branding/source/siham-icon.svg). After editing it, run `python3 scripts/render_brand_master.py` (adds the neon glow and writes `branding/siham-icon.png`), then `python3 scripts/generate_brand_assets.py` to regenerate every app icon, splash, web logo and link preview (needs `cairosvg` and `pillow`).
 
 ---
 
@@ -42,9 +42,9 @@ Built with **React Native (Expo)**, **Node.js / Express**, **MongoDB**, **Redis*
 
 ## 🎯 Project Overview
 
-Poolora is a scalable AI-powered ride-pooling and mobility platform designed to solve modern urban commuting challenges through intelligent shared transportation.
+Siham is a scalable AI-powered ride-pooling and mobility platform designed to solve modern urban commuting challenges through intelligent shared transportation.
 
-Unlike traditional ride-hailing apps focused on instant point-to-point rides, Poolora is built around **scheduled car-pooling**, **trip-pooling**, and **parcel-pooling** to maximise vehicle utilisation, reduce fuel consumption, and lower transportation costs.
+Unlike traditional ride-hailing apps focused on instant point-to-point rides, Siham is built around **scheduled car-pooling**, **trip-pooling**, and **parcel-pooling** to maximise vehicle utilisation, reduce fuel consumption, and lower transportation costs.
 
 ### Core Mobility Services
 
@@ -75,7 +75,7 @@ Urban commuters — especially students, office workers, and daily travellers �
 
 ## 💡 Proposed Solution
 
-Poolora is a cloud-native AI-powered mobility platform built to address these challenges:
+Siham is a cloud-native AI-powered mobility platform built to address these challenges:
 
 - ✅ **Intelligent Ride Matching** — ML-based algorithms matching passengers & drivers with 95%+ compatibility
 - ✅ **Real-Time Communication** — WebSocket-based live tracking, chat, and notifications
@@ -365,7 +365,7 @@ React Native App ──HTTP/Socket.IO──► NGINX / Kubernetes ingress
 ## 📁 Project Structure
 
 ```
-poolora/
+siham/
 ├── backend/                          # Node.js/Express backend
 │   ├── src/
 │   │   ├── app.ts                    # Express app configuration
@@ -550,8 +550,8 @@ docker compose down -v
 
 ```bash
 cd backend
-docker build -t poolora-backend .
-docker run -p 127.0.0.1:5002:5002 --env-file .env poolora-backend
+docker build -t siham-backend .
+docker run -p 127.0.0.1:5002:5002 --env-file .env siham-backend
 ```
 
 ### Dockerfile details
@@ -610,8 +610,8 @@ Runs on pushes and pull requests to `main` and `develop`:
 
 On a push to `main` it also:
 
-- **docker-build**: builds and pushes `poolora-backend` and `poolora-ml` to ghcr.io, tagged `latest` and with the commit SHA.
-- **deploy**: logs in to the server over SSH, runs `git pull`, then `docker compose up -d --build` in `backend/`, and restarts NGINX. It is skipped with a notice when `EC2_HOST` is not set. Needs the secrets `EC2_HOST`, `EC2_USER` and `EC2_SSH_KEY`, and the repository checked out at `/home/ubuntu/Poolora`.
+- **docker-build**: builds and pushes `siham-backend` and `siham-ml` to ghcr.io, tagged `latest` and with the commit SHA.
+- **deploy**: logs in to the server over SSH, runs `git pull`, then `docker compose up -d --build` in `backend/`, and restarts NGINX. It is skipped with a notice when `EC2_HOST` is not set. Needs the secrets `EC2_HOST`, `EC2_USER` and `EC2_SSH_KEY`, and the repository checked out at `/home/ubuntu/Siham`.
 
 For Kubernetes, `scripts/deploy-k8s.sh` applies `k8s/` using the images from ghcr.io.
 
@@ -786,7 +786,7 @@ EC2_SSH_KEY    → Private SSH key content
 
 ### Kubernetes Deployment
 
-For production-scale deployments across multiple nodes, Poolora can be deployed on Kubernetes.
+For production-scale deployments across multiple nodes, Siham can be deployed on Kubernetes.
 
 #### Prerequisites
 
@@ -820,8 +820,8 @@ Ingress (NGINX)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: poolora-backend
-  namespace: poolora
+  name: siham-backend
+  namespace: siham
 spec:
   replicas: 5
   strategy:
@@ -831,15 +831,15 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: poolora-backend
+      app: siham-backend
   template:
     metadata:
       labels:
-        app: poolora-backend
+        app: siham-backend
     spec:
       containers:
         - name: backend
-          image: your-registry/poolora-backend:latest
+          image: your-registry/siham-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5002
@@ -884,7 +884,7 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - poolora-backend
+                        - siham-backend
                 topologyKey: kubernetes.io/hostname
 ```
 
@@ -895,7 +895,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mongodb
-  namespace: poolora
+  namespace: siham
 spec:
   serviceName: mongodb
   replicas: 3
@@ -947,14 +947,14 @@ spec:
 
 ```bash
 # 1. Create namespace
-kubectl create namespace poolora
+kubectl create namespace siham
 
 # 2. Create secrets
 kubectl create secret generic mongo-secret \
   --from-literal=username=admin \
   --from-literal=password=<strong-password> \
   --from-literal=uri=mongodb://admin:password@mongodb-0.mongodb:27017,mongodb-1.mongodb:27017,mongodb-2.mongodb:27017 \
-  -n poolora
+  -n siham
 
 # 3. Apply manifests
 kubectl apply -f k8s/mongodb-statefulset.yaml
@@ -965,13 +965,13 @@ kubectl apply -f k8s/backend-deployment.yaml
 kubectl apply -f k8s/ingress.yaml
 
 # 4. Check rollout status
-kubectl rollout status deployment/poolora-backend -n poolora
+kubectl rollout status deployment/siham-backend -n siham
 
 # 5. View logs
-kubectl logs -f deployment/poolora-backend -n poolora
+kubectl logs -f deployment/siham-backend -n siham
 
 # 6. Port-forward for testing
-kubectl port-forward service/poolora-backend 5002:5002 -n poolora
+kubectl port-forward service/siham-backend 5002:5002 -n siham
 ```
 
 #### Auto-Scaling
@@ -982,13 +982,13 @@ kubectl port-forward service/poolora-backend 5002:5002 -n poolora
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: poolora-backend-hpa
-  namespace: poolora
+  name: siham-backend-hpa
+  namespace: siham
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: poolora-backend
+    name: siham-backend
   minReplicas: 3
   maxReplicas: 20
   metrics:
@@ -1025,9 +1025,9 @@ spec:
 
 ```yaml
 scrape_configs:
-  - job_name: "poolora-backend"
+  - job_name: "siham-backend"
     static_configs:
-      - targets: ["poolora-backend:5002"]
+      - targets: ["siham-backend:5002"]
     metrics_path: "/metrics"
 ```
 
@@ -1045,7 +1045,7 @@ scrape_configs:
 
 ## 🌍 Environmental & Social Impact
 
-### How Poolora Helps
+### How Siham Helps
 
 - ♻️ **Reduces duplicate vehicle trips** — 30–40% fewer vehicles on roads
 - 📊 **Improves seat occupancy** — Targets 80%+ average utilisation
@@ -1096,4 +1096,4 @@ ISC License — see individual `package.json` files for details.
 
 ---
 
-**TEAM POOLORA** — Built with ❤️ for sustainable urban mobility
+**TEAM SIHAM** — Built with ❤️ for sustainable urban mobility

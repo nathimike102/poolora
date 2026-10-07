@@ -5,7 +5,7 @@
  * Off unless the user switches it on in Safety settings. While an SOS is
  * open it records in parts of about a minute and uploads each part as soon
  * as it ends, so a snatched or broken phone loses at most the last minute.
- * Only the Poolora safety team can play the recordings.
+ * Only the Siham safety team can play the recordings.
  */
 
 import { useEffect, useRef } from 'react';
@@ -22,7 +22,7 @@ import { API_ENDPOINTS } from '../api/constants';
 import type { ApiResponse } from '../types/api';
 import { logger } from '../utils/logger';
 
-const PREF_KEY = '@poolora_sos_audio';
+const PREF_KEY = '@siham_sos_audio';
 const CHUNK_SECONDS = 60;
 
 /** AAC in .m4a on both platforms, mono and speech quality: about 360 KB a minute */

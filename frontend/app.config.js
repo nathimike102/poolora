@@ -10,15 +10,15 @@
 
 module.exports = {
   expo: {
-    name: 'Poolora',
-    slug: 'poolora',
+    name: 'Siham',
+    slug: 'poolora', // the expo.dev project's name; renaming it needs a new EAS project
     version: '1.0.0',
     icon: './assets/icon.png',
     // Report the phone's light/dark setting to the app (Expo defaults to light).
     userInterfaceStyle: 'automatic',
     orientation: 'portrait',
     android: {
-      package: 'com.poolora.app',
+      package: 'com.siham.app',
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundImage: './assets/adaptive-icon-background.png',
@@ -34,13 +34,13 @@ module.exports = {
       searchPaths: ['./node_modules'],
     },
     ios: {
-      bundleIdentifier: 'com.poolora.app',
+      bundleIdentifier: 'com.siham.app',
       // Push notifications (Firebase Cloud Messaging through APNs)
       entitlements: { 'aps-environment': 'production' },
       infoPlist: {
         UIBackgroundModes: ['remote-notification'],
         NSLocationWhenInUseUsageDescription:
-          'Poolora needs your location to show your position on the map, find rides near you and, during an SOS, share where you are with the safety team.',
+          'Siham needs your location to show your position on the map, find rides near you and, during an SOS, share where you are with the safety team.',
       },
     },
     plugins: [
@@ -67,7 +67,7 @@ module.exports = {
         'expo-location',
         {
           locationWhenInUsePermission:
-            'Poolora needs your location to show your position on the map, find rides near you and, during an SOS, share where you are with the safety team.',
+            'Siham needs your location to show your position on the map, find rides near you and, during an SOS, share where you are with the safety team.',
           // During an SOS only: keeps sending the position with the screen off,
           // as a foreground service with a visible "SOS active" notification.
           // No background-location permission is needed for this on Android.
@@ -80,7 +80,7 @@ module.exports = {
         'expo-audio',
         {
           // Only if the user switches on "Record audio during an SOS"
-          microphonePermission: 'Poolora uses the microphone during an SOS only: to record sound if you switch this on, and so the safety team can hear you if you turn on your camera.',
+          microphonePermission: 'Siham uses the microphone during an SOS only: to record sound if you switch this on, and so the safety team can hear you if you turn on your camera.',
           recordAudioAndroid: true,
           enableBackgroundRecording: true,
         },
@@ -88,8 +88,8 @@ module.exports = {
       [
         'expo-image-picker',
         {
-          photosPermission: 'Poolora uses your photos so you can add driver verification documents and a profile picture.',
-          cameraPermission: 'Poolora uses the camera so you can photograph driver verification documents and, during an SOS, show the safety team what is happening if you choose to.',
+          photosPermission: 'Siham uses your photos so you can add driver verification documents and a profile picture.',
+          cameraPermission: 'Siham uses the camera so you can photograph driver verification documents and, during an SOS, show the safety team what is happening if you choose to.',
         },
       ],
       // Maps: MapLibre with free OpenStreetMap tiles, no API key
@@ -99,8 +99,8 @@ module.exports = {
       [
         '@config-plugins/react-native-webrtc',
         {
-          cameraPermission: 'Poolora uses the camera so you can photograph driver verification documents and, during an SOS, show the safety team what is happening if you choose to.',
-          microphonePermission: 'Poolora uses the microphone during an SOS only: to record sound if you switch this on, and so the safety team can hear you if you turn on your camera.',
+          cameraPermission: 'Siham uses the camera so you can photograph driver verification documents and, during an SOS, show the safety team what is happening if you choose to.',
+          microphonePermission: 'Siham uses the microphone during an SOS only: to record sound if you switch this on, and so the safety team can hear you if you turn on your camera.',
         },
       ],
       '@react-native-google-signin/google-signin',

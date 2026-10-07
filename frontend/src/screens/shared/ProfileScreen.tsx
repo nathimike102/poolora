@@ -178,7 +178,7 @@ export function ProfileScreen(): React.ReactElement {
         { icon: 'herb', label: t('profile.menu.impact'), sub: (stats?.co2SavedKg ?? 0) > 0 ? t('profile.menu.impactSaved', { amount: formatKg(stats?.co2SavedKg ?? 0) }) : t('profile.menu.impactSub'), onPress: () => navigation.navigate('Impact') },
         { icon: 'briefcase', label: t('profile.menu.work'), sub: t('profile.menu.workSub'), onPress: () => navigation.navigate('Work') },
         { icon: 'telephoneReceiver', label: t('profile.menu.contacts'), sub: t('profile.menu.contactsSub'), onPress: () => navigation.navigate('EmergencyContacts') },
-        { icon: 'moneyBag', label: t('profile.driveWithPoolora'), sub: t('profile.menu.driveSub'), onPress: switchRole },
+        { icon: 'moneyBag', label: t('profile.driveWithSiham'), sub: t('profile.menu.driveSub'), onPress: switchRole },
         {
           icon: 'spiralCalendar',
           label: t('profile.menu.myRides'),

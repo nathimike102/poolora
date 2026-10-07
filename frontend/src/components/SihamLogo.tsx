@@ -1,20 +1,20 @@
 /**
- * components/PooloraLogo.tsx
+ * components/SihamLogo.tsx
  *
- * Reusable Poolora brand mark: the app icon as a rounded tile.
+ * Reusable Siham brand mark: the app icon as a rounded tile.
  */
 
 import React from "react";
 import { Image, View, Text, StyleSheet } from "react-native";
 
-// Rendered by scripts/generate_brand_assets.py from branding/poolora-icon.png.
+// Rendered by scripts/generate_brand_assets.py from branding/siham-icon.png.
 import logoMark from "../../assets/logo-mark.png";
 import { useThemeColor, type AnyColor } from "../theme/themed";
 
 /** Wordmark colour. */
 const INK = "#1A1446";
 
-interface PooloraLogoProps {
+interface SihamLogoProps {
   /** Container box size */
   size?: number;
   /** Container background color */
@@ -31,21 +31,21 @@ interface PooloraLogoProps {
   tone?: "dark" | "light";
 }
 
-export function PooloraLogo({
+export function SihamLogo({
   size = 44,
   backgroundColor: backgroundColorProp = "transparent",
   borderRadius,
   showWordmark = false,
-  wordmark = "Poolora",
+  wordmark = "Siham",
   subtitle = "Smart Scheduled Carpooling",
   tone = "dark",
-}: PooloraLogoProps) {
+}: SihamLogoProps) {
   const br = borderRadius ?? size * 0.225; // Match the tile's corners
   const backgroundColor = useThemeColor(backgroundColorProp);
 
   return (
     <View
-      testID="poolora-logo"
+      testID="siham-logo"
       style={[
         styles.wrapper,
         showWordmark ? styles.lockup : styles.container,

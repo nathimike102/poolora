@@ -1,6 +1,6 @@
 # Feature Gap Analysis
 
-What the documents in `frontend/docs` promise, compared with what the app and backend do today (last updated 30 September 2026). Sections 1 to 1.3 are a history written while Poolora targeted India, so they still mention Razorpay, rupees and India time; section 1.4 records the move to Zimbabwe, and sections 2 onward describe the system as it is now. Each gap says what the feature should do and where it would go. Use-case IDs (UC-…) refer to `design/03-USE-CASES.md`.
+What the documents in `frontend/docs` promise, compared with what the app and backend do today (last updated 30 September 2026). Sections 1 to 1.3 are a history written while Siham targeted India, so they still mention Razorpay, rupees and India time; section 1.4 records the move to Zimbabwe, and sections 2 onward describe the system as it is now. Each gap says what the feature should do and where it would go. Use-case IDs (UC-…) refer to `design/03-USE-CASES.md`.
 
 ---
 
@@ -125,7 +125,7 @@ The PRD's "Safe for her" list, UC-R05 to UC-R10 and UC-A03 were read against the
 | "I'm safe" (UC-A03) | Closed the incident at once, so a person made to tap it lost the safety team | Recorded and passed on to the team and the contacts; the SOS stays open until an admin has called |
 | Missed-check-in escalation (bug) | Ran only when someone opened the dashboard; any position update reset it, so it never fired while the app was open; escalating marked the SOS "acknowledged", hiding it from the "nobody has it" alert | A background job every 15 s. A phone silent for three intervals is "out of contact", risk high, team paged. Escalation never pretends an admin took it |
 | Leaving the SOS screen (bug) | The screen forgot the SOS: coming back showed the idle button, and pressing again failed with 409 | The open SOS is loaded every time; pressing again re-raises it |
-| No connection (UC-R07 5a) | "Could not reach Poolora" | Retries every 5 s, and offers to call the emergency line and to text the contacts from the phone's own messaging app, which needs no data |
+| No connection (UC-R07 5a) | "Could not reach Siham" | Retries every 5 s, and offers to call the emergency line and to text the contacts from the phone's own messaging app, which needs no data |
 | Positions to the admin map (bug) | Positions sent over REST (the app's path) were published on a stream nobody consumed; the map caught up only on its 20-second poll | Live, on the safety stream |
 | SOS from missed check-ins | Texted the contacts at once, for what is often a phone in a bag | The team is paged at once; the rider gets 5 minutes to answer before contacts are texted, and a late "I'm OK" stands it down |
 | Who can read an SOS | The other person on the ride could read it, including the tracking link | Only the person who raised it and admins |
@@ -151,7 +151,7 @@ The PRD's "Safe for her" list, UC-R05 to UC-R10 and UC-A03 were read against the
 | Riders' phones (decided 30 September) | Never traced; a driver robbed by riders had no trace of them | Traced from pickup to drop |
 | Phone switched off (decided 30 September) | "Out of contact" only | Every position carries the battery level: near 0% it probably ran out; with charge left it was switched off or taken, and the alert says so. The low-battery screen tells the person what still works |
 | "What's happening?" (decided 30 September) | Staff found out by calling | One optional tap after the alert: the driver, a passenger, someone outside, medical, accident. Naming someone raises the risk and marks them on the incident; medical or accident tells staff the other person may help |
-| Car trackers (decided 1 October) | When every phone was off, only last positions were left | Drivers can link the GPS tracker in their car (UC-D11). Trackers report to Poolora's Traccar gateway (forwarder only, `infra/traccar`), which reads almost every tracker protocol and accepts forwarding from tracking companies (Wialon, Traccar, GPSWox). During rides the car's own trail joins the trip trail; its panic button raises an SOS; a cut tracker alerts the team. Optional, with a "Tracked car" badge. Outside rides only the time of the last report is kept. Poolora never cuts an engine |
+| Car trackers (decided 1 October) | When every phone was off, only last positions were left | Drivers can link the GPS tracker in their car (UC-D11). Trackers report to Siham's Traccar gateway (forwarder only, `infra/traccar`), which reads almost every tracker protocol and accepts forwarding from tracking companies (Wialon, Traccar, GPSWox). During rides the car's own trail joins the trip trail; its panic button raises an SOS; a cut tracker alerts the team. Optional, with a "Tracked car" badge. Outside rides only the time of the last report is kept. Siham never cuts an engine |
 | Identifying everyone (UC-A03) | Names, phones and the plate | The car in full with photos and the driver's documents, every other rider, ID-check status, licence number, mobile money numbers (registered to a name), and the chat and calls between them |
 
 Decisions made on purpose:
@@ -198,7 +198,7 @@ The documents disagree with each other and with the code in several places:
 2. ~~**API specification is out of date.**~~ Rewritten from the code in September 2026, and checked again on 29 September: all 234 routes are documented (236 with the support assistant's two, added 30 September; the safety pass of the same day added ten more: SOS current, cancel and audio upload, the rider's in-car confirmation, the identity check and its four admin routes) and none that is documented is missing.
 3. ~~**Contradictions in the use cases.**~~ UC-D02 now refuses rides over 650 km, and parcel pooling is Phase 4 everywhere.
 4. ~~**Numbering.**~~ `08-TECHNICAL-REQUIREMENTS.md` runs 1–15 (the second "Quality Metrics" was the database configuration), and `03-USE-CASES.md` runs 1–12.
-5. ~~**Naming.**~~ The documents say Poolora.
+5. ~~**Naming.**~~ The documents say Siham.
 6. ~~**Admin.**~~ The web dashboard the documents describe now exists (`admin-web/`), alongside the app's admin screens.
 7. ~~**Tracking interval.**~~ 5 seconds everywhere, as in the app.
 8. **Aspirational design.** `02-SYSTEM-ARCHITECTURE.md`, `05-SYSTEM-DESIGN.md`, `06-DATABASE-SCHEMAS.md` and `08-TECHNICAL-REQUIREMENTS.md` still describe a larger target design (PostgreSQL, RabbitMQ, Redux, a web dashboard) that was never built. Each now opens with a status note pointing here and to the API specification. Rewrite them only if they are needed as a reference for new work.

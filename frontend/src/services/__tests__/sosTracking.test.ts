@@ -19,7 +19,7 @@ describe('SOS background tracking', () => {
 
   it('starts a foreground service that sends every 5 seconds, remembering the SOS', async () => {
     expect(await startSosTracking('sos1')).toBe(true);
-    expect(await AsyncStorage.getItem('@poolora_active_sos')).toBe('sos1');
+    expect(await AsyncStorage.getItem('@siham_active_sos')).toBe('sos1');
     expect(Location.startLocationUpdatesAsync).toHaveBeenCalledWith(SOS_LOCATION_TASK, expect.objectContaining({
       timeInterval: 5000,
       foregroundService: expect.objectContaining({ notificationTitle: 'SOS active' }),
@@ -27,7 +27,7 @@ describe('SOS background tracking', () => {
   });
 
   it('sends the latest position, and stops itself once the SOS is closed', async () => {
-    await AsyncStorage.setItem('@poolora_active_sos', 'sos1');
+    await AsyncStorage.setItem('@siham_active_sos', 'sos1');
     (Location.hasStartedLocationUpdatesAsync as jest.Mock).mockResolvedValue(true);
     (apiClient.post as jest.Mock).mockResolvedValueOnce({ data: { data: { open: true } } });
     await runTask({ data: at(-17.8, 31.05) });
@@ -37,11 +37,11 @@ describe('SOS background tracking', () => {
     (apiClient.post as jest.Mock).mockResolvedValueOnce({ data: { data: { open: false } } });
     await runTask({ data: at(-17.81, 31.06) });
     expect(Location.stopLocationUpdatesAsync).toHaveBeenCalledWith(SOS_LOCATION_TASK);
-    expect(await AsyncStorage.getItem('@poolora_active_sos')).toBeNull();
+    expect(await AsyncStorage.getItem('@siham_active_sos')).toBeNull();
   });
 
   it('keeps going when a position cannot be sent (no signal)', async () => {
-    await AsyncStorage.setItem('@poolora_active_sos', 'sos1');
+    await AsyncStorage.setItem('@siham_active_sos', 'sos1');
     (apiClient.post as jest.Mock).mockRejectedValueOnce(new Error('Network Error'));
     await runTask({ data: at(-17.8, 31.05) });
     expect(Location.stopLocationUpdatesAsync).not.toHaveBeenCalled();

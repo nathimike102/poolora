@@ -188,7 +188,7 @@ export class NotificationService {
     }
   }
 
-  /** The language a user reads Poolora in; English when unknown */
+  /** The language a user reads Siham in; English when unknown */
   async languageOf(userId: string): Promise<string | undefined> {
     const user = await User.findById(userId).select('language').lean();
     return user?.language;

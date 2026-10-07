@@ -1,6 +1,6 @@
 # Analytics plan
 
-How Poolora measures real use and progress: what is recorded, where it goes, and how each KPI is worked out.
+How Siham measures real use and progress: what is recorded, where it goes, and how each KPI is worked out.
 
 ## Where the numbers live
 
@@ -55,7 +55,7 @@ Activity rows are deleted automatically after about 13 months (TTL index). Daily
 
 ## Setting up PostHog (owner)
 
-1. Sign up at <https://eu.posthog.com/signup> (EU region; free up to 1 million events a month). Create a project called **Poolora Production**.
+1. Sign up at <https://eu.posthog.com/signup> (EU region; free up to 1 million events a month). Create a project called **Siham Production**.
 2. Project settings → copy the **Project API key** (starts `phc_`).
 3. Put it in the **production** backend environment only: `POSTHOG_API_KEY=phc_…` (and `POSTHOG_HOST=https://eu.i.posthog.com` if you chose the EU region, which is the default). Restart the backend.
 4. Check: sign in on the production app, then PostHog → Activity should show `user_logged_in` within a minute. The web admin's Analytics page will say "Events also go to PostHog".

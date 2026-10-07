@@ -34,7 +34,7 @@ router.post('/twilio/recording', twilioHook((id, p) => calls.onRecording(id, p))
 
 router.use(authenticate);
 
-/** GET /calls/available — whether calls go through Poolora, so the app knows whether to dial directly */
+/** GET /calls/available — whether calls go through Siham, so the app knows whether to dial directly */
 router.get('/available', (req: Request, res: Response) => {
   sendSuccess(res, { masked: maskedCallsEnabled(), recorded: maskedCallsEnabled() && config.twilio.recordCalls }, 200, req.requestId);
 });

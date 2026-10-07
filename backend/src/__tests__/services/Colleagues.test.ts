@@ -104,7 +104,7 @@ beforeEach(async () => {
 });
 
 describe('colleagues-only rides', () => {
-  it('only staff of a company on Poolora can post one, and it belongs to their company', async () => {
+  it('only staff of a company on Siham can post one, and it belongs to their company', async () => {
     const post = (userId: Types.ObjectId) => rides.createRide(userId.toString(), {
       rideType: 'car_pool', vehicleId: vehicleId.toString(),
       pickup: { ...FROM, address: 'Avondale' }, dropoff: { ...TO, address: 'Borrowdale' },

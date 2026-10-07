@@ -1,7 +1,7 @@
 /**
  * i18n/languages.ts
  *
- * The languages Poolora can be shown in (UC-X03). A language is offered only
+ * The languages Siham can be shown in (UC-X03). A language is offered only
  * once native speakers have reviewed its catalogue, safety screens first: a
  * wrong word on the SOS screen could cost someone help. Builds for the
  * translators set EXPO_PUBLIC_SHOW_UNREVIEWED_LANGUAGES=true to see the rest.

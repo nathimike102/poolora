@@ -126,7 +126,7 @@ export function SupportDetailPage() {
           <div className="card stack">
             {t.messages.map((m, i) => (
               <div key={i}>
-                <strong>{m.from === 'user' ? t.user?.name || 'User' : `${m.author?.name ?? 'Support'} (Poolora)`}</strong>
+                <strong>{m.from === 'user' ? t.user?.name || 'User' : `${m.author?.name ?? 'Support'} (Siham)`}</strong>
                 <span className="faint"> · {when(m.at)}</span>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>
               </div>

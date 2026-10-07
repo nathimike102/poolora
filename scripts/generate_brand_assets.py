@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Render every Poolora logo and app icon from branding/poolora-icon.png.
+"""Render every Siham logo and app icon from branding/siham-icon.png.
 
 Usage (from the repo root):
     pip install pillow
     python3 scripts/generate_brand_assets.py
 
-branding/poolora-icon.png is the master: a full-bleed, square 1024px
+branding/siham-icon.png is the master: a full-bleed, square 1024px
 image with no rounded corners. It is rendered from the vector artwork in
-branding/source/poolora-icon.svg by scripts/render_brand_master.py; run
+branding/source/siham-icon.svg by scripts/render_brand_master.py; run
 that first after editing the artwork.
 """
 
@@ -16,7 +16,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
-MASTER = Image.open(ROOT / "branding" / "poolora-icon.png").convert("RGBA")
+MASTER = Image.open(ROOT / "branding" / "siham-icon.png").convert("RGBA")
 
 # Corner radius of the rounded tile, as a share of its width (iOS uses ~22%).
 CORNER = 0.225
@@ -82,11 +82,11 @@ def on_canvas(mark: Image.Image, canvas: int) -> Image.Image:
 
 
 def lockup() -> Image.Image:
-    """Tile with the Poolora wordmark beside it, for docs and the README."""
+    """Tile with the Siham wordmark beside it, for docs and the README."""
     mark = tile(360)
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
     font = ImageFont.truetype(font_path, 190) if Path(font_path).exists() else ImageFont.load_default()
-    text = "Poolora"
+    text = "Siham"
     width = ImageDraw.Draw(Image.new("RGB", (1, 1))).textlength(text, font=font)
     img = Image.new("RGBA", (360 + 60 + int(width) + 40, 400), (0, 0, 0, 0))
     img.alpha_composite(mark, (20, 20))
@@ -106,7 +106,7 @@ def og_image() -> Image.Image:
     bold = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
     regular = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     if Path(bold).exists():
-        draw.text((600, 270), "Poolora", font=ImageFont.truetype(bold, 118), fill="white", anchor="ls")
+        draw.text((600, 270), "Siham", font=ImageFont.truetype(bold, 118), fill="white", anchor="ls")
         draw.text((604, 340), "Share the ride,", font=ImageFont.truetype(regular, 44), fill="white", anchor="ls")
         draw.text((604, 396), "split the cost.", font=ImageFont.truetype(regular, 44), fill="white", anchor="ls")
     return bg.convert("RGB")
@@ -120,11 +120,11 @@ def save(img: Image.Image, rel: str, **kwargs) -> None:
 
 
 def main() -> None:
-    print("Rendering from branding/poolora-icon.png")
+    print("Rendering from branding/siham-icon.png")
 
     # Brand files
-    save(tile(1024), "branding/poolora-mark.png", optimize=True)
-    save(lockup(), "branding/poolora-lockup.png", optimize=True)
+    save(tile(1024), "branding/siham-mark.png", optimize=True)
+    save(lockup(), "branding/siham-lockup.png", optimize=True)
 
     # Expo app (frontend)
     save(full_bleed(1024), "frontend/assets/icon.png", optimize=True)
@@ -135,7 +135,7 @@ def main() -> None:
     save(tile(320), "frontend/assets/logo-mark.png", optimize=True)
 
     # Marketing site (web-landing)
-    save(tile(160), "web-landing/src/assets/poolora-logo.webp", quality=90, method=6)
+    save(tile(160), "web-landing/src/assets/siham-logo.webp", quality=90, method=6)
     save(full_bleed(180), "web-landing/public/apple-touch-icon.png", optimize=True)
     save(tile(32), "web-landing/public/favicon-32.png", optimize=True)
     tile(256).save(ROOT / "web-landing/public/favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])

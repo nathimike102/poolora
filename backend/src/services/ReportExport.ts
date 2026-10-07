@@ -33,7 +33,7 @@ export const localDay = (iso: string) => toLocalClock(new Date(iso)).toISOString
 
 export const reportTitle = (report: Report) => `${TITLES[report.type]} report`;
 export const reportFilename = (report: Report, format: ExportFormat) =>
-  `poolora-${report.type}-${localDay(report.from)}-to-${localDay(report.to)}.${format}`;
+  `siham-${report.type}-${localDay(report.from)}-to-${localDay(report.to)}.${format}`;
 
 /** A summary figure as people read it: US$ amounts, 12.5%, 4.25, 18 min */
 export function formatFigure(value: number, format: Report['summary'][number]['format']): string {
@@ -57,11 +57,11 @@ const rangeText = (report: Report) => `${localDay(report.from)} to ${localDay(re
 
 export async function toXlsx(report: Report): Promise<Buffer> {
   const book = new ExcelJS.Workbook();
-  book.creator = 'Poolora';
+  book.creator = 'Siham';
   book.created = new Date();
 
   const summary = book.addWorksheet('Summary');
-  summary.addRow([`Poolora ${reportTitle(report).toLowerCase()}`]).font = { bold: true, size: 14 };
+  summary.addRow([`Siham ${reportTitle(report).toLowerCase()}`]).font = { bold: true, size: 14 };
   summary.addRow([rangeText(report), 'Zimbabwe time']);
   summary.addRow([]);
   summary.addRow(['Figure', 'Value']).font = { bold: true };
@@ -108,7 +108,7 @@ export async function toXlsx(report: Report): Promise<Buffer> {
 
 export function toPdf(report: Report): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 48, info: { Title: `Poolora ${reportTitle(report)}`, Author: 'Poolora' } });
+    const doc = new PDFDocument({ size: 'A4', margin: 48, info: { Title: `Siham ${reportTitle(report)}`, Author: 'Siham' } });
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -149,7 +149,7 @@ export function toPdf(report: Report): Promise<Buffer> {
       doc.moveDown(0.4);
     };
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0b7a75').text('Poolora');
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0b7a75').text('Siham');
     doc.font('Helvetica-Bold').fontSize(18).fillColor('#1a1a1a').text(reportTitle(report));
     doc.font('Helvetica').fontSize(10).fillColor('#555555').text(`${rangeText(report)}. Zimbabwe time.`);
     doc.fillColor('#1a1a1a').moveDown(1);

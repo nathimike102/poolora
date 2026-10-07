@@ -218,7 +218,7 @@ export class AlertRuleService {
     const measure = METRICS[rule.metric];
     const shown = measure.unit === 'percent' ? `${value}%` : String(value);
     const limit = measure.unit === 'percent' ? `${rule.threshold}%` : String(rule.threshold);
-    const title = `${test ? '[Test] ' : ''}Poolora alert: ${rule.name}`;
+    const title = `${test ? '[Test] ' : ''}Siham alert: ${rule.name}`;
     const line = `${measure.label} is ${shown}, ${rule.comparator} the limit of ${limit}.`;
     const link = config.admin.webUrl ? `${config.admin.webUrl}/` : '';
     const recipients = await User.find({ _id: { $in: rule.recipients }, capabilities: UserCapability.ADMIN }).select('email phone name').lean();

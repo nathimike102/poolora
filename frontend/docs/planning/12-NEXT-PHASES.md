@@ -59,7 +59,7 @@ Choices, made to stay on the conservative side so the number can be defended:
 
 ### Languages
 
-Zimbabwe has sixteen official languages. English is the language of business and of every document Poolora has; **Shona** and **Ndebele** are the most widely spoken. The first release offers English, Shona and Ndebele. Every later market adds its own through the market registry (`languages` on each market), so nothing assumes Zimbabwe.
+Zimbabwe has sixteen official languages. English is the language of business and of every document Siham has; **Shona** and **Ndebele** are the most widely spoken. The first release offers English, Shona and Ndebele. Every later market adds its own through the market registry (`languages` on each market), so nothing assumes Zimbabwe.
 
 ### How it works
 
@@ -89,7 +89,7 @@ Steps 1 and 3 are done in English. The whole app reads its words from the catalo
 
 Moving the text also fixed leftovers from the India version: the emergency-contact and parcel screens asked for a "10-digit" number (they now show the market's own format), and the trip planner suggested Goa and the Dudhsagar Falls.
 
-The server writes in each person's language too (`backend/src/i18n`): pushes, in-app notifications and texts name a phrase, and each is written in the recipient's language when sent, English where a phrase is missing. Texts to emergency contacts and the contact-confirmation text are in the language of the person who raised the SOS or added the contact, with the English beneath. Live alerts (the car's approach, leaving the route) and Poolora's own payment instructions carry a key the app translates; Paynow's own instructions stay as Paynow sends them. Messages to the safety team and admins stay in English, and so do messages that carry an admin's own words (dispute decisions, support replies, appeal and claim decisions). Translators fill `backend/src/i18n/locales/sn.json` and `nd.json` the same way as the app's. The Shona and Ndebele catalogues are empty and marked unreviewed, so the app shows English until translators fill them.
+The server writes in each person's language too (`backend/src/i18n`): pushes, in-app notifications and texts name a phrase, and each is written in the recipient's language when sent, English where a phrase is missing. Texts to emergency contacts and the contact-confirmation text are in the language of the person who raised the SOS or added the contact, with the English beneath. Live alerts (the car's approach, leaving the route) and Siham's own payment instructions carry a key the app translates; Paynow's own instructions stay as Paynow sends them. Messages to the safety team and admins stay in English, and so do messages that carry an admin's own words (dispute decisions, support replies, appeal and claim decisions). Translators fill `backend/src/i18n/locales/sn.json` and `nd.json` the same way as the app's. The Shona and Ndebele catalogues are empty and marked unreviewed, so the app shows English until translators fill them.
 
 ### For translators
 
@@ -113,7 +113,7 @@ Commuting is where pooling works best: the same route at the same time every day
 - **Company dashboard**: a role in `admin-web/` limited to its own organisation: members, rides, spend, CO₂ saved (UC-R11 feeds a company sustainability report, which is often why a company signs up).
 - **Privacy**: the company sees who rode, when and what it cost; never routes, positions, ratings or safety reports.
 
-Decided on 2 October 2026: Poolora takes 10% on the part of a fare the company pays (riders' own part keeps the normal fee); companies pay no fee to start; the monthly bill is paid by bank transfer within 30 days, and the company's contribution pauses if it is not. A cancelled trip costs the company nothing, and Poolora pays drivers in full when a trip completes and collects from the company afterwards.
+Decided on 2 October 2026: Siham takes 10% on the part of a fare the company pays (riders' own part keeps the normal fee); companies pay no fee to start; the monthly bill is paid by bank transfer within 30 days, and the company's contribution pauses if it is not. A cancelled trip costs the company nothing, and Siham pays drivers in full when a trip completes and collects from the company afterwards.
 
 Built in slices:
 
@@ -121,7 +121,7 @@ Built in slices:
 2. **Colleagues-only rides** (done): a driver in a programme can keep a ride to colleagues; only that company's members see it, hear of it or book it, and nobody while the company is suspended. Colleagues see "Works at …" on each other's rides and requests, and can filter results to colleagues; the public never sees where anyone works.
 3. **Company-paid fares** (done): each company's share, monthly cap per person, weekdays-only (public holidays excluded) and sites, set on its page in the web admin; the booking screen shows the company's part before booking and charges the rider only the rest; refunds, cancellation splits and no-shows work on the rider's part; completion keeps 10% of the company's part (the "Commission on company-paid fares" setting) and the usual commission on the rider's; receipts show what the company paid.
 4. **Monthly billing** (done): an hourly job bills last month from 06:00 on the 1st, for every company with completed company-paid trips not yet billed (a trip that completes late goes on the next bill), and emails the bill with a PDF and a spreadsheet to the billing contact, once, retrying if the email fails. A bill more than 30 days unpaid pauses the company's contribution (staff see why on Profile > Work) until an admin records the bank transfer. Admins can bill now, download, record payment and adjust an unpaid bill with a reason. Bookings are reserved for a bill before it is written, so two backend instances never bill a trip twice.
-5. **The company's own dashboard** (done): a Poolora admin names company admins (addresses on the company's domains, or its billing contact); they get a link to set a password and sign in to the web admin, where they see only their company: staff and their trips and spend this month, the month's totals and CO₂ saved, what the company pays, and their bills to download. They can remove staff who left. Never routes, places, ratings or safety reports.
+5. **The company's own dashboard** (done): a Siham admin names company admins (addresses on the company's domains, or its billing contact); they get a link to set a password and sign in to the web admin, where they see only their company: staff and their trips and spend this month, the month's totals and CO₂ saved, what the company pays, and their bills to download. They can remove staff who left. Never routes, places, ratings or safety reports.
 
 All five slices of company programmes are built.
 
@@ -135,7 +135,7 @@ Mobile data is expensive in Zimbabwe, and masked voice calls between rider and d
 
 ### Where video earns its place
 
-1. **During an SOS**, the safety team can ask the person to switch on their camera. Staff see what is happening when the person cannot speak freely, and a recording joins the incident evidence, as the SOS audio already does. This is the strongest case, and it fits Poolora's safety-first position.
+1. **During an SOS**, the safety team can ask the person to switch on their camera. Staff see what is happening when the person cannot speak freely, and a recording joins the incident evidence, as the SOS audio already does. This is the strongest case, and it fits Siham's safety-first position.
 2. **Identity checks** (UC-R01, women-only rides): a short live video call with an admin, as an option for people whose selfie was unclear, instead of sending them away.
 3. **Rider and driver**, opt-in, before the pickup only, to recognise each other at a busy rank. Lowest priority.
 

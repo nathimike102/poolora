@@ -19,7 +19,7 @@ import { tc, tk } from '../theme/themed';
 interface Props {
   value: Country;
   onChange: (country: Country) => void;
-  /** Shown first: where the phone is, and where Poolora runs */
+  /** Shown first: where the phone is, and where Siham runs */
   suggested?: (string | undefined)[];
 }
 

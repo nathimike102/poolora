@@ -1,7 +1,7 @@
 # Realistic 3D icons
 
-Studio-style 3D renders of every icon Poolora uses, in the manner of the vehicle
-tiles in Uber and Rapido, generated for Poolora with Canva AI (6 October 2026) and
+Studio-style 3D renders of every icon Siham uses, in the manner of the vehicle
+tiles in Uber and Rapido, generated for Siham with Canva AI (6 October 2026) and
 cut out with Canva's background remover. No brands, logos or text appear in them.
 
 Each is a 200×200 PNG, the largest size the Canva connector downloads. Vehicles

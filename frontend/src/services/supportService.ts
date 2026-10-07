@@ -1,5 +1,5 @@
 /**
- * Help and support requests (UC-X02). The Poolora team answers in the same
+ * Help and support requests (UC-X02). The Siham team answers in the same
  * thread; safety and payment requests are answered first.
  */
 import { Platform } from 'react-native';

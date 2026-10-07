@@ -84,7 +84,7 @@ export function CarTrackerScreen() {
         <View style={[s.note, tc.backgroundColor_primaryLight]}>
           <Icon name="shield-lock-outline" size={20} color={tk.primary} />
           <Text style={[{ flex: 1, fontSize: 13, lineHeight: 19 }, tc.color_text]}>
-            {t('carTracker.pooloraKeepsWhereYourCar')}
+            {t('carTracker.sihamKeepsWhereYourCar')}
           </Text>
         </View>
 
@@ -137,7 +137,7 @@ export function CarTrackerScreen() {
           </View>
         ))}
 
-        <Text style={[s.title, tc.color_text]}>{t('carTracker.pointYourTrackerAtPoolora')}</Text>
+        <Text style={[s.title, tc.color_text]}>{t('carTracker.pointYourTrackerAtSiham')}</Text>
         {gateway ? (
           <>
             <Text style={[{ fontSize: 14, lineHeight: 21 }, tc.color_text]}>
@@ -160,7 +160,7 @@ export function CarTrackerScreen() {
         )}
         <Text style={[s.title, tc.color_text]}>{t('carTracker.trackerFromATrackingCompany')}</Text>
         <Text style={[{ fontSize: 14, lineHeight: 21 }, tc.color_text]}>
-          Ask them to forward your car to Poolora. Most platforms can (Wialon, Traccar, GPSWox). Link the same device id here. Poolora never cuts a car's engine.
+          Ask them to forward your car to Siham. Most platforms can (Wialon, Traccar, GPSWox). Link the same device id here. Siham never cuts a car's engine.
         </Text>
       </ScrollView>
     </View>

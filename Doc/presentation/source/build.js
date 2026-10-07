@@ -1,6 +1,6 @@
-// Builds the Poolora decks from the app's screens, the 3D animations and facts.json.
-//   node build.js academic   -> ../Poolora-Project-Presentation.pptx (final-year project review)
-//   node build.js pitch      -> ../Poolora-Launch-Pitch.pptx (Zimbabwe launch, for partners)
+// Builds the Siham decks from the app's screens, the 3D animations and facts.json.
+//   node build.js academic   -> ../Siham-Project-Presentation.pptx (final-year project review)
+//   node build.js pitch      -> ../Siham-Launch-Pitch.pptx (Zimbabwe launch, for partners)
 // Run `npm run all` for the whole pipeline: facts, screens, 3D renders, decks, PDFs.
 const fs = require('fs');
 const path = require('path');
@@ -18,15 +18,15 @@ if (!['academic', 'pitch'].includes(VARIANT)) throw new Error('Variant: academic
 const ACADEMIC = VARIANT === 'academic';
 const ROOT = path.resolve(__dirname, '../../..');
 const DOC = path.resolve(__dirname, '..');
-const OUT = path.join(DOC, ACADEMIC ? 'Poolora-Project-Presentation.pptx' : 'Poolora-Launch-Pitch.pptx');
+const OUT = path.join(DOC, ACADEMIC ? 'Siham-Project-Presentation.pptx' : 'Siham-Launch-Pitch.pptx');
 const FRAMES = path.join(DOC, 'screens/frames');
 const CLEAN = path.join(DOC, 'screens/clean');
 const MEDIA = path.join(DOC, 'media');
-const MARK = path.join(ROOT, 'branding/poolora-icon.png');
-const LOCKUP = path.join(ROOT, 'branding/poolora-lockup.png');
+const MARK = path.join(ROOT, 'branding/siham-icon.png');
+const LOCKUP = path.join(ROOT, 'branding/siham-lockup.png');
 const F = require('./facts.json');
 
-// ── design tokens (from the Poolora logo) ──────────────────────────────
+// ── design tokens (from the Siham logo) ──────────────────────────────
 const C = {
   navy: '1B1446', deep: '0E0A2C', teal: '0B7A75', tealDark: '08605C', tealLight: '3FC1B5', mint: 'E3F2F0',
   pink: 'D9468F', pinkLight: 'FBE3EF', ink: '1F2330', muted: '5B6475', line: 'D5DBE3', white: 'FFFFFF',
@@ -86,9 +86,9 @@ function nodesOf(name) {
 (async () => {
   const pres = new pptxgen();
   pres.layout = 'LAYOUT_WIDE';
-  pres.title = ACADEMIC ? 'Poolora: Smart Ride-Sharing and Pooling Platform' : 'Poolora: carpooling for Zimbabwe';
+  pres.title = ACADEMIC ? 'Siham: Smart Ride-Sharing and Pooling Platform' : 'Siham: carpooling for Zimbabwe';
   pres.author = 'Nkosinathi Michael Sibanda';
-  pres.company = 'Poolora';
+  pres.company = 'Siham';
 
   const I = {};
   const need = {
@@ -134,7 +134,7 @@ function nodesOf(name) {
   const footer = (s) => {
     s.addImage({ path: MARK, x: W - 0.9, y: 6.95, w: 0.34, h: 0.34, objectName: uid('Mark') });
     s.addText(`${deck.length}`, { x: 0.6, y: 6.98, w: 0.6, h: 0.3, fontFace: BODY, fontSize: 11, color: s._meta.dark ? C.lilac : C.muted, margin: 0 });
-    s.addText(ACADEMIC ? 'Poolora · Final year project · 2026' : 'Poolora · Zimbabwe launch · 2026', { x: 1.1, y: 6.98, w: 6, h: 0.3, fontFace: BODY, fontSize: 11, color: s._meta.dark ? C.lilac : C.muted, margin: 0 });
+    s.addText(ACADEMIC ? 'Siham · Final year project · 2026' : 'Siham · Zimbabwe launch · 2026', { x: 1.1, y: 6.98, w: 6, h: 0.3, fontFace: BODY, fontSize: 11, color: s._meta.dark ? C.lilac : C.muted, margin: 0 });
   };
   const card = (s, x, y, w, h, { fill = C.white, name, line = C.line } = {}) => {
     const n = name || uid('Card');
@@ -202,13 +202,13 @@ function nodesOf(name) {
   // 1 Title
   {
     const s = slide({ dark: true, transition: 'fade', notes: ACADEMIC
-      ? 'Introduce yourself and the project. Poolora lets people travelling the same way share a car, send a parcel with someone already going, or plan a group trip. It is being launched first in Zimbabwe, starting with Harare.'
-      : 'Poolora is a carpooling app for Zimbabwe: drivers already making a trip sell their empty seats, riders book and pay by EcoCash or card. Built and tested; launching in Harare.' });
+      ? 'Introduce yourself and the project. Siham lets people travelling the same way share a car, send a parcel with someone already going, or plan a group trip. It is being launched first in Zimbabwe, starting with Harare.'
+      : 'Siham is a carpooling app for Zimbabwe: drivers already making a trip sell their empty seats, riders book and pay by EcoCash or card. Built and tested; launching in Harare.' });
     s.background = { color: C.deep };
     clip(s, 'hero.gif', 5.55, 0.9, 7.6, 'Hero clip');
     s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 0.7, w: 3.7, h: 1.18, rectRadius: 0.15, fill: { color: C.white }, line: { color: C.white }, objectName: 'Logo panel' });
     s.addImage({ path: LOCKUP, x: 0.72, y: 0.78, w: 3.45, h: 1.08, objectName: 'Logo' });
-    text(s, 'Poolora', 0.6, 2.35, 5, 1, { fontFace: HEAD, fontSize: 54, bold: true, color: C.white, objectName: 'Name' });
+    text(s, 'Siham', 0.6, 2.35, 5, 1, { fontFace: HEAD, fontSize: 54, bold: true, color: C.white, objectName: 'Name' });
     text(s, ACADEMIC ? 'Smart ride-sharing, parcel and trip pooling' : 'Share the ride. Split the cost. Travel safer.', 0.6, 3.35, 5.2, 0.9, { fontSize: 22, color: 'CFE9E6', objectName: 'Tagline' });
     text(s, ACADEMIC ? 'Launching first in Zimbabwe · Harare' : 'Carpooling for Zimbabwe, starting in Harare', 0.6, 4.25, 5.2, 0.4, { fontSize: 16, color: C.lilac, objectName: 'Market line' });
     if (ACADEMIC) {
@@ -280,10 +280,10 @@ function nodesOf(name) {
 
   if (ACADEMIC) {
     // 4 Existing vs proposed
-    const s = slide({ notes: 'How Poolora differs from what Harare commuters use now. Taxi apps are on-demand and mostly cash; kombis are cheap but informal. Poolora is scheduled seat booking with upfront mobile-money payment and safety features.' });
-    title(s, 'Existing options vs Poolora');
+    const s = slide({ notes: 'How Siham differs from what Harare commuters use now. Taxi apps are on-demand and mostly cash; kombis are cheap but informal. Siham is scheduled seat booking with upfront mobile-money payment and safety features.' });
+    title(s, 'Existing options vs Siham');
     const rows = [
-      ['', 'Kombi / ZUPCO', 'Taxi apps (inDrive, Vaya)', 'Poolora'],
+      ['', 'Kombi / ZUPCO', 'Taxi apps (inDrive, Vaya)', 'Siham'],
       ['Price, 15 km', `${MARKET.kombi} (ZUPCO ${usd(MARKET.zupco)})`, `${MARKET.taxiApp5km}`, `${usd(commute.suggested)} a seat (car)`],
       ['Booking', 'Queue at the rank', 'On demand, fare negotiated', 'Scheduled seat, paid upfront'],
       ['Matching', 'Fixed routes', 'Pickup near the driver', 'Anywhere along the driver\'s route, right direction'],
@@ -307,7 +307,7 @@ function nodesOf(name) {
 
   // 5 Solution
   {
-    const s = slide({ dark: true, notes: 'The animation shows the idea: three solo trips become one shared car. Poolora pools three things: seats in cars already making a trip, parcel space, and group trips.' });
+    const s = slide({ dark: true, notes: 'The animation shows the idea: three solo trips become one shared car. Siham pools three things: seats in cars already making a trip, parcel space, and group trips.' });
     s.background = { color: C.deep };
     title(s, 'One platform, three kinds of pooling', { sub: 'Drivers who are making the trip anyway sell their empty seats and boot space.' });
     clip(s, 'pool.gif', 0.6, 1.8, 7.2, 'Pool clip');
@@ -401,7 +401,7 @@ function nodesOf(name) {
       callout(s, a, 'Driver is', 'Live distance and time to pickup', { side: 'right', width: 1.7, after: 1100 });
       callout(s, c, 'Emergency contacts', 'Contacts get a live-location link', { side: 'left', width: 1.7, after: 1500 });
     });
-  await tour('Drive and earn', 'Post a ride in a minute; Poolora suggests a fair price and shows what the trip earns.', ['driver_home', 'create_ride', 'earnings'],
+  await tour('Drive and earn', 'Post a ride in a minute; Siham suggests a fair price and shows what the trip earns.', ['driver_home', 'create_ride', 'earnings'],
     `Drivers see today's earnings and upcoming rides. Posting Harare to Bulawayo suggests ${usd(hreByo.suggested)} a seat off-peak (US$29 in commute hours) from the route distance and vehicle; the driver can choose within 30%.`,
     (s, [a, b, c]) => {
       callout(s, b, 'Suggested', 'Suggested price and the allowed range', { side: 'left', width: 1.7, after: 1100 });
@@ -524,13 +524,13 @@ function nodesOf(name) {
     barChart(0.6, 1.95, 6.0, 'Commuting in Harare', [
       ['ZUPCO bus, up to 20 km', MARKET.zupco, usd(MARKET.zupco)],
       ['Kombi', 1, 'US$0.50–1'],
-      [`Poolora seat, 15 km (car)`, commute.suggested, usd(commute.suggested), true],
+      [`Siham seat, 15 km (car)`, commute.suggested, usd(commute.suggested), true],
       ['Taxi app, 5 km', 3, 'US$2–4'],
     ], 4, 0);
     barChart(6.75, 1.95, 6.0, 'Harare to Bulawayo (439 km)', [
       ['Ordinary bus', MARKET.busHreByo, usd(MARKET.busHreByo)],
-      ['Poolora seat, car', hreByo.suggested, usd(hreByo.suggested), true],
-      ['Poolora seat, minivan', hreByoVan.suggested, usd(hreByoVan.suggested), true],
+      ['Siham seat, car', hreByo.suggested, usd(hreByo.suggested), true],
+      ['Siham seat, minivan', hreByoVan.suggested, usd(hreByoVan.suggested), true],
       ['CityLink luxury coach', MARKET.coachHreByo, usd(MARKET.coachHreByo)],
     ], 38, 600);
     const r = F.pricing.ratePerKm;
@@ -542,14 +542,14 @@ function nodesOf(name) {
 
   // Pitch: how the money works
   if (!ACADEMIC) {
-    const s = slide({ notes: 'Riders pay the seat price with no booking fee. Poolora keeps 15% of completed fares; the rest goes to the driver. On a full intercity trip the fares cover the driver\'s fuel, which is what makes drivers post rides.' });
-    title(s, 'How the money works', { sub: `Riders pay the seat price, no booking fee. Poolora keeps ${pct(fee)} of completed fares; drivers keep the rest.` });
+    const s = slide({ notes: 'Riders pay the seat price with no booking fee. Siham keeps 15% of completed fares; the rest goes to the driver. On a full intercity trip the fares cover the driver\'s fuel, which is what makes drivers post rides.' });
+    title(s, 'How the money works', { sub: `Riders pay the seat price, no booking fee. Siham keeps ${pct(fee)} of completed fares; drivers keep the rest.` });
     const trip = (x, heading, km, seat, riders) => {
       const fares = seat * riders;
       const fees = fares * fee;
       const rows = [
         [`${riders} seats × ${usd(seat)}`, usd(fares)],
-        [`Poolora (${pct(fee)})`, `−${usd(Math.round(fees * 100) / 100)}`],
+        [`Siham (${pct(fee)})`, `−${usd(Math.round(fees * 100) / 100)}`],
         ['Driver keeps', usd(Math.round((fares - fees) * 100) / 100)],
         [`Fuel, ${km} km at ${litresPer100} L/100 km`, usd(Math.round(fuelCost(km) * 100) / 100)],
       ];
@@ -599,7 +599,7 @@ function nodesOf(name) {
       ['check', `Free for ${F.cancellation.freeCancelMins} minutes after the driver accepts, while the ride is ${F.cancellation.freeCancelLeadMins / 60} hour or more away`],
       ['check', 'Everything back before the driver accepts, if the driver cancels, or if the driver moves the time'],
       ['check', `No-show: the driver waits ${F.cancellation.noShowWaitMins} minutes at the pickup; then the fare goes to the driver, less the fee`],
-      ['check', 'Refunds go to the Poolora wallet at once and can be withdrawn to EcoCash, OneMoney or InnBucks'],
+      ['check', 'Refunds go to the Siham wallet at once and can be withdrawn to EcoCash, OneMoney or InnBucks'],
     ];
     rulesList.forEach(([k, t], i) => {
       const y = 3.75 + i * 0.66;
@@ -619,8 +619,8 @@ function nodesOf(name) {
 
   // 17 Safety (academic)
   if (ACADEMIC) {
-    const s = slide({ dark: true, notes: 'Safety is what sets Poolora apart, and it covers the driver as much as the rider. SOS reaches the safety desk at once and the family ten seconds later. Every phone on a ride is traced, and a GPS tracker in the car keeps it traceable even if every phone is switched off. A pickup code means nobody gets into the wrong car. Women-only rides are for women whose ID our team has checked. All of it is covered by tests against a real database.' });
-    title(s, 'Safety by design', { sub: 'For riders and drivers alike: the reason to choose Poolora.' });
+    const s = slide({ dark: true, notes: 'Safety is what sets Siham apart, and it covers the driver as much as the rider. SOS reaches the safety desk at once and the family ten seconds later. Every phone on a ride is traced, and a GPS tracker in the car keeps it traceable even if every phone is switched off. A pickup code means nobody gets into the wrong car. Women-only rides are for women whose ID our team has checked. All of it is covered by tests against a real database.' });
+    title(s, 'Safety by design', { sub: 'For riders and drivers alike: the reason to choose Siham.' });
     const feats = [
       ['sos', 'SOS in 3 seconds', 'Safety desk alerted at once; family get a live link 10 s later. No GPS needed; offline, it texts them from the phone'],
       ['pin', 'Pickup code', 'The rider gets in only when the driver has entered their 4-digit code: never the wrong car'],
@@ -841,7 +841,7 @@ function nodesOf(name) {
     if (ACADEMIC) {
       title(s, 'Conclusion');
       const b = bullets(s, [
-        'Poolora pools seats, parcel space and group trips in one app',
+        'Siham pools seats, parcel space and group trips in one app',
         'Built for Zimbabwe: US dollars and mobile money, Harare time, local holidays and vehicles',
         'Safety, payments, refunds and operations are in place and tested',
         'Launch needs licences and live payments, not more code',
@@ -866,7 +866,7 @@ function nodesOf(name) {
   // Sources
   {
     const s = slide({ notes: 'Where the market figures came from. Prices change often; these were checked in September 2026.' });
-    title(s, 'Sources', { sub: 'Market figures checked in September 2026. Poolora figures are read from the code when the deck is built.' });
+    title(s, 'Sources', { sub: 'Market figures checked in September 2026. Siham figures are read from the code when the deck is built.' });
     const src = [
       'Zimpricecheck, "Urban ZUPCO, intercity bus fare and transport costs", 29 Sept 2026 · zimpricecheck.com',
       'CityLink Luxury Coaches, routes and fares · citylinkcoaches.co.zw',

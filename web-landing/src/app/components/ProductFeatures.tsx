@@ -9,7 +9,7 @@ import {
   DriverVerificationIcon,
   VehicleVerificationIcon,
   SmartMatchingIcon,
-} from './icons/PooloraIcons';
+} from './icons/SihamIcons';
 import { FEATURES } from '../../config/features';
 import { COMPANY } from '../../config/company';
 import { Container } from './layout/Container';

@@ -32,7 +32,7 @@ export interface IUser extends Document {
   gender?: 'male' | 'female' | 'other';
   /** The language the app, pushes and messages use for this person (UC-X03); absent means English */
   language?: string;
-  /** A confirmed work email at a company on Poolora (UC-C02) */
+  /** A confirmed work email at a company on Siham (UC-C02) */
   work?: { organisation: Types.ObjectId; email: string; verifiedAt: Date };
   /** A work email waiting for its link to be opened; the token hash is never sent out */
   workPending?: { organisation: Types.ObjectId; email: string; tokenHash: string; sentAt: Date };

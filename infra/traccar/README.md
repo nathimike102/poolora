@@ -1,6 +1,6 @@
 # Car tracker gateway
 
-Poolora reads car GPS trackers through [Traccar](https://www.traccar.org) running as a **forwarder only**: it understands the trackers' protocols, stores nothing, and posts every position to the backend (`POST /api/v1/trackers/traccar`). The backend keeps a car's positions only while it is on a ride or an SOS is open, and otherwise only the time it last reported (for the "Tracked car" badge). See `backend/src/services/TrackerService.ts`.
+Siham reads car GPS trackers through [Traccar](https://www.traccar.org) running as a **forwarder only**: it understands the trackers' protocols, stores nothing, and posts every position to the backend (`POST /api/v1/trackers/traccar`). The backend keeps a car's positions only while it is on a ride or an SOS is open, and otherwise only the time it last reported (for the "Tracked car" badge). See `backend/src/services/TrackerService.ts`.
 
 ## Run it
 

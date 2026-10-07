@@ -66,7 +66,7 @@ type Phase = 'loading' | 'idle' | 'holding' | 'sending' | 'active' | 'retrying';
 type Position = { lat: number; lng: number };
 
 const OPEN_STATUSES = ['triggered', 'acknowledged'];
-const CONTACTS_CACHE_KEY = '@poolora_sos_contacts';
+const CONTACTS_CACHE_KEY = '@siham_sos_contacts';
 /** Below this, the screen says the contacts already have the last position */
 const LOW_BATTERY = 0.15;
 

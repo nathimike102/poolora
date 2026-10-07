@@ -98,7 +98,7 @@ describe('joining with a work email (UC-C02)', () => {
     expect((await service.get(organisation._id)).members).toHaveLength(1);
   });
 
-  it('tells people whose company is not on Poolora', async () => {
+  it('tells people whose company is not on Siham', async () => {
     await company();
     await expect(service.requestJoin(tendai.toString(), 'me@delta.co.zw')).rejects.toMatchObject({ errorId: 'NO_COMPANY_PROGRAMME' });
     await expect(service.requestJoin(tendai.toString(), 'not-an-email')).rejects.toMatchObject({ statusCode: 422 });
@@ -108,7 +108,7 @@ describe('joining with a work email (UC-C02)', () => {
     await company();
     await service.requestJoin(tendai.toString(), 'shared@econet.co.zw');
     await service.confirm(linkToken());
-    await expect(service.requestJoin(rudo.toString(), 'shared@econet.co.zw')).rejects.toThrow('linked to another Poolora account');
+    await expect(service.requestJoin(rudo.toString(), 'shared@econet.co.zw')).rejects.toThrow('linked to another Siham account');
   });
 
   it('sends at most one link every ten minutes', async () => {

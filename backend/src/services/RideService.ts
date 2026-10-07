@@ -142,7 +142,7 @@ export class RideService {
     // A colleagues-only ride belongs to the driver's company while its programme is active (UC-C02)
     const company = data.preferences?.colleaguesOnly ? await activeOrganisationOf(driverId) : null;
     if (data.preferences?.colleaguesOnly && !company) {
-      throw new AppError('Only staff of a company on Poolora can post colleagues-only rides. Join from Profile > Work.', 403, 'NOT_A_COMPANY_MEMBER');
+      throw new AppError('Only staff of a company on Siham can post colleagues-only rides. Join from Profile > Work.', 403, 'NOT_A_COMPANY_MEMBER');
     }
 
     // Check max active rides

@@ -1,7 +1,7 @@
 /**
  * screens/shared/WalletScreen.tsx
  *
- * The Poolora wallet: balance, topping up (paid through Paynow on the
+ * The Siham wallet: balance, topping up (paid through Paynow on the
  * Payment screen), withdrawing to EcoCash, OneMoney or InnBucks, and recent
  * activity. Refunds and drivers' earnings land here, so withdrawing is how
  * money gets back to a mobile money account. A person sends each withdrawal,
@@ -213,7 +213,7 @@ export function WalletScreen() {
           />
           <Text style={[{ fontSize: 12 }, tc.color_textSec]}>{t('wallet.topUpRange', { min: money(MIN_TOP_UP), max: money(MAX_TOP_UP) })}</Text>
           <Pressable
-            onPress={() => navigation.navigate('Payment', { amount: topUpAmount, summary: 'Poolora wallet top-up' })}
+            onPress={() => navigation.navigate('Payment', { amount: topUpAmount, summary: 'Siham wallet top-up' })}
             disabled={!topUpOk}
             accessibilityRole="button"
             accessibilityState={{ disabled: !topUpOk }}

@@ -275,7 +275,7 @@ export class ParcelEvidenceService {
     await tell(
       claim.claimant.toString(),
       approve ? 'Claim approved' : 'Claim not approved',
-      approve ? `${money(payout)} has been added to your Poolora wallet. ${note}` : note,
+      approve ? `${money(payout)} has been added to your Siham wallet. ${note}` : note,
       { parcelId: claim.parcel.toString() },
     );
     return { claim: decided };

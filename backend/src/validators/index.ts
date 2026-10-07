@@ -14,13 +14,13 @@ export const sendOtpSchema = {
   }),
 };
 
-/** Poolora is for adults (Terms of Service; privacy policy on children's data) */
+/** Siham is for adults (Terms of Service; privacy policy on children's data) */
 export const MIN_USER_AGE = 18;
 const adultDateOfBirth = Joi.date().iso().max('now').custom((value: Date, helpers) => {
   const limit = new Date();
   limit.setFullYear(limit.getFullYear() - MIN_USER_AGE);
   return value.getTime() > limit.getTime() ? helpers.error('date.underAge') : value;
-}).messages({ 'date.underAge': `You must be at least ${MIN_USER_AGE} to use Poolora` });
+}).messages({ 'date.underAge': `You must be at least ${MIN_USER_AGE} to use Siham` });
 
 export const verifyOtpSchema = {
   body: Joi.object({

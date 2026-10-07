@@ -32,17 +32,17 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await User.deleteMany({});
-  await User.collection.insertOne({ _id: adminId, name: 'Admin', phone: '+263771000009', email: 'admin@poolora.co.zw', emailVerifiedAt: new Date(), capabilities: ['rider', 'admin'], isActive: true, stats: {} });
+  await User.collection.insertOne({ _id: adminId, name: 'Admin', phone: '+263771000009', email: 'admin@siham.co.zw', emailVerifiedAt: new Date(), capabilities: ['rider', 'admin'], isActive: true, stats: {} });
 });
 
 describe('linking a Firebase sign-in by email', () => {
   it('links to the account when the email is verified', async () => {
-    const user = await sync({ email: 'admin@poolora.co.zw', email_verified: true });
+    const user = await sync({ email: 'admin@siham.co.zw', email_verified: true });
     expect(String(user._id)).toBe(String(adminId));
   });
 
   it('refuses an unverified email that belongs to an account', async () => {
-    await expect(sync({ email: 'Admin@Poolora.co.zw', email_verified: false })).rejects.toThrow('Verify this email address');
+    await expect(sync({ email: 'Admin@Siham.co.zw', email_verified: false })).rejects.toThrow('Verify this email address');
     expect((await User.findById(adminId).lean())?.firebaseUid).toBeUndefined();
   });
 
@@ -79,15 +79,15 @@ describe('changing the address in the profile', () => {
     const { UserController } = await import('../../controllers/UserController');
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
     const next = jest.fn();
-    await UserController.updateMe({ user: { userId: String(adminId) }, body: { email: 'new@poolora.co.zw' } } as never, res as never, next);
+    await UserController.updateMe({ user: { userId: String(adminId) }, body: { email: 'new@siham.co.zw' } } as never, res as never, next);
     expect(next).not.toHaveBeenCalled();
     const after = await User.findById(adminId).lean();
-    expect(after?.email).toBe('new@poolora.co.zw');
+    expect(after?.email).toBe('new@siham.co.zw');
     expect(after?.emailVerifiedAt).toBeUndefined();
 
     // Saving the same address again changes nothing
     await User.updateOne({ _id: adminId }, { $set: { emailVerifiedAt: new Date() } });
-    await UserController.updateMe({ user: { userId: String(adminId) }, body: { email: 'New@Poolora.co.zw' } } as never, res as never, next);
+    await UserController.updateMe({ user: { userId: String(adminId) }, body: { email: 'New@Siham.co.zw' } } as never, res as never, next);
     expect((await User.findById(adminId).lean())?.emailVerifiedAt).toBeInstanceOf(Date);
   });
 });

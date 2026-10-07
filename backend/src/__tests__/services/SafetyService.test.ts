@@ -287,7 +287,7 @@ describe('the safety team (UC-A03)', () => {
     expect(taken.status).toBe(SOSStatus.ACKNOWLEDGED);
     expect(taken.riskLevel).toBe(SOSRiskLevel.LOW);
     expect(taken.timeline.at(-1)).toMatchObject({ event: 'Taken by the safety team', details: 'Chipo Admin' });
-    expect(mockTellUser).toHaveBeenCalledWith(rider, expect.objectContaining({ change: 'acknowledged', body: inEnglish('Chipo from the Poolora safety team is on it and will call you.') }));
+    expect(mockTellUser).toHaveBeenCalledWith(rider, expect.objectContaining({ change: 'acknowledged', body: inEnglish('Chipo from the Siham safety team is on it and will call you.') }));
     await expect(service.acknowledgeSOS(sos.id, adminId.toString())).rejects.toThrow('already acknowledged');
   });
 

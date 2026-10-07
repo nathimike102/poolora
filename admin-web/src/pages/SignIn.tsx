@@ -71,7 +71,7 @@ export function SignInPage({
       >
         <div className="brand" style={{ padding: 0 }}>
           <img src="/mark.png" alt="" />
-          Poolora Admin
+          Siham Admin
         </div>
         <p className="muted">Sign in with an admin account.</p>
         {!firebaseConfigured ? (

@@ -45,7 +45,7 @@ beforeEach(async () => {
   sendMail.mockClear();
   sendSMS.mockClear();
   await User.collection.insertMany([
-    { _id: admin, name: 'On-call admin', phone: '+919000000009', email: 'oncall@poolora.app', capabilities: ['rider', 'admin'], kyc: { status: 'none' }, stats: {} },
+    { _id: admin, name: 'On-call admin', phone: '+919000000009', email: 'oncall@siham.app', capabilities: ['rider', 'admin'], kyc: { status: 'none' }, stats: {} },
     { _id: rider, name: 'Rider', phone: '+919000000001', capabilities: ['rider'], kyc: { status: 'none' }, stats: {} },
   ]);
 });
@@ -61,7 +61,7 @@ it('fires once, then stays quiet for the cooldown', async () => {
   expect(await service.check()).toBe(0);
   await sos();
   expect(await service.check()).toBe(1);
-  expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: 'oncall@poolora.app', subject: 'Poolora alert: Open SOS' }));
+  expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: 'oncall@siham.app', subject: 'Siham alert: Open SOS' }));
   expect(sendSMS).toHaveBeenCalledWith('+919000000009', expect.stringContaining('Open SOS alerts is 1, above the limit of 0'));
   expect(await service.check()).toBe(0); // still 1, but inside the cooldown
   expect((await AlertRule.findById(rule._id).lean())?.history).toHaveLength(1);

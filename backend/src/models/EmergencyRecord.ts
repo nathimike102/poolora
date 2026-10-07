@@ -70,7 +70,7 @@ export interface IEmergencyRecord extends Document {
   userSafeAt?: Date;
   /** The phone stopped sending its position */
   lostContactAt?: Date;
-  /** The user cancelled inside the window, before anyone outside Poolora was told */
+  /** The user cancelled inside the window, before anyone outside Siham was told */
   cancelledAt?: Date;
   liveTrackingUrl: string;
   riskLevel: SOSRiskLevel;

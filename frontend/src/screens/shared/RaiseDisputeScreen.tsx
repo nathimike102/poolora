@@ -1,7 +1,7 @@
 /**
  * screens/shared/RaiseDisputeScreen.tsx
  *
- * Report a problem with a booking (UC-A04 step 1). The Poolora team reviews
+ * Report a problem with a booking (UC-A04 step 1). The Siham team reviews
  * it with the trip's chat, payments and GPS, and both people are told the
  * decision. Riders and drivers use the same form.
  */

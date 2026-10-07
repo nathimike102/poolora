@@ -22,7 +22,7 @@ import { Radius, Spacing, Typography } from '../../theme';
 import { tc, tk } from '../../theme/themed';
 
 /** Set once the guide has been seen, so it opens by itself only once */
-export const GUIDE_SEEN_KEY = '@poolora_guide_seen';
+export const GUIDE_SEEN_KEY = '@siham_guide_seen';
 
 const TOPICS: { key: string; icon: Icon3DName; steps: number }[] = [
   { key: 'ride', icon: 'automobile', steps: 4 },

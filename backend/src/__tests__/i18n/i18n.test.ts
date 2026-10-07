@@ -58,8 +58,8 @@ describe('SOS texts keep the English', () => {
     shona.sos = { contacts: { safe: '[sn] {{name}} vaneta zvakanaka' } };
     try {
       const text = phrase('sos.contacts.safe', { name: 'Rudo' });
-      expect(withEnglish('sn', text)).toBe('[sn] Rudo vaneta zvakanaka\n\nPoolora: Rudo says they are safe now. Our safety team is checking with them.');
-      expect(withEnglish('en', text)).toBe('Poolora: Rudo says they are safe now. Our safety team is checking with them.');
+      expect(withEnglish('sn', text)).toBe('[sn] Rudo vaneta zvakanaka\n\nSiham: Rudo says they are safe now. Our safety team is checking with them.');
+      expect(withEnglish('en', text)).toBe('Siham: Rudo says they are safe now. Our safety team is checking with them.');
     } finally {
       delete shona.sos;
     }

@@ -3,7 +3,7 @@
 > **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
-## Poolora - Security & Compliance Framework
+## Siham - Security & Compliance Framework
 
 **Classification**: Confidential  
 **Version**: 1.0
@@ -670,7 +670,7 @@ CMD ["node", "dist/index.js"]
 
 ### 6.0 Zimbabwe: Cyber and Data Protection Act [Chapter 12:07]
 
-**Applies To**: every user; Zimbabwe is the launch market. The Data Protection Authority is POTRAZ. GDPR and CCPA (below) apply only if Poolora serves those regions.
+**Applies To**: every user; Zimbabwe is the launch market. The Data Protection Authority is POTRAZ. GDPR and CCPA (below) apply only if Siham serves those regions.
 
 ```
 ✅ Registration
@@ -743,8 +743,8 @@ CMD ["node", "dist/index.js"]
 
 ```
 ✅ Don't Store Full Card Numbers
-   - Card details are typed on Paynow's own page and never reach Poolora
-   - Only Paynow references are stored (the Poolora reference, e.g.
+   - Card details are typed on Paynow's own page and never reach Siham
+   - Only Paynow references are stored (the Siham reference, e.g.
      "BK-<booking id>-a1b2c3", and Paynow's own reference)
    - Never store: card numbers, CVV, expiry dates, mobile money PINs
 
@@ -1116,7 +1116,7 @@ Response Time: Within 1 day
 
 ```
 Paynow (payments, Zimbabwe):
-- Cards are entered on Paynow's page; Poolora never sees card data
+- Cards are entered on Paynow's page; Siham never sees card data
 - Every request, reply and status update is hash-verified (SHA-512)
 - Integration keys live only on the server (PAYNOW_*_INTEGRATION_KEY)
 - To confirm before launch: PCI DSS status, and a data processing

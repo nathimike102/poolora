@@ -30,7 +30,7 @@ export function posthogEnabled(): boolean {
 
 export function capture(distinctId: string, event: string, properties: Record<string, unknown> = {}): void {
   if (!posthogEnabled()) return;
-  queue.push({ event, distinct_id: distinctId, properties: { ...properties, $lib: 'poolora-backend' }, timestamp: new Date().toISOString() });
+  queue.push({ event, distinct_id: distinctId, properties: { ...properties, $lib: 'siham-backend' }, timestamp: new Date().toISOString() });
   if (queue.length > MAX_QUEUE) queue = queue.slice(-MAX_QUEUE);
   if (queue.length >= FLUSH_AT) void flush();
   else if (!timer) {

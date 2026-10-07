@@ -17,7 +17,7 @@ const safety = config.safety as unknown as { recordVideo: boolean };
 const claims = (token: string) => JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
 
 beforeEach(() => {
-  Object.assign(video, { url: 'wss://poolora.livekit.cloud', apiKey: 'APIkey', apiSecret: 'a-secret-long-enough-for-signing-tokens', recordingAccessKeyId: '', recordingSecretAccessKey: '' });
+  Object.assign(video, { url: 'wss://siham.livekit.cloud', apiKey: 'APIkey', apiSecret: 'a-secret-long-enough-for-signing-tokens', recordingAccessKeyId: '', recordingSecretAccessKey: '' });
   safety.recordVideo = false;
 });
 
@@ -27,7 +27,7 @@ it('is off until LiveKit is set up, and records only with the setting and its ow
   safety.recordVideo = true;
   expect(recordingAvailable()).toBe(false); // no write-only keys yet
   Object.assign(video, { recordingAccessKeyId: 'AKIA', recordingSecretAccessKey: 'x' });
-  (config.aws as { s3Bucket: string }).s3Bucket = 'poolora-test';
+  (config.aws as { s3Bucket: string }).s3Bucket = 'siham-test';
   expect(recordingAvailable()).toBe(true);
   video.url = '';
   expect(videoAvailable()).toBe(false);
@@ -36,7 +36,7 @@ it('is off until LiveKit is set up, and records only with the setting and its ow
 
 it('lets the phone only send, and the safety team only watch', async () => {
   const phone = await joinPass('sos-1', 'user:1', 'Rudo Moyo', 'sender');
-  expect(phone.url).toBe('wss://poolora.livekit.cloud');
+  expect(phone.url).toBe('wss://siham.livekit.cloud');
   expect(claims(phone.token).video).toMatchObject({
     room: 'sos-1', roomJoin: true, canPublish: true, canSubscribe: false, canPublishData: false,
     canPublishSources: ['camera', 'microphone'],

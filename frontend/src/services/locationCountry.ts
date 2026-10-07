@@ -4,7 +4,7 @@
  * Which country the phone is in, worked out at start-up before anyone signs
  * in: from the position when location is allowed, otherwise from the phone's
  * region setting. It picks the default calling code at sign-in, and tells the
- * app when rides cannot be booked or offered here because Poolora has not
+ * app when rides cannot be booked or offered here because Siham has not
  * launched in this country yet.
  *
  * A test server (one that allows ride simulation; production never does) lets
@@ -27,7 +27,7 @@ export interface LocationCountry {
   testServer?: boolean;
 }
 
-const KEY = '@poolora_location_country';
+const KEY = '@siham_location_country';
 let state: LocationCountry = { source: 'none' };
 const listeners = new Set<() => void>();
 

@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: poolora-backend
-  namespace: poolora
+  name: siham-backend
+  namespace: siham
   labels:
-    app: poolora-backend
+    app: siham-backend
 spec:
   selector:
-    app: poolora-backend
+    app: siham-backend
   ports:
   - name: http
     port: 5002
@@ -18,13 +18,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: poolora-ml
-  namespace: poolora
+  name: siham-ml
+  namespace: siham
   labels:
-    app: poolora-ml
+    app: siham-ml
 spec:
   selector:
-    app: poolora-ml
+    app: siham-ml
   ports:
   - name: http
     port: 8000
@@ -36,7 +36,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mongodb
-  namespace: poolora
+  namespace: siham
 spec:
   selector:
     app: mongodb
@@ -50,7 +50,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis
-  namespace: poolora
+  namespace: siham
 spec:
   selector:
     app: redis
@@ -64,7 +64,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kafka-headless
-  namespace: poolora
+  namespace: siham
 spec:
   selector:
     app: kafka
@@ -84,7 +84,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: elasticsearch
-  namespace: poolora
+  namespace: siham
 spec:
   selector:
     app: elasticsearch
@@ -98,7 +98,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus
-  namespace: poolora
+  namespace: siham
   labels:
     app: prometheus
 spec:
@@ -115,7 +115,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: poolora
+  namespace: siham
   labels:
     app: grafana
 spec:

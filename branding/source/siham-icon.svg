@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <!--
-    Poolora icon artwork (full-bleed 1024 square). Layers are tagged with
+    Siham icon artwork (full-bleed 1024 square). Layers are tagged with
     ids; scripts/render_brand_master.py renders the glow layers separately,
-    blurs them and composites everything into branding/poolora-icon.png.
+    blurs them and composites everything into branding/siham-icon.png.
   -->
   <defs>
     <linearGradient id="neon" x1="300" y1="0" x2="724" y2="0" gradientUnits="userSpaceOnUse">

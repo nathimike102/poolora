@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: poolora-ml
-  namespace: poolora
+  name: siham-ml
+  namespace: siham
   labels:
-    app: poolora-ml
+    app: siham-ml
 spec:
   replicas: 2
   strategy:
@@ -14,11 +14,11 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: poolora-ml
+      app: siham-ml
   template:
     metadata:
       labels:
-        app: poolora-ml
+        app: siham-ml
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
@@ -29,7 +29,7 @@ spec:
       - name: ghcr-pull
       containers:
       - name: ml-engine
-        image: ghcr.io/nathimike102/poolora-ml:latest
+        image: ghcr.io/nathimike102/siham-ml:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -38,7 +38,7 @@ spec:
         - name: MONGODB_URI
           valueFrom:
             secretKeyRef:
-              name: poolora-secrets
+              name: siham-secrets
               key: MONGO_URI
         - name: REDIS_HOST
           value: "redis"
@@ -47,17 +47,17 @@ spec:
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: poolora-secrets
+              name: siham-secrets
               key: REDIS_PASSWORD
         - name: GOOGLE_MAPS_API_KEY
           valueFrom:
             secretKeyRef:
-              name: poolora-secrets
+              name: siham-secrets
               key: GOOGLE_MAPS_API_KEY
         - name: ML_SERVICE_API_KEY
           valueFrom:
             secretKeyRef:
-              name: poolora-secrets
+              name: siham-secrets
               key: ML_SERVICE_API_KEY
         - name: KAFKA_BROKERS
           value: "kafka-0.kafka-headless:9092"
@@ -94,20 +94,20 @@ spec:
                 - key: app
                   operator: In
                   values:
-                  - poolora-ml
+                  - siham-ml
               topologyKey: kubernetes.io/hostname
 
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: poolora-ml-hpa
-  namespace: poolora
+  name: siham-ml-hpa
+  namespace: siham
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: poolora-ml
+    name: siham-ml
   minReplicas: 2
   maxReplicas: 6
   metrics:

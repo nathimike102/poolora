@@ -1,4 +1,4 @@
-// Poolora deck animations, rendered frame by frame by render.js.
+// Siham deck animations, rendered frame by frame by render.js.
 // ?scene=hero|pool|map. window.frame(i) draws frame i and returns a JPEG data URL.
 import * as THREE from 'three';
 
@@ -266,7 +266,7 @@ const scenes = {
     };
   },
 
-  /** Three cars with one person each fade out; one Poolora car picks all three up */
+  /** Three cars with one person each fade out; one Siham car picks all three up */
   async pool() {
     const seconds = 10;
     const scene = new THREE.Scene();
@@ -419,7 +419,7 @@ const scenes = {
         soloLabel.material.opacity = soloFade * soloIn;
         soloLabel.position.set(-1.2, 2.2, 1.6);
 
-        // 3.2–9.4 s: the Poolora car collects each rider
+        // 3.2–9.4 s: the Siham car collects each rider
         const drive = smooth(3.2, 9.3, t) * 0.98 + 0.01;
         const pc = main.getPointAt(drive);
         const tn = main.getTangentAt(drive);

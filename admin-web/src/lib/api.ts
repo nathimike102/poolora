@@ -6,8 +6,8 @@
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:5002';
 
-const ACCESS = 'poolora-admin-access';
-const REFRESH = 'poolora-admin-refresh';
+const ACCESS = 'siham-admin-access';
+const REFRESH = 'siham-admin-refresh';
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly id?: string) {

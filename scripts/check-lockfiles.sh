@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# Poolora — standalone lockfile check
+# Siham — standalone lockfile check
 # ═══════════════════════════════════════════════════════════════════════════════
 # CI installs from the root workspace lockfile, but the backend Docker image and
 # the Vercel projects install each package on its own from <package>/package-lock.json.

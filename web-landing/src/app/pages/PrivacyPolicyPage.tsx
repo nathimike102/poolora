@@ -20,7 +20,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'What this policy covers',
-          text: 'This website and the Poolora mobile app. The app has not launched publicly, so at the moment the only personal data most people give us is what they type into the waitlist or investor form on this site.',
+          text: 'This website and the Siham mobile app. The app has not launched publicly, so at the moment the only personal data most people give us is what they type into the waitlist or investor form on this site.',
         },
       ],
     },
@@ -62,7 +62,7 @@ export function PrivacyPolicyPage() {
         },
         {
           sub: 'Car tracker (drivers, optional)',
-          text: 'If you link a GPS tracker in your car, we receive its reports through our tracker server. We keep where the car is only while it is on a Poolora ride or an SOS on one of its rides is open, kept like the trip trail; the rest of the time we note only when it last reported. We never control the car.',
+          text: 'If you link a GPS tracker in your car, we receive its reports through our tracker server. We keep where the car is only while it is on a Siham ride or an SOS on one of its rides is open, kept like the trip trail; the rest of the time we note only when it last reported. We never control the car.',
         },
         {
           sub: 'Audio during an SOS (off unless you switch it on)',

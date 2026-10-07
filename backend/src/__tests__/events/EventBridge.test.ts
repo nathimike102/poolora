@@ -22,7 +22,7 @@ const published: Array<[KafkaTopic, string, Record<string, unknown>]> = [
   ['booking-events', 'booking.cancelled', { bookingId: id(), riderId: id(), cancelledBy: id(), reason: '' }],
   ['ride-events', 'ride.created', { rideId: id(), driverId: id().toString(), pickup: place, dropoff: place, departureTime: new Date() }],
   ['ride-events', 'ride.cancelled', { rideId: id(), driverId: id(), reason: 'car broke down' }],
-  ['safety-events', 'sos.triggered', { emergencyId: id(), bookingId: id().toString(), triggeredBy: id().toString(), location: { lng: 72.87, lat: 19.11 }, liveTrackingUrl: 'https://poolora.app/t/x' }],
+  ['safety-events', 'sos.triggered', { emergencyId: id(), bookingId: id().toString(), triggeredBy: id().toString(), location: { lng: 72.87, lat: 19.11 }, liveTrackingUrl: 'https://siham.app/t/x' }],
   ['location-events', 'sos.location.updated', { emergencyId: id().toString(), location: { lng: 72.87, lat: 19.11 }, timestamp: new Date().toISOString() }],
   ['safety-events', 'sos.escalated', { emergencyId: id(), bookingId: id(), triggeredBy: id(), reason: 'missed check-ins', missedCheckIns: 2 }],
   ['safety-events', 'sos.resolved', { emergencyId: id(), resolvedBy: id().toString(), isFalseAlarm: false, checkInStatus: 'ok' }],

@@ -23,7 +23,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
 import { tc, tk, useColors } from '../theme/themed';
 
-export const ONBOARDING_SEEN_KEY = '@poolora_onboarding_seen';
+export const ONBOARDING_SEEN_KEY = '@siham_onboarding_seen';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
 

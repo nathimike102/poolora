@@ -370,7 +370,7 @@ export class ReportService {
     };
     const line = (cells: unknown[]) => cells.map(cell).join(',');
     const out: string[] = [
-      line([`Poolora ${report.type} report`, `${localDay(report.from)} to ${localDay(report.to)}`, `by ${report.groupBy}`]),
+      line([`Siham ${report.type} report`, `${localDay(report.from)} to ${localDay(report.to)}`, `by ${report.groupBy}`]),
       '',
       line(['Summary', 'Value']),
       ...report.summary.map((s) => line([s.label, s.format === 'percent' ? `${Math.round(s.value * 1000) / 10}%` : s.value])),

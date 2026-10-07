@@ -87,7 +87,7 @@ export function ReportsPage() {
   const download = async () => {
     setDownloadError('');
     try {
-      await api.download(`/admin/reports/${type}${query}&format=${format}`, `poolora-${type}-${isoDay(from)}-to-${isoDay(to)}.${format}`);
+      await api.download(`/admin/reports/${type}${query}&format=${format}`, `siham-${type}-${isoDay(from)}-to-${isoDay(to)}.${format}`);
     } catch (e) {
       setDownloadError((e as Error).message);
     }

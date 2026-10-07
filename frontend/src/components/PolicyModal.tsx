@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COMPANY } from '../config/company';
 import { useTranslation } from 'react-i18next';
 
-const STORAGE_KEY = '@poolora_policy_accepted';
+const STORAGE_KEY = '@siham_policy_accepted';
 
 interface Props {
   visible: boolean;

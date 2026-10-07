@@ -405,7 +405,7 @@ async function seed() {
     // ── Admin ────────────────────────────────────────────────────
     {
       _id: adminId, firebaseUid: 'fbUid_admin_001',
-      phone: '+263770000001', email: 'admin@poolora.app', name: 'Platform Admin',
+      phone: '+263770000001', email: 'admin@siham.app', name: 'Platform Admin',
       capabilities: [UserCapability.ADMIN],
       kyc: { status: KYCStatus.NONE },
       vehicles: [],
@@ -1143,7 +1143,7 @@ async function seed() {
       ],
       adminNotifiedAt: daysAgo(7),
       adminAssignee: adminId,
-      liveTrackingUrl: 'https://poolora.vercel.app/sos/live/sos_001',
+      liveTrackingUrl: 'https://siham.vercel.app/sos/live/sos_001',
       timeline: [
         { event: 'SOS_TRIGGERED', timestamp: daysAgo(7), details: 'User pressed SOS button' },
         { event: 'CONTACTS_NOTIFIED', timestamp: new Date(daysAgo(7).getTime() + 1 * 60000), details: 'SMS sent to emergency contact' },
@@ -1170,7 +1170,7 @@ async function seed() {
       ],
       adminNotifiedAt: new Date(Date.now() - 9 * 60000),
       adminAssignee: adminId,
-      liveTrackingUrl: 'https://poolora.vercel.app/sos/live/sos_002',
+      liveTrackingUrl: 'https://siham.vercel.app/sos/live/sos_002',
       timeline: [
         { event: 'SOS_TRIGGERED', timestamp: new Date(Date.now() - 10 * 60000), details: 'User pressed SOS in-app' },
         { event: 'CONTACTS_NOTIFIED', timestamp: new Date(Date.now() - 9 * 60000), details: 'Call placed to emergency contact' },

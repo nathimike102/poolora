@@ -31,7 +31,7 @@
   "language": {
     "title": "Ulimi",
     "intro": "Khetha ulimi lohlelo lokusebenza. Imali, amadethi lezinombolo zesimo esiphuthumayo kuhlala kungaguqukanga.",
-    "saveFailed": "Kugcinwe kule ifoni. Asikenelisi ukukugcina ku-akhawunti yakho, ngakho imilayezo evela kuPoolora ingaqhubeka isebenzisa ulimi oludala okwakhathesi."
+    "saveFailed": "Kugcinwe kule ifoni. Asikenelisi ukukugcina ku-akhawunti yakho, ngakho imilayezo evela kuSiham ingaqhubeka isebenzisa ulimi oludala okwakhathesi."
   },
   "sos": {
     "title": "Ukuphepha le-SOS",
@@ -46,12 +46,12 @@
     },
     "noContactsTitle": "Akula bantu bokuthintwa esimeni esiphuthumayo",
     "callIfDanger": "Fonela {{number}} nxa usengozini.",
-    "smsBody": "SOS. Ngidinga usizo phakathi kohambo lwePoolora.",
+    "smsBody": "SOS. Ngidinga usizo phakathi kohambo lweSiham.",
     "smsWhere": "Ngilapha: {{url}}",
     "notSentTitle": "I-SOS ayithunyelwanga",
     "threatNotSent": "{{message}} Iqembu lezokuphepha liselesaziso sakho.",
     "micTitle": "Imayikhrofoni ayivunyelwanga",
-    "micBody": "Vumela iPoolora ukusebenzisa imayikhrofoni kuzilungiselelo zefoni yakho ukuze irekhode ngesikhathi se-SOS.",
+    "micBody": "Vumela iSiham ukusebenzisa imayikhrofoni kuzilungiselelo zefoni yakho ukuze irekhode ngesikhathi se-SOS.",
     "cancelFailed": "Ukukhansela akuphumelelanga",
     "safeConfirmTitle": "Tshela iqembu lezokuphepha ukuthi uphephile?",
     "safeConfirmBody": "Bazakulokhu bekufonela ukuze bahlole, besebevala isaziso. Abantu bakho bokuthintwa esimeni esiphuthumayo bazatshelwa ukuthi uphephile.",
@@ -68,9 +68,9 @@
     "callService": "Fonela {{service}} ku-{{number}}",
     "active": {
       "title": "Isaziso se-SOS siyasebenza",
-      "sub": "Iqembu lePoolora lezokuphepha lazisiwe njalo liyabona ukuthi ungaphi.",
+      "sub": "Iqembu leSiham lezokuphepha lazisiwe njalo liyabona ukuthi ungaphi.",
       "sending": "Kuthunyelwa i-SOS",
-      "retryingTitle": "Sizama ukufinyelela kuPoolora",
+      "retryingTitle": "Sizama ukufinyelela kuSiham",
       "retryingSub": "Akukaxhumeki. Siyaqhubeka sizama ngemva kwemizuzwana embalwa. Fonela {{number}}, kumbe uthumele umlayezo kubantu bakho usebenzisa ifoni yakho.",
       "closedTitle": "I-SOS ivaliwe",
       "closedCancelled": "Ukhanselile isaziso. Abantu bakho abazange batshelwe.",
@@ -105,7 +105,7 @@
     "fakeCall": "Ucingo lokuzitshaya",
     "fakeCallHint": "Ifoni yakho iyakhala ngemva kwemizuzwana embalwa, ukuze ube lesizatho sokusuka",
     "audioTitle": "Rekhoda umsindo ngesikhathi se-SOS",
-    "audioBody": "Kuvaliwe ngaphandle nxa ukuvula. Ngesikhathi se-SOS ifoni yakho irekhoda ekuzwayo njalo ikuthumele eqenjini lePoolora lezokuphepha kuphela, ngeziqephu zomzuzu.",
+    "audioBody": "Kuvaliwe ngaphandle nxa ukuvula. Ngesikhathi se-SOS ifoni yakho irekhoda ekuzwayo njalo ikuthumele eqenjini leSiham lezokuphepha kuphela, ngeziqephu zomzuzu.",
     "contactsTitle": "Abantu bokuthintwa esimeni esiphuthumayo",
     "contactsEmpty": "Faka abantu okufanele bathole umlayezo lendawo yakho nxa uvusa i-SOS.",
     "notTextedOnSos": " · abathunyelwanga umlayezo nge-SOS",
@@ -146,8 +146,8 @@
     "imInCar": "Sengisemoteni",
     "notConfirmed": "Akukaqinisekiswa",
     "checkInNotSent": "{{message}} Nxa usengozini, sebenzisa i-SOS kumbe ufonele {{number}}.",
-    "shareLive": "Landela uhambo lwami lwePoolora ukusuka e{{from}} ukuya e{{to}} bukhoma: {{url}}\nIsixhumanisi siyekela ukusebenza ngemva kwehora elilodwa ngifikile.",
-    "shareText": "Ngisohambweni lwePoolora lo{{driver}}{{plate}} ukusuka e{{from}} ukuya e{{to}}, sisuka ngo{{time}}.",
+    "shareLive": "Landela uhambo lwami lweSiham ukusuka e{{from}} ukuya e{{to}} bukhoma: {{url}}\nIsixhumanisi siyekela ukusebenza ngemva kwehora elilodwa ngifikile.",
+    "shareText": "Ngisohambweni lweSiham lo{{driver}}{{plate}} ukusuka e{{from}} ukuya e{{to}}, sisuka ngo{{time}}.",
     "loadFailed": "Asenelisanga ukulayisha lolu hambo",
     "goBack": "Buyela emuva",
     "loading": "Kuyalayishwa uhambo",
@@ -287,7 +287,7 @@
   "login": {
     "tryAgain": "Sicela uzame futhi",
     "googleError": "Iphutha lokungena nge-Google",
-    "welcome": "Siyakwamukela kuPoolora",
+    "welcome": "Siyakwamukela kuSiham",
     "choose": "Khetha ukuthi ufuna ukuqhubeka njani",
     "signingIn": "Kuyangena...",
     "google": "Qhubeka nge-Google",
@@ -443,7 +443,7 @@
     "more": " · okunye {{count}}",
     "to": "Ukuya e{{place}}",
     "withDriver": "{{when}} lo{{driver}}",
-    "rideWith": "Hamba ngePoolora",
+    "rideWith": "Hamba ngeSiham",
     "savedRoutes": "Imizila egciniweyo",
     "addRouteLabel": "Faka umzila ogciniweyo",
     "add": "Faka",
@@ -582,9 +582,9 @@
     "dropAt": "Ukwehliswa okulinganisiweyo · {{time}}",
     "photoOf": "Isithombe sika{{name}}",
     "trackedLabel": "Imota elandelwayo: i-GPS tracker kule imota iyaqhubeka ithumela indawo lanxa wonke amafoni ecitshile",
-    "womanDriverLabel": "Umtshayeli wesifazana oqinisekisiweyo: i-ID yakhe yahlolwa yiPoolora",
+    "womanDriverLabel": "Umtshayeli wesifazana oqinisekisiweyo: i-ID yakhe yahlolwa yiSiham",
     "womanDriver": "Umtshayeli wesifazana oqinisekisiweyo",
-    "idChecked": "I-ID ihlolwe yiPoolora",
+    "idChecked": "I-ID ihlolwe yiSiham",
     "ratedLabel": "Ulinganiswe {{rating}} ngezilinganiso ezingu-{{count}}",
     "noRatings": "★ 5.0 · Omutsha",
     "tripOne": "uhambo olu-1",
@@ -623,7 +623,7 @@
     "payWith": "Bhadhala nge",
     "online": "EcoCash, OneMoney, InnBucks kumbe ikhadi",
     "onlineSub": "Bhadhala ngama-US dollars kumbe i-ZiG, ngePaynow",
-    "wallet": "i-wallet yePoolora",
+    "wallet": "i-wallet yeSiham",
     "balanceUnavailable": "Ibhalansi ayitholakali",
     "balance": "Ibhalansi {{amount}}",
     "notEnough": " · ayeneli kulokhu kubhukha",
@@ -680,15 +680,15 @@
     },
     "cardFailed": "Ikhasi lekhadi alenelisanga ukuvuleka. Zama enye indlela.",
     "topupDoneTitle": "I-wallet igcwaliswe",
-    "topupDoneBody": "{{amount}} isiku-wallet yakho yePoolora.",
+    "topupDoneBody": "{{amount}} isiku-wallet yakho yeSiham.",
     "backToWallet": "Buyela ku-wallet",
     "inWalletTitle": "Inkokhelo iku-wallet yakho",
-    "inWalletBody": "Lesi sicelo besesivaliwe kumbe sesibhadelwe, ngakho {{amount}} yakho iku-wallet yePoolora. Ungayisebenzisa kumbe uyikhiphe.",
+    "inWalletBody": "Lesi sicelo besesivaliwe kumbe sesibhadelwe, ngakho {{amount}} yakho iku-wallet yeSiham. Ungayisebenzisa kumbe uyikhiphe.",
     "openWallet": "Vula i-wallet",
     "receivedTitle": "Inkokhelo yamukelwe",
-    "parcelReceived": "Isicelo sephasela lakho sesiye kumtshayeli. Sizakutshela nxa esemukele. Nxa esala, yonke imali iya ku-wallet yakho yePoolora.",
+    "parcelReceived": "Isicelo sephasela lakho sesiye kumtshayeli. Sizakutshela nxa esemukele. Nxa esala, yonke imali iya ku-wallet yakho yeSiham.",
     "trackParcel": "Landela iphasela",
-    "rideReceived": "Isicelo sakho sesiye kumtshayeli. Sizakutshela nxa eseqinisekise isihlalo sakho. Nxa esala, yonke imali iya ku-wallet yakho yePoolora.",
+    "rideReceived": "Isicelo sakho sesiye kumtshayeli. Sizakutshela nxa eseqinisekise isihlalo sakho. Nxa esala, yonke imali iya ku-wallet yakho yeSiham.",
     "viewRides": "Bona uhambo lwami",
     "topupTitle": "Gcwalisa i-wallet",
     "title": "Inkokhelo",
@@ -713,13 +713,13 @@
     "notCharged": "{{reason}} Awukabhadalelwa. Zama futhi kumbe ukhethe enye indlela.",
     "cancelling": "Kuyakhanselwa",
     "cancelInstead": "Khansela isicelo esikhundleni salokho",
-    "secure": "Inkokhelo icutshungulwa yiPaynow. IPoolora kayiboni i-PIN yakho kumbe imininingwane yekhadi.",
+    "secure": "Inkokhelo icutshungulwa yiPaynow. ISiham kayiboni i-PIN yakho kumbe imininingwane yekhadi.",
     "tryAgain": "Zama futhi",
     "pay": "Bhadhala {{amount}}",
     "instructions": {
-      "mobile": "Hlola ifoni yakho: {{wallet}} izakucela ukuthi uvume {{amount}} kuPoolora usebenzisa i-PIN yakho.",
+      "mobile": "Hlola ifoni yakho: {{wallet}} izakucela ukuthi uvume {{amount}} kuSiham usebenzisa i-PIN yakho.",
       "innbucks": "Vula i-InnBucks ufake kumbe uskene ikhodi ukuze ubhadale {{amount}}.",
-      "card": "Bhadhala {{amount}} ngekhadi ekhasini lePaynow, ubusubuyela kuPoolora."
+      "card": "Bhadhala {{amount}} ngekhadi ekhasini lePaynow, ubusubuyela kuSiham."
     },
     "zwgRate": "{{amount}} ngesilinganiso se-{{rate}} ZiG nge-US dollar eyodwa"
   },
@@ -741,7 +741,7 @@
       "male": "Owesilisa",
       "other": "Obunye ubulili"
     },
-    "intro": "Uhambo lwabesifazana kuphela ngolwabesifazana esesiqinisekise ubuwena babo, ukuze kungabi lomuntu ongena nje ngokuthi ungowesifazana. Thumela isithombe se-ID yesizwe, iphasiphothi kumbe ilayisensi yokutshayela, kanye le-selfie. Umlawuli wePoolora uhlola ukuthi i-selfie ngeyakho yini, kuvame ukuthatha ilanga elilodwa. I-ID itshengisa ukuthi ungubani; ubulili bakho yilobo ophila ngabo. Izithombe zibonwa liqembu lethu kuphela njalo zisuswa masinyane nxa sesenze isinqumo.",
+    "intro": "Uhambo lwabesifazana kuphela ngolwabesifazana esesiqinisekise ubuwena babo, ukuze kungabi lomuntu ongena nje ngokuthi ungowesifazana. Thumela isithombe se-ID yesizwe, iphasiphothi kumbe ilayisensi yokutshayela, kanye le-selfie. Umlawuli weSiham uhlola ukuthi i-selfie ngeyakho yini, kuvame ukuthatha ilanga elilodwa. I-ID itshengisa ukuthi ungubani; ubulili bakho yilobo ophila ngabo. Izithombe zibonwa liqembu lethu kuphela njalo zisuswa masinyane nxa sesenze isinqumo.",
     "verifiedWoman": "Kuqinisekisiwe. Ungafaka njalo ubhukhe uhambo lwabesifazana kuphela. Ukutshintsha imininingwane yakho, thintana losizo.",
     "verified": "Kuqinisekisiwe. Ukutshintsha imininingwane yakho, thintana losizo.",
     "pending": "Kulindwe ukuhlolwa, kuthunyelwe {{date}}. Sizakwazisa.",
@@ -757,10 +757,10 @@
     "addYourCarInDriver": "Qala ngokufaka imota yakho ekuqinisekisweni komtshayeli.",
     "unlink": "Susa ukuxhumanisa",
     "linkTracker": "Xhumanisa i-tracker",
-    "pointYourTrackerAtPoolora": "Qondisa i-tracker yakho kuPoolora",
+    "pointYourTrackerAtSiham": "Qondisa i-tracker yakho kuSiham",
     "trackerFromATrackingCompany": "I-tracker evela enkampanini yokulandelela?",
     "aGpsTrackerInYour": "I-GPS tracker esemoteni yakho yenza imota ilandeleke phakathi kohambo lanxa wonke amafoni akuyo ecitshile, njalo inkinobho yayo ye-panic ivusa i-SOS. Abagibeli babona ibheji ethi \"Imota elandelwayo\" ohambweni lwakho. Lokhu akuphoqelekanga.",
-    "pooloraKeepsWhereYourCar": "IPoolora igcina indawo yemota yakho kuphela phakathi kohambo lwakho kumbe ngesikhathi i-SOS ivuliwe. Ngesinye isikhathi ibhala kuphela ukuthi i-tracker iyasebenza.",
+    "sihamKeepsWhereYourCar": "ISiham igcina indawo yemota yakho kuphela phakathi kohambo lwakho kumbe ngesikhathi i-SOS ivuliwe. Ngesinye isikhathi ibhala kuphela ukuthi i-tracker iyasebenza.",
     "mostTrackersAreSetBy": "Ama-tracker amanengi ahlelwa ngomlayezo ovela efonini yakho. Kuhlobo olujayelekileyo lwe-GT06, thumela lokhu:",
     "couldNotLoad": "Akulayishwanga",
     "notLinked": "Akuxhunyaniswanga",
@@ -777,10 +777,10 @@
       "days": "amalanga angu-{{count}} edlule"
     },
     "statusLine": "{{state}}: umbiko wokucina {{when}}",
-    "waitingFirst": "Kuxhunyanisiwe. Kulindwe umbiko wokuqala: qondisa i-tracker kuPoolora (ngezansi).",
+    "waitingFirst": "Kuxhunyanisiwe. Kulindwe umbiko wokuqala: qondisa i-tracker kuSiham (ngezansi).",
     "device": "Idivayisi {{id}}",
     "deviceLabel": "I-ID yedivayisi ye-tracker ka{{name}}",
-    "serverSetup": "Iseva ye-tracker yePoolora iyalungiselelwa. Ungaxhumanisa i-tracker yakho khathesi; izabonakala isebenza nxa iseva isivuliwe."
+    "serverSetup": "Iseva ye-tracker yeSiham iyalungiselelwa. Ungaxhumanisa i-tracker yakho khathesi; izabonakala isebenza nxa iseva isivuliwe."
   },
   "createRide": {
     "startingPoint": "Indawo yokuqalisa",
@@ -861,7 +861,7 @@
     "needsYourAnswer": "Idinga impendulo yakho",
     "yourRides": "Uhambo lwakho",
     "seeAll": "Bona konke",
-    "driveWithPoolora": "Tshayela ngePoolora",
+    "driveWithSiham": "Tshayela ngeSiham",
     "whereAreYouDriving": "Utshayela uya ngaphi?",
     "noRidesComingUpOffer": "Akula hambo oluzayo. Nikela olunye ukuze abagibeli abaya lapho oya khona babhukhe izihlalo zakho ezingenamuntu.",
     "goodAfternoon": "Litshonile",
@@ -920,7 +920,7 @@
     "beingReviewed": "Imibhalo yakho iyahlolwa",
     "reason": "Isizatho: {{reason}}",
     "onlyReviewed": "Abagibeli bangabhukha kuphela abatshayeli abalayisensi lemibhalo yemota esehloliwe.",
-    "version": "Inguqulo yePoolora {{version}}"
+    "version": "Inguqulo yeSiham {{version}}"
   },
   "earnings": {
     "previousMonth": "Inyanga edlule",
@@ -946,7 +946,7 @@
     "notSent": "Akuthunyelwanga",
     "last7Days": "Amalanga angu-7 adlule",
     "last4Weeks": "Amaviki angu-4 adlule",
-    "shareTitle": "Imali yePoolora {{month}}",
+    "shareTitle": "Imali yeSiham {{month}}",
     "lines": {
       "trips": "Uhambo",
       "fares": "Imali yohambo",
@@ -1015,7 +1015,7 @@
     "youAreVerified": "Usuqinisekisiwe",
     "documentsUnderReview": "Imibhalo iyahlolwa",
     "youCanOfferRidesNow": "Usunganikela uhambo khathesi.",
-    "aMemberOfThePoolora": "Ilunga leqembu lePoolora lihlola konke okuthunyelwayo. Sizakwazisa nxa sekuhloliwe.",
+    "aMemberOfTheSiham": "Ilunga leqembu leSiham lihlola konke okuthunyelwayo. Sizakwazisa nxa sekuhloliwe.",
     "docs": {
       "licence": {
         "label": "Ilayisensi yokutshayela",
@@ -1132,7 +1132,7 @@
     "cancelParcel": "Khansela iphasela",
     "weShowItOnlyNow": "Siyibonisa khathesi kuphela. Yithumele kumamukeli; umtshayeli uyayidinga ukuze anikeze iphasela.",
     "cancelThisParcel": "Khansela leli phasela?",
-    "youGetAFullRefund": "Uzabuyiselwa yonke imali ku-wallet yakho yePoolora.",
+    "youGetAFullRefund": "Uzabuyiselwa yonke imali ku-wallet yakho yeSiham.",
     "notCancelled": "Akukhanselwanga",
     "keepIt": "Kugcine",
     "steps": {
@@ -1141,8 +1141,8 @@
       "onTheWay": "Lisendleleni",
       "delivered": "Lilethiwe"
     },
-    "shareCode": "Iphasela lePoolora lisendleleni liza kuwe (ukulandelela {{tracking}}). Nika umtshayeli le ikhodi yokuletha nxa selifikile: {{code}}",
-    "refunded": "{{amount}} ibuyiselwe ku-wallet yakho yePoolora.",
+    "shareCode": "Iphasela leSiham lisendleleni liza kuwe (ukulandelela {{tracking}}). Nika umtshayeli le ikhodi yokuletha nxa selifikile: {{code}}",
+    "refunded": "{{amount}} ibuyiselwe ku-wallet yakho yeSiham.",
     "refundFailed": "Asenelisanga ukubuyisela le mali ngokuzenzakalela. Iqembu lethu lizakubuyisela; thintana losizo nxa ingakafiki phakathi kweviki.",
     "tracking": "Ukulandelela {{tracking}}",
     "from": "Kusuka ku{{name}}",
@@ -1273,7 +1273,7 @@
     "refund": {
       "unknown": "Ukubuyiselwa imali kuya ngokuthi uhambo luzasuka nini. {{policy}}",
       "freeUntil": " Ukukhansela mahhala kuphela kuze kube {{time}}.",
-      "full": "Uzabuyiselwa yonke i-{{amount}} ku-wallet yakho yePoolora, ongayikhipha iye kumali yefoni.{{until}}",
+      "full": "Uzabuyiselwa yonke i-{{amount}} ku-wallet yakho yeSiham, ongayikhipha iye kumali yefoni.{{until}}",
       "none": "Lokhu kukhansela akubuyiselwa mali. {{policy}}",
       "feeKept": " Imali yesiteji engu-{{fee}} ayibuyiselwa.",
       "partial": "Uzabuyiselwa {{amount}} ku-{{fare}}.{{fee}} {{policy}}"
@@ -1317,7 +1317,7 @@
     },
     "seats": "Izihlalo",
     "fare": "Imali yohambo",
-    "serviceFee": "Kuhlanganisa imali yesevisi yePoolora",
+    "serviceFee": "Kuhlanganisa imali yesevisi yeSiham",
     "refunded": "Kubuyiselwe",
     "totalPaid": "Inani lonke elibhadelweyo",
     "paidBy": "Kubhadelwe ngu",
@@ -1341,7 +1341,7 @@
     "drive": "Tshayela uthole imali",
     "goAnywhere": "Hamba loba ngaphi",
     "sendSomething": "Thumela okuthile",
-    "yourPoolora": "IPoolora yakho",
+    "yourSiham": "ISiham yakho",
     "work": "Umsebenzi",
     "wallet": "I-wallet",
     "impact": "Umthelela",
@@ -1448,7 +1448,7 @@
     "endCall": "Qeda ucingo",
     "longPressToStopThe": "Cindezela isikhathi eside ukuze umise ucingo lokuzitshaya",
     "callerName": "Ibizo lofonayo",
-    "keepPooloraOpenYourPhone": "Gcina iPoolora ivuliwe. Ifoni yakho izakhala masinyane. Cindezela isikhathi eside ukuze umise.",
+    "keepSihamOpenYourPhone": "Gcina iSiham ivuliwe. Ifoni yakho izakhala masinyane. Cindezela isikhathi eside ukuze umise.",
     "fakeCall": "Ucingo lokuzitshaya",
     "whoIsCalling": "Ngubani ofonayo",
     "ringIn": "Khalisa ngemva kwe",
@@ -1474,11 +1474,11 @@
         "q1": "Isihlalo sami siqinisekiswa nini?",
         "a1": "Nxa umtshayeli esemukela isicelo sakho. Abatshayeli balamahora ayi-6 okuphendula; isicelo esingaphendulwanga ngesikhathi, kumbe uhambo selusukile, siyaphela njalo yonke inkokhelo iyabuyiselwa.",
         "q2": "Ngibhadele kodwa isicelo sami sanyamalala",
-        "a2": "Isicelo esibhadelwe nge-EcoCash, OneMoney, InnBucks kumbe ikhadi esingabhadelwanga phakathi kwemizuzu eyi-15 siyakhanselwa. Nxa inkokhelo iphumelela ngemva kwalokho, ingena ku-wallet yakho yePoolora. Nxa imali isiphumile ku-akhawunti yakho kodwa ingekho ku-wallet, vula isicelo ngaphansi kwe-Inkokhelo ngezansi ukuze siyilandelele.",
+        "a2": "Isicelo esibhadelwe nge-EcoCash, OneMoney, InnBucks kumbe ikhadi esingabhadelwanga phakathi kwemizuzu eyi-15 siyakhanselwa. Nxa inkokhelo iphumelela ngemva kwalokho, ingena ku-wallet yakho yeSiham. Nxa imali isiphumile ku-akhawunti yakho kodwa ingekho ku-wallet, vula isicelo ngaphansi kwe-Inkokhelo ngezansi ukuze siyilandelele.",
         "q3": "Ngibuyiselwa malini nxa ngikhansela?",
         "a3": "Umtshayeli engakamukeli, ubuyiselwa yonke. Ngemva kwalokho, ngokujayelekileyo: yonke imali nxa kusele amahora angu-24 kumbe ngaphezulu, ingxenye kusukela emahoreni ama-2, njalo akula ngemva kwalokho. Ukukhansela phakathi kwemizuzu engu-30 umtshayeli esemukele kumahhala, nxa uhambo lusasele ihora kumbe ngaphezulu. Uhlelo lukutshengisa imali eqondileyo ungakaqinisekisi. Nxa umtshayeli etshintsha isikhathi kumbe ekhansela, ubuyiselwa yonke imali.",
         "q4": "Imali ebuyiselwayo iya ngaphi?",
-        "a4": "Iya ku-wallet yakho yePoolora masinyane, kungelani lokuthi ubhadele njani. Yisebenzise kuhambo lwakho olulandelayo, kumbe uyikhiphe iye ku-EcoCash, OneMoney kumbe InnBucks ngaphansi kweZilungiselelo, Wallet; umuntu uthumela izimali ezikhitshwayo, kuvame ukuba phakathi kwelanga elilodwa lomsebenzi.",
+        "a4": "Iya ku-wallet yakho yeSiham masinyane, kungelani lokuthi ubhadele njani. Yisebenzise kuhambo lwakho olulandelayo, kumbe uyikhiphe iye ku-EcoCash, OneMoney kumbe InnBucks ngaphansi kweZilungiselelo, Wallet; umuntu uthumela izimali ezikhitshwayo, kuvame ukuba phakathi kwelanga elilodwa lomsebenzi.",
         "q5": "Ngingabhadala nge-ZiG?",
         "a5": "Yebo, nxa i-ZiG inikezwa esikrinini sokubhadala. Intengo ibekwa ngama-US dollars njalo iguqulwe ngesilinganiso esiboniswa ungakabhadali."
       },
@@ -1487,7 +1487,7 @@
         "q1": "Ngabelana njani ngohambo lwami?",
         "a1": "Esikrinini sohambo, thepha Yabelana ngohambo. Loba ngubani olesixhumanisi angalandela imota ngaphandle kohlelo kuze kudlule ihora ngemva kokufika kwakho.",
         "q2": "I-SOS yenzani?",
-        "a2": "Bamba inkinobho ye-SOS imizuzwana emi-3. Iqembu lePoolora lezokuphepha laziswa masinyane njalo liyabona ukuthi ungaphi. Ngemva kwemizuzwana eyi-10 abantu bakho bokuthintwa esimeni esiphuthumayo bathola umlayezo olesixhumanisi sendawo yakho ebukhoma, ngaphandle nxa ukhansela ngoba ucindezele ngephutha. Nxa usengozini, fonela lo{{number}} (amapholisa {{police}}, i-ambulensi {{ambulance}}).",
+        "a2": "Bamba inkinobho ye-SOS imizuzwana emi-3. Iqembu leSiham lezokuphepha laziswa masinyane njalo liyabona ukuthi ungaphi. Ngemva kwemizuzwana eyi-10 abantu bakho bokuthintwa esimeni esiphuthumayo bathola umlayezo olesixhumanisi sendawo yakho ebukhoma, ngaphandle nxa ukhansela ngoba ucindezele ngephutha. Nxa usengozini, fonela lo{{number}} (amapholisa {{police}}, i-ambulensi {{ambulance}}).",
         "q3": "Kuthiwani nxa ngingela signal kumbe GPS?",
         "a3": "Isaziso sisahamba: nxa i-GPS ingatholi indawo sisebenzisa indawo yokucina yemota. Nxa kungeladatha nhlobo, uhlelo luqhubeka luzama njalo lunikeza ukuthumela umlayezo kubantu bakho ngefoni yakho lokufonela inombolo yezimo eziphuthumayo.",
         "q4": "Kungani ngibuzwa ukuthi \"Ulungile?\"",
@@ -1505,7 +1505,7 @@
         "a3": "Thepha uhambo ku-Uhambo lwami ubusukhetha Bika inkinga. Iqembu lethu liyihlola phakathi kwamahora angu-48 kusiya ku-72 lisebenzisa ingxoxo yohambo, inkokhelo lomzila."
       },
       "t4": {
-        "topic": "Ukutshayela ngePoolora",
+        "topic": "Ukutshayela ngeSiham",
         "q1": "Ukuqinisekiswa kuthatha isikhathi esingakanani?",
         "a1": "Sihlola ilayisensi yakho, ukubhaliswa kwemota le-insurance phakathi kwamahora angu-48. Nxa kukhona okungacacanga siyakucela ukuthi ulayishe lowo mbhalo futhi.",
         "q2": "Intengo yesihlalo ibekwa njani?",
@@ -1522,7 +1522,7 @@
       "closed": "Kuvaliwe"
     },
     "callUs": "Sifonele ku{{phone}}. Usengozini khathesi? Fonela {{number}}.",
-    "callLabel": "Fonela usizo lwePoolora ku{{phone}}",
+    "callLabel": "Fonela usizo lweSiham ku{{phone}}",
     "noMatches": "Akula mpendulo ehambelana lo\"{{query}}\". Sibuze ngezansi.",
     "orEmail": "Kumbe thumela i-imeyili ku{{email}}",
     "reportUrgent": "Sithumele isicelo esiphuthumayo njalo iqembu lizakuphendula. Usengozini khathesi? Fonela {{number}}.",
@@ -1567,7 +1567,7 @@
     "waitingForReview": "Kulindwe ukuhlolwa",
     "neededForWomenOnlyRides": "Kuyadingeka kuhambo lwabesifazana kuphela",
     "switchToRiding": "Tshintsha uye ekugibeleni",
-    "driveWithPoolora": "Tshayela ngePoolora",
+    "driveWithSiham": "Tshayela ngeSiham",
     "help": {
       "call": "Fonela usizo",
       "callSub": "{{phone}}, ngezinkinga eziphuthumayo zokuphepha kumbe inkokhelo",
@@ -1575,7 +1575,7 @@
       "privacy": "Inqubomgomo yobumfihlo",
       "privacySub": "Indlela esiphatha ngayo idatha yakho",
       "terms": "Imigomo yokusetshenziswa",
-      "termsSub": "Imithetho yokusebenzisa iPoolora"
+      "termsSub": "Imithetho yokusebenzisa iSiham"
     },
     "menu": {
       "help": "Usizo",
@@ -1596,7 +1596,7 @@
       "driveSub": "Yabelana ngezihlalo ezingenamuntu uthole imali",
       "settings": "Izilungiselelo",
       "work": "Umsebenzi",
-      "workSub": "Gibela losebenza labo nxa inkampani yakho ikuPoolora",
+      "workSub": "Gibela losebenza labo nxa inkampani yakho ikuSiham",
       "receipts": "Amarisidi",
       "receiptsSub": "Irisidi yohambo ngalunye, igcinwe kuhlelo",
       "walletShort": "I-wallet",
@@ -1612,7 +1612,7 @@
     "photoFailed": "Isithombe sakho asigcinwanga. Zama futhi.",
     "myRating": "{{rating}} Isilinganiso sami",
     "noRatings": "5.0 Isilinganiso sami · wonke umuntu uqala ngezinkanyezi ezi-5",
-    "version": "Inguqulo yePoolora {{version}}"
+    "version": "Inguqulo yeSiham {{version}}"
   },
   "raiseDispute": {
     "theDriverAskedMeTo": "Umtshayeli ungicele ukuthi ngikhansela ngoba ebephuza, kodwa ngabhadaliswa imali.",
@@ -1651,7 +1651,7 @@
   "rateTrip": {
     "rateYourTrip": "Linganisa uhambo lwakho",
     "thanksForYourRating": "Siyabonga ngesilinganiso sakho",
-    "itHelpsKeepPooloraSafe": "Kuyanceda ukugcina iPoolora iphephile njalo inobungane.",
+    "itHelpsKeepSihamSafe": "Kuyanceda ukugcina iSiham iphephile njalo inobungane.",
     "ok": "KULUNGILE"
   },
   "settings": {
@@ -1712,7 +1712,7 @@
     "contactAPersonInstead": "Thintana lomuntu esikhundleni salokho",
     "theAssistantCanMakeMistakes": "Umsizi angenza amaphutha. Kaze atshintshe ukubhukha kumbe ahambise imali; umuntu uphatha loba yini ayidlulisayo.",
     "you": "Wena",
-    "pooloraAssistant": "Umsizi wePoolora",
+    "sihamAssistant": "Umsizi weSiham",
     "greeting": "Salibonani, ngingaphendula imibuzo ngokubhukha, inkokhelo, ukubuyiselwa imali le-akhawunti yakho, njalo ngihlole uhambo lwakho lwakamuva. Udinga ntoni?",
     "suggestions": {
       "cancel": "Ngibuyiselwa malini nxa ngikhansela?",
@@ -1735,7 +1735,7 @@
     "yourRequest": "Isicelo sakho",
     "contactUs": "Thintana lathi",
     "you": "Wena",
-    "pooloraSupport": "Usizo lwePoolora",
+    "sihamSupport": "Usizo lweSiham",
     "urgentRequestsAreAnsweredFirst": "Izicelo eziphuthumayo ziphendulwa kuqala.",
     "weUsuallyReplyWithinA": "Sivame ukuphendula phakathi kwelanga elilodwa.",
     "writeToReopenThisRequest": "Bhala ukuze uvule lesi sicelo futhi",
@@ -1840,7 +1840,7 @@
     "sayHelloWhoYouAre": "Bingelela: ukuthi ungubani, lokuthi uthanda ukwenzani",
     "messageToTheOrganiser": "Umlayezo kumhleli",
     "organiserRating": "Isilinganiso somhleli",
-    "anythingToAddOnlyPoolora": "Kulokunye ongakwengeza? IPoolora kuphela ebona lokhu.",
+    "anythingToAddOnlySiham": "Kulokunye ongakwengeza? ISiham kuphela ebona lokhu.",
     "comment": "Ukuphawula",
     "activity": "Umsebenzi",
     "totalCost": "Indleko zonke",
@@ -1914,7 +1914,7 @@
     "votes": "Yebo {{yes}} · Hatshi {{no}} · Mhlawumbe {{maybe}}",
     "going": "Abahambayo ({{count}} ku{{max}})",
     "you": "Wena",
-    "invite": "Ngena ohambweni lwami \"{{title}}\" kuPoolora: vula Amasevisi > Uhambo ufake ikhodi yesimemo {{code}}",
+    "invite": "Ngena ohambweni lwami \"{{title}}\" kuSiham: vula Amasevisi > Uhambo ufake ikhodi yesimemo {{code}}",
     "spent": "Kusetshenziswe {{total}}, cishe {{each}} umuntu ngamunye",
     "paidShare": "ubhadele {{paid}} · ingxenye {{share}}",
     "transfer": {
@@ -2018,7 +2018,7 @@
     "readTheTermsOfService": "Funda Imigomo Yokusetshenziswa",
     "readThePrivacyPolicy": "Funda Inqubomgomo Yobumfihlo",
     "iAgreeToTheTerms": "Ngiyavuma Imigomo leNqubomgomo Yobumfihlo",
-    "intro": "IPoolora isebenzisa inombolo yakho yefoni, indawo yakho phakathi kohambo lemininingwane owabelana ngayo labatshayeli labagibeli ukuze ihlele uhambo njalo ilugcine luphephile. Sicela ufunde ukuthi sikuphatha njani lokhu ungakaqhubeki."
+    "intro": "ISiham isebenzisa inombolo yakho yefoni, indawo yakho phakathi kohambo lemininingwane owabelana ngayo labatshayeli labagibeli ukuze ihlele uhambo njalo ilugcine luphephile. Sicela ufunde ukuthi sikuphatha njani lokhu ungakaqhubeki."
   },
   "ratingForm": {
     "overall": "Konke",
@@ -2060,7 +2060,7 @@
       "mostly": "Ikakhulu",
       "no": "Hatshi"
     },
-    "safePrivate": "Imfihlo: iqembu lePoolora lezokuphepha kuphela elibona le mpendulo, hatshi u{{name}}.",
+    "safePrivate": "Imfihlo: iqembu leSiham lezokuphepha kuphela elibona le mpendulo, hatshi u{{name}}.",
     "starOne": "{{prefix}}inkanyezi e-1",
     "starMany": "{{prefix}}izinkanyezi ezingu-{{count}}"
   },
@@ -2129,20 +2129,20 @@
   },
   "calls": {
     "callingTitle": "Siyakufonela khathesi",
-    "callingBody": "Phendula ucingo oluvela kuPoolora njalo sizakuxhumanisa lo{{name}}. Izinombolo zenu zihlala ziyimfihlo.",
+    "callingBody": "Phendula ucingo oluvela kuSiham njalo sizakuxhumanisa lo{{name}}. Izinombolo zenu zihlala ziyimfihlo.",
     "failed": "Ucingo aluphumelelanga"
   },
   "parcelPhoto": {
     "cameraTitle": "Ikhamera iyadingeka",
-    "cameraBody": "Vumela iPoolora ukusebenzisa ikhamera ukuze ithathe isithombe sephasela.",
+    "cameraBody": "Vumela iSiham ukusebenzisa ikhamera ukuze ithathe isithombe sephasela.",
     "uploadFailed": "Isithombe asilayishwanga"
   },
   "tracking": {
     "sosTitle": "I-SOS iyasebenza",
-    "sosBody": "Indawo yakho yabelwana leqembu lePoolora lezokuphepha.",
+    "sosBody": "Indawo yakho yabelwana leqembu leSiham lezokuphepha.",
     "rideTitle": "Uhambo luyaqhubeka",
-    "rideDriver": "Indawo yemota yabelwana labagibeli bakho leqembu lePoolora lezokuphepha.",
-    "rideRider": "Indawo yakho yabelwana leqembu lePoolora lezokuphepha uze wehliswe."
+    "rideDriver": "Indawo yemota yabelwana labagibeli bakho leqembu leSiham lezokuphepha.",
+    "rideRider": "Indawo yakho yabelwana leqembu leSiham lezokuphepha uze wehliswe."
   },
   "tabs": {
     "ride": "Uhambo",
@@ -2156,7 +2156,7 @@
   },
   "work": {
     "title": "Umsebenzi",
-    "intro": "Nxa inkampani yakho ilohlelo lwePoolora, qinisekisa i-imeyili yakho yomsebenzi ukuze wabelane ngohambo losebenza labo. Inkampani yakho ibona ukuthi ungenile lohambo elunceda ukulubhadala, kodwa kayiboni lapho oya khona.",
+    "intro": "Nxa inkampani yakho ilohlelo lweSiham, qinisekisa i-imeyili yakho yomsebenzi ukuze wabelane ngohambo losebenza labo. Inkampani yakho ibona ukuthi ungenile lohambo elunceda ukulubhadala, kodwa kayiboni lapho oya khona.",
     "emailLabel": "I-imeyili yomsebenzi",
     "emailPlaceholder": "you@yourcompany.com",
     "send": "Thumela isixhumanisi sokuqinisekisa",
@@ -2191,7 +2191,7 @@
   },
   "locationIntro": {
     "title": "Thola uhambo eduze lawe",
-    "body": "IPoolora isebenzisa indawo yakho ukuze itshengise uhambo oluseduze lawe, igcwalise ikhodi yokufonela yelizwe lakho, njalo ihlole ukuthi iPoolora iyasebenza lapho okhona. Ungayivala loba nini kuzilungiselelo zefoni yakho.",
+    "body": "ISiham isebenzisa indawo yakho ukuze itshengise uhambo oluseduze lawe, igcwalise ikhodi yokufonela yelizwe lakho, njalo ihlole ukuthi iSiham iyasebenza lapho okhona. Ungayivala loba nini kuzilungiselelo zefoni yakho.",
     "allow": "Vumela indawo",
     "notNow": "Hatshi khathesi"
   },
@@ -2203,13 +2203,13 @@
     "none": "Akula lizwe elihambelanayo"
   },
   "serviceArea": {
-    "title": "IPoolora ayikafiki e{{country}}",
-    "banner": "Awukakwazi ukubhukha kumbe ukunikela uhambo lapha. Okwakhathesi iPoolora isebenza e{{market}}.",
+    "title": "ISiham ayikafiki e{{country}}",
+    "banner": "Awukakwazi ukubhukha kumbe ukunikela uhambo lapha. Okwakhathesi iSiham isebenza e{{market}}.",
     "book": "Awukakwazi ukubhukha uhambo lapha.",
     "offer": "Awukakwazi ukunikela uhambo lapha.",
     "parcel": "Awukakwazi ukuthumela amaphasela lapha.",
     "trip": "Awukakwazi ukuhlela uhambo lweqembu lapha.",
-    "account": "I-akhawunti yakho isebenza loba ngaphi; uhambo luzavuleka nxa iPoolora isiqalile elizweni lakho. Okwakhathesi isebenza e{{market}}.",
+    "account": "I-akhawunti yakho isebenza loba ngaphi; uhambo luzavuleka nxa iSiham isiqalile elizweni lakho. Okwakhathesi isebenza e{{market}}.",
     "back": "Buyela emuva"
   }
 }

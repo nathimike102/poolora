@@ -143,13 +143,13 @@ export function tripCalendar(trip: ITrip): string {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Poolora//Trips//EN',
+    'PRODID:-//Siham//Trips//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${icsText(trip.title)}`,
     `X-WR-TIMEZONE:${REGION.timeZone}`,
     'BEGIN:VEVENT',
-    `UID:trip-${trip._id}@poolora.app`,
+    `UID:trip-${trip._id}@siham.app`,
     `DTSTAMP:${stamp}`,
     `DTSTART;VALUE=DATE:${icsDate(new Date(trip.startDate))}`,
     `DTEND;VALUE=DATE:${icsDate(new Date(new Date(trip.endDate).getTime() + DAY_MS))}`,
@@ -164,7 +164,7 @@ export function tripCalendar(trip: ITrip): string {
     const timed = Boolean(a.durationMins);
     lines.push(
       'BEGIN:VEVENT',
-      `UID:activity-${a._id}@poolora.app`,
+      `UID:activity-${a._id}@siham.app`,
       `DTSTAMP:${stamp}`,
       timed ? `DTSTART:${icsTime(start)}` : `DTSTART;VALUE=DATE:${icsDate(start)}`,
       timed ? `DTEND:${icsTime(new Date(start.getTime() + a.durationMins! * 60_000))}` : `DTEND;VALUE=DATE:${icsDate(new Date(start.getTime() + DAY_MS))}`,

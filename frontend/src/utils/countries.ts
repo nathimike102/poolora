@@ -237,7 +237,7 @@ export const flagOf = (code: string): string =>
 /** The market's own country, used when nothing better is known */
 export const HOME_COUNTRY: Country = countryByCode(REGION.country) ?? { code: REGION.country, name: REGION.countryName, dial: REGION.dialCode };
 
-/** Whether Poolora takes bookings and rides in this country in this build */
+/** Whether Siham takes bookings and rides in this country in this build */
 export const isServedCountry = (code?: string | null): boolean =>
   !!code && code.toUpperCase() === REGION.country && !!MARKETS[REGION.country];
 

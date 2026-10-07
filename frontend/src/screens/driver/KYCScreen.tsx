@@ -1,7 +1,7 @@
 /**
  * screens/driver/KYCScreen.tsx
  *
- * Driver verification. Collects exactly what the Poolora team reviews:
+ * Driver verification. Collects exactly what the Siham team reviews:
  * driving licence, vehicle details, registration book, insurance and a
  * vehicle photo. Documents are reviewed by a person; nothing is auto-approved.
  */
@@ -162,7 +162,7 @@ export function KYCScreen() {
           </Text>
           <Text style={[styles.statusBody, tc.color_textSec]}>
             {approved
-              ? t('kYC.youCanOfferRidesNow') : t('kYC.aMemberOfThePoolora')}
+              ? t('kYC.youCanOfferRidesNow') : t('kYC.aMemberOfTheSiham')}
           </Text>
         </View>
       </View>

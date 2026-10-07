@@ -13,7 +13,7 @@ import Svg, { Path } from "../components/ThemedSvg";
 
 import { useApp } from "../context/AppContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { PooloraLogo } from "../components/PooloraLogo";
+import { SihamLogo } from "../components/SihamLogo";
 import { Typography, Spacing, Radius, Shadow } from "../theme";
 import { signInWithGoogle } from "../services/authService";
 import { logger } from "../utils/logger";
@@ -74,7 +74,7 @@ export function LoginScreen() {
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <PooloraLogo size={64} backgroundColor={tk.primary} />
+        <SihamLogo size={64} backgroundColor={tk.primary} />
         <Text style={[styles.headline, tc.color_text]}>
           {t('login.welcome')}
         </Text>

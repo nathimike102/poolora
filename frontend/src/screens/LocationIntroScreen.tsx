@@ -1,7 +1,7 @@
 /**
  * screens/LocationIntroScreen.tsx
  *
- * Asked once, before sign-in: why Poolora wants the phone's location, then
+ * Asked once, before sign-in: why Siham wants the phone's location, then
  * Android's own question. The location sets the country's calling code at
  * sign-in and tells whether rides are open here. "Not now" goes on without
  * it; the phone's region setting stands in.
@@ -25,7 +25,7 @@ import { Spacing, Typography } from '../theme';
 import { tc, tk } from '../theme/themed';
 
 /** Set once the question has been asked, so it is not asked on every start */
-export const LOCATION_ASKED_KEY = '@poolora_location_asked';
+export const LOCATION_ASKED_KEY = '@siham_location_asked';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'LocationIntro'>;
 

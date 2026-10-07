@@ -98,8 +98,8 @@ export const config = {
 
   trackers: {
     /**
-     * Car GPS trackers reach Poolora through a Traccar gateway (forwarder
-     * only), which posts each position with this key in X-Poolora-Tracker-Key.
+     * Car GPS trackers reach Siham through a Traccar gateway (forwarder
+     * only), which posts each position with this key in X-Siham-Tracker-Key.
      * Empty turns the endpoint off.
      */
     gatewayKey: process.env.TRACKER_GATEWAY_KEY || '',
@@ -184,7 +184,7 @@ export const config = {
     nominatimUrl: optional('NOMINATIM_URL', 'https://nominatim.openstreetmap.org'),
     osrmUrl: optional('OSRM_URL', 'https://router.project-osrm.org'),
     // Nominatim's usage policy asks every client to identify itself.
-    osmUserAgent: optional('OSM_USER_AGENT', 'Poolora/1.0 (poolora carpooling app)'),
+    osmUserAgent: optional('OSM_USER_AGENT', 'Siham/1.0 (siham carpooling app)'),
   },
 
   simulation: {
@@ -435,7 +435,7 @@ export const config = {
   },
 
   services: {
-    mlServiceUrl: optional('ML_SERVICE_URL', 'http://poolora-ml:8000'),
+    mlServiceUrl: optional('ML_SERVICE_URL', 'http://siham-ml:8000'),
     mlServiceApiKey: process.env.ML_SERVICE_API_KEY || '',
   },
 } as const;

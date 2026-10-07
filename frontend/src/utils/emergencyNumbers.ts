@@ -3,7 +3,7 @@
  *
  * The emergency numbers for the country the phone is in, so the SOS screen
  * and every "call the police" hint dial something that works where the person
- * actually is, even outside Poolora's markets.
+ * actually is, even outside Siham's markets.
  *
  * Only numbers that are well established are listed. Anywhere else the app
  * offers 112 alone: mobile networks in most of the world connect 112 to the

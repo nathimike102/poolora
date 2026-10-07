@@ -1,7 +1,7 @@
 /**
  * components/ServiceArea.tsx
  *
- * Where Poolora has not launched yet, rides cannot be booked or offered. The
+ * Where Siham has not launched yet, rides cannot be booked or offered. The
  * banner says so on the home screens; the gate stands in for the screens that
  * start a booking, a parcel, a group trip or a new ride. The account itself
  * works anywhere.

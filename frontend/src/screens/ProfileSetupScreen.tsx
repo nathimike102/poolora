@@ -285,7 +285,7 @@ export function ProfileSetupScreen() {
     }
   }, [isValid, submitting, firstName, lastName, phone, email, dob, photoUri, photoBase64, firebaseUser, setUser, setRole, pendingSignup, t]);
 
-  // Poolora is for adults: the picker stops at 18 years ago (the API checks too)
+  // Siham is for adults: the picker stops at 18 years ago (the API checks too)
   const maxDate = new Date();
   maxDate.setFullYear(maxDate.getFullYear() - 18);
 

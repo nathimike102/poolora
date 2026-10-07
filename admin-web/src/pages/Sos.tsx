@@ -234,7 +234,7 @@ function PersonCard({ title, person, raised, named, money }: { title: string; pe
           <Link to={`/users/${person._id}`}><strong>{person.name}</strong></Link>
           {person.gender ? <span className="faint"> · {person.gender}</span> : null}
           <div className="faint">
-            {person.identity?.status === 'verified' ? 'ID checked by Poolora' : 'ID not checked'}
+            {person.identity?.status === 'verified' ? 'ID checked by Siham' : 'ID not checked'}
             {person.kyc?.licenseNumber ? ` · Licence ${person.kyc.licenseNumber}` : ''}
             {person.createdAt ? ` · Member since ${when(person.createdAt)}` : ''}
           </div>

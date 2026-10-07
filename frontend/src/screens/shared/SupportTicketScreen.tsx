@@ -188,7 +188,7 @@ export function SupportTicketScreen() {
                     tc.borderColor_surfaceVariant
                   ]]}
                 >
-                  <Text style={[{ fontSize: 12, fontWeight: '700' }, tc.color_textSec]}>{mine ? t('supportTicket.you') : t('supportTicket.pooloraSupport')}</Text>
+                  <Text style={[{ fontSize: 12, fontWeight: '700' }, tc.color_textSec]}>{mine ? t('supportTicket.you') : t('supportTicket.sihamSupport')}</Text>
                   <Text style={[{ fontSize: 15 }, tc.color_text]}>{m.text}</Text>
                   <Text style={[{ fontSize: 11 }, tc.color_textSec]}>{new Date(m.at).toLocaleString(REGION.dateLocale, { dateStyle: 'medium', timeStyle: 'short' })}</Text>
                 </View>

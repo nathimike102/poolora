@@ -71,7 +71,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `PHOTON_URL`, `NOMINATIM_URL`, `OSRM_URL`, `OSM_USER_AGENT` | production with OSM | The public OSM servers are for light use (Nominatim allows 1 request per second). Point these at self-hosted instances or a hosted OSM provider for real traffic. Nominatim asks for a user agent with a contact address |
 | `ENABLE_RIDE_SIMULATION` | no | `true` turns on the ride simulator (`/dev/simulate`) in production. It is on by default elsewhere |
 | `ML_SERVICE_API_KEY` | yes | Generate (above). Same value on the ML service |
-| `ML_SERVICE_URL` | no | ML service address. Default `http://poolora-ml:8000` |
+| `ML_SERVICE_URL` | no | ML service address. Default `http://siham-ml:8000` |
 | `KAFKA_BROKERS`, `KAFKA_CLIENT_ID` | no | Your Kafka brokers, comma-separated |
 | `KAFKA_ENABLED` | no | `false` runs without Kafka and stops the reconnect attempts. Events are then handled in-process, so notifications still go out |
 | `ELASTICSEARCH_URL` | no | Default `http://localhost:9200` |
@@ -86,7 +86,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `SUPPORT_BOT_MODEL` | no | The Claude model for the support assistant. Default `claude-opus-5-5`, the current Opus |
 | `ML_MATCHING` | no | `true` ranks search results with the ML service's `/api/match` (needs `ML_SERVICE_API_KEY`); otherwise the backend's own weighted score is used |
 | `TWILIO_VOICE_NUMBER` | for masked calls | A Twilio voice number that can call Zimbabwe; riders and drivers call each other through it. Defaults to `TWILIO_PHONE_NUMBER` |
-| `TRACKER_GATEWAY_KEY` | for car trackers | Any long random string (`openssl rand -hex 32`). The Traccar gateway sends it in `X-Poolora-Tracker-Key` (its `forward.header`, see `infra/traccar/README.md`). Without it the tracker endpoint is off |
+| `TRACKER_GATEWAY_KEY` | for car trackers | Any long random string (`openssl rand -hex 32`). The Traccar gateway sends it in `X-Siham-Tracker-Key` (its `forward.header`, see `infra/traccar/README.md`). Without it the tracker endpoint is off |
 | `TRACKER_GATEWAY_HOST`, `TRACKER_GATEWAY_PORT` | for car trackers | Where drivers point their tracker, shown in the app (default port 5023, GT06) |
 | `CALL_RECORDING` | no | `false` turns off recording of masked calls (on by default; both sides hear a notice) |
 | `LIVEKIT_URL` | for SOS video | The `wss://` URL of the LiveKit Cloud project (or a self-hosted LiveKit server). Without it, and the two below, the app never offers video during an SOS |
@@ -98,7 +98,7 @@ openssl rand -base64 756 | tr -d '\n'
 | `INSURANCE_CLAIMS_URL`, `INSURANCE_API_KEY` | no | An insurer's endpoint for parcel claims (UC-P05). Without it, admins decide claims and pay them to the wallet |
 | `PARCEL_PHOTO_PROOF` | no | `optional` stops requiring photos at parcel pickup and delivery |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` | for email | Any SMTP provider: Amazon SES, Zoho, Google Workspace, or SendGrid or Mailgun over SMTP. Port `587` with `SMTP_SECURE=false`, or `465` with `true`. Without `SMTP_HOST`, emails (receipts, driver application decisions, account and dispute notices) are skipped |
-| `MAIL_FROM` | for email | Sender, e.g. `Poolora <no-reply@your-domain>`. See "Sending mail without a custom domain" below |
+| `MAIL_FROM` | for email | Sender, e.g. `Siham <no-reply@your-domain>`. See "Sending mail without a custom domain" below |
 | `SENTRY_DSN` | no | sentry.io, create a Node.js project, Settings, Client Keys (DSN). Empty disables it |
 | `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `SENTRY_TRACES_SAMPLE_RATE` | no | Labels and sampling for Sentry |
 | `GRAFANA_ADMIN_PASSWORD` | Docker/K8s | Generate (above) |
@@ -109,10 +109,10 @@ openssl rand -base64 756 | tr -d '\n'
 
 | Secret | How to create it |
 |---|---|
-| `poolora-secrets` | Fill in `k8s/secret.yaml`, or better, create it without committing values: `kubectl create secret generic poolora-secrets -n poolora --from-env-file=backend/.env` |
-| `firebase-service-account` | `kubectl create secret generic firebase-service-account -n poolora --from-file=firebase-service-account.json` |
+| `siham-secrets` | Fill in `k8s/secret.yaml`, or better, create it without committing values: `kubectl create secret generic siham-secrets -n siham --from-env-file=backend/.env` |
+| `firebase-service-account` | `kubectl create secret generic firebase-service-account -n siham --from-file=firebase-service-account.json` |
 | `ghcr-pull` | Lets the cluster pull the private backend and ML images from ghcr.io. Create a GitHub personal access token (classic) with only the `read:packages` scope, then run `GHCR_USER=nathimike102 GHCR_TOKEN=<token> scripts/deploy-k8s.sh`, which creates it. Not needed if you make both packages public |
-| `poolora-api-tls` | Issued by cert-manager from the ingress annotation, or `kubectl create secret tls poolora-api-tls --cert=... --key=...` |
+| `siham-api-tls` | Issued by cert-manager from the ingress annotation, or `kubectl create secret tls siham-api-tls --cert=... --key=...` |
 | `BACKUP_S3_BUCKET`, `BACKUP_AWS_ACCESS_KEY_ID`, `BACKUP_AWS_SECRET_ACCESS_KEY`, `BACKUP_AWS_REGION` | A separate bucket and IAM user for the daily database backup job. Give that user write access to that bucket only |
 
 ## Mobile app (`frontend/.env`, `frontend/google-services.json`)
@@ -122,13 +122,13 @@ openssl rand -base64 756 | tr -d '\n'
 | `REACT_NATIVE_API_BASE_URL` | yes | Backend URL. `http://<your LAN IP>:5002` for a physical device in development |
 | `REACT_NATIVE_API_TIMEOUT` | no | Milliseconds, default `30000` |
 | `MAP_STYLE_LIGHT`, `MAP_STYLE_DARK` | no | Map style URLs. Default: OpenFreeMap's liberty and dark styles, which need no key. The app no longer uses a Google Maps key |
-| `EAS_PROJECT_ID` | no | Overrides the project in `frontend/app.config.js`, which is `@nathi_mike/poolora` (`1867e068-…`). The old `@nathi_mike/one-piece` project is no longer used |
+| `EAS_PROJECT_ID` | no | Overrides the project in `frontend/app.config.js`, which is `@nathi_mike/siham` (`1867e068-…`). The old `@nathi_mike/one-piece` project is no longer used |
 | `SENTRY_DSN` | no | sentry.io, a React Native project, Client Keys |
 | `FIREBASE_DATABASE_URL` | yes | Firebase console, Realtime Database. Region-specific instance URL |
 | `GOOGLE_WEB_CLIENT_ID` | for Google sign-in | Google Cloud, Credentials, OAuth client ID of type Web application (the one Firebase creates) |
 | `FIREBASE_*` | usually no | Read from `google-services.json`. Only set these to override it |
 | `DEBUG_API_CALLS`, `LOG_LEVEL`, `DEV_AUTH_BYPASS` | no | Development switches |
-| `google-services.json` | yes (Android) | Firebase console, Project settings, Your apps, the Android app (`com.poolora.app`), **google-services.json**. Put it in `frontend/` |
+| `google-services.json` | yes (Android) | Firebase console, Project settings, Your apps, the Android app (`com.siham.app`), **google-services.json**. Put it in `frontend/` |
 | `GoogleService-Info.plist` | for iOS | The same place, for the iOS app. Not yet referenced in `app.config.js`; add it when you set up iOS |
 
 Getting the SHA-1: `cd frontend/android && ./gradlew signingReport` for local
@@ -240,7 +240,7 @@ never re-enable them.
 - `frontend/google-services.json` and `frontend/GoogleService-Info.plist` are
   gitignored. Never commit them, even though they ship inside the app binary.
 - Restrict every client API key in Google Cloud, Credentials: the Android key to
-  package `com.poolora.app` plus your signing SHA-1, the iOS key to the bundle
+  package `com.siham.app` plus your signing SHA-1, the iOS key to the bundle
   id, and the Maps key to the Maps SDK it actually needs. An unrestricted client
   key is billable by anyone who finds it.
 - Turn on Firebase App Check so a leaked client key cannot by itself drive

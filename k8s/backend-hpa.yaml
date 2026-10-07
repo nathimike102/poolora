@@ -1,13 +1,13 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: poolora-backend-hpa
-  namespace: poolora
+  name: siham-backend-hpa
+  namespace: siham
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: poolora-backend
+    name: siham-backend
   minReplicas: 3
   maxReplicas: 20
   metrics:

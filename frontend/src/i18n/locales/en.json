@@ -31,7 +31,7 @@
   "language": {
     "title": "Language",
     "intro": "Choose the language for the app. Money, dates and emergency numbers stay the same.",
-    "saveFailed": "Saved on this phone. We could not save it to your account yet, so messages from Poolora may stay in the old language for now."
+    "saveFailed": "Saved on this phone. We could not save it to your account yet, so messages from Siham may stay in the old language for now."
   },
   "sos": {
     "title": "Safety and SOS",
@@ -46,12 +46,12 @@
     },
     "noContactsTitle": "No emergency contacts",
     "callIfDanger": "Call {{number}} if you are in danger.",
-    "smsBody": "SOS. I need help during a Poolora ride.",
+    "smsBody": "SOS. I need help during a Siham ride.",
     "smsWhere": "I am here: {{url}}",
     "notSentTitle": "SOS not sent",
     "threatNotSent": "{{message}} The safety team still has your alert.",
     "micTitle": "Microphone not allowed",
-    "micBody": "Allow Poolora to use the microphone in your phone settings to record during an SOS.",
+    "micBody": "Allow Siham to use the microphone in your phone settings to record during an SOS.",
     "cancelFailed": "Could not cancel",
     "safeConfirmTitle": "Tell the safety team you are safe?",
     "safeConfirmBody": "They will still call you to check, then close the alert. Your emergency contacts will be told you are safe.",
@@ -68,9 +68,9 @@
     "callService": "Call {{service}} on {{number}}",
     "active": {
       "title": "SOS alert active",
-      "sub": "The Poolora safety team has been alerted and can see where you are.",
+      "sub": "The Siham safety team has been alerted and can see where you are.",
       "sending": "Sending SOS",
-      "retryingTitle": "Trying to reach Poolora",
+      "retryingTitle": "Trying to reach Siham",
       "retryingSub": "No connection yet. We keep trying every few seconds. Call {{number}}, or text your contacts from your phone.",
       "closedTitle": "SOS closed",
       "closedCancelled": "You cancelled the alert. Your contacts were not told.",
@@ -105,7 +105,7 @@
     "fakeCall": "Fake call",
     "fakeCallHint": "Your phone rings in a few seconds, so you have a reason to leave",
     "audioTitle": "Record audio during an SOS",
-    "audioBody": "Off unless you switch it on. During an SOS your phone records what it hears and sends it to the Poolora safety team only, in parts of a minute.",
+    "audioBody": "Off unless you switch it on. During an SOS your phone records what it hears and sends it to the Siham safety team only, in parts of a minute.",
     "contactsTitle": "Emergency contacts",
     "contactsEmpty": "Add people who should get a text with your location if you raise an SOS.",
     "notTextedOnSos": " · not texted on SOS",
@@ -146,8 +146,8 @@
     "imInCar": "I'm in the car",
     "notConfirmed": "Not confirmed",
     "checkInNotSent": "{{message}} If you are in danger, use SOS or call {{number}}.",
-    "shareLive": "Follow my Poolora ride from {{from}} to {{to}} live: {{url}}\nThe link stops working an hour after I arrive.",
-    "shareText": "I'm on a Poolora ride with {{driver}}{{plate}} from {{from}} to {{to}}, leaving at {{time}}.",
+    "shareLive": "Follow my Siham ride from {{from}} to {{to}} live: {{url}}\nThe link stops working an hour after I arrive.",
+    "shareText": "I'm on a Siham ride with {{driver}}{{plate}} from {{from}} to {{to}}, leaving at {{time}}.",
     "loadFailed": "We couldn't load this ride",
     "goBack": "Go back",
     "loading": "Loading ride",
@@ -287,7 +287,7 @@
   "login": {
     "tryAgain": "Please try again",
     "googleError": "Google Sign-In Error",
-    "welcome": "Welcome to Poolora",
+    "welcome": "Welcome to Siham",
     "choose": "Choose how you want to continue",
     "signingIn": "Signing in...",
     "google": "Continue with Google",
@@ -445,7 +445,7 @@
     "more": " · {{count}} more",
     "to": "To {{place}}",
     "withDriver": "{{when}} with {{driver}}",
-    "rideWith": "Ride with Poolora",
+    "rideWith": "Ride with Siham",
     "savedRoutes": "Saved routes",
     "addRouteLabel": "Add a saved route",
     "add": "Add",
@@ -584,9 +584,9 @@
     "dropAt": "Estimated drop · {{time}}",
     "photoOf": "Photo of {{name}}",
     "trackedLabel": "Tracked car: a GPS tracker in this car keeps reporting even if every phone is off",
-    "womanDriverLabel": "Verified woman driver: her ID was checked by Poolora",
+    "womanDriverLabel": "Verified woman driver: her ID was checked by Siham",
     "womanDriver": "Verified woman driver",
-    "idChecked": "ID checked by Poolora",
+    "idChecked": "ID checked by Siham",
     "ratedLabel": "Rated {{rating}} from {{count}} ratings",
     "noRatings": "★ 5.0 · New",
     "tripOne": "1 trip",
@@ -625,7 +625,7 @@
     "payWith": "Pay with",
     "online": "EcoCash, OneMoney, InnBucks or card",
     "onlineSub": "Pay in US dollars or ZiG, through Paynow",
-    "wallet": "Poolora wallet",
+    "wallet": "Siham wallet",
     "balanceUnavailable": "Balance unavailable",
     "balance": "Balance {{amount}}",
     "notEnough": " · not enough for this booking",
@@ -682,15 +682,15 @@
     },
     "cardFailed": "Could not open the card page. Try another method.",
     "topupDoneTitle": "Wallet topped up",
-    "topupDoneBody": "{{amount}} is in your Poolora wallet.",
+    "topupDoneBody": "{{amount}} is in your Siham wallet.",
     "backToWallet": "Back to wallet",
     "inWalletTitle": "Payment in your wallet",
-    "inWalletBody": "This request had already closed or been paid, so your {{amount}} is in your Poolora wallet. You can use it or withdraw it.",
+    "inWalletBody": "This request had already closed or been paid, so your {{amount}} is in your Siham wallet. You can use it or withdraw it.",
     "openWallet": "Open wallet",
     "receivedTitle": "Payment received",
-    "parcelReceived": "Your parcel request has gone to the driver. We'll tell you when they accept. If they decline, the full amount goes to your Poolora wallet.",
+    "parcelReceived": "Your parcel request has gone to the driver. We'll tell you when they accept. If they decline, the full amount goes to your Siham wallet.",
     "trackParcel": "Track the parcel",
-    "rideReceived": "Your request has gone to the driver. We'll tell you when they confirm your seat. If they decline, the full amount goes to your Poolora wallet.",
+    "rideReceived": "Your request has gone to the driver. We'll tell you when they confirm your seat. If they decline, the full amount goes to your Siham wallet.",
     "viewRides": "View my rides",
     "topupTitle": "Top up wallet",
     "title": "Payment",
@@ -715,13 +715,13 @@
     "notCharged": "{{reason}} You have not been charged. Try again or choose another method.",
     "cancelling": "Cancelling",
     "cancelInstead": "Cancel the request instead",
-    "secure": "Payments are processed by Paynow. Poolora never sees your PIN or card details.",
+    "secure": "Payments are processed by Paynow. Siham never sees your PIN or card details.",
     "tryAgain": "Try again",
     "pay": "Pay {{amount}}",
     "instructions": {
-      "mobile": "Check your phone: {{wallet}} will ask you to approve {{amount}} to Poolora with your PIN.",
+      "mobile": "Check your phone: {{wallet}} will ask you to approve {{amount}} to Siham with your PIN.",
       "innbucks": "Open InnBucks and enter or scan the code to pay {{amount}}.",
-      "card": "Pay {{amount}} by card on the Paynow page, then come back to Poolora."
+      "card": "Pay {{amount}} by card on the Paynow page, then come back to Siham."
     },
     "zwgRate": "{{amount}} at {{rate}} ZiG per US dollar"
   },
@@ -743,7 +743,7 @@
       "male": "Man",
       "other": "Another gender"
     },
-    "intro": "Women-only rides are for women whose identity we have checked, so nobody can join one just by saying they are a woman. Send a photo of your national ID, passport or driving licence, and a selfie. A Poolora admin checks the selfie is you, usually within a day. The ID shows who you are; your gender is the one you live as. The photos are seen only by our team and deleted as soon as we decide.",
+    "intro": "Women-only rides are for women whose identity we have checked, so nobody can join one just by saying they are a woman. Send a photo of your national ID, passport or driving licence, and a selfie. A Siham admin checks the selfie is you, usually within a day. The ID shows who you are; your gender is the one you live as. The photos are seen only by our team and deleted as soon as we decide.",
     "verifiedWoman": "Verified. You can post and book women-only rides. To change your details, contact support.",
     "verified": "Verified. To change your details, contact support.",
     "pending": "Waiting for review, sent {{date}}. We will let you know.",
@@ -759,10 +759,10 @@
     "addYourCarInDriver": "Add your car in Driver verification first.",
     "unlink": "Unlink",
     "linkTracker": "Link tracker",
-    "pointYourTrackerAtPoolora": "Point your tracker at Poolora",
+    "pointYourTrackerAtSiham": "Point your tracker at Siham",
     "trackerFromATrackingCompany": "Tracker from a tracking company?",
     "aGpsTrackerInYour": "A GPS tracker in your car keeps it traceable during a ride even if every phone in it is switched off, and its panic button raises an SOS. Riders see a \"Tracked car\" badge on your rides. It is optional.",
-    "pooloraKeepsWhereYourCar": "Poolora keeps where your car is only during your rides, or while an SOS is open. The rest of the time it notes only that the tracker is working.",
+    "sihamKeepsWhereYourCar": "Siham keeps where your car is only during your rides, or while an SOS is open. The rest of the time it notes only that the tracker is working.",
     "mostTrackersAreSetBy": "Most trackers are set by text message from your phone. For the common GT06 type, send it:",
     "couldNotLoad": "Could not load",
     "notLinked": "Not linked",
@@ -779,10 +779,10 @@
       "days": "{{count}} days ago"
     },
     "statusLine": "{{state}}: last report {{when}}",
-    "waitingFirst": "Linked. Waiting for its first report: point the tracker at Poolora (below).",
+    "waitingFirst": "Linked. Waiting for its first report: point the tracker at Siham (below).",
     "device": "Device {{id}}",
     "deviceLabel": "Tracker device id for {{name}}",
-    "serverSetup": "Poolora's tracker server is being set up. You can link your tracker now; it shows as working once the server is live."
+    "serverSetup": "Siham's tracker server is being set up. You can link your tracker now; it shows as working once the server is live."
   },
   "createRide": {
     "startingPoint": "Starting point",
@@ -863,7 +863,7 @@
     "needsYourAnswer": "Needs your answer",
     "yourRides": "Your rides",
     "seeAll": "See all",
-    "driveWithPoolora": "Drive with Poolora",
+    "driveWithSiham": "Drive with Siham",
     "whereAreYouDriving": "Where are you driving?",
     "noRidesComingUpOffer": "No rides coming up. Offer one and riders going your way can book your empty seats.",
     "goodAfternoon": "Good afternoon",
@@ -922,7 +922,7 @@
     "beingReviewed": "Your documents are being reviewed",
     "reason": "Reason: {{reason}}",
     "onlyReviewed": "Riders can only book drivers whose licence and vehicle documents have been reviewed.",
-    "version": "Poolora version {{version}}"
+    "version": "Siham version {{version}}"
   },
   "earnings": {
     "previousMonth": "Previous month",
@@ -948,7 +948,7 @@
     "notSent": "Not sent",
     "last7Days": "Last 7 days",
     "last4Weeks": "Last 4 weeks",
-    "shareTitle": "Poolora earnings {{month}}",
+    "shareTitle": "Siham earnings {{month}}",
     "lines": {
       "trips": "Trips",
       "fares": "Fares",
@@ -1017,7 +1017,7 @@
     "youAreVerified": "You are verified",
     "documentsUnderReview": "Documents under review",
     "youCanOfferRidesNow": "You can offer rides now.",
-    "aMemberOfThePoolora": "A member of the Poolora team checks every submission. We will notify you when it has been reviewed.",
+    "aMemberOfTheSiham": "A member of the Siham team checks every submission. We will notify you when it has been reviewed.",
     "docs": {
       "licence": {
         "label": "Driving licence",
@@ -1134,7 +1134,7 @@
     "cancelParcel": "Cancel parcel",
     "weShowItOnlyNow": "We show it only now. Send it to the recipient; the driver needs it to hand the parcel over.",
     "cancelThisParcel": "Cancel this parcel?",
-    "youGetAFullRefund": "You get a full refund to your Poolora wallet.",
+    "youGetAFullRefund": "You get a full refund to your Siham wallet.",
     "notCancelled": "Not cancelled",
     "keepIt": "Keep it",
     "steps": {
@@ -1143,8 +1143,8 @@
       "onTheWay": "On the way",
       "delivered": "Delivered"
     },
-    "shareCode": "A Poolora parcel is on its way to you (tracking {{tracking}}). Give the driver this delivery code when it arrives: {{code}}",
-    "refunded": "{{amount}} refunded to your Poolora wallet.",
+    "shareCode": "A Siham parcel is on its way to you (tracking {{tracking}}). Give the driver this delivery code when it arrives: {{code}}",
+    "refunded": "{{amount}} refunded to your Siham wallet.",
     "refundFailed": "We could not refund this automatically. Our team will refund you; contact support if it has not arrived in a week.",
     "tracking": "Tracking {{tracking}}",
     "from": "From {{name}}",
@@ -1275,7 +1275,7 @@
     "refund": {
       "unknown": "Refunds depend on how soon the ride leaves. {{policy}}",
       "freeUntil": " Free cancellation ends at {{time}}.",
-      "full": "You get the full {{amount}} back to your Poolora wallet, which you can withdraw to mobile money.{{until}}",
+      "full": "You get the full {{amount}} back to your Siham wallet, which you can withdraw to mobile money.{{until}}",
       "none": "This cancellation is not refunded. {{policy}}",
       "feeKept": " The {{fee}} platform fee is not refunded.",
       "partial": "You get {{amount}} back of {{fare}}.{{fee}} {{policy}}"
@@ -1319,7 +1319,7 @@
     },
     "seats": "Seats",
     "fare": "Fare",
-    "serviceFee": "Includes Poolora service fee",
+    "serviceFee": "Includes Siham service fee",
     "refunded": "Refunded",
     "totalPaid": "Total paid",
     "paidBy": "Paid by",
@@ -1343,7 +1343,7 @@
     "drive": "Drive & earn",
     "goAnywhere": "Go anywhere",
     "sendSomething": "Send something",
-    "yourPoolora": "Your Poolora",
+    "yourSiham": "Your Siham",
     "work": "Work",
     "wallet": "Wallet",
     "impact": "Impact",
@@ -1450,7 +1450,7 @@
     "endCall": "End call",
     "longPressToStopThe": "Long-press to stop the fake call",
     "callerName": "Caller name",
-    "keepPooloraOpenYourPhone": "Keep Poolora open. Your phone will ring soon. Long-press to stop.",
+    "keepSihamOpenYourPhone": "Keep Siham open. Your phone will ring soon. Long-press to stop.",
     "fakeCall": "Fake call",
     "whoIsCalling": "Who is calling",
     "ringIn": "Ring in",
@@ -1476,11 +1476,11 @@
         "q1": "When is my seat confirmed?",
         "a1": "When the driver accepts your request. Drivers have 6 hours to answer; a request that is not answered in time, or once the ride has left, expires and any payment is refunded in full.",
         "q2": "I paid but my request disappeared",
-        "a2": "A request paid by EcoCash, OneMoney, InnBucks or card that is not paid within 15 minutes is cancelled. If the payment goes through after that, it lands in your Poolora wallet. If money left your account and is not in your wallet, open a request under Payment below and we will trace it.",
+        "a2": "A request paid by EcoCash, OneMoney, InnBucks or card that is not paid within 15 minutes is cancelled. If the payment goes through after that, it lands in your Siham wallet. If money left your account and is not in your wallet, open a request under Payment below and we will trace it.",
         "q3": "How much do I get back if I cancel?",
         "a3": "Before the driver accepts, everything. After that, by default: everything 24 hours or more before departure, half from 2 hours, and nothing after that. Cancelling within 30 minutes of the driver accepting is free, as long as the ride is an hour or more away. The app shows the exact amount before you confirm. If the driver changes the time or cancels, you get everything back.",
         "q4": "Where do refunds go?",
-        "a4": "To your Poolora wallet, at once, however you paid. Use it for your next ride, or withdraw it to EcoCash, OneMoney or InnBucks under Settings, Wallet; a person sends withdrawals, usually within one working day.",
+        "a4": "To your Siham wallet, at once, however you paid. Use it for your next ride, or withdraw it to EcoCash, OneMoney or InnBucks under Settings, Wallet; a person sends withdrawals, usually within one working day.",
         "q5": "Can I pay in ZiG?",
         "a5": "Yes, when ZiG is offered on the payment screen. Prices are set in US dollars and converted at the rate shown before you pay."
       },
@@ -1489,7 +1489,7 @@
         "q1": "How do I share my trip?",
         "a1": "On the ride screen, tap Share trip. Anyone with the link can follow the car without the app until an hour after you arrive.",
         "q2": "What does SOS do?",
-        "a2": "Hold the SOS button for 3 seconds. The Poolora safety team is alerted at once and can see where you are. Ten seconds later your emergency contacts get a text with a link to your live location, unless you cancel because you pressed it by accident. If you are in danger, also call {{number}} (police {{police}}, ambulance {{ambulance}}).",
+        "a2": "Hold the SOS button for 3 seconds. The Siham safety team is alerted at once and can see where you are. Ten seconds later your emergency contacts get a text with a link to your live location, unless you cancel because you pressed it by accident. If you are in danger, also call {{number}} (police {{police}}, ambulance {{ambulance}}).",
         "q3": "What if I have no signal or no GPS?",
         "a3": "The alert still goes: without a GPS fix we use the car's last position. With no data at all, the app keeps trying and offers to text your contacts from your phone and to call the emergency line.",
         "q4": "Why am I asked \"Are you OK?\"",
@@ -1507,7 +1507,7 @@
         "a3": "Tap the trip in My rides and choose Report a problem. Our team reviews it within 48 to 72 hours with the trip's chat, payments and route."
       },
       "t4": {
-        "topic": "Driving with Poolora",
+        "topic": "Driving with Siham",
         "q1": "How long does verification take?",
         "a1": "We review your licence, registration and insurance within 48 hours. If something is unclear we ask you to upload that document again.",
         "q2": "How is the seat price set?",
@@ -1524,12 +1524,12 @@
       "closed": "Closed"
     },
     "callUs": "Call us on {{phone}}. In danger now? Call {{number}}.",
-    "callLabel": "Call Poolora support on {{phone}}",
+    "callLabel": "Call Siham support on {{phone}}",
     "noMatches": "No answers match \"{{query}}\". Ask us below.",
     "orEmail": "Or email {{email}}",
     "reportUrgent": "Send us an urgent request and the team will get back to you. In danger now? Call {{number}}.",
     "report": "Report",
-    "howToUse": "How to use Poolora"
+    "howToUse": "How to use Siham"
   },
   "impact": {
     "coSavedInEachOf": "CO₂ saved in each of the last six months",
@@ -1570,7 +1570,7 @@
     "waitingForReview": "Waiting for review",
     "neededForWomenOnlyRides": "Needed for women-only rides",
     "switchToRiding": "Switch to riding",
-    "driveWithPoolora": "Drive with Poolora",
+    "driveWithSiham": "Drive with Siham",
     "help": {
       "call": "Call support",
       "callSub": "{{phone}}, for urgent safety or payment problems",
@@ -1578,7 +1578,7 @@
       "privacy": "Privacy policy",
       "privacySub": "How we handle your data",
       "terms": "Terms of service",
-      "termsSub": "The rules for using Poolora"
+      "termsSub": "The rules for using Siham"
     },
     "menu": {
       "help": "Help",
@@ -1599,7 +1599,7 @@
       "driveSub": "Share your empty seats and earn",
       "settings": "Settings",
       "work": "Work",
-      "workSub": "Ride with colleagues if your company is on Poolora",
+      "workSub": "Ride with colleagues if your company is on Siham",
       "receipts": "Receipts",
       "receiptsSub": "Every trip receipt, kept in the app",
       "walletShort": "Wallet",
@@ -1615,7 +1615,7 @@
     "photoFailed": "Your photo could not be saved. Try again.",
     "myRating": "{{rating}} My rating",
     "noRatings": "5.0 My rating · everyone starts at 5 stars",
-    "version": "Poolora version {{version}}"
+    "version": "Siham version {{version}}"
   },
   "raiseDispute": {
     "theDriverAskedMeTo": "The driver asked me to cancel because he was running late, and I was charged a fee.",
@@ -1654,7 +1654,7 @@
   "rateTrip": {
     "rateYourTrip": "Rate your trip",
     "thanksForYourRating": "Thanks for your rating",
-    "itHelpsKeepPooloraSafe": "It helps keep Poolora safe and friendly.",
+    "itHelpsKeepSihamSafe": "It helps keep Siham safe and friendly.",
     "ok": "OK"
   },
   "settings": {
@@ -1719,7 +1719,7 @@
     "contactAPersonInstead": "Contact a person instead",
     "theAssistantCanMakeMistakes": "The assistant can make mistakes. It never changes a booking or moves money; a person handles anything it passes on.",
     "you": "You",
-    "pooloraAssistant": "Poolora assistant",
+    "sihamAssistant": "Siham assistant",
     "greeting": "Hi, I can answer questions about bookings, payments, refunds and your account, and check your recent trips. What do you need?",
     "suggestions": {
       "cancel": "How much do I get back if I cancel?",
@@ -1742,7 +1742,7 @@
     "yourRequest": "Your request",
     "contactUs": "Contact us",
     "you": "You",
-    "pooloraSupport": "Poolora support",
+    "sihamSupport": "Siham support",
     "urgentRequestsAreAnsweredFirst": "Urgent requests are answered first.",
     "weUsuallyReplyWithinA": "We usually reply within a day.",
     "writeToReopenThisRequest": "Write to reopen this request",
@@ -1847,7 +1847,7 @@
     "sayHelloWhoYouAre": "Say hello: who you are, what you like doing",
     "messageToTheOrganiser": "Message to the organiser",
     "organiserRating": "Organiser rating",
-    "anythingToAddOnlyPoolora": "Anything to add? Only Poolora sees this.",
+    "anythingToAddOnlySiham": "Anything to add? Only Siham sees this.",
     "comment": "Comment",
     "activity": "Activity",
     "totalCost": "Total cost",
@@ -1921,7 +1921,7 @@
     "votes": "Yes {{yes}} · No {{no}} · Maybe {{maybe}}",
     "going": "Going ({{count}} of {{max}})",
     "you": "You",
-    "invite": "Join my trip \"{{title}}\" on Poolora: open Services > Trips and enter the invite code {{code}}",
+    "invite": "Join my trip \"{{title}}\" on Siham: open Services > Trips and enter the invite code {{code}}",
     "spent": "{{total}} spent, about {{each}} a person",
     "paidShare": "paid {{paid}} · share {{share}}",
     "transfer": {
@@ -2025,7 +2025,7 @@
     "readTheTermsOfService": "Read the Terms of Service",
     "readThePrivacyPolicy": "Read the Privacy Policy",
     "iAgreeToTheTerms": "I agree to the Terms and Privacy Policy",
-    "intro": "Poolora uses your phone number, location during rides and the details you share with drivers and riders to arrange trips and keep them safe. Please read how we handle this before you continue."
+    "intro": "Siham uses your phone number, location during rides and the details you share with drivers and riders to arrange trips and keep them safe. Please read how we handle this before you continue."
   },
   "ratingForm": {
     "overall": "Overall",
@@ -2067,7 +2067,7 @@
       "mostly": "Mostly",
       "no": "No"
     },
-    "safePrivate": "Private: only Poolora's safety team sees this answer, never {{name}}.",
+    "safePrivate": "Private: only Siham's safety team sees this answer, never {{name}}.",
     "starOne": "{{prefix}}1 star",
     "starMany": "{{prefix}}{{count}} stars"
   },
@@ -2136,20 +2136,20 @@
   },
   "calls": {
     "callingTitle": "Calling you now",
-    "callingBody": "Answer the call from Poolora and we will connect you to {{name}}. Your numbers stay private.",
+    "callingBody": "Answer the call from Siham and we will connect you to {{name}}. Your numbers stay private.",
     "failed": "Could not call"
   },
   "parcelPhoto": {
     "cameraTitle": "Camera needed",
-    "cameraBody": "Allow Poolora to use the camera to photograph the parcel.",
+    "cameraBody": "Allow Siham to use the camera to photograph the parcel.",
     "uploadFailed": "The photo did not upload"
   },
   "tracking": {
     "sosTitle": "SOS active",
-    "sosBody": "Sharing your location with the Poolora safety team.",
+    "sosBody": "Sharing your location with the Siham safety team.",
     "rideTitle": "Ride in progress",
-    "rideDriver": "Sharing the car's position with your riders and the Poolora safety team.",
-    "rideRider": "Sharing your position with the Poolora safety team until you are dropped off."
+    "rideDriver": "Sharing the car's position with your riders and the Siham safety team.",
+    "rideRider": "Sharing your position with the Siham safety team until you are dropped off."
   },
   "tabs": {
     "ride": "Ride",
@@ -2163,7 +2163,7 @@
   },
   "work": {
     "title": "Work",
-    "intro": "If your company has a Poolora programme, confirm your work email to share rides with colleagues. Your company sees that you joined and the trips it helps pay for, never where you go.",
+    "intro": "If your company has a Siham programme, confirm your work email to share rides with colleagues. Your company sees that you joined and the trips it helps pay for, never where you go.",
     "emailLabel": "Work email",
     "emailPlaceholder": "you@yourcompany.com",
     "send": "Send confirmation link",
@@ -2198,7 +2198,7 @@
   },
   "locationIntro": {
     "title": "Find rides near you",
-    "body": "Poolora uses your location to show rides close to you, to fill in your country's calling code, and to check that Poolora runs where you are. You can turn it off any time in your phone's settings.",
+    "body": "Siham uses your location to show rides close to you, to fill in your country's calling code, and to check that Siham runs where you are. You can turn it off any time in your phone's settings.",
     "allow": "Allow location",
     "notNow": "Not now"
   },
@@ -2210,13 +2210,13 @@
     "none": "No country matches"
   },
   "serviceArea": {
-    "title": "Poolora isn’t in {{country}} yet",
-    "banner": "You can’t book or offer rides here yet. Poolora runs in {{market}} for now.",
+    "title": "Siham isn’t in {{country}} yet",
+    "banner": "You can’t book or offer rides here yet. Siham runs in {{market}} for now.",
     "book": "You can’t book rides here yet.",
     "offer": "You can’t offer rides here yet.",
     "parcel": "You can’t send parcels here yet.",
     "trip": "You can’t plan group trips here yet.",
-    "account": "Your account works anywhere; rides open when Poolora launches in your country. For now it runs in {{market}}.",
+    "account": "Your account works anywhere; rides open when Siham launches in your country. For now it runs in {{market}}.",
     "back": "Go back"
   },
   "phoneNumber": {
@@ -2234,7 +2234,7 @@
     "savedBody": "{{phone}} is now the number on your account."
   },
   "guide": {
-    "title": "How to use Poolora",
+    "title": "How to use Siham",
     "subtitle": "Rides, parcels, trips and safety",
     "gotIt": "Got it",
     "ride": {
@@ -2259,7 +2259,7 @@
     },
     "drive": {
       "title": "Offer rides and earn",
-      "step1": "In Profile, tap “Drive with Poolora”.",
+      "step1": "In Profile, tap “Drive with Siham”.",
       "step2": "Send your licence and car documents; our team checks them before you can offer rides.",
       "step3": "Once approved, tap “Offer a ride”: route, time, seats and price per seat.",
       "step4": "Accept the riders who ask to join. What you earn shows under Earnings."

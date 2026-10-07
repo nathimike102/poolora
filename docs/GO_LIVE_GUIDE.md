@@ -1,12 +1,12 @@
 # Go-live guide: domain, email and deployment
 
-Do these in order. Each step says what to click or run, what you should see, and how to check it worked. Replace `<domain>` with your domain throughout, for example `poolora.co.zw`.
+Do these in order. Each step says what to click or run, what you should see, and how to check it worked. Replace `<domain>` with your domain throughout, for example `siham.co.zw`.
 
 What runs where once you are done:
 
 | Part | Address | Hosted on | Deploys from |
 |---|---|---|---|
-| Website (`web-landing/`) | `https://<domain>` (and `www.` redirecting to it) | Vercel project `poolora` (exists) | `main`; every other branch gets a preview |
+| Website (`web-landing/`) | `https://<domain>` (and `www.` redirecting to it) | Vercel project `siham` (exists) | `main`; every other branch gets a preview |
 | Web admin (`admin-web/`) | `https://admin.<domain>` | A second Vercel project (create it, step D4) | `main` |
 | API (`backend/` + `ml-service/`) | `https://api.<domain>` | One Ubuntu server with Docker (step D5) | `main`, through the CI `deploy` job |
 | Database | — | MongoDB Atlas (exists) | — |
@@ -99,8 +99,8 @@ Once `support@`, `hello@`, `privacy@` and `security@` receive mail:
 1. `web-landing/src/config/company.ts`: set `const MAIL_DOMAIN = "<domain>";`.
 2. `frontend/src/config/company.ts`: set `const MAIL_DOMAIN = '<domain>';` (it mirrors the website).
 3. Run `cd web-landing && npm run build`. If it stops with "The JSON-LD block changed", paste the `sha256-…` value it prints into the `script-src` of `web-landing/vercel.json` in place of the old one, and build again.
-4. Backend production environment: `MAIL_FROM=Poolora <noreply@<domain>>` and the `SMTP_*` values from 2.2.
-5. Vercel → project `poolora` → Settings → Environment Variables (Production): `SMTP_HOST`, `SMTP_PORT=587`, `SMTP_SECURE=false`, `SMTP_USER`, `SMTP_PASS`, `CONTACT_FROM_EMAIL=noreply@<domain>`, `CONTACT_TO_EMAIL=hello@<domain>`, `INVESTORS_FROM_EMAIL=noreply@<domain>`, `INVESTORS_TO_EMAIL=hello@<domain>`. Redeploy.
+4. Backend production environment: `MAIL_FROM=Siham <noreply@<domain>>` and the `SMTP_*` values from 2.2.
+5. Vercel → project `siham` → Settings → Environment Variables (Production): `SMTP_HOST`, `SMTP_PORT=587`, `SMTP_SECURE=false`, `SMTP_USER`, `SMTP_PASS`, `CONTACT_FROM_EMAIL=noreply@<domain>`, `CONTACT_TO_EMAIL=hello@<domain>`, `INVESTORS_FROM_EMAIL=noreply@<domain>`, `INVESTORS_TO_EMAIL=hello@<domain>`. Redeploy.
 6. Ship a new app build so it shows the new support address.
 
 **Check:** the website footer and Privacy Policy show the new addresses; `https://<domain>/.well-known/security.txt` shows `Contact: mailto:security@<domain>`; submitting the waitlist form delivers an email to `hello@`.
@@ -115,8 +115,8 @@ Production must never share a database, keys or storage with development:
 
 | Resource | Production | Development |
 |---|---|---|
-| MongoDB | Atlas cluster or database `poolora-prod` | A separate database (or local Docker) |
-| S3 bucket | `poolora-uploads-prod` in `af-south-1` | `poolora-uploads-dev` |
+| MongoDB | Atlas cluster or database `siham-prod` | A separate database (or local Docker) |
+| S3 bucket | `siham-uploads-prod` in `af-south-1` | `siham-uploads-dev` |
 | JWT secrets, `ML_SERVICE_API_KEY`, `TRACKER_GATEWAY_KEY` | Generated once for production (see `docs/SECRETS.md`) | Different values |
 | Paynow | Live integration | Test integration |
 | Firebase | Production project | A second Firebase project for development is ideal |
@@ -126,7 +126,7 @@ Production must never share a database, keys or storage with development:
 
 ### D2. Website on the custom domain
 
-1. Vercel → project **poolora** → Settings → **Domains** → add `<domain>`, then add `www.<domain>`.
+1. Vercel → project **siham** → Settings → **Domains** → add `<domain>`, then add `www.<domain>`.
 2. Vercel shows the DNS records to create (an `A` record for the apex and a `CNAME` for `www`). Add them in Cloudflare with **Proxy status: DNS only** (grey cloud), so Vercel can issue the certificate.
 3. On `www.<domain>`, choose **Redirect to `<domain>`** (308). One canonical host.
 4. In code, change `SITE_ORIGIN` in `web-landing/src/config/company.ts` and `frontend/src/config/company.ts` to `https://<domain>` (the site's canonical URL, sitemap and `security.txt` follow it). Push to `main`.
@@ -135,13 +135,13 @@ Production must never share a database, keys or storage with development:
 
 ### D3. Website environment variables
 
-Vercel → **poolora** → Settings → Environment Variables, **Production** only: the email values from 2.5 step 5, plus `VITE_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (Cloudflare → Turnstile → Add widget for `<domain>`). Redeploy (Deployments → … → Redeploy).
+Vercel → **siham** → Settings → Environment Variables, **Production** only: the email values from 2.5 step 5, plus `VITE_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (Cloudflare → Turnstile → Add widget for `<domain>`). Redeploy (Deployments → … → Redeploy).
 
 **Check:** submit the waitlist form on `https://<domain>`; the email arrives at `hello@`, and the Turnstile widget appears on the form.
 
 ### D4. Web admin on Vercel
 
-1. Vercel → **Add New → Project** → import `nathimike102/poolora` → **Root Directory: `admin-web`**, Framework: Vite. Name it `poolora-admin`.
+1. Vercel → **Add New → Project** → import `nathimike102/siham` → **Root Directory: `admin-web`**, Framework: Vite. Name it `siham-admin`.
 2. Environment Variables (Production): `VITE_API_URL=https://api.<domain>`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` (Firebase console → Project settings → Your apps → Web app). Deploy.
 3. Settings → Domains → add `admin.<domain>`; add the record Vercel shows in Cloudflare (DNS only).
 4. Firebase console → Authentication → Settings → **Authorized domains** → add `admin.<domain>`.
@@ -158,10 +158,10 @@ Vercel → **poolora** → Settings → Environment Variables, **Production** on
    ssh ubuntu@<elastic-ip>
    sudo apt update && sudo apt install -y docker.io docker-compose-v2 nginx certbot python3-certbot-nginx git
    sudo usermod -aG docker ubuntu && exit   # log in again afterwards
-   git clone https://github.com/nathimike102/poolora.git /home/ubuntu/Poolora
+   git clone https://github.com/nathimike102/siham.git /home/ubuntu/Siham
    ```
-4. **Configuration.** Create `/home/ubuntu/Poolora/backend/.env` from `backend/.env.example` with the production values (`NODE_ENV=production`, `APP_BASE_URL=https://api.<domain>`, `MONGO_URI` for the production database, `CORS_ORIGIN=https://<domain>,https://admin.<domain>`, Paynow live keys, Twilio, AWS, JWT secrets, `ML_SERVICE_API_KEY`, `SENTRY_DSN`, `POSTHOG_API_KEY`). Put the Firebase service account at `backend/secrets/firebase-service-account.json`. Then `chmod 600 backend/.env`.
-5. **nginx.** Create `/etc/nginx/sites-available/poolora-api`:
+4. **Configuration.** Create `/home/ubuntu/Siham/backend/.env` from `backend/.env.example` with the production values (`NODE_ENV=production`, `APP_BASE_URL=https://api.<domain>`, `MONGO_URI` for the production database, `CORS_ORIGIN=https://<domain>,https://admin.<domain>`, Paynow live keys, Twilio, AWS, JWT secrets, `ML_SERVICE_API_KEY`, `SENTRY_DSN`, `POSTHOG_API_KEY`). Put the Firebase service account at `backend/secrets/firebase-service-account.json`. Then `chmod 600 backend/.env`.
+5. **nginx.** Create `/etc/nginx/sites-available/siham-api`:
    ```nginx
    server {
      listen 80;
@@ -180,11 +180,11 @@ Vercel → **poolora** → Settings → Environment Variables, **Production** on
    }
    ```
    ```bash
-   sudo ln -s /etc/nginx/sites-available/poolora-api /etc/nginx/sites-enabled/
+   sudo ln -s /etc/nginx/sites-available/siham-api /etc/nginx/sites-enabled/
    sudo nginx -t && sudo systemctl reload nginx
    sudo certbot --nginx -d api.<domain> --redirect -m admin@<domain> --agree-tos
    ```
-6. **Start.** `cd /home/ubuntu/Poolora/backend && docker compose up -d --build`. This is what the CI `deploy` job runs. The compose file also starts its own MongoDB, Kafka, Elasticsearch, Prometheus and Grafana; with `MONGO_URI` pointing at Atlas the local MongoDB holds nothing, but the API waits for it to be healthy, so leave it running. Set `GRAFANA_ADMIN_PASSWORD` in `.env` (see `docs/SECRETS.md`).
+6. **Start.** `cd /home/ubuntu/Siham/backend && docker compose up -d --build`. This is what the CI `deploy` job runs. The compose file also starts its own MongoDB, Kafka, Elasticsearch, Prometheus and Grafana; with `MONGO_URI` pointing at Atlas the local MongoDB holds nothing, but the API waits for it to be healthy, so leave it running. Set `GRAFANA_ADMIN_PASSWORD` in `.env` (see `docs/SECRETS.md`).
 7. **Atlas access.** Atlas → Network Access → add the Elastic IP (not `0.0.0.0/0`).
 8. **CI deploys.** GitHub → Settings → Secrets and variables → Actions → New repository secret: `EC2_HOST` (the Elastic IP), `EC2_USER` (`ubuntu`), `EC2_SSH_KEY` (a private key whose public half is in the server's `~/.ssh/authorized_keys`; make a dedicated key for CI). From the next push to `main`, the `deploy` job pulls and restarts the stack.
 

@@ -3,8 +3,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: poolora-ingress
-  namespace: poolora
+  name: siham-ingress
+  namespace: siham
   annotations:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
@@ -17,7 +17,7 @@ spec:
   tls:
   - hosts:
     - API_HOST_PLACEHOLDER
-    secretName: poolora-api-tls
+    secretName: siham-api-tls
   rules:
   - host: API_HOST_PLACEHOLDER
     http:
@@ -26,6 +26,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: poolora-backend
+            name: siham-backend
             port:
               number: 5002

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build branding/poolora-icon.png from branding/source/poolora-icon.svg.
+"""Build branding/siham-icon.png from branding/source/siham-icon.svg.
 
 Usage (from the repo root):
     pip install cairosvg pillow
@@ -19,7 +19,7 @@ import cairosvg
 from PIL import Image, ImageChops, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
-SVG = (ROOT / "branding" / "source" / "poolora-icon.svg").read_text()
+SVG = (ROOT / "branding" / "source" / "siham-icon.svg").read_text()
 SIZE = 1024
 SCALE = 2  # render at 2x, then downsample for clean edges
 
@@ -56,8 +56,8 @@ def main() -> None:
     out = out.convert("RGBA")
     out.alpha_composite(art)
     out = out.resize((SIZE, SIZE), Image.LANCZOS).convert("RGB")
-    out.save(ROOT / "branding" / "poolora-icon.png", optimize=True)
-    print("wrote branding/poolora-icon.png")
+    out.save(ROOT / "branding" / "siham-icon.png", optimize=True)
+    print("wrote branding/siham-icon.png")
 
 
 if __name__ == "__main__":

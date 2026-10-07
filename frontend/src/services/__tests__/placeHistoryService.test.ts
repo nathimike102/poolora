@@ -45,7 +45,7 @@ describe('placeHistoryService', () => {
   });
 
   it('returns an empty list when storage holds something unreadable', async () => {
-    await AsyncStorage.setItem('@poolora_place_history', '{not json');
+    await AsyncStorage.setItem('@siham_place_history', '{not json');
     expect(await getPlaceHistory()).toEqual([]);
   });
 });

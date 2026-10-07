@@ -1,6 +1,6 @@
-# Poolora Backend
+# Siham Backend
 
-The API behind the Poolora app: scheduled car pooling, with parcel pooling in progress. One Node.js service, organised by domain, plus a separate Python ML service in `../ml-service`.
+The API behind the Siham app: scheduled car pooling, with parcel pooling in progress. One Node.js service, organised by domain, plus a separate Python ML service in `../ml-service`.
 
 - **API reference:** [frontend/docs/technical/07-API-SPECIFICATIONS.md](../frontend/docs/technical/07-API-SPECIFICATIONS.md)
 - **Keys and environment variables:** [docs/SECRETS.md](../docs/SECRETS.md)

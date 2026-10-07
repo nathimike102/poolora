@@ -4,7 +4,7 @@ import { Text } from 'react-native';
 
 // Mock AsyncStorage and auth service used by AppProvider
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  multiGet: jest.fn().mockResolvedValue([["@poolora_role", null], ["@poolora_dark_mode", null]]),
+  multiGet: jest.fn().mockResolvedValue([["@siham_role", null], ["@siham_dark_mode", null]]),
   getItem: jest.fn(),
   setItem: jest.fn().mockResolvedValue(undefined),
   removeItem: jest.fn().mockResolvedValue(undefined),
@@ -67,7 +67,7 @@ describe('dark mode', () => {
   }
 
   test('a saved choice pins the theme at start', async () => {
-    (AsyncStorage.multiGet as jest.Mock).mockResolvedValueOnce([['@poolora_role', null], ['@poolora_dark_mode', 'true']]);
+    (AsyncStorage.multiGet as jest.Mock).mockResolvedValueOnce([['@siham_role', null], ['@siham_dark_mode', 'true']]);
     const { findByTestId } = render(<AppProvider><Capture onCtx={() => {}} /></AppProvider>);
     await findByTestId('vals');
     await act(async () => {});
@@ -83,7 +83,7 @@ describe('dark mode', () => {
     act(() => ctx.toggleDarkMode());
     expect(setAdaptive).toHaveBeenLastCalledWith(false);
     expect(setTheme).toHaveBeenLastCalledWith('dark');
-    expect(AsyncStorage.setItem).toHaveBeenCalledWith('@poolora_dark_mode', 'true');
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith('@siham_dark_mode', 'true');
   });
 
   test('switching back to the phone\'s own setting follows the phone again', async () => {
@@ -93,7 +93,7 @@ describe('dark mode', () => {
     await findByTestId('vals');
     act(() => ctx.toggleDarkMode());
     expect(setAdaptive).toHaveBeenLastCalledWith(true);
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@poolora_dark_mode');
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@siham_dark_mode');
   });
 });
 
@@ -149,8 +149,8 @@ test("logout removes the account's places and routes from the phone", async () =
 
   const removed = (AsyncStorage.removeItem as jest.Mock).mock.calls.map(([key]) => key);
   expect(removed).toEqual(expect.arrayContaining([
-    '@poolora_place_history',
-    '@poolora_saved_routes',
-    '@poolora_sos_contacts',
+    '@siham_place_history',
+    '@siham_saved_routes',
+    '@siham_sos_contacts',
   ]));
 });

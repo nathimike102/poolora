@@ -1,8 +1,8 @@
 
 /**
- * Premium custom icon library for Poolora
+ * Premium custom icon library for Siham
  * Design style: Stripe, Linear, Notion, Mercury, Revolut, Ramp, Airbnb
- * Using Poolora brand colors: Indigo (#0B7A75), Cyan (#06B6D4), Rose/Pink for safety
+ * Using Siham brand colors: Indigo (#0B7A75), Cyan (#06B6D4), Rose/Pink for safety
  */
 
 /* ─── Trust & Verification Icons ─── */

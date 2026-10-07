@@ -9,7 +9,7 @@
  *   having set up an alert rule.
  * - The person who raised it hears when the team takes it and when it closes,
  *   by push and on their open SOS screen.
- * - Emergency contacts get texts; those who use Poolora also get a push.
+ * - Emergency contacts get texts; those who use Siham also get a push.
  *
  * Nothing here throws: a failed channel is logged and the others still go.
  */
@@ -56,7 +56,7 @@ export async function pageSafetyTeam(
       sent.push++;
       if (options.sms !== false && textable(admin.phone) && smsAvailable()) {
         try {
-          await notifications.sendSMS(admin.phone, `Poolora SOS: ${headline}.${link}`.slice(0, 320));
+          await notifications.sendSMS(admin.phone, `Siham SOS: ${headline}.${link}`.slice(0, 320));
           sent.sms++;
         } catch {
           // Logged by sendSMS
@@ -89,7 +89,7 @@ export async function textPeople(phones: string[], message: string): Promise<str
   return results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
 }
 
-/** Pushes to the contacts who have Poolora accounts, found by phone number. */
+/** Pushes to the contacts who have Siham accounts, found by phone number. */
 export async function pushToPhones(phones: string[], title: string | Phrase, body: string | Phrase, data: Record<string, string>): Promise<void> {
   try {
     const users = await User.find({ phone: { $in: phones.filter(textable) }, closedAt: { $exists: false } }).select('_id').lean();

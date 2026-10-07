@@ -3,7 +3,7 @@
 > **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
-## Poolora
+## Siham
 
 ---
 
@@ -180,7 +180,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 - Payment must be completed within 15 minutes of acceptance
 - Failed payment cancels the booking
-- Refunds go to the Poolora wallet at once (Paynow has no refund API); the user can withdraw them to mobile money
+- Refunds go to the Siham wallet at once (Paynow has no refund API); the user can withdraw them to mobile money
 - As built: the rider pays when requesting, and the driver can accept only once the payment is in (see the API specification, section 5)
 
 ---
@@ -281,7 +281,7 @@ This document outlines detailed use cases for the car pooling platform, covering
    - Pages the safety team (every admin) by push and SMS, and shows the SOS on the live dashboard with an alarm sound
    - Records the ride: booking, driver, vehicle, route
 4. The screen shows "Texting your emergency contacts in 10 s" with a Cancel button
-5. After 10 seconds the contacts the user chose (UC-R10) get a text with a live tracking link; those with Poolora accounts also get a push
+5. After 10 seconds the contacts the user chose (UC-R10) get a text with a live tracking link; those with Siham accounts also get a push
 6. The tracking link shows the person's first name, the latest position, the trip, the other person's first name and the car with its plate: what a relative would give the police. Never phone numbers
 7. The phone sends its position every 5 seconds while the SOS is open, also with the screen off or the app closed (an "SOS active" notification shows it). If the user has switched on "Record audio during an SOS" (off by default), the phone records in one-minute parts and uploads each as it ends, for the safety team only. The screen shows when an admin takes it ("Tendai from the safety team is on it and will call you") and when it is closed
 8. Admin calls the user and the other party separately (UC-A03) and closes the SOS with a note
@@ -382,7 +382,7 @@ This document outlines detailed use cases for the car pooling platform, covering
 
 **Extensions**:
 
-- 6a. Refund: credited to the Poolora wallet at once
+- 6a. Refund: credited to the Siham wallet at once
 - 4a. Driver-related issue: Admin reviews for full refund
 
 **Business Rules**:
@@ -954,8 +954,8 @@ This document outlines detailed use cases for the car pooling platform, covering
 **Main Success Scenario**:
 
 1. Driver opens Profile > Car tracker and enters the tracker's device id (usually its 15-digit IMEI)
-2. Driver points the tracker at Poolora's tracker gateway (an SMS command shown in the app), or asks their tracking company to forward the car there
-3. The gateway (Traccar, forwarder only, storing nothing) decodes each report and posts it to Poolora
+2. Driver points the tracker at Siham's tracker gateway (an SMS command shown in the app), or asks their tracking company to forward the car there
+3. The gateway (Traccar, forwarder only, storing nothing) decodes each report and posts it to Siham
 4. Once it reports, the car's rides show "Tracked car" (a report within the last day)
 5. During a ride in progress, the tracker's positions join the trip trail as the car's own trail, apart from the driver's phone; during an SOS on the ride the safety team sees them live
 
@@ -968,8 +968,8 @@ This document outlines detailed use cases for the car pooling platform, covering
 **Business Rules**:
 
 - Optional; a badge, not a requirement (decided 1 October 2026)
-- Outside rides and open SOS, Poolora keeps only when the tracker last reported, never where the car was
-- Poolora never cuts a car's engine (decided 1 October 2026)
+- Outside rides and open SOS, Siham keeps only when the tracker last reported, never where the car was
+- Siham never cuts a car's engine (decided 1 October 2026)
 - One tracker, one car
 
 ---

@@ -1,7 +1,7 @@
 /**
  * WorkScreen.tsx
  *
- * Profile → Work (UC-C02). Staff of a company with a Poolora programme
+ * Profile → Work (UC-C02). Staff of a company with a Siham programme
  * confirm a work email to join it; the link goes to that address, so only
  * someone who can read the company's mail can join.
  */

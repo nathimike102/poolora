@@ -25,7 +25,7 @@ export interface Receipt {
   /** US dollars */
   fare: number;
   pricePerSeat: number;
-  /** Poolora's service fee, included in the fare */
+  /** Siham's service fee, included in the fare */
   serviceFee: number;
   refunded: number;
   paid: number;
@@ -93,17 +93,17 @@ export class ReceiptService {
       paid: Math.round((riderPays(booking) - refunded) * 100) / 100,
       ...(booking.companyShare && status !== 'cancelled' && status !== 'no_show' ? { companyPaid: booking.companyShare, company: await companyName(booking.organisation) } : {}),
       ...(status === 'completed' && booking.co2SavedKg ? { co2SavedKg: booking.co2SavedKg } : {}),
-      paymentMethod: payment ? `${METHOD_LABEL[String(payment.method)] ?? 'Online'}${payment.chargedCurrency === 'ZWG' && payment.chargedAmount ? ` (charged ${money(payment.chargedAmount, 'ZWG')})` : ''}` : 'Poolora wallet',
+      paymentMethod: payment ? `${METHOD_LABEL[String(payment.method)] ?? 'Online'}${payment.chargedCurrency === 'ZWG' && payment.chargedAmount ? ` (charged ${money(payment.chargedAmount, 'ZWG')})` : ''}` : 'Siham wallet',
     };
   }
 
   text(r: Receipt): string {
     const lines = [
-      `Poolora receipt ${r.receiptNumber}`,
+      `Siham receipt ${r.receiptNumber}`,
       `${r.trip.from} to ${r.trip.to}`,
       `${when(r.trip.departure)} · ${r.trip.seats} seat${r.trip.seats === 1 ? '' : 's'} · driver ${r.driver.name}${r.driver.vehicle ? ` (${r.driver.vehicle})` : ''}`,
       `Fare ${money(r.fare)} (${r.trip.seats} × ${money(r.pricePerSeat)})`,
-      ...(r.serviceFee ? [`Includes Poolora service fee ${money(r.serviceFee)}`] : []),
+      ...(r.serviceFee ? [`Includes Siham service fee ${money(r.serviceFee)}`] : []),
       ...(r.companyPaid ? [`Paid by ${r.company ?? 'your company'}: ${money(r.companyPaid)}`] : []),
       ...(r.refunded ? [`Refunded ${money(r.refunded)}`] : []),
       `Paid ${money(r.paid)} by ${r.paymentMethod}`,
@@ -130,14 +130,14 @@ ${row('Rider', r.rider.name)}
 ${row('Driver', `${r.driver.name}${r.driver.vehicle ? ` · ${r.driver.vehicle}` : ''}`)}
 ${row('Seats', `${r.trip.seats} × ${money(r.pricePerSeat)}`)}
 ${row('Fare', money(r.fare))}
-${r.serviceFee ? row('Includes Poolora service fee', money(r.serviceFee)) : ''}
+${r.serviceFee ? row('Includes Siham service fee', money(r.serviceFee)) : ''}
 ${r.companyPaid ? row(`Paid by ${r.company ?? 'your company'}`, `− ${money(r.companyPaid)}`) : ''}
 ${r.refunded ? row('Refunded', `− ${money(r.refunded)}`) : ''}
 ${row('Total paid', money(r.paid), true)}
 ${row('Paid by', r.paymentMethod)}
 ${r.co2SavedKg ? row('CO₂ saved by sharing (estimate)', `${number(r.co2SavedKg, 1)} kg`) : ''}
 </table>
-<p style="font-size:12px;color:#75746f;margin:16px 0 0">Issued ${escapeHtml(when(r.issuedAt))} CAT. Refunds go to your Poolora wallet at once, and you can withdraw them to EcoCash, OneMoney or InnBucks.</p>`);
+<p style="font-size:12px;color:#75746f;margin:16px 0 0">Issued ${escapeHtml(when(r.issuedAt))} CAT. Refunds go to your Siham wallet at once, and you can withdraw them to EcoCash, OneMoney or InnBucks.</p>`);
   }
 
   /** Emails the receipt to the rider, if they have an email address and mail is set up */
@@ -146,7 +146,7 @@ ${r.co2SavedKg ? row('CO₂ saved by sharing (estimate)', `${number(r.co2SavedKg
     const user = await User.findById(userId).select('email').lean();
     if (!user?.email) throw new AppError('Add an email address in your profile to get receipts by email', 409, 'NO_EMAIL');
     if (!mailEnabled()) throw new AppError('Email receipts are not available right now', 503, 'EMAIL_UNAVAILABLE');
-    const sent = await sendMail({ to: user.email, subject: `Your Poolora receipt ${receipt.receiptNumber}`, text: this.text(receipt), html: this.html(receipt) });
+    const sent = await sendMail({ to: user.email, subject: `Your Siham receipt ${receipt.receiptNumber}`, text: this.text(receipt), html: this.html(receipt) });
     return { sent, to: user.email };
   }
 }

@@ -68,7 +68,7 @@ export function SupportAssistantScreen() {
           tc.borderColor_surfaceVariant
         ]]}
       >
-        <Text style={[{ fontSize: 12, fontWeight: '700' }, tc.color_textSec]}>{mine ? t('supportAssistant.you') : t('supportAssistant.pooloraAssistant')}</Text>
+        <Text style={[{ fontSize: 12, fontWeight: '700' }, tc.color_textSec]}>{mine ? t('supportAssistant.you') : t('supportAssistant.sihamAssistant')}</Text>
         <Text style={[{ fontSize: 15, lineHeight: 21 }, tc.color_text]}>{turn.text}</Text>
         {turn.ticketId ? (
           <Pressable

@@ -11,7 +11,7 @@ jest.mock('../../services/LiveVideo', () => ({
   videoAvailable: () => mockLive.available,
   recordingAvailable: () => mockLive.recording,
   roomFor: (id: string) => `sos-${id}`,
-  joinPass: jest.fn(async (_room: string, identity: string, _name: string, role: string) => ({ url: 'wss://poolora.livekit.cloud', token: `${role}:${identity}`, roomSid: mockLive.roomSid })),
+  joinPass: jest.fn(async (_room: string, identity: string, _name: string, role: string) => ({ url: 'wss://siham.livekit.cloud', token: `${role}:${identity}`, roomSid: mockLive.roomSid })),
   inRoom: jest.fn(async () => mockLive.present),
   startRecording: jest.fn(async () => mockLive.egress),
   stopRecording: jest.fn(async () => undefined),
@@ -52,7 +52,7 @@ const events = async () => (await EmergencyRecord.findById(sosId).lean())!.timel
 beforeAll(async () => {
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri());
-  (config.aws as { s3Bucket: string }).s3Bucket = 'poolora-test';
+  (config.aws as { s3Bucket: string }).s3Bucket = 'siham-test';
 });
 afterAll(async () => {
   await mongoose.disconnect();
@@ -69,7 +69,7 @@ beforeEach(async () => {
   ]);
   sosId = (await EmergencyRecord.create({
     booking: new Types.ObjectId(), ride: new Types.ObjectId(), triggeredBy: rudo, status: SOSStatus.ACKNOWLEDGED,
-    triggerLocation: { type: 'Point', coordinates: [31.05, -17.83] }, liveTrackingUrl: 'https://poolora.app/t/x',
+    triggerLocation: { type: 'Point', coordinates: [31.05, -17.83] }, liveTrackingUrl: 'https://siham.app/t/x',
   })).id;
 });
 
@@ -90,7 +90,7 @@ describe('turning the camera on', () => {
   it('only for the person who raised the SOS, sending only, and live only while the setting is off', async () => {
     await expect(video.start(sosId, driver.toString())).rejects.toMatchObject({ statusCode: 403 });
     const pass = await video.start(sosId, rudo.toString());
-    expect(pass).toEqual({ url: 'wss://poolora.livekit.cloud', token: `sender:user:${rudo}`, room: `sos-${sosId}`, recording: false });
+    expect(pass).toEqual({ url: 'wss://siham.livekit.cloud', token: `sender:user:${rudo}`, room: `sos-${sosId}`, recording: false });
     expect(mocked(SafetyAlerts.pageSafetyTeam)).toHaveBeenCalledWith(sosId, expect.stringContaining('turned on their camera'));
 
     expect(await video.sending(sosId, rudo.toString())).toEqual({ recording: false });
@@ -109,7 +109,7 @@ describe('turning the camera on', () => {
     expect(mocked(LiveVideo.startRecording).mock.calls[0][2]).toMatch(new RegExp(`^sos/${sosId}/video-.+\\.mp4$`));
     const record = await EmergencyRecord.findById(sosId).lean();
     expect(record?.video).toMatchObject({ egressId: 'EG_1', recording: true });
-    expect(record?.videoRecordingUrls).toEqual([expect.stringMatching(new RegExp(`^s3://poolora-test/sos/${sosId}/video-`))]);
+    expect(record?.videoRecordingUrls).toEqual([expect.stringMatching(new RegExp(`^s3://siham-test/sos/${sosId}/video-`))]);
   });
 
   it('stays live when the recording cannot start, and tries again next time', async () => {
@@ -194,7 +194,7 @@ describe('when a recording ends by itself', () => {
 
   it('takes a failed recording off the evidence and shows the video is not recorded', async () => {
     const url = await recordedVideo();
-    const file = url.replace('s3://poolora-test/', '');
+    const file = url.replace('s3://siham-test/', '');
     await recordingEnded({ room: `sos-${sosId}`, egressId: 'EG_1', failed: true, file, error: 'S3 access denied' });
     const record = await EmergencyRecord.findById(sosId).lean();
     expect(record?.videoRecordingUrls).toEqual([]);
@@ -205,7 +205,7 @@ describe('when a recording ends by itself', () => {
 
   it('keeps a finished recording, and lets a later one start', async () => {
     const url = await recordedVideo();
-    await recordingEnded({ room: `sos-${sosId}`, egressId: 'EG_1', failed: false, file: url.replace('s3://poolora-test/', '') });
+    await recordingEnded({ room: `sos-${sosId}`, egressId: 'EG_1', failed: false, file: url.replace('s3://siham-test/', '') });
     const record = await EmergencyRecord.findById(sosId).lean();
     expect(record?.videoRecordingUrls).toEqual([url]);
     expect(record?.video).toMatchObject({ recording: true });
@@ -307,7 +307,7 @@ describe('at the same moment', () => {
   it('never shows a camera on for an SOS that closed while it was turning on', async () => {
     mocked(LiveVideo.joinPass).mockImplementationOnce(async () => {
       await safety.resolveSOS(sosId, admin.toString(), 'Rudo is safe at home', false);
-      return { url: 'wss://poolora.livekit.cloud', token: 'sender', roomSid: 'RM_1' };
+      return { url: 'wss://siham.livekit.cloud', token: 'sender', roomSid: 'RM_1' };
     });
     await expect(video.start(sosId, rudo.toString())).rejects.toMatchObject({ errorId: 'SOS_CLOSED' });
     expect((await EmergencyRecord.findById(sosId).lean())!.video?.startedAt).toBeUndefined();

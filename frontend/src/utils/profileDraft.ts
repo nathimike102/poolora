@@ -2,7 +2,7 @@
  * utils/profileDraft.ts
  *
  * Keeps the profile-setup form across a restart. Opening the camera or gallery
- * puts Poolora in the background, and on a phone short of memory Android kills
+ * puts Siham in the background, and on a phone short of memory Android kills
  * it there: when the photo comes back the app starts from the splash screen and
  * the form is gone, which looks like a crash. The form is saved just before the
  * picker opens, and the splash screen sends a restarted app back to it.
@@ -28,7 +28,7 @@ export interface ProfileDraft {
   savedAt: number;
 }
 
-const KEY = 'poolora_profile_draft';
+const KEY = 'siham_profile_draft';
 // A new sign-up's code expires after 5 minutes (backend config.otp.expirySeconds)
 const SIGNUP_DRAFT_MS = 5 * 60 * 1000;
 const SIGNED_IN_DRAFT_MS = 30 * 60 * 1000;

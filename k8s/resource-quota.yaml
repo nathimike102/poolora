@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: poolora-quota
-  namespace: poolora
+  name: siham-quota
+  namespace: siham
 spec:
   hard:
     requests.cpu: "4"

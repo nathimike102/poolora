@@ -34,7 +34,7 @@ export function RateTripScreen() {
           rateeName={rateeName}
           onSubmit={async input => {
             await ratingService.submitRating(bookingId, input);
-            Alert.alert(t('rateTrip.thanksForYourRating'), t('rateTrip.itHelpsKeepPooloraSafe'), [{ text: t('rateTrip.ok'), onPress: () => navigation.goBack() }]);
+            Alert.alert(t('rateTrip.thanksForYourRating'), t('rateTrip.itHelpsKeepSihamSafe'), [{ text: t('rateTrip.ok'), onPress: () => navigation.goBack() }]);
           }}
         />
       </ScrollView>

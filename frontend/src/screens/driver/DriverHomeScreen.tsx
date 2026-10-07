@@ -297,7 +297,7 @@ export function DriverHomeScreen() {
           )}
 
           {/* Shortcuts */}
-          <Text style={[styles.sectionTitle, tc.color_text]}>{t('driverHome.driveWithPoolora')}</Text>
+          <Text style={[styles.sectionTitle, tc.color_text]}>{t('driverHome.driveWithSiham')}</Text>
           <TileGrid>
             <ServiceTile icon="oncomingAutomobile" label={t('driverHome.offerRide')} onPress={offerRide} />
             <ServiceTile icon="moneyBag" label={t('driverHome.earnings')} onPress={() => navigation.navigate('Earnings')} />

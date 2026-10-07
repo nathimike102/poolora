@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Poolora is a static **Vite + React** single-page app with a single **Vercel
+Siham is a static **Vite + React** single-page app with a single **Vercel
 serverless function** (`api/contact.ts`) that relays form submissions over SMTP.
 There is no database.
 
@@ -30,7 +30,7 @@ its URL in the config; the icon appears automatically with no UI changes:
 
 ```ts
 social: {
-  linkedin: "https://www.linkedin.com/company/poolora",
+  linkedin: "https://www.linkedin.com/company/siham",
   x: "",            // still empty -> icon hidden
   instagram: "",
   facebook: "",

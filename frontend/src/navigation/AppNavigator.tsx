@@ -163,7 +163,7 @@ const FULL_BLEED = { contentStyle: { paddingBottom: 0 } } as const;
 // (ActiveRide, SOS) that must keep updating behind whatever is on top.
 const TAB_OPTIONS = { headerShown: false, freezeOnBlur: true } as const;
 
-// Booking, parcels, group trips and new rides open only where Poolora has launched
+// Booking, parcels, group trips and new rides open only where Siham has launched
 const GatedSearch = withServiceArea(() => SearchScreen, "book");
 const GatedShipParcel = withServiceArea(() => ShipParcelScreen, "parcel");
 const GatedPlanTrip = withServiceArea(() => PlanTripScreen, "trip");

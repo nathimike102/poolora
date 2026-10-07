@@ -321,7 +321,7 @@ function CallsCard({ userId }: { userId: string }) {
   return (
     <div className="card">
       <h2>Calls</h2>
-      <p className="faint">Calls through Poolora between this person and their riders or drivers. Recordings are for safety reviews only.</p>
+      <p className="faint">Calls through Siham between this person and their riders or drivers. Recordings are for safety reviews only.</p>
       {loadError ? <div className="error-text">{loadError}</div> : null}
       <div className="table-wrap">
         <table>

@@ -3,7 +3,7 @@
 > **Status (September 2026):** this is the original design. Where it differs from the code, the code is right. See [07-API-SPECIFICATIONS](../technical/07-API-SPECIFICATIONS.md) for the API as built and [11-FEATURE-GAP-ANALYSIS](../planning/11-FEATURE-GAP-ANALYSIS.md) for what is built, what is missing, and where the documents and code differ. The product today: a React Native (Expo) app using the Context API; Node.js and Express; MongoDB and Redis, with Kafka optional; Paynow payments (EcoCash, OneMoney, InnBucks and card, in US dollars or ZiG); Zimbabwe as the first market, with each country an entry in a market registry; Firebase sign-in and push; OpenStreetMap maps with Google optional; and admin tools both inside the mobile app and as a web dashboard (`admin-web/`).
 
 
-## Poolora - Flowcharts
+## Siham - Flowcharts
 
 ---
 
@@ -433,7 +433,7 @@ START
 │ Driver Accepts (within 6 hours)  │
 │ Seats Reserved Atomically        │
 │ (declined or expired → refund    │
-│  to the Poolora wallet)          │
+│  to the Siham wallet)          │
 └────────┬─────────────────────────┘
          │
          ▼
@@ -455,7 +455,7 @@ START
 
 ## 4. Payment Processing Flow
 
-As built with Paynow (Zimbabwe). Paynow has no authorise-then-capture and no refund API, so a request is paid in full before the driver can accept, and every refund goes to the Poolora wallet.
+As built with Paynow (Zimbabwe). Paynow has no authorise-then-capture and no refund API, so a request is paid in full before the driver can accept, and every refund goes to the Siham wallet.
 
 ```
 START (a pending request, parcel or wallet top-up)
@@ -514,7 +514,7 @@ START (a pending request, parcel or wallet top-up)
          │         ▼
          │   ┌────────────────────┐
          │   │ Credit the payer's │
-         │   │ Poolora wallet;    │
+         │   │ Siham wallet;    │
          │   │ notify them        │
          │   └────────────────────┘
          ▼
@@ -586,7 +586,7 @@ START: rider or driver in a confirmed ride feels unsafe
          ▼ after 10 s
 ┌────────────────────────────────────┐
 │ Chosen contacts: SMS with tracking │
-│ link (+ push if they use Poolora). │
+│ link (+ push if they use Siham). │
 │ Link shows: first name, position,  │
 │ trip, other person's first name,   │
 │ car and plate. No phone numbers.   │

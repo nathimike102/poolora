@@ -63,7 +63,7 @@ function serve() {
         console.log(`${name}: preview written`);
         continue;
       }
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), `poolora-${name}-`));
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), `siham-${name}-`));
       const started = Date.now();
       for (let i = 0; i < info.frames; i++) {
         const url = await page.evaluate((f) => window.frame(f), i);

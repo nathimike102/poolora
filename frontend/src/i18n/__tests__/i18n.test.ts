@@ -30,8 +30,10 @@ describe('words', () => {
   });
 
   it('shows English for a phrase a catalogue lacks, never the key', async () => {
+    // A phrase only the English catalogue has, as when a new one is not yet translated
+    i18n.addResource('en', 'translation', 'test.onlyInEnglish', 'Only in English');
     await i18n.changeLanguage('sn');
-    expect(i18n.t('sos.active.title')).toBe(en.sos.active.title);
+    expect(i18n.t('test.onlyInEnglish')).toBe('Only in English');
   });
 
   it('fills in numbers without escaping them', () => {
@@ -40,14 +42,14 @@ describe('words', () => {
 
   it('sends the SOS text in English, with the location', () => {
     expect(sosMessage({ lat: -17.8, lng: 31.05 }, 'en')).toBe(
-      'SOS. I need help during a Poolora ride. I am here: https://maps.google.com/?q=-17.8,31.05',
+      'SOS. I need help during a Siham ride. I am here: https://maps.google.com/?q=-17.8,31.05',
     );
-    expect(sosMessage(null, 'en')).toBe('SOS. I need help during a Poolora ride.');
+    expect(sosMessage(null, 'en')).toBe('SOS. I need help during a Siham ride.');
   });
 
   it('adds the English beneath an SOS text in another language', () => {
     i18n.addResourceBundle('sn', 'translation', { sos: { smsBody: '[sn] SOS body' } }, true, true);
-    expect(sosMessage(null, 'sn')).toBe('[sn] SOS body\n\nSOS. I need help during a Poolora ride.');
+    expect(sosMessage(null, 'sn')).toBe('[sn] SOS body\n\nSOS. I need help during a Siham ride.');
   });
 });
 

@@ -24,8 +24,8 @@ import { batteryLevel } from '../utils/battery';
 import { logger } from '../utils/logger';
 import i18n from '../i18n';
 
-export const TRIP_LOCATION_TASK = 'poolora-trip-location';
-const ACTIVE_TRIP_KEY = '@poolora_active_trip';
+export const TRIP_LOCATION_TASK = 'siham-trip-location';
+const ACTIVE_TRIP_KEY = '@siham_active_trip';
 
 type Role = 'driver' | 'rider';
 

@@ -20,7 +20,7 @@ router.get('/:id/calendar.ics', async (req: Request, res: Response, next: NextFu
   try {
     const ics = await trips.calendarIcs(String(req.params.id), String(req.query.token ?? ''));
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('Content-Disposition', 'inline; filename="poolora-trip.ics"');
+    res.setHeader('Content-Disposition', 'inline; filename="siham-trip.ics"');
     res.setHeader('Cache-Control', 'private, max-age=300');
     res.status(200).send(ics);
   } catch (error) {

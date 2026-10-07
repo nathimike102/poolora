@@ -311,7 +311,7 @@ export class UserController {
       const statement = await service.statement(user.userId, month);
       if (req.query.format === 'csv') {
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="poolora-earnings-${month}.csv"`);
+        res.setHeader('Content-Disposition', `attachment; filename="siham-earnings-${month}.csv"`);
         res.status(200).send(service.statementCsv(statement));
         return;
       }

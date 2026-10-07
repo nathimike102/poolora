@@ -17,7 +17,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedDot } from "../components/AnimatedDot";
-import { PooloraLogo } from "../components/PooloraLogo";
+import { SihamLogo } from "../components/SihamLogo";
 import { Typography, Spacing } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import * as Location from "expo-location";
@@ -93,12 +93,12 @@ export function SplashScreen() {
 
       {/* ── Logo + Wordmark ─────────────────────────────────────────────────── */}
       <Animated.View style={[styles.logoContainer, logoAnimStyle]}>
-        <PooloraLogo
+        <SihamLogo
           size={150}
           backgroundColor="rgba(255,255,255,0.10)"
           borderRadius={36}
           showWordmark
-          wordmark="Poolora"
+          wordmark="Siham"
           subtitle={t('splash.subtitle')}
           tone="light"
         />

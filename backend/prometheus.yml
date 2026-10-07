@@ -3,14 +3,14 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'poolora-backend'
+  - job_name: 'siham-backend'
     metrics_path: /metrics
     static_configs:
       - targets: ['app:5002']
         labels:
           service: backend
 
-  - job_name: 'poolora-ml'
+  - job_name: 'siham-ml'
     metrics_path: /metrics
     static_configs:
       - targets: ['ml-engine:8000']

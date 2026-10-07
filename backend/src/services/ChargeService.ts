@@ -87,11 +87,11 @@ function instructionsFor(charge: IGatewayCharge): string {
   switch (charge.channel) {
     case 'ecocash':
     case 'onemoney':
-      return `Check your phone: ${LABEL[charge.channel]} will ask you to approve ${amount} to Poolora with your PIN.`;
+      return `Check your phone: ${LABEL[charge.channel]} will ask you to approve ${amount} to Siham with your PIN.`;
     case 'innbucks':
       return `Open InnBucks and enter or scan the code to pay ${amount}.`;
     default:
-      return `Pay ${amount} by card on the Paynow page, then come back to Poolora.`;
+      return `Pay ${amount} by card on the Paynow page, then come back to Siham.`;
   }
 }
 
@@ -373,7 +373,7 @@ export class ChargeService {
     if (input.purpose === 'topup') {
       const amount = roundMoney(Number(input.amount));
       await this.wallet.checkTopUp(userId, amount);
-      return { amountUsd: amount, description: `Poolora wallet top-up, ${money(amount)}` };
+      return { amountUsd: amount, description: `Siham wallet top-up, ${money(amount)}` };
     }
     if (!input.targetId || !Types.ObjectId.isValid(input.targetId)) throw new NotFoundError(input.purpose === 'booking' ? 'Booking' : 'Parcel');
 
@@ -382,7 +382,7 @@ export class ChargeService {
       if (!booking || booking.rider.toString() !== userId) throw new NotFoundError('Booking');
       if (booking.status !== BookingStatus.PENDING || booking.paymentMethod !== 'online') throw new AppError('This request does not need paying', 409, 'NOTHING_TO_PAY');
       if (await Payment.exists({ booking: booking._id, status: PaymentStatus.CAPTURED })) throw new AppError('This request is already paid', 409, 'ALREADY_PAID');
-      return { amountUsd: riderPays(booking), target: booking._id, description: `Poolora seat: ${booking.pickup.address.split(',')[0]} to ${booking.dropoff.address.split(',')[0]}` };
+      return { amountUsd: riderPays(booking), target: booking._id, description: `Siham seat: ${booking.pickup.address.split(',')[0]} to ${booking.dropoff.address.split(',')[0]}` };
     }
 
     const parcel = await ParcelPooling.findById(input.targetId);
@@ -390,6 +390,6 @@ export class ChargeService {
     if (parcel.status !== BookingStatus.PENDING || parcel.paymentMethod !== 'online' || parcel.paymentStatus !== 'unpaid') {
       throw new AppError('This parcel does not need paying', 409, 'NOTHING_TO_PAY');
     }
-    return { amountUsd: parcel.estimatedCost, target: parcel._id, description: `Poolora parcel ${parcel.trackingNumber}` };
+    return { amountUsd: parcel.estimatedCost, target: parcel._id, description: `Siham parcel ${parcel.trackingNumber}` };
   }
 }

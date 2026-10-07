@@ -20,7 +20,7 @@ import { config } from '../../config';
 import videoRoutes from '../../routes/video.routes';
 
 const SECRET = 'a-secret-long-enough-for-signing-tokens';
-Object.assign(config.video as unknown as Record<string, string>, { url: 'wss://poolora.livekit.cloud', apiKey: 'APIkey', apiSecret: SECRET });
+Object.assign(config.video as unknown as Record<string, string>, { url: 'wss://siham.livekit.cloud', apiKey: 'APIkey', apiSecret: SECRET });
 
 const app = express();
 app.use('/video/webhook', express.text({ type: () => true }));

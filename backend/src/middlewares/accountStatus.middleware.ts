@@ -14,7 +14,7 @@ import { localTime } from '../config/region';
 export async function checkAccountStatus(user: IUser, opts: { allowBlocked?: boolean } = {}): Promise<'active' | 'suspended' | 'blocked'> {
   if (user.isBlocked) {
     if (user.mergedInto) {
-      throw new AppError(`This account was merged into your other Poolora account. ${user.blockReason?.match(/phone ending \d{4}/) ? `Sign in with the ${user.blockReason.match(/phone ending \d{4}/)![0].replace('phone', 'number')}.` : ''}`.trim(), 403, 'ACCOUNT_MERGED');
+      throw new AppError(`This account was merged into your other Siham account. ${user.blockReason?.match(/phone ending \d{4}/) ? `Sign in with the ${user.blockReason.match(/phone ending \d{4}/)![0].replace('phone', 'number')}.` : ''}`.trim(), 403, 'ACCOUNT_MERGED');
     }
     // A blocked account can still read its status and appeal (UC-A05 3a)
     if (opts.allowBlocked) return 'blocked';

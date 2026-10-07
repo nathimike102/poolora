@@ -109,8 +109,8 @@ export function AppProvider({ children }: AppProviderProps) {
     (async () => {
       try {
         const [savedRole, savedTheme] = await AsyncStorage.multiGet([
-          "@poolora_role",
-          "@poolora_dark_mode",
+          "@siham_role",
+          "@siham_dark_mode",
         ]);
 
         if (savedRole[1] === "rider" || savedRole[1] === "driver") {
@@ -132,9 +132,9 @@ export function AppProvider({ children }: AppProviderProps) {
   const setRole = useCallback((newRole: UserRole) => {
     setRoleState(newRole);
     if (newRole) {
-      AsyncStorage.setItem("@poolora_role", newRole).catch(() => {});
+      AsyncStorage.setItem("@siham_role", newRole).catch(() => {});
     } else {
-      AsyncStorage.removeItem("@poolora_role").catch(() => {});
+      AsyncStorage.removeItem("@siham_role").catch(() => {});
     }
   }, []);
 
@@ -195,7 +195,7 @@ export function AppProvider({ children }: AppProviderProps) {
           // No usable session: a saved role alone must not open the app.
           logger.debug("No backend auth state to restore");
           setRoleState(null);
-          AsyncStorage.removeItem("@poolora_role").catch(() => {});
+          AsyncStorage.removeItem("@siham_role").catch(() => {});
         }
         // If dev bypass is enabled, perform a local dev login so the app
         // can be used without real authentication.
@@ -232,7 +232,7 @@ export function AppProvider({ children }: AppProviderProps) {
   useEffect(() => {
     (async () => {
       try {
-        const accepted = await AsyncStorage.getItem('@poolora_policy_accepted');
+        const accepted = await AsyncStorage.getItem('@siham_policy_accepted');
         if (!accepted) setPolicyVisible(true);
       } catch {
         setPolicyVisible(true);
@@ -253,9 +253,9 @@ export function AppProvider({ children }: AppProviderProps) {
     setUser(null);
     setRoleState(null);
     setActiveTab("home");
-    AsyncStorage.removeItem("@poolora_role").catch(() => {});
+    AsyncStorage.removeItem("@siham_role").catch(() => {});
     // The emergency contacts kept for texting them offline belong to this account
-    AsyncStorage.removeItem("@poolora_sos_contacts").catch(() => {});
+    AsyncStorage.removeItem("@siham_sos_contacts").catch(() => {});
     // So are the places, routes and half-filled profile, which would otherwise
     // greet whoever signs in next on this phone
     clearPlaceHistory().catch(() => {});
@@ -270,11 +270,11 @@ export function AppProvider({ children }: AppProviderProps) {
     if (next === UnistylesRuntime.colorScheme) {
       // Back to the phone's own setting: follow it again
       UnistylesRuntime.setAdaptiveThemes(true);
-      AsyncStorage.removeItem("@poolora_dark_mode").catch(() => {});
+      AsyncStorage.removeItem("@siham_dark_mode").catch(() => {});
     } else {
       UnistylesRuntime.setAdaptiveThemes(false);
       UnistylesRuntime.setTheme(next);
-      AsyncStorage.setItem("@poolora_dark_mode", String(next === "dark")).catch(() => {});
+      AsyncStorage.setItem("@siham_dark_mode", String(next === "dark")).catch(() => {});
     }
   }, []);
 
@@ -297,7 +297,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const switchRole = useCallback(() => {
     setRoleState((prev) => {
       const next: UserRole = prev === "rider" ? "driver" : "rider";
-      AsyncStorage.setItem("@poolora_role", next).catch(() => {});
+      AsyncStorage.setItem("@siham_role", next).catch(() => {});
       return next;
     });
     setActiveTab("home");

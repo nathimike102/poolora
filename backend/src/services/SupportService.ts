@@ -2,7 +2,7 @@
  * SupportService.ts
  *
  * Support requests (UC-X02). A user opens a ticket in a category, and the
- * Poolora team replies in the same thread. Safety and payment tickets are
+ * Siham team replies in the same thread. Safety and payment tickets are
  * urgent and answered first; a safety ticket also alerts the admins at once.
  */
 

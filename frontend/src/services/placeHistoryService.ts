@@ -8,7 +8,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const STORAGE_KEY = '@poolora_place_history';
+const STORAGE_KEY = '@siham_place_history';
 const MAX_RECENT = 6;
 
 export interface HistoryPlace {

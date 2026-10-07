@@ -8,7 +8,7 @@
  * identify people are gated separately in `consent.ts`.
  */
 
-const STORAGE_KEY = 'poolora.attribution';
+const STORAGE_KEY = 'siham.attribution';
 
 const UTM_KEYS = [
   'utm_source',

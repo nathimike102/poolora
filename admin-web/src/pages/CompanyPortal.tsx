@@ -24,7 +24,7 @@ const monthName = (m: string) => new Date(`${m}-15T00:00:00Z`).toLocaleDateStrin
 
 /**
  * A company's own dashboard (UC-C01 step 3), for the company admins a
- * Poolora admin named. Staff, trips, spend and bills; never where anyone went.
+ * Siham admin named. Staff, trips, spend and bills; never where anyone went.
  */
 export function CompanyPortal({ user, onSignedOut }: { user: AdminUser; onSignedOut: () => void }) {
   const { data } = useApi<{ company: Company }>('/company/me');
@@ -35,7 +35,7 @@ export function CompanyPortal({ user, onSignedOut }: { user: AdminUser; onSigned
         <aside className="sidebar">
           <div className="brand">
             <img src="/mark.png" alt="" />
-            {name} on Poolora
+            {name} on Siham
           </div>
           <nav className="nav" aria-label="Main">
             <NavLink to="/" end>Overview</NavLink>
@@ -73,7 +73,7 @@ function OverviewPage({ company }: { company?: Company }) {
       {loading && !data ? <Loading /> : null}
       {data ? (
         <div className="grid cols-4">
-          <StatTile label="Staff on Poolora" value={num(data.members)} note={`${num(data.newMembers)} joined this month`} />
+          <StatTile label="Staff on Siham" value={num(data.members)} note={`${num(data.newMembers)} joined this month`} />
           <StatTile label="Trips the company helped pay for" value={num(data.trips)} note={`${num(data.ridersThisMonth)} people rode`} />
           <StatTile label="Company paid" value={money(data.companyPaid)} note={`Staff paid ${money(data.staffPaid)}`} />
           <StatTile label="CO₂ saved" value={`${short(data.co2SavedKg)} kg`} note="An estimate, against driving alone" />
@@ -86,9 +86,9 @@ function OverviewPage({ company }: { company?: Company }) {
             <p style={{ margin: 0 }}>
               {p.sharePercent > 0 && p.sites.length
                 ? `${p.sharePercent}% of ${p.weekdaysOnly ? 'weekday trips' : 'trips'} that start or end near ${p.sites.map((s) => s.name).join(', ')}${p.monthlyCapUsd > 0 ? `, up to ${money(p.monthlyCapUsd)} a person a month` : ''}.`
-                : 'Nothing yet. Ask Poolora to set your share and sites.'}
+                : 'Nothing yet. Ask Siham to set your share and sites.'}
             </p>
-            <p className="faint" style={{ margin: 0 }}>To change it, contact Poolora. You see who rides, when and what it costs; never where anyone goes.</p>
+            <p className="faint" style={{ margin: 0 }}>To change it, contact Siham. You see who rides, when and what it costs; never where anyone goes.</p>
           </div>
         </section>
       ) : null}
@@ -104,7 +104,7 @@ function StaffPage() {
       <PageHead title="Staff" sub="People who confirmed a work email. Remove anyone who has left, and their new bookings no longer get the company's contribution. Trips they already booked keep it and are on the bill." />
       <ErrorBox error={error} onRetry={reload} />
       {loading && !data ? <Loading /> : null}
-      {data && !data.members.length ? <Empty>Nobody has joined yet. Staff join from Profile, Work in the Poolora app.</Empty> : null}
+      {data && !data.members.length ? <Empty>Nobody has joined yet. Staff join from Profile, Work in the Siham app.</Empty> : null}
       {data?.members.length ? (
         <div className="card table-wrap">
           <table>
@@ -133,7 +133,7 @@ function StaffPage() {
         onConfirm={() => api.del(`/company/members/${removing!._id}`).then(reload)}
         onClose={() => setRemoving(null)}
       >
-        <p style={{ margin: 0 }}>They keep their Poolora account, but no longer see colleagues-only rides or get the company's contribution on new bookings. Trips they have already booked keep it, at the price they were given, and are billed when they complete.</p>
+        <p style={{ margin: 0 }}>They keep their Siham account, but no longer see colleagues-only rides or get the company's contribution on new bookings. Trips they have already booked keep it, at the price they were given, and are billed when they complete.</p>
       </ActionDialog>
     </div>
   );
@@ -164,7 +164,7 @@ function BillsPage() {
         </div>
       ))}
       <Field label="Questions about a bill">
-        <span className="faint">Reply to the bill's email, and Poolora will get back to you.</span>
+        <span className="faint">Reply to the bill's email, and Siham will get back to you.</span>
       </Field>
     </div>
   );

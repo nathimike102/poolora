@@ -18,7 +18,7 @@ import sn from './locales/sn.json';
 import nd from './locales/nd.json';
 import { FALLBACK_LANGUAGE, pickLanguage, type LanguageCode } from './languages';
 
-export const LANGUAGE_KEY = '@poolora_language';
+export const LANGUAGE_KEY = '@siham_language';
 
 function phoneLanguages(): string[] {
   try {

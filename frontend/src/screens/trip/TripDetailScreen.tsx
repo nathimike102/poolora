@@ -208,7 +208,7 @@ export function TripDetailScreen() {
     ]}>
       <Text style={[styles.cardTitle, tc.color_text]}>{t('tripDetail.rateOrganiser', { name: organizerName ?? t('tripDetail.theOrganiser') })}</Text>
       <StarRating value={rating.score} onChange={score => setRating(r => ({ ...r, score }))} label={t('tripDetail.organiserRating')} />
-      <TextInput value={rating.comment} onChangeText={comment => setRating(r => ({ ...r, comment }))} multiline maxLength={500} placeholder={t('tripDetail.anythingToAddOnlyPoolora')} placeholderTextColor={tk.textSec} accessibilityLabel={t('tripDetail.comment')} style={[
+      <TextInput value={rating.comment} onChangeText={comment => setRating(r => ({ ...r, comment }))} multiline maxLength={500} placeholder={t('tripDetail.anythingToAddOnlySiham')} placeholderTextColor={tk.textSec} accessibilityLabel={t('tripDetail.comment')} style={[
         styles.input,
         styles.multi,
         tc.borderColor_border,

@@ -111,7 +111,7 @@ export function FakeCallScreen() {
     return (
       <Pressable style={[s.waitRoot, { paddingTop: insets.top }]} onLongPress={() => setPhase('setup')} accessibilityHint={t('fakeCall.longPressToStopThe')}>
         <StatusBar barStyle="light-content" />
-        <Text style={s.waitText}>{t('fakeCall.keepPooloraOpenYourPhone')}</Text>
+        <Text style={s.waitText}>{t('fakeCall.keepSihamOpenYourPhone')}</Text>
       </Pressable>
     );
   }

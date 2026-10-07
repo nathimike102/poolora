@@ -390,13 +390,13 @@ export class OrganisationService {
     if (!domain || email.length > 254) throw new AppError('Enter your work email address', 422, 'VALIDATION_ERROR');
     const org = await Organisation.findOne({ domains: domain, status: 'active' }).lean();
     if (!org) {
-      throw new AppError('Your company is not on Poolora yet. Ask your HR team to get in touch with us.', 404, 'NO_COMPANY_PROGRAMME');
+      throw new AppError('Your company is not on Siham yet. Ask your HR team to get in touch with us.', 404, 'NO_COMPANY_PROGRAMME');
     }
     const user = await User.findById(userId).select('name language work +workPending');
     if (!user) throw new NotFoundError('User');
     if (user.work?.email === email) throw new ConflictError('This is already your work email');
     if (await User.exists({ 'work.email': email, _id: { $ne: user._id } })) {
-      throw new ConflictError('This work email is linked to another Poolora account. Contact support if it is yours.');
+      throw new ConflictError('This work email is linked to another Siham account. Contact support if it is yours.');
     }
     if (user.workPending && Date.now() - user.workPending.sentAt.getTime() < RESEND_AFTER_MS) {
       throw new AppError('We sent a link a few minutes ago. Check your inbox, or wait 10 minutes to send another.', 429, 'WORK_LINK_RATE_LIMITED');
