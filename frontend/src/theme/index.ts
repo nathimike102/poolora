@@ -29,7 +29,7 @@
  * --background: #ffffff        -> LightColors.bg (grey50 for app screens)
  * --foreground: oklch(0.145)   -> LightColors.text = '#111827'
  * --card: #ffffff              -> LightColors.surface = '#FFFFFF'
- * --primary: #030213           -> shadcn default; overridden to '#0B7A75' (Siham teal, from the logo)
+ * --primary: #030213           -> shadcn default; overridden to Brand.teal '#087F8C' (from the logo)
  * --secondary: oklch(0.95...)  -> LightColors.surfaceVariant = '#F3F4F6'
  * --muted: #ececf0             -> LightColors.muted = '#ECECF0'
  * --muted-foreground: #717182  -> LightColors.mutedFg = '#717182'
@@ -58,10 +58,25 @@ import { MD3LightTheme, MD3DarkTheme, type MD3Theme } from 'react-native-paper';
 
 // ---- Colour Palette ----------------------------------------------------------
 
+/**
+ * Siham brand colours, from the logo (branding/README.md). Teal leads, navy
+ * gives structure, ivory adds warmth. Bright teal and aqua fail contrast with
+ * white text, so they are for accents and dark backgrounds only.
+ */
+export const Brand = {
+  navy:       '#0B2530',
+  navyDeep:   '#061A22',
+  ivory:      '#F5F1E7',
+  teal:       '#087F8C',
+  deepTeal:   '#056981',
+  brightTeal: '#0AA2A8',
+  aqua:       '#35D0BA',
+} as const;
+
 export const Palette = {
-  primary:      '#0B7A75',
-  primaryDark:  '#08605C',
-  primaryLight: '#E3F2F1',
+  primary:      Brand.teal,
+  primaryDark:  Brand.deepTeal,
+  primaryLight: '#E0F2F3',
 
   success:      '#10B981',
   successDark:  '#059669',
@@ -236,9 +251,9 @@ export const LightColors: AppColors = {
 };
 
 export const DarkColors: AppColors = {
-  primary:      '#00857F',
-  primaryDark:  '#0B7A75',
-  primaryLight: '#0E3B39',
+  primary:      Brand.teal,
+  primaryDark:  Brand.deepTeal,
+  primaryLight: '#0E3640',
   success:      '#34D399',
   successDark:  '#10B981',
   successLight: '#064E3B',
@@ -253,20 +268,21 @@ export const DarkColors: AppColors = {
   infoLight:    '#1E3A5F',
   green:        '#69F0AE',
   greenLight:   '#1B5E20',
-  bg:             '#0F0F0F',
-  surface:        '#1A1A1A',
-  surfaceVariant: '#242424',
-  border:         '#2E2E2E',
+  // Navy-tinted surfaces, from the logo's background
+  bg:             Brand.navyDeep,
+  surface:        '#0D2631',
+  surfaceVariant: '#13313D',
+  border:         '#1F404D',
   shadow:         'rgba(0,0,0,0.4)',
   cardLift:       '0 0 0 0 transparent',
-  muted:    '#374151',
-  mutedFg:  '#9CA3AF',
-  accent:   '#374151',
-  inputBg:  '#374151',
-  switchBg: '#4B5563',
-  text:          '#F9FAFB',
-  textSec:       '#9CA3AF',
-  textDisabled:  '#4B5563',
+  muted:    '#1F404D',
+  mutedFg:  '#9DB2BA',
+  accent:   '#1F404D',
+  inputBg:  '#13313D',
+  switchBg: '#2C4F5C',
+  text:          '#F5F7F8',
+  textSec:       '#9DB2BA',
+  textDisabled:  '#3F5B66',
   textOnPrimary: Palette.white,
 };
 
@@ -406,10 +422,10 @@ export const PaperDarkTheme: MD3Theme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary:            '#00857F',
-    primaryContainer:   '#0E3B39',
+    primary:            DarkColors.primary,
+    primaryContainer:   DarkColors.primaryLight,
     onPrimary:          Palette.white,
-    onPrimaryContainer: '#E3F2F1',
+    onPrimaryContainer: Palette.primaryLight,
     secondary:          '#34D399',
     secondaryContainer: '#064E3B',
     onSecondary:        Palette.white,
@@ -417,14 +433,14 @@ export const PaperDarkTheme: MD3Theme = {
     error:          '#F87171',
     errorContainer: '#450A0A',
     onError:        Palette.white,
-    background:      '#0F0F0F',
-    surface:         '#1A1A1A',
-    surfaceVariant:  '#374151',
-    outline:         '#2E2E2E',
-    outlineVariant:  '#6B7280',
-    onBackground:    '#F9FAFB',
-    onSurface:       '#F9FAFB',
-    onSurfaceVariant: '#9CA3AF',
+    background:      DarkColors.bg,
+    surface:         DarkColors.surface,
+    surfaceVariant:  DarkColors.surfaceVariant,
+    outline:         DarkColors.border,
+    outlineVariant:  '#4F6E7A',
+    onBackground:    DarkColors.text,
+    onSurface:       DarkColors.text,
+    onSurfaceVariant: DarkColors.textSec,
     scrim:           'rgba(0,0,0,0.7)',
     shadow:          '#000000',
   },

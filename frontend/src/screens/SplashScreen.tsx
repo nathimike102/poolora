@@ -18,14 +18,13 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedDot } from "../components/AnimatedDot";
 import { SihamLogo } from "../components/SihamLogo";
-import { Typography, Spacing } from "../theme";
+import { Typography, Spacing, Brand } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import * as Location from "expo-location";
 import { ONBOARDING_SEEN_KEY } from "./OnboardingScreen";
 import { LOCATION_ASKED_KEY } from "./LocationIntroScreen";
 import { loadProfileDraft } from "../utils/profileDraft";
 import { useTranslation } from 'react-i18next';
-import { tc } from '../theme/themed';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, "Splash">;
 
@@ -85,7 +84,7 @@ export function SplashScreen() {
 
   return (
     <View
-      style={[styles.root, { paddingTop: insets.top }, tc.backgroundColor_primary]}
+      style={[styles.root, { paddingTop: insets.top }]}
     >
       {/* Background decorative circles */}
       <View style={[styles.circleLarge, styles.absolutePosition]} />
@@ -95,10 +94,7 @@ export function SplashScreen() {
       <Animated.View style={[styles.logoContainer, logoAnimStyle]}>
         <SihamLogo
           size={150}
-          backgroundColor="rgba(255,255,255,0.10)"
-          borderRadius={36}
           showWordmark
-          wordmark="Siham"
           subtitle={t('splash.subtitle')}
           tone="light"
         />
@@ -122,6 +118,8 @@ export function SplashScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    // Brand navy, the same as the native splash, so the handoff is seamless
+    backgroundColor: Brand.navy,
     alignItems: "center",
     justifyContent: "center",
     // overflow: 'hidden' is default in RN — no need to specify

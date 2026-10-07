@@ -23,7 +23,7 @@ import { LiveMap } from '../../components/LiveMap';
 import { Icon, type IconName } from '../../components/Icon';
 import { VerifiedBadge } from '../../components/VerifiedBadge';
 import type { RootStackParamList } from '../../navigation/types';
-import { Radius, Shadow } from '../../theme';
+import { Radius, Shadow, Palette } from '../../theme';
 import { rideService } from '../../services/rideService';
 import type { Ride } from '../../types/api';
 import 'react-native';
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
   requestBtn: {
   height: 56,
   borderRadius: 12,
-  backgroundColor: "#0B7A75",
+  backgroundColor: Palette.primary,
   alignItems: "center",
   justifyContent: "center",
   paddingHorizontal: 10,

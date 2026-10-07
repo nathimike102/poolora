@@ -7,15 +7,21 @@
  * stops, and canvas/JS color calculations.
  */
 export const colors = {
-  /** Primary brand teal, taken from the Siham logo. */
-  brand: '#0B7A75',
-  /** Hover / pressed state for the brand teal. */
-  brandDark: '#08605C',
-  /** Secondary brand blue, from the logo's road arc. */
-  brandCyan: '#2B6CC4',
+  /** Primary brand teal; passes AA contrast with white text. */
+  brand: '#087F8C',
+  /** Hover / pressed state, and the logo's deep teal. */
+  brandDark: '#056981',
+  /** The logo's bright teal. Accents and dark backgrounds only (fails contrast on white). */
+  brandCyan: '#0AA2A8',
+  /** Aqua highlight for dark sections. */
+  aqua: '#35D0BA',
 
-  /** Near-black background used by the footer. */
-  ink: '#080810',
+  /** Brand navy: structure, dark sections and the wordmark on light backgrounds. */
+  navy: '#0B2530',
+  /** Deepest navy, used by the footer. */
+  ink: '#061A22',
+  /** Warm ivory from the logo: the wordmark on dark, and warm section backgrounds. */
+  ivory: '#F5F1E7',
 
   /** Device mockup surfaces (Hero phone). */
   deviceBody: '#111',

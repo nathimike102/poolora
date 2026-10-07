@@ -65,6 +65,7 @@ function htmlSeoMeta() {
         { tag: 'meta', attrs: { name: 'theme-color', content: themeColor }, injectTo: 'head' },
         { tag: 'link', attrs: { rel: 'canonical', href: url }, injectTo: 'head' },
         { tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: 'any' }, injectTo: 'head' },
+        { tag: 'link', attrs: { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }, injectTo: 'head' },
         { tag: 'link', attrs: { rel: 'icon', type: 'image/png', href: '/favicon-32.png', sizes: '32x32' }, injectTo: 'head' },
         { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }, injectTo: 'head' },
         { tag: 'meta', attrs: { property: 'og:type', content: 'website' }, injectTo: 'head' },

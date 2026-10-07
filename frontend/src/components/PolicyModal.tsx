@@ -4,6 +4,7 @@ import { Text } from './Text';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COMPANY } from '../config/company';
 import { useTranslation } from 'react-i18next';
+import { Palette } from '../theme';
 
 const STORAGE_KEY = '@siham_policy_accepted';
 
@@ -81,12 +82,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   link: { minHeight: 44, justifyContent: 'center' },
-  linkText: { fontSize: 15, color: '#0B7A75', fontWeight: '600', textDecorationLine: 'underline' },
+  linkText: { fontSize: 15, color: Palette.primary, fontWeight: '600', textDecorationLine: 'underline' },
   acceptBtn: {
     marginTop: 12,
     minHeight: 48,
     borderRadius: 10,
-    backgroundColor: '#0B7A75',
+    backgroundColor: Palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,

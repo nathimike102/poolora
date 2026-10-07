@@ -92,7 +92,7 @@ doc.addPageTemplates([PageTemplate(id='p', frames=[frame], onPage=on_page)])
 W = doc.width
 
 s = []
-s.append(Image(os.path.join(ROOT, 'branding/siham-lockup.png'), width=5.2 * cm, height=1.63 * cm, hAlign='LEFT'))
+s.append(Image(os.path.join(ROOT, 'branding/siham-lockup.png'), width=5.2 * cm, height=1.58 * cm, hAlign='LEFT'))
 s.append(Spacer(1, 8))
 s.append(P('How Siham works', h1))
 s.append(P('A short note on the system, the tools it uses and how each of them works. '

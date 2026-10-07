@@ -74,7 +74,7 @@ export function LoginScreen() {
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <SihamLogo size={64} backgroundColor={tk.primary} />
+        <SihamLogo size={64} />
         <Text style={[styles.headline, tc.color_text]}>
           {t('login.welcome')}
         </Text>

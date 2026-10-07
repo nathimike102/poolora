@@ -26,6 +26,7 @@ import { useTranslation } from 'react-i18next';
 import { LANGUAGES, offeredLanguages, type LanguageCode } from '../../i18n/languages';
 
 import { tc, tk, useIsDark } from '../../theme/themed';
+import { Palette } from '../../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -259,7 +260,7 @@ export function SettingsScreen() {
         <Section title={t('settings.account')}>
           <SettingsRow iconColor="#2B6CC4" iconPath={IC_EDIT} label={t('settings.editProfile')} onPress={openEditProfile} />
           <Divider />
-          <SettingsRow iconColor="#0B7A75" iconPath={IC_PEOPLE} label={isDriver ? t('settings.switchToRider') : t('settings.switchToDriver')} onPress={switchRole} />
+          <SettingsRow iconColor={Palette.primary} iconPath={IC_PEOPLE} label={isDriver ? t('settings.switchToRider') : t('settings.switchToDriver')} onPress={switchRole} />
         </Section>
 
         {profile?.capabilities?.includes('admin') && (
@@ -294,7 +295,7 @@ export function SettingsScreen() {
           <Section title={t('settings.testing')}>
             <SettingsRow
              
-              iconColor="#0B7A75"
+              iconColor={Palette.primary}
               iconPath={IC_PLAY}
               label={t('settings.simulateARideAsRider')}
               value={simulatingAs === 'rider' ? 'Starting…' : undefined}
@@ -315,7 +316,7 @@ export function SettingsScreen() {
         {/* PREFERENCES */}
         <Section title={t('settings.preferences')}>
           <SettingsRow
-            iconColor="#0B7A75"
+            iconColor={Palette.primary}
             iconPath={IC_MOON}
             label={t('settings.darkMode')}
             onPress={toggleDarkMode}

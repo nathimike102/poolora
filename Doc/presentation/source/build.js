@@ -207,7 +207,7 @@ function nodesOf(name) {
     s.background = { color: C.deep };
     clip(s, 'hero.gif', 5.55, 0.9, 7.6, 'Hero clip');
     s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 0.7, w: 3.7, h: 1.18, rectRadius: 0.15, fill: { color: C.white }, line: { color: C.white }, objectName: 'Logo panel' });
-    s.addImage({ path: LOCKUP, x: 0.72, y: 0.78, w: 3.45, h: 1.08, objectName: 'Logo' });
+    s.addImage({ path: LOCKUP, x: 0.72, y: 0.78, w: 3.45, h: 1.05, objectName: 'Logo' });
     text(s, 'Siham', 0.6, 2.35, 5, 1, { fontFace: HEAD, fontSize: 54, bold: true, color: C.white, objectName: 'Name' });
     text(s, ACADEMIC ? 'Smart ride-sharing, parcel and trip pooling' : 'Share the ride. Split the cost. Travel safer.', 0.6, 3.35, 5.2, 0.9, { fontSize: 22, color: 'CFE9E6', objectName: 'Tagline' });
     text(s, ACADEMIC ? 'Launching first in Zimbabwe · Harare' : 'Carpooling for Zimbabwe, starting in Harare', 0.6, 4.25, 5.2, 0.4, { fontSize: 16, color: C.lilac, objectName: 'Market line' });

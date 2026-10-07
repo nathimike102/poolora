@@ -14,7 +14,7 @@ import ReAnimated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Radius, Typography, Shadow } from '../theme';
+import { Radius, Typography, Shadow, Palette } from '../theme';
 import { useThemeColor, type AnyColor } from '../theme/themed';
 
 interface GradientButtonProps {
@@ -39,7 +39,7 @@ export function GradientButton({
   onPress,
   disabled = false,
   loading = false,
-  colorStart: colorStartProp = '#0B7A75',
+  colorStart: colorStartProp = Palette.primary,
   disabledColor: disabledColorProp = '#E5E7EB',
   height = 56,
   style,

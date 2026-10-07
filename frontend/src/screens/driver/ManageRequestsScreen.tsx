@@ -21,7 +21,7 @@ import Svg, { Path } from '../../components/ThemedSvg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { ImageWithFallback } from '../../components/ImageWithFallback';
-import { Shadow } from '../../theme';
+import { Shadow, Palette } from '../../theme';
 import { Icon } from '../../components/Icon';
 import { EmptyState } from '../../components/EmptyState';
 import { errorHandler } from '../../utils/errorHandler';
@@ -82,7 +82,7 @@ function GenderBadge({ gender }: { gender: Gender }): React.ReactElement {
   const map: Record<string, { bg: string; border: string; text: string }> = {
     Female: { bg: '#FFF1F2', border: '#FCA5A5', text: '#E11D48' },
     Male:   { bg: '#EFF6FF', border: '#93C5FD', text: '#2563EB' },
-    Other:  { bg: '#E3F2F1', border: '#9CD3CF', text: '#0B7A75' },
+    Other:  { bg: Palette.primaryLight, border: '#9CD3CF', text: Palette.primary },
   };
   const s = map[normalizedGender];
   return (

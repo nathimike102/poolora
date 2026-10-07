@@ -39,6 +39,7 @@ import { REGION } from '../utils/region';
 import { useTranslation } from 'react-i18next';
 
 import { tk, useColors, useIsDark } from '../theme/themed';
+import { Palette } from '../theme';
 
 type Coordinate = { latitude: number; longitude: number };
 
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#0B7A75',
+    backgroundColor: Palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -296,7 +297,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#0B7A75',
+    backgroundColor: Palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

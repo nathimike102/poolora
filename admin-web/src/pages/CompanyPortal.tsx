@@ -6,6 +6,7 @@ import { useApi } from '../lib/useApi';
 import { money, num, short, when } from '../lib/format';
 import { Badge, Empty, ErrorBox, Field, Loading, PageHead, StatTile } from '../components/ui';
 import { ActionDialog } from '../components/Dialog';
+import { Brand } from '../components/Brand';
 
 interface Company {
   _id: string;
@@ -33,10 +34,7 @@ export function CompanyPortal({ user, onSignedOut }: { user: AdminUser; onSigned
     <BrowserRouter>
       <div className="shell">
         <aside className="sidebar">
-          <div className="brand">
-            <img src="/mark.png" alt="" />
-            {name} on Siham
-          </div>
+          <Brand label={name} />
           <nav className="nav" aria-label="Main">
             <NavLink to="/" end>Overview</NavLink>
             <NavLink to="/staff">Staff</NavLink>

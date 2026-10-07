@@ -2,7 +2,7 @@
 /**
  * Premium custom icon library for Siham
  * Design style: Stripe, Linear, Notion, Mercury, Revolut, Ramp, Airbnb
- * Using Siham brand colors: Indigo (#0B7A75), Cyan (#06B6D4), Rose/Pink for safety
+ * Using Siham brand colors: teal (#087F8C), cyan (#06B6D4), rose/pink for safety
  */
 
 /* ─── Trust & Verification Icons ─── */
@@ -11,7 +11,7 @@ export const DriverVerificationIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
     <defs>
       <linearGradient id="driver-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#0B7A75" />
+        <stop offset="0%" stopColor="#087F8C" />
         <stop offset="100%" stopColor="#7C3AED" />
       </linearGradient>
     </defs>
@@ -21,7 +21,7 @@ export const DriverVerificationIcon = () => (
     <path d="M12 10v8" stroke="url(#driver-grad)" strokeWidth="1.5" strokeLinecap="round"/>
     <path d="M9 14c0-1.66 1.34-3 3-3s3 1.34 3 3v4" stroke="url(#driver-grad)" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.5"/>
     {/* Verification badge */}
-    <circle cx="18" cy="6" r="3.5" fill="#0B7A75"/>
+    <circle cx="18" cy="6" r="3.5" fill="#087F8C"/>
     <path d="M16.5 6l1 1 2-2" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
   </svg>
 );
@@ -239,19 +239,19 @@ export const RidePoolingIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
     <defs>
       <linearGradient id="ride-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#0B7A75" />
-        <stop offset="100%" stopColor="#0B7A75" />
+        <stop offset="0%" stopColor="#087F8C" />
+        <stop offset="100%" stopColor="#087F8C" />
       </linearGradient>
     </defs>
     {/* Car body */}
     <path d="M6 14h12M4 10l1.8-3.6C6.2 5.6 7.2 5 8.4 5h7.2c1.2 0 2.2.6 2.6 1.4L20 10" stroke="url(#ride-grad)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     <rect x="3" y="10" width="18" height="6" rx="1.5" stroke="url(#ride-grad)" strokeWidth="1.5" fill="none"/>
-    <circle cx="7" cy="13" r="1.2" fill="#0B7A75"/>
-    <circle cx="17" cy="13" r="1.2" fill="#0B7A75"/>
+    <circle cx="7" cy="13" r="1.2" fill="#087F8C"/>
+    <circle cx="17" cy="13" r="1.2" fill="#087F8C"/>
     {/* Multiple passengers indicator */}
-    <circle cx="10" cy="7.5" r="1" fill="#0B7A75" opacity="0.5"/>
-    <circle cx="12" cy="7.5" r="1" fill="#0B7A75" opacity="0.6"/>
-    <circle cx="14" cy="7.5" r="1" fill="#0B7A75" opacity="0.4"/>
+    <circle cx="10" cy="7.5" r="1" fill="#087F8C" opacity="0.5"/>
+    <circle cx="12" cy="7.5" r="1" fill="#087F8C" opacity="0.6"/>
+    <circle cx="14" cy="7.5" r="1" fill="#087F8C" opacity="0.4"/>
   </svg>
 );
 
@@ -304,20 +304,20 @@ export const SmartMobilityIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
     <defs>
       <linearGradient id="mobility-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#0B7A75" />
+        <stop offset="0%" stopColor="#087F8C" />
         <stop offset="100%" stopColor="#06B6D4" />
       </linearGradient>
     </defs>
     {/* Smart car outline */}
     <path d="M6 14h12M4 10l1.5-2.5C6 6.8 7 6 8 6h8c1 0 2 .8 2.5 1.5L20 10" stroke="url(#mobility-grad)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     <rect x="3" y="10" width="18" height="5" rx="1.5" stroke="url(#mobility-grad)" strokeWidth="1.5" fill="none"/>
-    <circle cx="7" cy="12.5" r="1" fill="#0B7A75"/>
+    <circle cx="7" cy="12.5" r="1" fill="#087F8C"/>
     <circle cx="17" cy="12.5" r="1" fill="#06B6D4"/>
     {/* AI brain/network overlay */}
-    <circle cx="12" cy="6" r="2" stroke="#0B7A75" strokeWidth="1" fill="none" opacity="0.5"/>
-    <circle cx="9" cy="8" r="1" fill="#0B7A75" opacity="0.3"/>
+    <circle cx="12" cy="6" r="2" stroke="#087F8C" strokeWidth="1" fill="none" opacity="0.5"/>
+    <circle cx="9" cy="8" r="1" fill="#087F8C" opacity="0.3"/>
     <circle cx="15" cy="8" r="1" fill="#06B6D4" opacity="0.3"/>
-    <line x1="10" y1="8" x2="11" y2="7" stroke="#0B7A75" strokeWidth="0.8" opacity="0.3"/>
+    <line x1="10" y1="8" x2="11" y2="7" stroke="#087F8C" strokeWidth="0.8" opacity="0.3"/>
     <line x1="14" y1="8" x2="13" y2="7" stroke="#06B6D4" strokeWidth="0.8" opacity="0.3"/>
     {/* Efficiency indicator */}
     <path d="M19 17.5l1.5-1.5-1.5-1.5" stroke="#06B6D4" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -438,7 +438,7 @@ export const MissionTargetIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
     <defs>
       <linearGradient id="target-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#0B7A75" />
+        <stop offset="0%" stopColor="#087F8C" />
         <stop offset="100%" stopColor="#7C3AED" />
       </linearGradient>
     </defs>
@@ -447,7 +447,7 @@ export const MissionTargetIcon = () => (
     <circle cx="12" cy="12" r="6" stroke="url(#target-grad)" strokeWidth="1.5" fill="none" opacity="0.5"/>
     <circle cx="12" cy="12" r="3" stroke="url(#target-grad)" strokeWidth="1.5" fill="none" opacity="0.7"/>
     {/* Center bullseye */}
-    <circle cx="12" cy="12" r="1.5" fill="#0B7A75"/>
+    <circle cx="12" cy="12" r="1.5" fill="#087F8C"/>
     {/* Arrow pointing to center */}
     <path d="M18 6l-5 5" stroke="#7C3AED" strokeWidth="1.5" strokeLinecap="round"/>
     <path d="M18 6l-1 3M18 6l-3 1" stroke="#7C3AED" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -458,15 +458,15 @@ export const UserGroupIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
     <defs>
       <linearGradient id="usergroup-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#0B7A75" />
-        <stop offset="100%" stopColor="#0B7A75" />
+        <stop offset="0%" stopColor="#087F8C" />
+        <stop offset="100%" stopColor="#087F8C" />
       </linearGradient>
     </defs>
     {/* Three user silhouettes */}
     <circle cx="9" cy="8" r="3" stroke="url(#usergroup-grad)" strokeWidth="1.5" fill="none"/>
     <path d="M4 20c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="url(#usergroup-grad)" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-    <circle cx="16" cy="7" r="2.5" stroke="#0B7A75" strokeWidth="1.3" fill="none" opacity="0.6"/>
-    <path d="M12 20c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#0B7A75" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity="0.6"/>
+    <circle cx="16" cy="7" r="2.5" stroke="#087F8C" strokeWidth="1.3" fill="none" opacity="0.6"/>
+    <path d="M12 20c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#087F8C" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity="0.6"/>
   </svg>
 );
 
@@ -493,19 +493,19 @@ export const CalendarScheduleIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
     <defs>
       <linearGradient id="calendar-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#0B7A75" />
-        <stop offset="100%" stopColor="#0B7A75" />
+        <stop offset="0%" stopColor="#087F8C" />
+        <stop offset="100%" stopColor="#087F8C" />
       </linearGradient>
     </defs>
     {/* Calendar outline */}
     <rect x="4" y="5" width="16" height="16" rx="2" stroke="url(#calendar-grad)" strokeWidth="1.5" fill="none"/>
-    <path d="M4 9h16" stroke="#0B7A75" strokeWidth="1.5"/>
-    <path d="M8 3v4M16 3v4" stroke="#0B7A75" strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M4 9h16" stroke="#087F8C" strokeWidth="1.5"/>
+    <path d="M8 3v4M16 3v4" stroke="#087F8C" strokeWidth="1.5" strokeLinecap="round"/>
     {/* Checkmarks for scheduled days */}
-    <path d="M8 13l1 1 2-2" stroke="#0B7A75" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8 17l1 1 2-2" stroke="#0B7A75" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-    <circle cx="16" cy="13.5" r="1" fill="#0B7A75" opacity="0.4"/>
-    <circle cx="16" cy="17.5" r="1" fill="#0B7A75" opacity="0.4"/>
+    <path d="M8 13l1 1 2-2" stroke="#087F8C" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M8 17l1 1 2-2" stroke="#087F8C" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="16" cy="13.5" r="1" fill="#087F8C" opacity="0.4"/>
+    <circle cx="16" cy="17.5" r="1" fill="#087F8C" opacity="0.4"/>
   </svg>
 );
 

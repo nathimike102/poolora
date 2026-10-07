@@ -5,6 +5,7 @@ import { signOut } from '../lib/auth';
 import { isUrgent, subscribeSos } from '../lib/socket';
 import { soundSosAlarm } from '../lib/alarm';
 import { useApi } from '../lib/useApi';
+import { Brand } from './Brand';
 
 interface Counts {
   safety: { activeSos: number; openDisputes: number; pendingBlocks: number; fraudFlagged: number; reviewsWaiting?: number; supportOpen?: number; appealsOpen?: number; parcelClaimsOpen?: number; withdrawalsPending?: number; mergesPending?: number; settingsPending?: number; identityPending?: number };
@@ -79,10 +80,7 @@ export function Layout({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">
-          <img src="/mark.png" alt="" />
-          Siham Admin
-        </div>
+        <Brand label="Admin" />
         <nav className="nav" aria-label="Main">
           {nav.map(([to, label, n]) => (
             <NavLink key={to} to={to} end={to === '/'}>

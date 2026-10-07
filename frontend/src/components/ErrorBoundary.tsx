@@ -21,6 +21,7 @@ import { Text } from './Text';
 import { reportError } from '../config/errorTracking';
 import { COMPANY } from '../config/company';
 import i18n from '../i18n';
+import { Palette } from '../theme';
 
 interface Props {
   children: ReactNode;
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   button: {
-    backgroundColor: '#0B7A75',
+    backgroundColor: Palette.primary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,

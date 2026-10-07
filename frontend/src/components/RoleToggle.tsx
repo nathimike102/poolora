@@ -14,7 +14,7 @@ import {
 import { Text } from './Text';
 import { useApp } from '../context/AppContext';
 import { Icon } from './Icon';
-import { Typography, Radius, Shadow } from '../theme';
+import { Typography, Radius, Shadow, Palette } from '../theme';
 import { useTranslation } from 'react-i18next';
 
 export function RoleToggle() {
@@ -56,7 +56,7 @@ export function RoleToggle() {
             // translateX slides the pill between left (Rider) and right (Driver)
             transform: [{ translateX: pillX }],
           },
-          Shadow.primary('#0B7A75'),
+          Shadow.primary(Palette.primary),
         ]}
       />
 
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     bottom: 4,
     left: 4,
     borderRadius: Radius.md,
-    backgroundColor: '#0B7A75', // solid fallback; use expo-linear-gradient for gradient
+    backgroundColor: Palette.primary, // solid fallback; use expo-linear-gradient for gradient
   },
 
   tab: {

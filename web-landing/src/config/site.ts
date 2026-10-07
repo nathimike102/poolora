@@ -39,7 +39,7 @@ export const siteConfig: SiteConfig = {
   name: COMPANY.name,
   domain: 'siham.vercel.app',
   url: COMPANY.website,
-  themeColor: '#0B7A75',
+  themeColor: '#0B2530',
   seo: {
     title: `${COMPANY.name}: share the ride, split the cost`,
     description: COMPANY.description,

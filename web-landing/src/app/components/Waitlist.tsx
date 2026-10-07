@@ -62,7 +62,7 @@ export function Waitlist() {
   };
 
   return (
-    <section id="waitlist" className="py-16 bg-[#0A1A1D]">
+    <section id="waitlist" className="py-16 bg-navy">
       <Container>
         <div className="grid lg:grid-cols-2 gap-16 xl:gap-24 items-center">
           <div>

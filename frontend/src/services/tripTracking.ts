@@ -23,6 +23,7 @@ import type { ApiResponse } from '../types/api';
 import { batteryLevel } from '../utils/battery';
 import { logger } from '../utils/logger';
 import i18n from '../i18n';
+import { Palette } from '../theme';
 
 export const TRIP_LOCATION_TASK = 'siham-trip-location';
 const ACTIVE_TRIP_KEY = '@siham_active_trip';
@@ -75,7 +76,7 @@ export async function startTripTracking(rideId: string, role: Role): Promise<boo
       foregroundService: {
         notificationTitle: i18n.t('tracking.rideTitle'),
         notificationBody: role === 'driver' ? i18n.t('tracking.rideDriver') : i18n.t('tracking.rideRider'),
-        notificationColor: '#0B7A75',
+        notificationColor: Palette.primary,
         killServiceOnDestroy: false,
       },
     });

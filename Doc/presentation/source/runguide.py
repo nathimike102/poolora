@@ -88,7 +88,7 @@ doc.addPageTemplates([PageTemplate(id='p', frames=[Frame(doc.leftMargin, doc.bot
 W = doc.width
 
 s = []
-s.append(Image(os.path.join(ROOT, 'branding/siham-lockup.png'), width=5.2 * cm, height=1.63 * cm, hAlign='LEFT'))
+s.append(Image(os.path.join(ROOT, 'branding/siham-lockup.png'), width=5.2 * cm, height=1.58 * cm, hAlign='LEFT'))
 s.append(Spacer(1, 8))
 s.append(P('Running Siham on an Android device', h1))
 s.append(P('Step-by-step: connect any Android phone or emulator with adb, start the backend, and install and run the app '

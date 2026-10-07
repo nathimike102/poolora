@@ -1,10 +1,16 @@
 @custom-variant dark (&:is(.dark *));
 
-/* Brand palette. Exposes `brand`, `brand-dark`, `brand-cyan` color utilities. */
+/* Siham brand palette, from the logo (branding/README.md). Exposes `brand`,
+   `brand-dark`, `brand-cyan`, `aqua`, `navy`, `ink` and `ivory` utilities.
+   brand-cyan and aqua fail contrast with white text: accents only. */
 @theme {
-  --color-brand: #0B7A75;
-  --color-brand-dark: #08605C;
-  --color-brand-cyan: #2B6CC4;
+  --color-brand: #087F8C;
+  --color-brand-dark: #056981;
+  --color-brand-cyan: #0AA2A8;
+  --color-aqua: #35D0BA;
+  --color-navy: #0B2530;
+  --color-ink: #061A22;
+  --color-ivory: #F5F1E7;
 }
 
 :root {

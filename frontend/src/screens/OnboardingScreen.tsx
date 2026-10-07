@@ -18,7 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientButton } from '../components/GradientButton';
 import { Icon, type IconName } from '../components/Icon';
-import { Typography, Spacing, Radius } from '../theme';
+import { Typography, Spacing, Radius, Palette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
 import { tc, tk, useColors } from '../theme/themed';
@@ -40,7 +40,7 @@ const SLIDES = [
     icon: 'car-multiple' as IconName,
     tint: '#E6F2F1',
     key: 'share',
-    accent: '#0B7A75',
+    accent: Palette.primary,
   },
   {
     icon: 'calendar-clock' as IconName,
