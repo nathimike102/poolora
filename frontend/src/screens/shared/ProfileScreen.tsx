@@ -163,7 +163,7 @@ export function ProfileScreen(): React.ReactElement {
         {
           icon: 'spiralCalendar',
           label: t('driverProfile.menu.rides'),
-          sub: rides > 0 ? (rides === 1 ? t('driverProfile.menu.ridesOne') : t('driverProfile.menu.ridesMany', { count: rides })) : undefined,
+          sub: rides > 0 ? (rides === 1 ? t('driverProfile.menu.ridesOne') : t('driverProfile.menu.ridesMany', { count: rides })) : t('driverProfile.menu.ridesNone'),
           onPress: () => navigation.navigate('UpcomingRides'),
         },
         { icon: 'herb', label: t('profile.menu.impact'), sub: (stats?.co2SavedKg ?? 0) > 0 ? t('profile.menu.impactSaved', { amount: formatKg(stats?.co2SavedKg ?? 0) }) : t('profile.menu.impactSub'), onPress: () => navigation.navigate('Impact') },
@@ -172,7 +172,7 @@ export function ProfileScreen(): React.ReactElement {
         { icon: 'briefcase', label: t('profile.menu.work'), sub: t('profile.menu.workSub'), onPress: () => navigation.navigate('Work') },
         { icon: 'identificationCard', label: t('profile.menu.identity'), sub: identitySub, onPress: () => navigation.navigate('IdentityCheck') },
         { icon: 'automobile', label: t('profile.switchToRiding'), sub: t('profile.menu.rideSub'), onPress: switchRole },
-        { icon: 'gear', label: t('profile.menu.settings'), onPress: () => navigation.navigate('Settings') },
+        { icon: 'gear', label: t('profile.menu.settings'), sub: t('profile.menu.settingsSub'), onPress: () => navigation.navigate('Settings') },
       ]
     : [
         { icon: 'herb', label: t('profile.menu.impact'), sub: (stats?.co2SavedKg ?? 0) > 0 ? t('profile.menu.impactSaved', { amount: formatKg(stats?.co2SavedKg ?? 0) }) : t('profile.menu.impactSub'), onPress: () => navigation.navigate('Impact') },
@@ -182,13 +182,13 @@ export function ProfileScreen(): React.ReactElement {
         {
           icon: 'spiralCalendar',
           label: t('profile.menu.myRides'),
-          sub: rides > 0 ? (rides === 1 ? t('profile.menu.ridesOne') : t('profile.menu.ridesMany', { count: rides })) : undefined,
+          sub: rides > 0 ? (rides === 1 ? t('profile.menu.ridesOne') : t('profile.menu.ridesMany', { count: rides })) : t('profile.menu.ridesNone'),
           onPress: () => navigation.navigate('RiderTabs', { screen: 'MyRides' }),
         },
         { icon: 'identificationCard', label: t('profile.menu.identity'), sub: identitySub, onPress: () => navigation.navigate('IdentityCheck') },
-        { icon: 'speechBalloon', label: t('profile.menu.messages'), onPress: () => navigation.navigate('Messages') },
-        { icon: 'worldMap', label: t('profile.menu.savedRoutes'), onPress: () => navigation.navigate('AddSavedRoute') },
-        { icon: 'gear', label: t('profile.menu.settings'), onPress: () => navigation.navigate('Settings') },
+        { icon: 'speechBalloon', label: t('profile.menu.messages'), sub: t('profile.menu.messagesSub'), onPress: () => navigation.navigate('Messages') },
+        { icon: 'worldMap', label: t('profile.menu.savedRoutes'), sub: t('profile.menu.savedRoutesSub'), onPress: () => navigation.navigate('AddSavedRoute') },
+        { icon: 'gear', label: t('profile.menu.settings'), sub: t('profile.menu.settingsSub'), onPress: () => navigation.navigate('Settings') },
       ];
 
   const kycCard = isDriver && profile && kycStatus !== 'approved' ? (

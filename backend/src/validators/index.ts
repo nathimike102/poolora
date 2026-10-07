@@ -398,6 +398,19 @@ export const pushTokenSchema = {
 };
 
 /** PUT /users/me/photo: base64 of a JPEG or PNG (the service checks the bytes and size) */
+/** POST /users/me/phone/code */
+export const phoneCodeSchema = {
+  body: Joi.object({ phone: Joi.string().pattern(/^\+[1-9]\d{7,14}$/).required() }),
+};
+
+/** PUT /users/me/phone */
+export const confirmPhoneSchema = {
+  body: Joi.object({
+    phone: Joi.string().pattern(/^\+[1-9]\d{7,14}$/).required(),
+    otp: Joi.string().length(6).required(),
+  }),
+};
+
 export const profilePhotoSchema = {
   body: Joi.object({ data: Joi.string().max(5_000_000).required() }),
 };

@@ -80,6 +80,8 @@ export const API_ENDPOINTS = {
     impact: '/users/me/impact',
     work: '/users/me/work',
     closure: '/users/me/closure',
+    phone: '/users/me/phone',
+    phoneCode: '/users/me/phone/code',
     identity: '/users/me/identity',
     trackers: '/users/me/trackers',
     vehicleTracker: (vehicleId: string) => `/users/me/vehicles/${vehicleId}/tracker`,

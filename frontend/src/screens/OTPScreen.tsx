@@ -26,7 +26,7 @@ import { Typography, Spacing, Radius } from '../theme';
 import { sendOtpToBackend, verifyOtpWithBackend } from '../services/authService';
 import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
-import { formatPhone, REGION } from '../utils/region';
+import { formatPhone } from '../utils/region';
 import { useTranslation } from 'react-i18next';
 
 import { tc, tk } from '../theme/themed';
@@ -143,11 +143,11 @@ export function OTPScreen() {
     async (code: string) => {
       setVerifying(true);
       try {
-        const result = await verifyOtpWithBackend(`${REGION.dialCode}${phone}`, code);
+        const result = await verifyOtpWithBackend(phone, code);
 
         // New phone: collect a name, then profile setup verifies with this code
         if ('needsProfile' in result) {
-          navigation.navigate('ProfileSetup', { phone: `${REGION.dialCode}${phone}`, otp: code });
+          navigation.navigate('ProfileSetup', { phone, otp: code });
           return;
         }
 
@@ -182,7 +182,7 @@ export function OTPScreen() {
   const handleResend = useCallback(async () => {
     if (!canResend) return;
     try {
-      await sendOtpToBackend(`${REGION.dialCode}${phone}`);
+      await sendOtpToBackend(phone);
       setError(false);
       setOtp(Array(OTP_LENGTH).fill(''));
       inputs.current[0]?.focus();
@@ -217,7 +217,7 @@ export function OTPScreen() {
         </View>
 
         <Text style={[styles.title, tc.color_text]}>{t('login.enterCode')}</Text>
-        <Text style={[styles.subtitle, tc.color_textSec]}>{t('login.codeSent', { phone: formatPhone(`${REGION.dialCode}${phone}`) })}</Text>
+        <Text style={[styles.subtitle, tc.color_textSec]}>{t('login.codeSent', { phone: formatPhone(phone) })}</Text>
 
         <View style={styles.otpRow}>
           {otp.map((value, idx) => (

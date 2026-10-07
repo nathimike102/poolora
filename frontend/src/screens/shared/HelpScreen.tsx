@@ -20,6 +20,7 @@ import { COMPANY } from '../../config/company';
 import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type SupportTicket } from '../../services/supportService';
 import { REGION, formatPhone } from '../../utils/region';
+import { emergencyNumbers as currentEmergency } from '../../utils/emergencyNumbers';
 
 const supportPhone = REGION.supportPhone;
 import { useTranslation } from 'react-i18next';
@@ -31,7 +32,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 /** Answers kept in the app so they work offline. Keep in line with the backend rules. */
 const FAQ_SIZES = [5, 5, 3, 4];
-const faqVars = () => ({ ambulance: REGION.emergency.ambulance, number: REGION.emergency.general, police: REGION.emergency.police });
+const faqVars = () => ({ ambulance: currentEmergency().ambulance, number: currentEmergency().general, police: currentEmergency().police });
 // The words are in the catalogue under help.faq (topic, then q1/a1, q2/a2…), read when shown
 const FAQ: Array<{ topic: string; items: Array<{ q: string; a: string }> }> = FAQ_SIZES.map((size, ti) => ({
   get topic() { return i18n.t(`help.faq.t${ti + 1}.topic`); },
@@ -78,8 +79,8 @@ export function HelpScreen() {
             <Text style={[{ fontSize: 15, fontWeight: '700' }, tc.color_text]}>{t('help.urgentSafetyOrPaymentProblem')}</Text>
             <Text style={[{ fontSize: 13 }, tc.color_text]}>
               {supportPhone
-                ? t('help.callUs', { phone: formatPhone(supportPhone), number: REGION.emergency.general })
-                : t('help.reportUrgent', { number: REGION.emergency.general })}
+                ? t('help.callUs', { phone: formatPhone(supportPhone), number: currentEmergency().general })
+                : t('help.reportUrgent', { number: currentEmergency().general })}
             </Text>
           </View>
           {supportPhone ? (
@@ -146,6 +147,15 @@ export function HelpScreen() {
             </View>
           </View>
         ))}
+
+        <Pressable
+          onPress={() => navigation.navigate('Guide')}
+          accessibilityRole="button"
+          style={[styles.primary, styles.outline, tc.borderColor_primary]}
+        >
+          <Icon name="map-legend" size={20} color={tk.primary} />
+          <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_primary]}>{t('help.howToUse')}</Text>
+        </Pressable>
 
         <Text style={[styles.section, tc.color_text]} accessibilityRole="header">{t('help.stillNeedHelp')}</Text>
         {assistantOn ? (

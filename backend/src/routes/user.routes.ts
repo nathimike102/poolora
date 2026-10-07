@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { UserController } from '../controllers/UserController';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validation.middleware';
-import { closeAccountSchema, idParamSchema, updateMeSchema, identitySubmitSchema, linkTrackerSchema, vehicleParamSchema, pushTokenSchema, profilePhotoSchema } from '../validators';
+import { closeAccountSchema, idParamSchema, updateMeSchema, identitySubmitSchema, linkTrackerSchema, vehicleParamSchema, pushTokenSchema, profilePhotoSchema, phoneCodeSchema, confirmPhoneSchema } from '../validators';
+import { otpRateLimit, verifyRateLimit } from '../middlewares/rateLimit.middleware';
 
 const router = Router();
 
@@ -19,6 +20,9 @@ router.get('/me/impact', UserController.impact);
 router.put('/me/push-token', validate(pushTokenSchema), UserController.savePushToken);
 router.put('/me/photo', validate(profilePhotoSchema), UserController.setPhoto);
 router.delete('/me/photo', UserController.removePhoto);
+// Adding or changing the phone number, proved with a code
+router.post('/me/phone/code', otpRateLimit, validate(phoneCodeSchema), UserController.sendPhoneCode);
+router.put('/me/phone', verifyRateLimit, validate(confirmPhoneSchema), UserController.confirmPhone);
 router.delete('/me/push-token', validate(pushTokenSchema), UserController.removePushToken);
 router.get('/me/work', UserController.work);
 router.post('/me/work', UserController.joinWork);

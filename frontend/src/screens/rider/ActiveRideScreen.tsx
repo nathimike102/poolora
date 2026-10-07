@@ -41,6 +41,7 @@ import { decodePolyline } from '../../utils/polyline';
 import { errorHandler } from '../../utils/errorHandler';
 import { realPhone } from '../../utils/phone';
 import { REGION } from '../../utils/region';
+import { emergencyNumbers as currentEmergency } from '../../utils/emergencyNumbers';
 import { startTripTracking, stopTripTracking } from '../../services/tripTracking';
 import { useTranslation } from 'react-i18next';
 import { tc, tk } from '../../theme/themed';
@@ -167,7 +168,7 @@ export function ActiveRideScreen() {
       // The SOS screen shows the alert, the cancel window and the safety team's reply
       if (status === 'help') navigation.navigate('SOS', { bookingId });
     } catch (error) {
-      Alert.alert(t('common.notSent'), t('ride.checkInNotSent', { message: errorHandler.process(error).message, number: REGION.emergency.general }));
+      Alert.alert(t('common.notSent'), t('ride.checkInNotSent', { message: errorHandler.process(error).message, number: currentEmergency().general }));
     } finally {
       setAnswering(false);
     }

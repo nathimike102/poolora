@@ -40,7 +40,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
 import { safetyService, type EmergencyContact, type SOSResponse, type SOSThreat } from '../../services/safetyService';
 import { batteryLevel } from '../../utils/battery';
-import { REGION } from '../../utils/region';
+import { emergencyNumbers as currentEmergency, useEmergencyNumbers } from '../../utils/emergencyNumbers';
 import { displayPhone } from '../../utils/phone';
 import { initSocket } from '../../utils/socket';
 import { errorHandler } from '../../utils/errorHandler';
@@ -110,7 +110,7 @@ export function sosMessage(position: Position | null, language = i18n.language):
 async function textContactsFromPhone(contacts: EmergencyContact[]) {
   const numbers = contacts.filter(c => c.notifyOnSos !== false).map(c => c.phone);
   if (!numbers.length) {
-    Alert.alert(i18n.t('sos.noContactsTitle'), i18n.t('sos.callIfDanger', { number: REGION.emergency.general }));
+    Alert.alert(i18n.t('sos.noContactsTitle'), i18n.t('sos.callIfDanger', { number: currentEmergency().general }));
     return;
   }
   const position = await quickPosition();
@@ -125,6 +125,8 @@ function secondsUntil(iso?: string): number {
 }
 
 export function SOSScreen() {
+  // Re-renders when the phone's country is found, so the numbers shown are the local ones
+  useEmergencyNumbers();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<RootStackParamList, 'SOS'>>();
   const insets = useSafeAreaInsets();
@@ -204,7 +206,7 @@ export function SOSScreen() {
       const { code, message } = errorHandler.process(error);
       if (code >= 400 && code < 500) {
         // Refused (the ride is no longer confirmed, say): retrying will not help
-        Alert.alert(i18n.t('sos.notSentTitle'), `${message} ${i18n.t('sos.callIfDanger', { number: REGION.emergency.general })}`);
+        Alert.alert(i18n.t('sos.notSentTitle'), `${message} ${i18n.t('sos.callIfDanger', { number: currentEmergency().general })}`);
         setPhase('idle');
         return;
       }
@@ -332,7 +334,7 @@ export function SOSScreen() {
       cameraWanted.current = false;
       setCamera('off');
       if (error instanceof SosVideoUnsupported) Alert.alert(t('sos.video.updateTitle'), error.message);
-      else Alert.alert(t('sos.video.failedTitle'), t('sos.video.failedBody', { message: errorHandler.process(error).message, number: REGION.emergency.general }));
+      else Alert.alert(t('sos.video.failedTitle'), t('sos.video.failedBody', { message: errorHandler.process(error).message, number: currentEmergency().general }));
     }
   };
   const stopCamera = async () => {
@@ -441,7 +443,7 @@ export function SOSScreen() {
     try {
       setEmergency(await safetyService.updateSOSCheckIn(emergency._id, 'not_ok', 'Reported danger in the app'));
     } catch (error) {
-      Alert.alert(t('common.notSent'), t('sos.callIfYouCan', { message: errorHandler.process(error).message, number: REGION.emergency.general }));
+      Alert.alert(t('common.notSent'), t('sos.callIfYouCan', { message: errorHandler.process(error).message, number: currentEmergency().general }));
     } finally {
       setBusy(false);
     }
@@ -458,11 +460,11 @@ export function SOSScreen() {
 
   const emergencyNumbers = (onRed: boolean) => (
     <View style={s.numbersRow}>
-      {[
-        [t('sos.police'), REGION.emergency.police],
-        [t('sos.ambulance'), REGION.emergency.ambulance],
-        [t('sos.fire'), REGION.emergency.fire],
-      ].map(([label, number]) => (
+      {([
+        [t('sos.police'), currentEmergency().police],
+        [t('sos.ambulance'), currentEmergency().ambulance],
+        [t('sos.fire'), currentEmergency().fire],
+      ] as [string, string | undefined][]).filter((row): row is [string, string] => !!row[1]).map(([label, number]) => (
         <Pressable
           key={label}
           onPress={() => call(number)}
@@ -493,7 +495,7 @@ export function SOSScreen() {
       sub = '';
     } else if (phase === 'retrying') {
       title = t('sos.active.retryingTitle');
-      sub = t('sos.active.retryingSub', { number: REGION.emergency.general });
+      sub = t('sos.active.retryingSub', { number: currentEmergency().general });
     } else if (isClosed) {
       title = t('sos.active.closedTitle');
       sub = emergency?.cancelledAt ? t('sos.active.closedCancelled') : t('sos.active.closedByTeam');
@@ -623,12 +625,12 @@ export function SOSScreen() {
             <>
               <Pressable
                 style={s.callBtn}
-                onPress={() => call(REGION.emergency.general)}
+                onPress={() => call(currentEmergency().general)}
                 accessibilityRole="button"
-                accessibilityLabel={t('sos.callEmergencyLabel', { number: REGION.emergency.general })}
+                accessibilityLabel={t('sos.callEmergencyLabel', { number: currentEmergency().general })}
               >
                 <Icon name="phone" size={24} color="#B71C1C" />
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#B71C1C' }}>{t('sos.callEmergency', { number: REGION.emergency.general })}</Text>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#B71C1C' }}>{t('sos.callEmergency', { number: currentEmergency().general })}</Text>
               </Pressable>
               {emergencyNumbers(true)}
               {phase === 'retrying' || (open && emergency?.contactsState !== 'sent' && !pending) ? (
@@ -715,7 +717,7 @@ export function SOSScreen() {
             {phase === 'loading'
               ? t('sos.checkingRide')
               : !canRaise
-                ? t('sos.needsRide', { number: REGION.emergency.general })
+                ? t('sos.needsRide', { number: currentEmergency().general })
                 : phase === 'holding'
                   ? t('sos.keepHolding')
                   : t('sos.holdInstructions')}
@@ -734,13 +736,13 @@ export function SOSScreen() {
           </Pressable>
         ) : null}
         <Pressable
-          onPress={() => call(REGION.emergency.general)}
+          onPress={() => call(currentEmergency().general)}
           style={[s.bigCall, tc.backgroundColor_errorLight]}
           accessibilityRole="button"
-          accessibilityLabel={t('sos.callEmergencyLabel', { number: REGION.emergency.general })}
+          accessibilityLabel={t('sos.callEmergencyLabel', { number: currentEmergency().general })}
         >
           <Icon name="phone" size={22} color={tk.error} />
-          <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_error]}>{t('sos.callEmergency', { number: REGION.emergency.general })}</Text>
+          <Text style={[{ fontSize: 16, fontWeight: '700' }, tc.color_error]}>{t('sos.callEmergency', { number: currentEmergency().general })}</Text>
         </Pressable>
         {emergencyNumbers(false)}
 

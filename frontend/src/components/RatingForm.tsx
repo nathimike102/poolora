@@ -15,7 +15,7 @@ import Svg, { Path } from './ThemedSvg';
 import { Icon } from './Icon';
 import { errorHandler } from '../utils/errorHandler';
 import type { RatingCategory, RatingInput, RatingIssue } from '../services/ratingService';
-import { REGION } from '../utils/region';
+import { emergencyNumbers as currentEmergency } from '../utils/emergencyNumbers';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { tc, tk } from '../theme/themed';
@@ -246,7 +246,7 @@ export function RatingForm({
               />
               {issues.includes('safety') ? (
                 <Text style={[{ fontSize: 13 }, tc.color_error]}>
-                  Our safety team is alerted as soon as you submit. If you are in danger now, call {REGION.emergency.general}.
+                  Our safety team is alerted as soon as you submit. If you are in danger now, call {currentEmergency().general}.
                 </Text>
               ) : null}
             </>

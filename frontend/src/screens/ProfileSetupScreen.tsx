@@ -17,13 +17,17 @@ import {
   Platform,
   ActionSheetIOS,
   KeyboardAvoidingView,
+  Pressable,
 } from 'react-native';
 import { Text, TextInput } from '../components/Text';
 import Svg, { Path } from '../components/ThemedSvg';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Icon } from '../components/Icon';
+import { realPhone } from '../utils/phone';
 import { useApp } from '../context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientButton } from '../components/GradientButton';
@@ -141,10 +145,26 @@ export function ProfileSetupScreen() {
     if (backendUser?.email) setEmail(backendUser.email);
   }, [firebaseUser, pendingSignup?.phone]);
 
+  // Google and email sign-ups add their number on its own screen; read it back on return
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingSignup) return;
+      userService.getMyProfile()
+        .then(p => {
+          const number = realPhone(p.phone);
+          if (number) setPhone(number);
+        })
+        .catch(() => undefined);
+    }, [pendingSignup]),
+  );
+
+  // A phone number is required: people are called on it, by riders, drivers and the safety team
   const isValid =
     firstName.trim().length > 0 &&
     lastName.trim().length > 0 &&
-    dob !== null;
+    dob !== null &&
+    !!realPhone(phone);
 
   // ── Photo picker (WhatsApp-style: camera or gallery) ──────────────────────
 
@@ -372,13 +392,26 @@ export function ProfileSetupScreen() {
           ]}
         >
           <Text style={[styles.inputLabel, tc.color_textSec]}>{t('setup.phoneLabel')}</Text>
-          <TextInput
-            value={phone ? formatPhone(phone) : ''}
-            editable={false}
-            placeholder={t('setup.phoneMissing')}
-            placeholderTextColor={tk.textDisabled}
-            style={[styles.input, tc.color_textSec]}
-          />
+          {pendingSignup ? (
+            // Just verified at sign-in
+            <TextInput
+              value={phone ? formatPhone(phone) : ''}
+              editable={false}
+              style={[styles.input, tc.color_textSec]}
+            />
+          ) : (
+            <Pressable
+              onPress={() => navigation.navigate('PhoneNumber')}
+              accessibilityRole="button"
+              accessibilityLabel={realPhone(phone) ? t('setup.changePhone', { phone: formatPhone(phone) }) : t('setup.addPhone')}
+              style={styles.phoneButton}
+            >
+              <Text style={[styles.input, styles.phoneButtonText, realPhone(phone) ? tc.color_text : tc.color_primary]}>
+                {realPhone(phone) ? formatPhone(phone) : t('setup.addPhone')}
+              </Text>
+              <Icon name="chevron-right" size={22} color={tk.textSec} />
+            </Pressable>
+          )}
         </View>
 
         {/* ── Email ──────────────────────────────────────────────────── */}
@@ -534,6 +567,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 0,
   },
+  phoneButton: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+  phoneButtonText: { flex: 1, height: undefined },
 
   // Date row
   dateRow: {

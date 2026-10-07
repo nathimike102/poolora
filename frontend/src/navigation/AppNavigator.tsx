@@ -60,6 +60,9 @@ import type {
 // ─── Auth screens ─────────────────────────────────────────────────────────────
 import { SplashScreen } from "../screens/SplashScreen";
 import { OnboardingScreen } from "../screens/OnboardingScreen";
+import { LocationIntroScreen } from "../screens/LocationIntroScreen";
+import { PhoneNumberScreen } from "../screens/shared/PhoneNumberScreen";
+import { GuideScreen } from "../screens/shared/GuideScreen";
 import { useTranslation } from 'react-i18next';
 import { LoginScreen } from "../screens/LoginScreen";
 import { PhoneLoginScreen } from "../screens/PhoneLoginScreen";
@@ -107,6 +110,7 @@ import { ParcelTrackingScreen } from "../screens/parcel/ParcelTrackingScreen";
 
 // ─── Trip screens ─────────────────────────────────────────────────────────────
 import { PlanTripScreen } from "../screens/trip/PlanTripScreen";
+import { withServiceArea } from "../components/ServiceArea";
 import { TripDetailScreen } from "../screens/trip/TripDetailScreen";
 import { TripPartnersScreen } from "../screens/trip/TripPartnersScreen";
 
@@ -159,6 +163,12 @@ const FULL_BLEED = { contentStyle: { paddingBottom: 0 } } as const;
 // (ActiveRide, SOS) that must keep updating behind whatever is on top.
 const TAB_OPTIONS = { headerShown: false, freezeOnBlur: true } as const;
 
+// Booking, parcels, group trips and new rides open only where Poolora has launched
+const GatedSearch = withServiceArea(() => SearchScreen, "book");
+const GatedShipParcel = withServiceArea(() => ShipParcelScreen, "parcel");
+const GatedPlanTrip = withServiceArea(() => PlanTripScreen, "trip");
+const GatedCreateRide = withServiceArea(() => CreateRideScreen, "offer", true);
+
 function RiderTabs() {
   const { t } = useTranslation();
   return (
@@ -204,7 +214,7 @@ function DriverTabs() {
       />
       <DriverTab.Screen
         name="CreateRide"
-        component={CreateRideScreen}
+        component={GatedCreateRide}
         options={{ title: t('tabs.createRide') }}
       />
       <DriverTab.Screen
@@ -242,6 +252,7 @@ function AuthNavigator() {
     >
       <Stack.Screen name="Splash" component={SplashScreen} options={FULL_BLEED} />
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      <Stack.Screen name="LocationIntro" component={LocationIntroScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
       <Stack.Screen name="OTP" component={OTPScreen} />
@@ -252,6 +263,8 @@ function AuthNavigator() {
         component={ProfileSetupScreen}
         options={{ gestureEnabled: false }}
       />
+      {/* A Google or email sign-up adds the phone number during profile setup */}
+      <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
     </Stack.Navigator>
   );
 }
@@ -279,13 +292,15 @@ function AppNavigatorStack() {
       )}
 
       {/* ── Rider detail screens (pushed above tabs) ──────────── */}
-      <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen name="Search" component={GatedSearch} />
       <Stack.Screen name="RideResults" component={RideResultsScreen} options={FULL_BLEED} />
       <Stack.Screen name="Booking" component={BookingScreen} />
       <Stack.Screen name="ActiveRide" component={ActiveRideScreen} />
       <Stack.Screen name="RideDetail" component={RideDetailScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="Wallet" component={WalletScreen} />
+      <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
+      <Stack.Screen name="Guide" component={GuideScreen} />
       <Stack.Screen name="Receipt" component={ReceiptScreen} />
       <Stack.Screen name="Receipts" component={ReceiptsScreen} />
       <Stack.Screen name="RaiseDispute" component={RaiseDisputeScreen} />
@@ -307,12 +322,12 @@ function AppNavigatorStack() {
       <Stack.Screen name="EditRide" component={EditRideScreen} />
 
       {/* ── Parcel Flow ───────────────────────────────────────── */}
-      <Stack.Screen name="ShipParcel" component={ShipParcelScreen} />
+      <Stack.Screen name="ShipParcel" component={GatedShipParcel} />
       <Stack.Screen name="ParcelResults" component={ParcelResultsScreen} />
       <Stack.Screen name="ParcelTracking" component={ParcelTrackingScreen} />
 
       {/* ── Trip Flow ─────────────────────────────────────────── */}
-      <Stack.Screen name="PlanTrip" component={PlanTripScreen} />
+      <Stack.Screen name="PlanTrip" component={GatedPlanTrip} />
       <Stack.Screen name="TripDetail" component={TripDetailScreen} />
       <Stack.Screen name="TripPartners" component={TripPartnersScreen} />
 

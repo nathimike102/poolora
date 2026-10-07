@@ -25,7 +25,10 @@ import { Typography, Spacing, Radius, Shadow } from '../theme';
 import { sendOtpToBackend } from '../services/authService';
 import { errorHandler } from '../utils/errorHandler';
 import type { RootStackParamList } from '../navigation/types';
-import { nationalDigits, REGION, toE164 } from '../utils/region';
+import { MARKETS } from '../utils/region';
+import { countryByCode, HOME_COUNTRY, nationalDigitsFor, toE164For, type Country } from '../utils/countries';
+import { useLocationCountry } from '../services/locationCountry';
+import { CountryPicker } from '../components/CountryPicker';
 import { useTranslation } from 'react-i18next';
 import { tc, tk } from '../theme/themed';
 
@@ -39,14 +42,21 @@ export function PhoneLoginScreen() {
   const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);
 
-  const isValid = REGION.mobilePattern.test(nationalDigits(phone));
+  // The calling code starts on the country the phone is in, until one is picked
+  const here = useLocationCountry();
+  const [picked, setPicked] = useState<Country>();
+  const country = picked ?? countryByCode(here.code) ?? HOME_COUNTRY;
+
+  const e164 = toE164For(country, phone);
+  const isValid = e164 !== null;
+  const placeholder = MARKETS[country.code]?.phonePlaceholder ?? t('login.phonePlaceholder');
 
   const handleSendOtp = async () => {
     if (!isValid || sending) return;
     setSending(true);
     try {
-      await sendOtpToBackend(toE164(phone)!);
-      navigation.navigate('OTP', { phone: nationalDigits(phone) });
+      await sendOtpToBackend(e164!);
+      navigation.navigate('OTP', { phone: e164! });
     } catch (error) {
       Alert.alert(t('login.sendFailed'), errorHandler.process(error).message);
     } finally {
@@ -89,16 +99,16 @@ export function PhoneLoginScreen() {
           </Text>
           <View style={styles.phoneRow}>
             <View style={styles.prefixRow}>
-              <Text style={[styles.dialCode, tc.color_text]}>{REGION.dialCode}</Text>
+              <CountryPicker value={country} suggested={[here.code, HOME_COUNTRY.code]} onChange={c => { setPicked(c); setPhone(''); }} />
               <View style={[styles.divider, tc.backgroundColor_border]} />
             </View>
 
             <TextInput
               value={phone}
-              onChangeText={val => setPhone(val.replace(/\D/g, '').slice(0, 10))}
+              onChangeText={val => setPhone(nationalDigitsFor(country, val).slice(0, 14))}
               keyboardType="phone-pad"
-              maxLength={10}
-              placeholder={REGION.phonePlaceholder}
+              maxLength={15}
+              placeholder={placeholder}
               placeholderTextColor={tk.textSec}
               style={[styles.phoneInput, tc.color_text]}
               autoFocus

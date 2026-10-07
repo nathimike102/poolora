@@ -46,8 +46,14 @@ export type RootStackParamList = {
   // Auth flow
   Splash: undefined;
   Onboarding: undefined;
+  LocationIntro: { next: 'Login' | 'Onboarding' };
+  /** Add or change the account's phone number, proved with a code */
+  PhoneNumber: undefined;
+  /** How to use the app, step by step */
+  Guide: undefined;
   Login: undefined;
   PhoneLogin: undefined;
+  /** The number in E.164 */
   OTP: { phone: string };
   EmailLogin: undefined;
   EmailSignup: undefined;

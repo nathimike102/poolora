@@ -154,9 +154,28 @@ export async function confirmOtp(
 export const confirmOTP = confirmOtp;
 
 /**
+ * Forgets the Google account chosen last, so the next Google sign-in asks
+ * which account to use instead of reusing it. `revoke` also withdraws this
+ * app's access to that Google account (when the account is closed).
+ */
+export async function forgetGoogleAccount({ revoke = false } = {}): Promise<void> {
+  try {
+    if (revoke) await GoogleSignin.revokeAccess();
+  } catch {
+    // Not signed in with Google: nothing to withdraw
+  }
+  try {
+    await GoogleSignin.signOut();
+  } catch {
+    // Not signed in with Google
+  }
+}
+
+/**
  * Sign out the current user.
  */
 export async function signOut(): Promise<void> {
+  await forgetGoogleAccount();
   await firebaseSignOut(getAuth());
 }
 
@@ -267,7 +286,8 @@ export async function signInWithGoogle(): Promise<UserCredential> {
     // Check Play Services availability
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-    // Open Google account picker
+    // Always ask which account: a previous choice (even of a closed account) is not reused
+    await forgetGoogleAccount();
     await GoogleSignin.signIn();
 
     const { idToken } = await GoogleSignin.getTokens();
@@ -516,6 +536,7 @@ async function logoutAllOnce(): Promise<void> {
     clearAuthorizationHeader();
     clearLocalAuthState();
 
+    await forgetGoogleAccount();
     // Phone sign-in goes through the backend only, so there may be no
     // Firebase session; signOut() throws in that case.
     if (getAuth().currentUser) {

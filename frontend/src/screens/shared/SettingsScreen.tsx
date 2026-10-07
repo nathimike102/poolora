@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import type { RootStackParamList } from '../../navigation/types';
 import { userService } from '../../services/userService';
+import { forgetGoogleAccount } from '../../services/authService';
 import { walletService } from '../../services/walletService';
 import { simulationService } from '../../services/simulationService';
 import * as Location from 'expo-location';
@@ -132,6 +133,8 @@ export function SettingsScreen() {
   const [simulationEnabled, setSimulationEnabled] = useState(false);
   const [simulatingAs, setSimulatingAs] = useState<'rider' | 'driver' | null>(null);
   const [closing, setClosing] = useState(false);
+  // While the account is being closed: blocks the screen so it is not tapped twice
+  const [closingNow, setClosingNow] = useState(false);
 
   // Closing the account (data protection: the right to erasure)
   const closeAccount = async () => {
@@ -155,11 +158,16 @@ export function SettingsScreen() {
             text: t('settings.closeAccount'),
             style: 'destructive',
             onPress: async () => {
+              setClosingNow(true);
               try {
                 await userService.closeAccount();
+                // The Google account of a closed account is not offered again
+                await forgetGoogleAccount({ revoke: true });
+                setClosingNow(false);
                 Alert.alert(t('settings.accountClosed'), t('settings.yourAccountHasBeenClosed'));
                 await logout();
               } catch (error) {
+                setClosingNow(false);
                 Alert.alert(t('settings.couldNotCloseYourAccount'), errorHandler.process(error).message);
               }
             },
@@ -357,6 +365,16 @@ export function SettingsScreen() {
         </Section>
       </ScrollView>
 
+      {/* ── Closing the account: nothing can be tapped until it is done ── */}
+      <Modal visible={closingNow} transparent animationType="fade" onRequestClose={() => undefined}>
+        <View style={st.busyOverlay} accessibilityViewIsModal accessibilityLiveRegion="polite">
+          <View style={[st.busyCard, tc.backgroundColor_surface]}>
+            <ActivityIndicator size="large" color={tk.primary} />
+            <Text style={[st.busyText, tc.color_text]}>{t('settings.closingYourAccount')}</Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Edit Profile Modal ────────────────────────────────── */}
       <Modal visible={showEditProfile} transparent animationType="slide" onRequestClose={() => setShowEditProfile(false)}>
         <Pressable accessibilityRole="button" style={st.overlay} onPress={() => setShowEditProfile(false)} />
@@ -404,9 +422,26 @@ export function SettingsScreen() {
             ))}
             <View>
               <Text style={[st.fieldLabel, tc.color_textSec]}>{t('settings.phoneNumber')}</Text>
-              <Text style={[{ fontSize: 15 }, tc.color_text]}>{displayPhone(profile?.phone) ?? t('settings.notAdded')}</Text>
+              <View style={st.phoneRow}>
+                <Text style={[st.flex1, { fontSize: 15 }, displayPhone(profile?.phone) ? tc.color_text : tc.color_error]}>
+                  {displayPhone(profile?.phone) ?? t('settings.notAdded')}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setShowEditProfile(false);
+                    navigation.navigate('PhoneNumber');
+                  }}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  style={[st.phoneAction, tc.backgroundColor_primaryLight]}
+                >
+                  <Text style={[{ fontSize: 14, fontWeight: '700' }, tc.color_primary]}>
+                    {displayPhone(profile?.phone) ? t('settings.changePhone') : t('settings.addPhone')}
+                  </Text>
+                </Pressable>
+              </View>
               <Text style={[{ fontSize: 12, marginTop: 2 }, tc.color_textSec]}>
-                {t('settings.yourPhoneNumberIsVerified')}
+                {displayPhone(profile?.phone) ? t('settings.yourPhoneNumberIsVerified') : t('settings.phoneNeeded')}
               </Text>
             </View>
             {saveError ? (
@@ -458,6 +493,11 @@ const st = StyleSheet.create({
 
   /* Modal */
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  phoneAction: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
+  busyOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+  busyCard: { alignItems: 'center', gap: 16, paddingVertical: 28, paddingHorizontal: 32, borderRadius: 20, minWidth: 220 },
+  busyText: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
   sheet: {
     position: 'absolute',
     left: 0,

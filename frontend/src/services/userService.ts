@@ -51,6 +51,17 @@ export const userService = {
     await apiClient.delete(API_ENDPOINTS.users.photo);
   },
 
+  /** Sends a code to a number to add to, or change on, this account */
+  async sendPhoneCode(phone: string): Promise<void> {
+    await apiClient.post(API_ENDPOINTS.users.phoneCode, { phone });
+  },
+
+  /** Saves the number once its code is right; returns the number saved */
+  async confirmPhone(phone: string, otp: string): Promise<string> {
+    const response = await apiClient.put<ApiResponse<{ phone: string }>>(API_ENDPOINTS.users.phone, { phone, otp });
+    return response.data.data.phone;
+  },
+
   /** Whether the account can be closed now, and what is in the way if not */
   async getClosureCheck(): Promise<{ canClose: boolean; blockers: string[]; walletBalance: number; coins: number; coinsValue: number }> {
     const response = await apiClient.get<ApiResponse<{ canClose: boolean; blockers: string[]; walletBalance: number; coins: number; coinsValue: number }>>(API_ENDPOINTS.users.closure);

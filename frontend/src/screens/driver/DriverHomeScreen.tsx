@@ -9,6 +9,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { ActivityIndicator } from '../../components/Themed';
+import { ServiceAreaBanner } from '../../components/ServiceArea';
 import { Text } from '../../components/Text';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -165,6 +166,8 @@ export function DriverHomeScreen() {
           <Text style={[styles.greeting, tc.color_textSec]}>
             {greeting}{firstName ? `, ${firstName}` : ''}
           </Text>
+
+          <ServiceAreaBanner />
 
           {/* Offer a ride */}
           <Pressable

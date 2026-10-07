@@ -27,6 +27,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { supportService, type SupportCategory, type SupportTicket } from '../../services/supportService';
 import { errorHandler } from '../../utils/errorHandler';
 import { REGION } from '../../utils/region';
+import { emergencyNumbers as currentEmergency } from '../../utils/emergencyNumbers';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { tc, tk } from '../../theme/themed';
@@ -74,7 +75,7 @@ export function SupportTicketScreen() {
       Alert.alert(
         t('supportTicket.requestSent'),
         urgent
-          ? t('supportTicket.urgentSent', { number: REGION.emergency.general })
+          ? t('supportTicket.urgentSent', { number: currentEmergency().general })
           : t('supportTicket.normalSent'),
         [{ text: t('supportTicket.ok'), onPress: () => navigation.replace('SupportTicket', { ticketId: created._id }) }],
       );
@@ -129,7 +130,7 @@ export function SupportTicketScreen() {
             </View>
             {category === 'safety' ? (
               <Text style={[{ fontSize: 13 }, tc.color_error]}>
-                If you are in danger now, call {REGION.emergency.general}. During a ride, use SOS: it reaches our safety team fastest.
+                If you are in danger now, call {currentEmergency().general}. During a ride, use SOS: it reaches our safety team fastest.
               </Text>
             ) : null}
             <Text style={[styles.label, tc.color_text]}>{t('supportTicket.subject')}</Text>

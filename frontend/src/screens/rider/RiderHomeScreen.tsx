@@ -6,9 +6,12 @@
  * ride, and shortcuts to each kind of ride.
  */
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GUIDE_SEEN_KEY } from '../shared/GuideScreen';
 import { Animated, View, Pressable, StyleSheet, Alert, useWindowDimensions } from 'react-native';
 import { ActivityIndicator } from '../../components/Themed';
+import { ServiceAreaBanner } from '../../components/ServiceArea';
 import { Text } from '../../components/Text';
 import { useNavigation, useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -97,6 +100,13 @@ export function RiderHomeScreen() {
     }
   }, []);
 
+  // The step-by-step guide opens by itself once, the first time home is reached
+  useEffect(() => {
+    AsyncStorage.getItem(GUIDE_SEEN_KEY)
+      .then(seen => { if (!seen) navigation.navigate('Guide'); })
+      .catch(() => undefined);
+  }, [navigation]);
+
   useFocusEffect(
     useCallback(() => {
       getPlaceHistory().then(setPlaces).catch(() => {});
@@ -177,6 +187,8 @@ export function RiderHomeScreen() {
       >
         <View style={[styles.sheet, tc.backgroundColor_surface]}>
           <View style={[styles.handle, tc.backgroundColor_border]} />
+
+          <ServiceAreaBanner />
 
           {/* What to do: a ride, a parcel or a trip with others */}
           <View style={styles.segments}>

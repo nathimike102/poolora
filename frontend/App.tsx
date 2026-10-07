@@ -46,6 +46,7 @@ import { initErrorTracking } from './src/config/errorTracking';
 import './src/services/sosTracking';
 import './src/services/tripTracking';
 import { restoreLanguage } from './src/i18n';
+import { detectCountry } from './src/services/locationCountry';
 
 initErrorTracking();
 
@@ -100,6 +101,8 @@ export default function App() {
     }
     // The language chosen in Settings (UC-X03); until it loads, the phone's
     restoreLanguage();
+    // Which country the phone is in: the calling code at sign-in, and whether rides are open here
+    detectCountry();
   }, []);
 
   return (

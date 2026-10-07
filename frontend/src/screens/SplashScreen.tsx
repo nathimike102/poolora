@@ -20,7 +20,9 @@ import { AnimatedDot } from "../components/AnimatedDot";
 import { PooloraLogo } from "../components/PooloraLogo";
 import { Typography, Spacing } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
+import * as Location from "expo-location";
 import { ONBOARDING_SEEN_KEY } from "./OnboardingScreen";
+import { LOCATION_ASKED_KEY } from "./LocationIntroScreen";
 import { loadProfileDraft } from "../utils/profileDraft";
 import { useTranslation } from 'react-i18next';
 import { tc } from '../theme/themed';
@@ -51,6 +53,11 @@ export function SplashScreen() {
     // A profile form left unfinished when Android killed the app for the camera
     // or gallery is reopened instead.
     const seen = AsyncStorage.getItem(ONBOARDING_SEEN_KEY).catch(() => null);
+    // Location is asked about once, before sign-in, unless the phone already answered
+    const askLocation = Promise.all([
+      AsyncStorage.getItem(LOCATION_ASKED_KEY).catch(() => null),
+      Location.getForegroundPermissionsAsync().catch(() => null),
+    ]).then(([asked, permission]) => !asked && permission?.status === Location.PermissionStatus.UNDETERMINED);
     const draft = loadProfileDraft();
     const timer = setTimeout(async () => {
       const unfinished = await draft;
@@ -58,7 +65,9 @@ export function SplashScreen() {
         navigation.replace("ProfileSetup", unfinished.pendingSignup);
         return;
       }
-      navigation.replace((await seen) ? "Login" : "Onboarding");
+      const next = (await seen) ? "Login" : "Onboarding";
+      if (await askLocation) navigation.replace("LocationIntro", { next });
+      else navigation.replace(next);
     }, 2800);
 
     return () => clearTimeout(timer);

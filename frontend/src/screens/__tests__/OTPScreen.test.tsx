@@ -5,7 +5,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
-  useRoute: () => ({ params: { phone: '771234567' } }),
+  useRoute: () => ({ params: { phone: '+263771234567' } }),
 }));
 
 const mockSetUser = jest.fn();

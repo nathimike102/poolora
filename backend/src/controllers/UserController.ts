@@ -184,6 +184,29 @@ export class UserController {
     }
   }
 
+  /** POST /users/me/phone/code: sends a code to a number to add or change */
+  static async sendPhoneCode(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { AuthService } = await import('../services/AuthService');
+      sendSuccess(res, await new AuthService().sendPhoneCode(userId, req.body.phone), 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** PUT /users/me/phone: saves the number once its code is right */
+  static async confirmPhone(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = (req as AuthenticatedRequest).user;
+      const { AuthService } = await import('../services/AuthService');
+      const user = await new AuthService().confirmPhone(userId, req.body.phone, req.body.otp);
+      sendSuccess(res, { phone: user.phone }, 200, req.requestId);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /** DELETE /users/me/photo */
   static async removePhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

@@ -18,7 +18,7 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import type { RootStackParamList } from '../../navigation/types';
 import { disputeService, type DisputeCategory } from '../../services/disputeService';
 import { errorHandler } from '../../utils/errorHandler';
-import { REGION } from '../../utils/region';
+import { emergencyNumbers as currentEmergency } from '../../utils/emergencyNumbers';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { tc, tk } from '../../theme/themed';
@@ -102,7 +102,7 @@ export function RaiseDisputeScreen() {
           ]}
         />
         <Text style={[{ fontSize: 13 }, tc.color_textSec]}>
-          We look at the trip's chat, payments and route. For an emergency, use SOS or call {REGION.emergency.general} instead.
+          We look at the trip's chat, payments and route. For an emergency, use SOS or call {currentEmergency().general} instead.
         </Text>
         <Pressable
           onPress={submit}

@@ -6,6 +6,7 @@ import { config } from '../config';
 import { getRedisClient, requireRedis } from '../config/redis';
 import { User, IUser } from '../models/User';
 import { OtpChallenge } from '../models/OtpChallenge';
+import { wasRecentlyClosed } from '../models/ClosedPhone';
 import { kycPrefix } from './UploadService';
 import { JWTPayload, UserCapability, KYCStatus, IVehicle } from '../types';
 import {
@@ -175,155 +176,20 @@ export class AuthService {
         isNewUser: boolean;
       }
   > {
-    const redis = getRedisClient();
     const existingUser = await User.findOne({ phone });
     const needsProfile = !existingUser && !name;
 
-    if (redis) {
-      // Still waiting out an earlier wrong code?
-      const retryKey = `otp:retry:${phone}`;
-      const retryTtl = await redis.ttl(retryKey);
-      if (retryTtl > 0) {
-        throw new AppError(
-          `Too many wrong codes. Try again in ${retryTtl} seconds.`,
-          429,
-          'OTP_RETRY_LATER',
-        );
-      }
-
-      // Retrieve stored OTP hash
-      const otpKey = `otp:${phone}`;
-      const storedHash = await redis.get(otpKey);
-
-      if (!storedHash) {
-        throw new AuthenticationError('OTP expired or not requested');
-      }
-
-      const attemptsKey = `otp:attempts:${phone}`;
-      const failuresKey = `otp:failures:${phone}`;
-
-      // Compare hashes using timing-safe equality
-      const providedHash = crypto.createHash('sha256').update(otp).digest('hex');
-      const otpMatch =
-        storedHash.length === providedHash.length &&
-        crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(providedHash));
-
-      if (!otpMatch) {
-        const attempts = await redis.incr(attemptsKey);
-        await redis.expire(attemptsKey, config.otp.expirySeconds);
-
-        const failures = await redis.incr(failuresKey);
-        await redis.expire(failuresKey, config.otp.failureWindowSeconds);
-
-        const wait = this.backoffSeconds(failures);
-        if (wait > 0) await redis.setex(retryKey, wait, '1');
-
-        if (attempts >= config.otp.maxAttemptsPerCode) {
-          // Throw the code away, but leave the account usable: the next step
-          // is to request a new code, not to wait out a suspension.
-          await redis.del(otpKey, attemptsKey);
-          throw new AppError(
-            `Too many wrong codes. Request a new one in ${wait} seconds.`,
-            429,
-            'OTP_RETRY_LATER',
-          );
-        }
-
-        throw new AuthenticationError(
-          `Invalid OTP. ${config.otp.maxAttemptsPerCode - attempts} attempts remaining before a new code is needed.`,
-        );
-      }
-
-      // Keep the code for the second verify that carries the new user's name,
-      // and give the profile form its own window: the 5 minutes started when
-      // the text was sent, which could leave too little time to fill it in
-      if (needsProfile) {
-        await redis.expire(otpKey, config.otp.profileWindowSeconds);
-        return { needsProfile: true };
-      }
-
-      // A clash that would stop the account being created must not use up the code
-      await this.assertEmailFree(existingUser, email);
-
-      // OTP valid — clean up, including the failure history.
-      await redis.del(otpKey, attemptsKey, failuresKey, retryKey);
-    } else {
-      // Redis unavailable — verify with MongoDB OTP fallback store.
-      const challenge = await OtpChallenge.findOne({ phone });
-      if (!challenge) {
-        throw new AuthenticationError('OTP expired or not requested');
-      }
-
-      const now = new Date();
-      if (challenge.retryAfter && challenge.retryAfter.getTime() > now.getTime()) {
-        const waitSeconds = Math.ceil((challenge.retryAfter.getTime() - now.getTime()) / 1000);
-        throw new AppError(
-          `Too many wrong codes. Try again in ${waitSeconds} seconds.`,
-          429,
-          'OTP_RETRY_LATER',
-        );
-      }
-
-      if (challenge.expiresAt.getTime() <= now.getTime()) {
-        await OtpChallenge.deleteOne({ phone });
-        throw new AuthenticationError('OTP expired or not requested');
-      }
-
-      const providedHash = crypto.createHash('sha256').update(otp).digest('hex');
-      const storedHash = challenge.otpHash;
-
-      const otpMatch =
-        storedHash.length === providedHash.length &&
-        crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(providedHash));
-
-      if (!otpMatch) {
-        const nextAttempts = (challenge.attempts ?? 0) + 1;
-        const nextFailures = (challenge.failures ?? 0) + 1;
-        const wait = this.backoffSeconds(nextFailures);
-        const retryAfter = new Date(now.getTime() + wait * 1000);
-        const outOfTries = nextAttempts >= config.otp.maxAttemptsPerCode;
-
-        await OtpChallenge.findOneAndUpdate(
-          { phone },
-          {
-            $set: {
-              attempts: nextAttempts,
-              failures: nextFailures,
-              retryAfter,
-              // The document has to outlive the wait, so the failure count and
-              // the wait itself cannot be shed by simply asking for a new code.
-              expiresAt: new Date(
-                Math.max(
-                  challenge.expiresAt.getTime(),
-                  now.getTime() + config.otp.failureWindowSeconds * 1000,
-                ),
-              ),
-              // Out of tries: drop the code itself, never the account.
-              ...(outOfTries ? { otpHash: '' } : {}),
-            },
-          },
-        );
-
-        if (outOfTries) {
-          throw new AppError(
-            `Too many wrong codes. Request a new one in ${wait} seconds.`,
-            429,
-            'OTP_RETRY_LATER',
-          );
-        }
-
-        throw new AuthenticationError(
-          `Invalid OTP. ${config.otp.maxAttemptsPerCode - nextAttempts} attempts remaining before a new code is needed.`,
-        );
-      }
-
-      if (needsProfile) {
-        await OtpChallenge.updateOne({ phone }, { $set: { expiresAt: new Date(Date.now() + config.otp.profileWindowSeconds * 1000) } });
-        return { needsProfile: true };
-      }
-      await this.assertEmailFree(existingUser, email);
-      await OtpChallenge.deleteOne({ phone });
+    const code = await this.checkCode(phone, otp);
+    // Keep the code for the second verify that carries the new user's name,
+    // and give the profile form its own window: the 5 minutes started when
+    // the text was sent, which could leave too little time to fill it in
+    if (needsProfile) {
+      await code.keepFor(config.otp.profileWindowSeconds);
+      return { needsProfile: true };
     }
+    // A clash that would stop the account being created must not use up the code
+    await this.assertEmailFree(existingUser, email);
+    await code.useUp();
 
     // Find or create user
     let user = existingUser;
@@ -356,7 +222,7 @@ export class AuthService {
     const { accessToken, refreshToken } = this.generateTokens(user, sessionId);
 
     // Store session + refresh token in Redis when available.
-    if (redis) {
+    if (getRedisClient()) {
       await this.createSession(user._id.toString(), sessionId);
       await this.storeRefreshToken(user._id.toString(), sessionId, refreshToken);
     } else {
@@ -596,6 +462,186 @@ export class AuthService {
     const refreshToken = jwt.sign(jwtPayload, config.jwt.refreshSecret as jwt.Secret, refreshOptions);
 
     return { accessToken, refreshToken };
+  }
+
+  /**
+   * A phone number is needed on every account (people are called on it), so
+   * someone who signed in with Google or email adds one, and anyone can change
+   * theirs. The number is proved with a code first; one that belongs to
+   * another account is refused rather than taken from it.
+   */
+  async sendPhoneCode(userId: string, phone: string): Promise<{ message: string }> {
+    await this.assertPhoneFree(userId, phone);
+    return this.sendOtp(phone);
+  }
+
+  /** Saves the number once its code is right; returns the updated user. */
+  async confirmPhone(userId: string, phone: string, otp: string): Promise<IUser> {
+    await this.assertPhoneFree(userId, phone);
+    const code = await this.checkCode(phone, otp);
+    await code.useUp();
+    // The number of a recently closed account brings no new-user perks with it
+    const perksUsed = await wasRecentlyClosed(phone);
+    const user = await User.findOneAndUpdate(
+      { _id: userId, isActive: true },
+      { $set: { phone, ...(perksUsed ? { newUserPerksUsed: true } : {}) } },
+      { new: true },
+    );
+    if (!user) throw new NotFoundError('User');
+    logger.info('Phone number added to an account', { userId });
+    return user;
+  }
+
+  private async assertPhoneFree(userId: string, phone: string): Promise<void> {
+    if (await User.exists({ phone, _id: { $ne: userId } })) {
+      throw new ConflictError('This number belongs to another account. Sign in with it instead, or ask support to merge the two accounts.');
+    }
+  }
+
+  /**
+   * Checks a code sent by sendOtp, with the same limits wherever a code is
+   * checked: a few tries per code, then a growing wait. A right code is not
+   * used up yet; the caller keeps it for a second step or uses it up.
+   */
+  private async checkCode(phone: string, otp: string): Promise<{ keepFor: (seconds: number) => Promise<void>; useUp: () => Promise<void> }> {
+    const redis = getRedisClient();
+    if (redis) {
+      // Still waiting out an earlier wrong code?
+      const retryKey = `otp:retry:${phone}`;
+      const retryTtl = await redis.ttl(retryKey);
+      if (retryTtl > 0) {
+        throw new AppError(
+          `Too many wrong codes. Try again in ${retryTtl} seconds.`,
+          429,
+          'OTP_RETRY_LATER',
+        );
+      }
+
+      // Retrieve stored OTP hash
+      const otpKey = `otp:${phone}`;
+      const storedHash = await redis.get(otpKey);
+
+      if (!storedHash) {
+        throw new AuthenticationError('OTP expired or not requested');
+      }
+
+      const attemptsKey = `otp:attempts:${phone}`;
+      const failuresKey = `otp:failures:${phone}`;
+
+      // Compare hashes using timing-safe equality
+      const providedHash = crypto.createHash('sha256').update(otp).digest('hex');
+      const otpMatch =
+        storedHash.length === providedHash.length &&
+        crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(providedHash));
+
+      if (!otpMatch) {
+        const attempts = await redis.incr(attemptsKey);
+        await redis.expire(attemptsKey, config.otp.expirySeconds);
+
+        const failures = await redis.incr(failuresKey);
+        await redis.expire(failuresKey, config.otp.failureWindowSeconds);
+
+        const wait = this.backoffSeconds(failures);
+        if (wait > 0) await redis.setex(retryKey, wait, '1');
+
+        if (attempts >= config.otp.maxAttemptsPerCode) {
+          // Throw the code away, but leave the account usable: the next step
+          // is to request a new code, not to wait out a suspension.
+          await redis.del(otpKey, attemptsKey);
+          throw new AppError(
+            `Too many wrong codes. Request a new one in ${wait} seconds.`,
+            429,
+            'OTP_RETRY_LATER',
+          );
+        }
+
+        throw new AuthenticationError(
+          `Invalid OTP. ${config.otp.maxAttemptsPerCode - attempts} attempts remaining before a new code is needed.`,
+        );
+      }
+
+      return {
+        keepFor: async (seconds: number) => { await redis.expire(otpKey, seconds); },
+        // Used: cleared, with the failure history
+        useUp: async () => { await redis.del(otpKey, attemptsKey, failuresKey, retryKey); },
+      };
+    } else {
+      // Redis unavailable — verify with MongoDB OTP fallback store.
+      const challenge = await OtpChallenge.findOne({ phone });
+      if (!challenge) {
+        throw new AuthenticationError('OTP expired or not requested');
+      }
+
+      const now = new Date();
+      if (challenge.retryAfter && challenge.retryAfter.getTime() > now.getTime()) {
+        const waitSeconds = Math.ceil((challenge.retryAfter.getTime() - now.getTime()) / 1000);
+        throw new AppError(
+          `Too many wrong codes. Try again in ${waitSeconds} seconds.`,
+          429,
+          'OTP_RETRY_LATER',
+        );
+      }
+
+      if (challenge.expiresAt.getTime() <= now.getTime()) {
+        await OtpChallenge.deleteOne({ phone });
+        throw new AuthenticationError('OTP expired or not requested');
+      }
+
+      const providedHash = crypto.createHash('sha256').update(otp).digest('hex');
+      const storedHash = challenge.otpHash;
+
+      const otpMatch =
+        storedHash.length === providedHash.length &&
+        crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(providedHash));
+
+      if (!otpMatch) {
+        const nextAttempts = (challenge.attempts ?? 0) + 1;
+        const nextFailures = (challenge.failures ?? 0) + 1;
+        const wait = this.backoffSeconds(nextFailures);
+        const retryAfter = new Date(now.getTime() + wait * 1000);
+        const outOfTries = nextAttempts >= config.otp.maxAttemptsPerCode;
+
+        await OtpChallenge.findOneAndUpdate(
+          { phone },
+          {
+            $set: {
+              attempts: nextAttempts,
+              failures: nextFailures,
+              retryAfter,
+              // The document has to outlive the wait, so the failure count and
+              // the wait itself cannot be shed by simply asking for a new code.
+              expiresAt: new Date(
+                Math.max(
+                  challenge.expiresAt.getTime(),
+                  now.getTime() + config.otp.failureWindowSeconds * 1000,
+                ),
+              ),
+              // Out of tries: drop the code itself, never the account.
+              ...(outOfTries ? { otpHash: '' } : {}),
+            },
+          },
+        );
+
+        if (outOfTries) {
+          throw new AppError(
+            `Too many wrong codes. Request a new one in ${wait} seconds.`,
+            429,
+            'OTP_RETRY_LATER',
+          );
+        }
+
+        throw new AuthenticationError(
+          `Invalid OTP. ${config.otp.maxAttemptsPerCode - nextAttempts} attempts remaining before a new code is needed.`,
+        );
+      }
+
+      return {
+        keepFor: async (seconds: number) => {
+          await OtpChallenge.updateOne({ phone }, { $set: { expiresAt: new Date(Date.now() + seconds * 1000) } });
+        },
+        useUp: async () => { await OtpChallenge.deleteOne({ phone }); },
+      };
+    }
   }
 
   private async createSession(userId: string, sessionId: string): Promise<void> {

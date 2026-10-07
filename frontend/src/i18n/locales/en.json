@@ -336,7 +336,8 @@
     "newPassword": "Min. 6 characters",
     "confirmLabel": "CONFIRM PASSWORD",
     "confirmPlaceholder": "Re-enter password",
-    "mismatch": "Passwords do not match"
+    "mismatch": "Passwords do not match",
+    "phonePlaceholder": "Your mobile number"
   },
   "setup": {
     "permissionTitle": "Permission needed",
@@ -359,7 +360,9 @@
     "dobLabel": "DATE OF BIRTH",
     "dobPlaceholder": "Select your date of birth",
     "saving": "Saving Profile...",
-    "continue": "Continue"
+    "continue": "Continue",
+    "addPhone": "Add your phone number",
+    "changePhone": "Phone number {{phone}}. Change"
   },
   "onboarding": {
     "share": {
@@ -910,7 +913,8 @@
       "identity": "Identity check",
       "identitySub": "Needed for women-only rides",
       "switch": "Switch to riding",
-      "settings": "Settings"
+      "settings": "Settings",
+      "ridesNone": "Rides you offer and have driven"
     },
     "since": "Driving since {{year}}",
     "rating": "{{rating}} rating",
@@ -1524,7 +1528,8 @@
     "noMatches": "No answers match \"{{query}}\". Ask us below.",
     "orEmail": "Or email {{email}}",
     "reportUrgent": "Send us an urgent request and the team will get back to you. In danger now? Call {{number}}.",
-    "report": "Report"
+    "report": "Report",
+    "howToUse": "How to use Poolora"
   },
   "impact": {
     "coSavedInEachOf": "CO₂ saved in each of the last six months",
@@ -1599,7 +1604,11 @@
       "receiptsSub": "Every trip receipt, kept in the app",
       "walletShort": "Wallet",
       "earnings": "Earnings",
-      "rideSub": "Book seats as a rider"
+      "rideSub": "Book seats as a rider",
+      "ridesNone": "Your upcoming and past trips",
+      "messagesSub": "Chats with your drivers and riders",
+      "savedRoutesSub": "Book your usual trips in one tap",
+      "settingsSub": "Language, dark mode, notifications and account"
     },
     "complete": "Profile {{percent}}% complete",
     "new": "New",
@@ -1673,7 +1682,7 @@
     "settings": "Settings",
     "phoneNumber": "Phone number",
     "saveChanges": "Save changes",
-    "yourPhoneNumberIsVerified": "Your phone number is verified at sign-in and can't be changed here.",
+    "yourPhoneNumberIsVerified": "Verified with a code. Changing it sends a code to the new number.",
     "youCannotCloseYourAccount": "You cannot close your account yet",
     "closeYourAccount": "Close your account?",
     "accountClosed": "Account closed",
@@ -1694,7 +1703,11 @@
     "enterName": "Enter your full name.",
     "fullName": "Full name",
     "emailOptional": "Email address (optional)",
-    "notAdded": "Not added"
+    "notAdded": "Not added",
+    "closingYourAccount": "Closing your account…",
+    "addPhone": "Add",
+    "changePhone": "Change",
+    "phoneNeeded": "Needed so your driver, rider and the safety team can call you."
   },
   "supportAssistant": {
     "theAssistantIsWriting": "The assistant is writing",
@@ -2182,5 +2195,81 @@
     "noneTitle": "No receipts yet",
     "none": "You get one for each trip you pay for.",
     "itemLabel": "{{place}}, {{when}}, {{amount}}, {{status}}"
+  },
+  "locationIntro": {
+    "title": "Find rides near you",
+    "body": "Poolora uses your location to show rides close to you, to fill in your country's calling code, and to check that Poolora runs where you are. You can turn it off any time in your phone's settings.",
+    "allow": "Allow location",
+    "notNow": "Not now"
+  },
+  "countryPicker": {
+    "button": "Country code: {{country}}, {{dial}}. Change",
+    "title": "Choose your country",
+    "search": "Search by country or code",
+    "close": "Close",
+    "none": "No country matches"
+  },
+  "serviceArea": {
+    "title": "Poolora isn’t in {{country}} yet",
+    "banner": "You can’t book or offer rides here yet. Poolora runs in {{market}} for now.",
+    "book": "You can’t book rides here yet.",
+    "offer": "You can’t offer rides here yet.",
+    "parcel": "You can’t send parcels here yet.",
+    "trip": "You can’t plan group trips here yet.",
+    "account": "Your account works anywhere; rides open when Poolora launches in your country. For now it runs in {{market}}.",
+    "back": "Go back"
+  },
+  "phoneNumber": {
+    "title": "Phone number",
+    "why": "Every account needs a phone number: your driver or rider calls you on it, and the safety team calls it if you raise an SOS. We send a 6-digit code to check it is yours.",
+    "sendCode": "Send code",
+    "codeLabel": "6-digit code",
+    "save": "Save number",
+    "resend": "Send a new code",
+    "resendIn": "New code in {{seconds}} s",
+    "otherNumber": "Use another number",
+    "sendFailed": "Could not send the code",
+    "confirmFailed": "Could not save the number",
+    "saved": "Number saved",
+    "savedBody": "{{phone}} is now the number on your account."
+  },
+  "guide": {
+    "title": "How to use Poolora",
+    "subtitle": "Rides, parcels, trips and safety",
+    "gotIt": "Got it",
+    "ride": {
+      "title": "Book a ride",
+      "step1": "On Home, choose Ride and tap “Where are you going?”. Tap Later to book for another day or time.",
+      "step2": "Pick where you are starting from and where you are going, and how many seats you need.",
+      "step3": "Choose a ride from the list. Each shows the driver, the car, the time and the price per seat.",
+      "step4": "Book and pay with your wallet or mobile money. Track the driver on the map, and chat or call them from the ride."
+    },
+    "parcel": {
+      "title": "Send a parcel",
+      "step1": "On Home, choose Parcels and tap “Where is your parcel going?”.",
+      "step2": "Describe the parcel, its size and who receives it.",
+      "step3": "Pick a driver already going that way and pay.",
+      "step4": "Follow it with its tracking number. The receiver gets a delivery code and gives it to the driver when the parcel arrives."
+    },
+    "trip": {
+      "title": "Plan a trip with others",
+      "step1": "On Home, choose Trips and tap “Plan a trip with others”.",
+      "step2": "Set where and when, then invite people or tap “Find travel partners” to meet others going the same way.",
+      "step3": "Share costs inside the trip; everyone sees who has paid."
+    },
+    "drive": {
+      "title": "Offer rides and earn",
+      "step1": "In Profile, tap “Drive with Poolora”.",
+      "step2": "Send your licence and car documents; our team checks them before you can offer rides.",
+      "step3": "Once approved, tap “Offer a ride”: route, time, seats and price per seat.",
+      "step4": "Accept the riders who ask to join. What you earn shows under Earnings."
+    },
+    "safety": {
+      "title": "Stay safe",
+      "step1": "Add trusted contacts in Profile: they are alerted with your live location if you raise an SOS.",
+      "step2": "During a ride, the SOS button alerts our safety team and your contacts at once.",
+      "step3": "Share your ride's live location with anyone from the ride screen.",
+      "step4": "In danger right now? Call the emergency number shown on the Safety screen; it is the one for the country you are in."
+    }
   }
 }
